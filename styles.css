@@ -2543,6 +2543,12 @@
 	padding-bottom: 0;
 }
 
+.dashboard-section-btn-group {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
 .dashboard-section-add-btn {
 	background: none !important;
 	border: none !important;
@@ -2566,6 +2572,31 @@
 
 .dashboard-section-add-btn:hover {
 	color: var(--db-text) !important;
+}
+
+.dashboard-section-delete-btn {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint);
+	cursor: pointer;
+	padding: 2px 4px;
+	font-size: 0.65em;
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	transition: opacity 0.2s ease, color 0.15s ease;
+	line-height: 1;
+	opacity: 0;
+	outline: none;
+}
+
+.dashboard-section-header:hover .dashboard-section-delete-btn {
+	opacity: 1;
+}
+
+.dashboard-section-delete-btn:hover {
+	color: var(--db-danger) !important;
 }
 
 .dashboard-add-section-row {
@@ -5772,8 +5803,9 @@
 		opacity: 1;
 	}
 
-	/* Section add button: always visible */
-	.dashboard-section-add-btn {
+	/* Section add/delete buttons: always visible */
+	.dashboard-section-add-btn,
+	.dashboard-section-delete-btn {
 		opacity: 1;
 	}
 
