@@ -524,6 +524,15 @@ export class DashboardView extends ItemView {
 				onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => this.sync.updateCardGridMove(cardId, gridCol, gridRow),
 				onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
 				onColumnRename: (oldName: string, newName: string) => this.sync.renameColumn(oldName, newName),
+			onColumnDelete: async (name: string) => {
+				const confirmed = await showConfirmDialog(this.app, {
+					title: t('common.confirmDelete'),
+					message: t('common.confirmDeleteMessage'),
+				});
+				if (!confirmed) return;
+				this.sync.deleteColumn(name);
+				new Notice(t('section.deleted'));
+			},
 			onTaskReminderEdit: (cardId: string, taskIndex: number, reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskIndex, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 		};

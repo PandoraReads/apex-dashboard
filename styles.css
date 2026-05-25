@@ -2796,8 +2796,12 @@
 .dashboard-section-header-actions {
 	display: flex;
 	align-items: center;
-	gap: 2px;
+	gap: 4px;
 	flex-shrink: 0;
+}
+
+.dashboard-section-delete-btn:hover {
+	color: var(--db-error, #e53e3e) !important;
 }
 
 .dashboard-add-section-row {
