@@ -1750,7 +1750,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 		saveCollapsedSections(collapsed);
 	});
 
-		const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
+	const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
 
 	if (sectionType === 'todo') {
 		const templateBtn = headerActions.createEl('button', {
@@ -1785,6 +1785,16 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 	});
 	setIcon(addCardBtn, 'plus');
 	addCardBtn.addEventListener('click', () => callbacks.onCardAdd(column.name));
+
+	const deleteBtn = headerActions.createEl('button', {
+		cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+		attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+	});
+	setIcon(deleteBtn, 'trash-2');
+	deleteBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		callbacks.onColumnDelete(column.name);
+	});
 
 	const cardsContainer = el.createDiv({ cls: 'dashboard-section-cards' });
 

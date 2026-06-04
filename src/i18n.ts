@@ -21,6 +21,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'common.confirmDeleteMessage': 'Are you sure you want to delete this? This action cannot be undone.',
 		'common.delete': 'Delete',
 			'card.deleted': 'Card deleted',
+			'section.deleted': 'Section deleted',
 
 		// Settings
 		'settings.dashboardFile': 'Dashboard file',
@@ -486,6 +487,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'common.confirmDeleteMessage': '确定要删除吗？此操作无法撤销。',
 		'common.delete': '删除',
 			'card.deleted': '卡片已删除',
+			'section.deleted': '分区已删除',
 
 		// Settings
 		'settings.dashboardFile': '仪表盘文件',

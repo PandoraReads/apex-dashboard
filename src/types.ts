@@ -231,6 +231,7 @@ export interface RenderCallbacks {
 	onCardGridMove(cardId: string, gridCol: number, gridRow: number): void;
 	onFileDrop(cardId: string, filePath: string): void;
 	onColumnRename(oldName: string, newName: string): void;
+	onColumnDelete(name: string): void;
 	onTaskReminderEdit(cardId: string, taskIndex: number, reminder: string | undefined): void;
 	onAddFromTemplate(columnName: string): void;
 	onLibraryConfigChange(columnName: string, config: LibraryConfig): void;
