@@ -305,8 +305,21 @@ const translations: Record<Language, Record<string, string>> = {
 		'mobile.lunar': 'Lunar',
 
 		// Heatmap
+		'heatmap.title': 'Heatmap',
 		'heatmap.streak': 'Streak {count}d',
 		'heatmap.rate': 'Rate {rate}%',
+		'settings.widgetHeatmapFolder': 'Journal folder',
+		'settings.widgetHeatmapFolderPlaceholder': 'Folder path (e.g. Journals)',
+		'settings.widgetHeatmapFolderSuggested': 'Suggested:',
+		'settings.widgetHeatmapTitle': 'Display title',
+		'settings.widgetHeatmapTitlePlaceholder': 'Leave empty for default',
+		'settings.widgetHeatmapRangeMode': 'Range mode',
+		'rangeMode.rolling': 'Rolling (last N days)',
+		'rangeMode.period': 'Period (current month/quarter/year)',
+		'settings.widgetHeatmapPeriod': 'Period',
+		'period.month': 'Current month',
+		'period.quarter': 'Current quarter',
+		'period.year': 'Current year',
 
 		// Reminder
 		'reminder.setReminder': 'Set reminder',
@@ -780,8 +793,21 @@ const translations: Record<Language, Record<string, string>> = {
 		'mobile.lunar': '农历',
 
 		// Heatmap
+		'heatmap.title': '热力图',
 		'heatmap.streak': '连续打卡 {count} 天',
 		'heatmap.rate': '完成率 {rate}%',
+		'settings.widgetHeatmapFolder': '日记文件夹',
+		'settings.widgetHeatmapFolderPlaceholder': '文件夹路径（如 日记）',
+		'settings.widgetHeatmapFolderSuggested': '建议：',
+		'settings.widgetHeatmapTitle': '显示标题',
+		'settings.widgetHeatmapTitlePlaceholder': '留空使用默认',
+		'settings.widgetHeatmapRangeMode': '范围模式',
+		'rangeMode.rolling': '滚动（最近 N 天）',
+		'rangeMode.period': '周期（当月/当季/当年）',
+		'settings.widgetHeatmapPeriod': '周期',
+		'period.month': '当月',
+		'period.quarter': '当季',
+		'period.year': '当年',
 		'reminder.setReminder': '设置提醒',
 		'reminder.editReminder': '编辑提醒',
 		'reminder.clearReminder': '取消提醒',

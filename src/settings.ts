@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, TFolder } from 'obsidian';
 import type DashboardPlugin from './main';
 import { DEFAULT_SETTINGS, type DashboardSettings } from './types';
 import { t, setLanguage, type Language } from './i18n';
@@ -176,6 +176,116 @@ export class DashboardSettingTab extends PluginSettingTab {
 				}));
 
 		if (this.plugin.settings.widgetHeatmapEnabled) {
+			const folderSetting = new Setting(heatmapCard)
+				.setName(t('settings.widgetHeatmapFolder'))
+				.setDesc(t('settings.widgetHeatmapFolderPlaceholder'))
+				.addText(text => text
+					.setPlaceholder(t('settings.widgetHeatmapFolderPlaceholder'))
+					.setValue(this.plugin.settings.widgetHeatmapFolder)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetHeatmapFolder: value.trim().replace(/^\/+|\/+$/g, ''),
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					}));
+
+			const folders = this.app.vault.getAllLoadedFiles()
+				.filter((f): f is TFolder => 'children' in f && f.path !== '/')
+				.map(f => f.path)
+				.sort()
+				.slice(0, 8);
+			if (folders.length > 0) {
+				folderSetting.descEl.empty();
+				const hintLine = folderSetting.descEl.createDiv({ cls: 'tracker-key-hint' });
+				hintLine.createSpan({ text: t('settings.widgetHeatmapFolderSuggested') + ' ' });
+				for (const f of folders) {
+					const tag = hintLine.createEl('button', { cls: 'tracker-key-tag', text: f });
+					tag.addEventListener('click', async () => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetHeatmapFolder: f,
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+						this.display();
+					});
+				}
+			}
+
+			new Setting(heatmapCard)
+				.setName(t('settings.widgetHeatmapTitle'))
+				.setDesc(t('settings.widgetHeatmapTitlePlaceholder'))
+				.addText(text => text
+					.setPlaceholder(t('settings.widgetHeatmapTitlePlaceholder'))
+					.setValue(this.plugin.settings.widgetHeatmapTitle)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetHeatmapTitle: value,
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					}));
+
+			new Setting(heatmapCard)
+				.setName(t('settings.widgetHeatmapRangeMode'))
+				.addDropdown(dropdown => dropdown
+					.addOptions({
+						'rolling': t('rangeMode.rolling'),
+						'period': t('rangeMode.period'),
+					})
+					.setValue(this.plugin.settings.widgetHeatmapRangeMode ?? 'rolling')
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetHeatmapRangeMode: value as 'rolling' | 'period',
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+						this.display();
+					}));
+
+			if ((this.plugin.settings.widgetHeatmapRangeMode ?? 'rolling') === 'rolling') {
+				new Setting(heatmapCard)
+					.setName(t('settings.widgetTrackerDays'))
+					.addDropdown(dropdown => dropdown
+						.addOptions({
+							'30': t('settings.days30'),
+							'90': t('settings.days90'),
+							'180': t('settings.days180'),
+							'365': t('settings.days365'),
+						})
+						.setValue(String(this.plugin.settings.widgetTrackerDays))
+						.onChange(async (value) => {
+							this.plugin.settings = {
+								...this.plugin.settings,
+								widgetTrackerDays: parseInt(value, 10),
+							};
+							await this.plugin.saveSettings();
+							this.plugin.refreshAllDashboards();
+						}));
+			} else {
+				new Setting(heatmapCard)
+					.setName(t('settings.widgetHeatmapPeriod'))
+					.addDropdown(dropdown => dropdown
+						.addOptions({
+							'month': t('period.month'),
+							'quarter': t('period.quarter'),
+							'year': t('period.year'),
+						})
+						.setValue(this.plugin.settings.widgetHeatmapPeriod ?? 'month')
+						.onChange(async (value) => {
+							this.plugin.settings = {
+								...this.plugin.settings,
+								widgetHeatmapPeriod: value as 'month' | 'quarter' | 'year',
+							};
+							await this.plugin.saveSettings();
+							this.plugin.refreshAllDashboards();
+						}));
+			}
+
 			const trackerKeySetting = new Setting(heatmapCard)
 				.setName(t('settings.widgetTrackerKey'))
 				.addText(text => text
@@ -187,9 +297,10 @@ export class DashboardSettingTab extends PluginSettingTab {
 							widgetTrackerKey: value.trim(),
 						};
 						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
 					}));
 
-			const suggestions = suggestTrackerKeys(this.app);
+			const suggestions = suggestTrackerKeys(this.app, this.plugin.settings.widgetHeatmapFolder || undefined);
 			if (suggestions.length > 0) {
 				trackerKeySetting.descEl.empty();
 				const hintLine = trackerKeySetting.descEl.createDiv({ cls: 'tracker-key-hint' });
@@ -202,28 +313,11 @@ export class DashboardSettingTab extends PluginSettingTab {
 							widgetTrackerKey: k,
 						};
 						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
 						this.display();
 					});
 				}
 			}
-
-			new Setting(heatmapCard)
-				.setName(t('settings.widgetTrackerDays'))
-				.addDropdown(dropdown => dropdown
-					.addOptions({
-						'30': t('settings.days30'),
-						'90': t('settings.days90'),
-						'180': t('settings.days180'),
-						'365': t('settings.days365'),
-					})
-					.setValue(String(this.plugin.settings.widgetTrackerDays))
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetTrackerDays: parseInt(value, 10),
-						};
-						await this.plugin.saveSettings();
-					}));
 
 			new Setting(heatmapCard)
 				.setName(t('settings.widgetTrackerSummary'))

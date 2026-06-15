@@ -2211,6 +2211,54 @@
 	line-height: 1;
 }
 
+.dashboard-sidebar-heatmap-header {
+	display: flex;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.dashboard-sidebar-heatmap-title {
+	font-size: 0.8em;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.dashboard-heatmap-title-edit {
+	font-size: 0.8em;
+	width: 100%;
+	max-width: 160px;
+}
+
+.dashboard-sidebar-heatmap-scroll {
+	overflow-x: auto;
+	padding-bottom: 2px;
+}
+
+.dashboard-sidebar-heatmap-months {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.dashboard-sidebar-heatmap-month-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dashboard-sidebar-heatmap-month-label {
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	width: 28px;
+	flex-shrink: 0;
+}
+
+.dashboard-sidebar-heatmap-month-cells {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+}
+
 /* Pomodoro Timer Widget */
 .dashboard-sidebar-pomodoro {
 	display: flex;

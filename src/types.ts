@@ -10,6 +10,10 @@ export interface DashboardSettings {
 	widgetTrackerKey: string;
 	widgetTrackerDays: number;
 	widgetTrackerSummary: 'streak' | 'rate' | 'both' | 'off';
+	widgetHeatmapFolder: string;
+	widgetHeatmapTitle: string;
+	widgetHeatmapRangeMode: HeatmapRangeMode;
+	widgetHeatmapPeriod: HeatmapPeriod;
 	widgetWeatherCity: string;
 	widgetWeatherLat: number;
 	widgetWeatherLon: number;
@@ -43,6 +47,10 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	widgetTrackerKey: '',
 	widgetTrackerDays: 30,
 	widgetTrackerSummary: 'streak',
+	widgetHeatmapFolder: '',
+	widgetHeatmapTitle: '',
+	widgetHeatmapRangeMode: 'rolling',
+	widgetHeatmapPeriod: 'month',
 	widgetWeatherCity: 'Shanghai',
 	widgetWeatherLat: 31.23,
 	widgetWeatherLon: 121.47,
@@ -119,6 +127,9 @@ export interface WeatherData {
 }
 
 export type TrackerStyle = 'line' | 'heatmap' | 'bar';
+
+export type HeatmapRangeMode = 'rolling' | 'period';
+export type HeatmapPeriod = 'month' | 'quarter' | 'year';
 
 export interface TrackerConfig {
 	key: string;
