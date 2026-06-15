@@ -104,6 +104,10 @@ All themes support both Obsidian light and dark modes.
 ## What's New
 
 ### 1.1.4
+- **Nested tasks (subtasks)** — Tasks now support multi-level nesting, persisted as indented Markdown. Drag a task onto another to nest it (before / after / nest drop zones), reorder tasks, or move them across cards. On mobile, long-press to drag and swipe horizontally to nest/unnest. Checking a parent task checks all of its children
+- **Two new themes: Mono & Onyx** — Added Mono (pure black/white minimal, no glass or gradients, system-adaptive) and Onyx (pure black with a lemon accent, identical in light & dark). Removed the Spring (Prism) theme
+- **Heatmap widget enhancements** — The sidebar heatmap can now resolve daily journal files from a configurable folder, supports a custom display title, and offers two range modes: rolling (last N days) or period (current month / quarter / year)
+- **Sidebar calendar auto-refresh** — The sidebar week calendar now updates its "today" highlight and dates automatically after midnight, even when the dashboard view is pinned open (previously it stayed frozen on the day it was first opened)
 - **Mobile drag afterimage fix** — Long-pressing a card to drag on mobile no longer leaves a permanent text afterimage on screen when the touch is interrupted by the system (edge gestures, notifications, scroll hijack). A touchcancel handler now cleans up the drag ghost, stranded ghosts are swept on re-render, and transitions on the ghost clone and dragging card are disabled to remove trailing afterimages
 - **Save memo as note** — Memo cards can be saved as standalone notes in your vault via a new "Save as note" button, with a configurable save folder (memoSavePath setting)
 
