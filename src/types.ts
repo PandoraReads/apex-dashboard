@@ -30,6 +30,7 @@ export interface DashboardSettings {
 	readingEnabled: boolean;
 	readingSoundEnabled: boolean;
 	taskTemplates: TaskTemplate[];
+	memoSavePath: string;
 }
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
@@ -62,6 +63,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	readingEnabled: false,
 	readingSoundEnabled: true,
 	taskTemplates: [],
+	memoSavePath: '',
 };
 
 export interface QuoteItem {
@@ -219,6 +221,7 @@ export interface RenderCallbacks {
 	onQuickActionRemove(index: number): void;
 	onMoveCard(cardId: string, targetColumn: string, targetIndex: number): void;
 	onMemoUpdate(card: DashboardCard, updates: { body: string; blockquote: string }): void;
+	onMemoSaveAsNote(card: DashboardCard): void;
 	onProjectDocsUpdate(card: DashboardCard, docPaths: string[]): void;
 	onProjectDocsReorder(cardId: string, fromIndex: number, toIndex: number): void;
 	onDocMoveToCard(srcCardId: string, docIndex: number, destCardId: string, destIndex: number): void;

@@ -145,6 +145,12 @@ export class DashboardView extends ItemView {
 		});
 
 		const container = this.containerEl.children[1] as HTMLElement;
+
+		// Sweep any touch-drag ghost clones stranded on document.body from a prior
+		// interrupted drag (touchcancel). They live outside the container, so
+		// container.empty() cannot reach them.
+		document.body.querySelectorAll(':scope > .dashboard-card--ghost').forEach((el) => el.remove());
+
 		container.empty();
 		container.addClass('apex-dashboard-root');
 		container.setAttribute('data-theme', this.plugin.settings.stylePreset);
@@ -647,6 +653,7 @@ export class DashboardView extends ItemView {
 			onTaskMoveToCard: (srcCardId: string, taskIndex: number, destCardId: string, destIndex: number) => this.sync.moveTaskToCard(srcCardId, taskIndex, destCardId, destIndex),
 			onTaskEdit: (cardId: string, idx: number, text: string) => this.sync.editTask(cardId, idx, text),
 			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
+			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
 			onProjectDocsUpdate: (card: DashboardCard, docPaths: string[]) => this.sync.updateProjectDocs(card.id, docPaths),
 			onProjectDocsReorder: (cardId: string, from: number, to: number) => this.sync.reorderDocPaths(cardId, from, to),
 				onDocMoveToCard: (srcCardId: string, docIndex: number, destCardId: string, destIndex: number) => this.sync.moveDocToCard(srcCardId, docIndex, destCardId, destIndex),
@@ -716,6 +723,67 @@ export class DashboardView extends ItemView {
 			this.sync.addFileLinkToMemo(cardId, filePath);
 		} else {
 			this.sync.addDocToCard(cardId, filePath);
+		}
+	}
+
+	private async saveMemoAsNote(card: DashboardCard): Promise<void> {
+		try {
+			const now = new Date();
+			const title = card.title?.trim() || t('notice.memoUntitled');
+			const pad = (n: number) => String(n).padStart(2, '0');
+			const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+			const iso = now.toISOString();
+
+			// Sanitize title for use as a filename
+			const safeTitle = title.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || t('notice.memoUntitled');
+			const fileName = `${safeTitle}-${ts}.md`;
+
+			// Build folder path (empty setting = vault root)
+			const folder = this.plugin.settings.memoSavePath.trim().replace(/^\/+|\/+$/g, '');
+			const fullPath = folder ? `${folder}/${fileName}` : fileName;
+
+			// Build note content: YAML frontmatter + blockquote + body
+			const frontmatter = [
+				'---',
+				`title: "${title.replace(/"/g, '\\"')}"`,
+				`created: "${iso}"`,
+				'source: apex-dashboard',
+				'---',
+				'',
+			].join('\n');
+
+			const sections: string[] = [frontmatter];
+			if (card.blockquote && card.blockquote.trim()) {
+				const quoteLines = card.blockquote.split('\n').map(l => `> ${l}`);
+				sections.push(quoteLines.join('\n'));
+			}
+			if (card.body && card.body.trim()) {
+				sections.push(card.body);
+			}
+			const content = sections.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
+
+			// Ensure the destination folder exists
+			if (folder) {
+				await this.ensureFolder(folder);
+			}
+
+			await this.app.vault.create(fullPath, content);
+			new Notice(t('notice.memoSaved', { path: fullPath }), 4000);
+		} catch (err) {
+			console.error('[Dashboard] saveMemoAsNote failed:', err);
+			new Notice(t('notice.memoSaveError'), 4000);
+		}
+	}
+
+	private async ensureFolder(folderPath: string): Promise<void> {
+		const adapter = this.app.vault.adapter;
+		const parts = folderPath.split('/').map(p => p.trim()).filter(Boolean);
+		let current = '';
+		for (const part of parts) {
+			current = current ? `${current}/${part}` : part;
+			if (!(await adapter.exists(current))) {
+				await adapter.mkdir(current);
+			}
 		}
 	}
 

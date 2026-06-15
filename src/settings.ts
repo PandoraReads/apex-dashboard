@@ -97,6 +97,20 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName(t('settings.memoSavePath'))
+			.setDesc(t('settings.memoSavePathDesc'))
+			.addText(text => text
+				.setPlaceholder('memos')
+				.setValue(this.plugin.settings.memoSavePath)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						memoSavePath: value.trim(),
+					};
+					await this.plugin.saveSettings();
+				}));
 		this.renderWidgetSettings(containerEl);
 
 		this.renderLunarSettings(containerEl);

@@ -25,6 +25,8 @@ const translations: Record<Language, Record<string, string>> = {
 		// Settings
 		'settings.dashboardFile': 'Dashboard file',
 		'settings.dashboardFileDesc': 'Full path to the dashboard file (e.g. dashboard or notes/dashboard). Omit .md extension.',
+		'settings.memoSavePath': 'Memo note save path',
+		'settings.memoSavePathDesc': 'Folder where memo cards are saved as notes (e.g. memos or notes/memos). Leave empty for vault root.',
 		'settings.theme': 'Theme',
 		'settings.themeDesc': 'Dashboard color theme',
 		'settings.themeAuto': 'Auto',
@@ -123,6 +125,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'renderer.addDocument': '+ Add document...',
 		'renderer.removeDoc': 'Remove doc',
 		'renderer.setMemoColor': 'Set memo color (hex)',
+		'renderer.saveMemoAsNote': 'Save as note',
 		'renderer.setCoverImage': 'Set cover image',
 		'renderer.coverImagePath': 'Cover image path (vault relative)',
 		'renderer.dayStreak': '{count} day streak',
@@ -141,6 +144,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'banner.deleteImage': 'Delete',
 			'banner.quoteColor': 'Quote Color',
 			'banner.resetColor': 'Reset',
+
+		// Notice
+		'notice.memoSaved': 'Saved memo as note: {path}',
+		'notice.memoSaveError': 'Failed to save memo as note',
+		'notice.memoUntitled': 'Untitled',
 
 		// Quick Links
 		'quickLinks.title': 'Quick Links',
@@ -163,6 +171,10 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickActions.typeToSearchFile': 'Type to search documents',
 		'quickActions.typeToSearchCmd': 'Type to search commands',
 		'quickActions.noResults': 'No results found',
+		'quickActions.displayName': 'Display name',
+		'quickActions.icon': 'Icon',
+		'quickActions.confirmAdd': 'Add',
+		'quickActions.back': 'Back',
 
 		// Recent
 		'recent.title': 'Recently Edited',
@@ -490,6 +502,8 @@ const translations: Record<Language, Record<string, string>> = {
 		// Settings
 		'settings.dashboardFile': '仪表盘文件',
 		'settings.dashboardFileDesc': '仪表盘 Markdown 文件路径（如 dashboard 或 notes/dashboard，无需 .md 后缀）',
+		'settings.memoSavePath': '备忘录笔记保存路径',
+		'settings.memoSavePathDesc': '备忘录卡片保存为笔记的文件夹（如 memos 或 notes/memos），留空则保存到仓库根目录',
 		'settings.theme': '主题',
 		'settings.themeDesc': '仪表盘颜色主题',
 		'settings.themeAuto': '自动',
@@ -588,6 +602,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'renderer.addDocument': '+ 添加文档...',
 		'renderer.removeDoc': '移除文档',
 		'renderer.setMemoColor': '设置备忘录颜色（十六进制，如 #f59e0b）',
+		'renderer.saveMemoAsNote': '保存为笔记',
 		'renderer.setCoverImage': '设置封面图片',
 		'renderer.coverImagePath': '封面图片路径（相对于仓库）',
 		'renderer.dayStreak': '{count} 天连续',
@@ -606,6 +621,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'banner.deleteImage': '删除',
 			'banner.quoteColor': '名言颜色',
 			'banner.resetColor': '重置',
+
+		// Notice
+		'notice.memoSaved': '备忘录已保存为笔记：{path}',
+		'notice.memoSaveError': '备忘录保存为笔记失败',
+		'notice.memoUntitled': '未命名',
 
 		// Quick Links
 		'quickLinks.title': '快捷链接',
@@ -628,6 +648,10 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickActions.typeToSearchFile': '输入以搜索文档',
 		'quickActions.typeToSearchCmd': '输入以搜索命令',
 		'quickActions.noResults': '未找到结果',
+		'quickActions.displayName': '显示名称',
+		'quickActions.icon': '图标',
+		'quickActions.confirmAdd': '添加',
+		'quickActions.back': '返回',
 
 		// Recent
 		'recent.title': '最近编辑',

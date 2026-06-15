@@ -1972,6 +1972,18 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		});
 	}
 
+	if (isMemo) {
+		const saveBtn = actions.createEl('button', {
+			cls: 'dashboard-card-btn',
+			attr: { 'aria-label': t('renderer.saveMemoAsNote') },
+		});
+		setIcon(saveBtn, 'file-down');
+		saveBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onMemoSaveAsNote(card);
+		});
+	}
+
 	const deleteBtn = actions.createEl('button', {
 		cls: 'dashboard-card-btn dashboard-card-btn--danger',
 		attr: { 'aria-label': t('renderer.deleteCard') },
