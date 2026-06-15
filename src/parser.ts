@@ -228,11 +228,14 @@ export function serialize(data: DashboardData): string {
 			}
 
 			if (card.tasks.length > 0) {
-				for (const task of card.tasks) {
-					let taskLine = `- [${task.checked ? 'x' : ' '}] ${task.text}`;
+				const writeTask = (task: TaskItem, indent: number) => {
+					const prefix = indent > 0 ? '    '.repeat(indent) : '';
+					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
 					if (task.reminder) taskLine += ` ⏰ ${task.reminder}`;
 					lines.push(taskLine);
-				}
+					for (const child of task.children ?? []) writeTask(child, indent + 1);
+				};
+				for (const task of card.tasks) writeTask(task, 0);
 			}
 
 			const bodyLines = card.body.trim();
@@ -774,13 +777,16 @@ function extractCardParts(body: string): {
 	const tasks: TaskItem[] = [];
 	const bodyLines: string[] = [];
 	let blockquote = '';
+	let currentParent: TaskItem | null = null;
 
 	for (const line of lines) {
 		const trimmed = line.trim();
+		const isIndented = /^(\t|    )/.test(line);
 
 		const kvMatch = trimmed.match(/^(\w+):\s*(.+)$/);
 		if (kvMatch && kvMatch[1] && kvMatch[2] && KNOWN_METADATA_KEYS.has(kvMatch[1])) {
 			metadata[kvMatch[1]] = kvMatch[2];
+			currentParent = null;
 			continue;
 		}
 
@@ -793,9 +799,17 @@ function extractCardParts(body: string): {
 				taskText = taskText.replace(REMINDER_REGEX, '');
 				taskReminder = reminderMatch[1];
 			}
-			tasks.push({ checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder });
+			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder };
+			if (isIndented && currentParent) {
+				currentParent.children = [...(currentParent.children ?? []), node];
+			} else {
+				tasks.push(node);
+				currentParent = node;
+			}
 			continue;
 		}
+
+		currentParent = null;
 
 		if (trimmed.startsWith('> ')) {
 			blockquote += (blockquote ? '\n' : '') + trimmed.slice(2);

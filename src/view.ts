@@ -644,19 +644,21 @@ export class DashboardView extends ItemView {
 				this.sync.deleteCard(cardId);
 				new Notice(t('card.deleted'));
 			},
-			onCheckboxToggle: (cardId: string, idx: number, checked: boolean) => this.sync.toggleTask(cardId, idx, checked),
-			onTaskAdd: (cardId: string, text: string) => this.sync.addTask(cardId, text),
-			onTaskDelete: async (cardId: string, idx: number) => {
+			onCheckboxToggle: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTask(cardId, taskPath, checked),
+			onTaskAdd: (cardId: string, text: string, parentPath?: number[]) => this.sync.addTask(cardId, text, parentPath),
+			onTaskDelete: async (cardId: string, taskPath: number[]) => {
 				const confirmed = await showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
 					message: t('common.confirmDeleteMessage'),
 				});
 				if (!confirmed) return;
-				this.sync.deleteTask(cardId, idx);
+				this.sync.deleteTask(cardId, taskPath);
 			},
-			onTaskReorder: (cardId: string, from: number, to: number) => this.sync.reorderTask(cardId, from, to),
-			onTaskMoveToCard: (srcCardId: string, taskIndex: number, destCardId: string, destIndex: number) => this.sync.moveTaskToCard(srcCardId, taskIndex, destCardId, destIndex),
-			onTaskEdit: (cardId: string, idx: number, text: string) => this.sync.editTask(cardId, idx, text),
+			onTaskReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderTask(cardId, fromPath, toPath, before),
+			onTaskMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveTaskToCard(srcCardId, fromPath, destCardId, destPath, mode),
+			onTaskEdit: (cardId: string, taskPath: number[], text: string) => this.sync.editTask(cardId, taskPath, text),
+			onTaskNest: (cardId: string, taskPath: number[]) => this.sync.nestTask(cardId, taskPath),
+			onTaskUnnest: (cardId: string, taskPath: number[]) => this.sync.unnestTask(cardId, taskPath),
 			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
 			onProjectDocsUpdate: (card: DashboardCard, docPaths: string[]) => this.sync.updateProjectDocs(card.id, docPaths),
@@ -703,7 +705,7 @@ export class DashboardView extends ItemView {
 				onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => this.sync.updateCardGridMove(cardId, gridCol, gridRow),
 				onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
 				onColumnRename: (oldName: string, newName: string) => this.sync.renameColumn(oldName, newName),
-			onTaskReminderEdit: (cardId: string, taskIndex: number, reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskIndex, reminder),
+			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => this.sync.updateLibraryConfig(columnName, config),
 		};
@@ -1102,7 +1104,7 @@ export class DashboardView extends ItemView {
 					const task = card.tasks[i]!;
 					if (!task.reminder || task.checked) continue;
 
-					const key = `${card.id}-${i}`;
+					const key = `${card.id}-${JSON.stringify([i])}`;
 					if (this.firedReminders.has(key)) continue;
 
 					const parts = task.reminder.trim().split(/\s+/);
@@ -1119,7 +1121,7 @@ export class DashboardView extends ItemView {
 							const inner = match.slice(2, -2);
 							return inner.split('|').pop()?.split('/').pop()?.replace(/\.md$/, '') ?? inner;
 						});
-						this.showReminderModal(cleanText, card.id, i);
+						this.showReminderModal(cleanText, card.id, [i]);
 					}
 				}
 			}
@@ -1142,19 +1144,19 @@ export class DashboardView extends ItemView {
 		}
 	}
 
-	private showReminderModal(taskText: string, cardId: string, taskIndex: number): void {
+	private showReminderModal(taskText: string, cardId: string, taskPath: number[]): void {
 		const modal = new ReminderNoticeModal(
 			this.app,
 			taskText,
 			() => {
-				this.sync.editTaskReminder(cardId, taskIndex, undefined);
+				this.sync.editTaskReminder(cardId, taskPath, undefined);
 			},
 			() => {
 				const snoozed = new Date(Date.now() + 60 * 60 * 1000);
 				const pad = (n: number) => String(n).padStart(2, '0');
 				const newReminder = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
-				this.firedReminders.delete(`${cardId}-${taskIndex}`);
-				this.sync.editTaskReminder(cardId, taskIndex, newReminder);
+				this.firedReminders.delete(`${cardId}-${JSON.stringify(taskPath)}`);
+				this.sync.editTaskReminder(cardId, taskPath, newReminder);
 			},
 		);
 		modal.open();

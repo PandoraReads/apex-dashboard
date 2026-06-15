@@ -2,10 +2,23 @@ import { App, TFile } from 'obsidian';
 import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, QuickAction, BannerData, CardType } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
 import { t } from './i18n';
+import {
+	type TaskPath,
+	updateTaskAt,
+	removeTaskAt,
+	insertSibling,
+	insertAt,
+	appendChild,
+	demoteToChild,
+	promoteToTopLevel,
+	recalcChecked,
+} from './task-tree';
 
 type DataCallback = (data: DashboardData) => void;
 
 const KNOWN_METADATA_KEYS = new Set(['link', 'progress', 'due', 'streak', 'type']);
+
+type TaskDropMode = 'before' | 'after' | 'nest';
 
 export class SyncEngine {
 	private app: App;
@@ -65,53 +78,68 @@ export class SyncEngine {
 		await this.load();
 	}
 
-	async toggleTask(cardId: string, taskIndex: number, checked: boolean): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
+	private mapCardTasks(
+		data: DashboardData,
+		cardId: string,
+		transform: (tasks: TaskItem[]) => TaskItem[],
+	): DashboardData {
+		return {
+			...data,
+			columns: data.columns.map(col => ({
 				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					if (taskIndex >= card.tasks.length) return card;
-					const newTasks: TaskItem[] = card.tasks.map((t, i) =>
-						i === taskIndex ? { ...t, checked } : t
-					);
-					if (checked) {
-						const [moved] = newTasks.splice(taskIndex, 1);
-						newTasks.push(moved!);
-					}
-					return { ...card, tasks: newTasks };
-				}),
+				cards: col.cards.map(card =>
+					card.id === cardId ? { ...card, tasks: transform(card.tasks) } : card,
+				),
 			})),
 		};
+	}
+
+	async toggleTask(cardId: string, taskPath: TaskPath, checked: boolean): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) => {
+			let next = updateTaskAt(tasks, taskPath, (t) => {
+				if (t.children && t.children.length > 0) {
+					return { ...t, checked, children: t.children.map(c => ({ ...c, checked })) };
+				}
+				return { ...t, checked };
+			});
+
+			for (let depth = taskPath.length - 1; depth > 0; depth--) {
+				next = updateTaskAt(next, taskPath.slice(0, depth), recalcChecked);
+			}
+
+			if (checked && taskPath.length === 1) {
+				const target = next[taskPath[0]!];
+				if (target) {
+					const without = removeTaskAt(next, taskPath).tasks;
+					next = [...without, target];
+				}
+			}
+
+			return next;
+		});
 		await this.writeToDisk();
 	}
 
-	async reorderTask(cardId: string, fromIndex: number, toIndex: number): Promise<void> {
+	async reorderTask(cardId: string, fromPath: TaskPath, toPath: TaskPath, before: boolean): Promise<void> {
 		if (!this.data) return;
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					if (fromIndex < 0 || fromIndex >= card.tasks.length) return card;
-					if (toIndex < 0 || toIndex >= card.tasks.length) return card;
-					const tasks = [...card.tasks];
-					const moved = tasks[fromIndex]!;
-					tasks.splice(fromIndex, 1);
-					tasks.splice(toIndex, 0, moved);
-					return { ...card, tasks };
-				}),
-			})),
-		};
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) => {
+			const { removed, tasks: t1 } = removeTaskAt(tasks, fromPath);
+			if (!removed) return tasks;
+			return insertSibling(t1, toPath, removed, before);
+		});
 		await this.writeToDisk();
 	}
 
-	async moveTaskToCard(srcCardId: string, taskIndex: number, destCardId: string, destIndex: number): Promise<void> {
+	async moveTaskToCard(
+		srcCardId: string,
+		fromPath: TaskPath,
+		destCardId: string,
+		destPath: TaskPath,
+		mode: TaskDropMode,
+	): Promise<void> {
 		if (!this.data) return;
 
 		let movedTask: TaskItem | undefined;
@@ -120,13 +148,19 @@ export class SyncEngine {
 			...col,
 			cards: col.cards.map(card => {
 				if (card.id !== srcCardId) return card;
-				if (taskIndex < 0 || taskIndex >= card.tasks.length) return card;
-				movedTask = card.tasks[taskIndex];
-				return { ...card, tasks: card.tasks.filter((_, i) => i !== taskIndex) };
+				const { removed, tasks } = removeTaskAt(card.tasks, fromPath);
+				movedTask = removed;
+				return { ...card, tasks };
 			}),
 		}));
 
 		if (!movedTask) return;
+
+		const node: TaskItem = mode === 'nest' ? { ...movedTask } : (() => {
+			const clean: TaskItem = { ...movedTask };
+			delete clean.children;
+			return clean;
+		})();
 
 		this.data = {
 			...this.data,
@@ -134,9 +168,12 @@ export class SyncEngine {
 				...col,
 				cards: col.cards.map(card => {
 					if (card.id !== destCardId) return card;
-					const tasks = [...card.tasks];
-					const clamped = Math.min(destIndex, tasks.length);
-					tasks.splice(clamped, 0, movedTask!);
+					let tasks: TaskItem[];
+					if (mode === 'nest') {
+						tasks = appendChild(card.tasks, destPath, node);
+					} else {
+						tasks = insertSibling(card.tasks, destPath, node, mode === 'before');
+					}
 					return { ...card, tasks };
 				}),
 			})),
@@ -144,55 +181,46 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async editTask(cardId: string, taskIndex: number, newText: string): Promise<void> {
+	async editTask(cardId: string, taskPath: TaskPath, newText: string): Promise<void> {
 		if (!this.data || !newText) return;
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					if (taskIndex >= card.tasks.length) return card;
-					const tasks = card.tasks.map((t, i) => i === taskIndex ? { ...t, text: newText } : t);
-					return { ...card, tasks };
-				}),
-			})),
-		};
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			updateTaskAt(tasks, taskPath, (t) => ({ ...t, text: newText })));
 		await this.writeToDisk();
 	}
 
-	async addTask(cardId: string, text: string): Promise<void> {
+	async addTask(cardId: string, text: string, parentPath?: TaskPath): Promise<void> {
 		if (!this.data || !text.trim()) return;
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					return { ...card, tasks: [...card.tasks, { text: text.trim(), checked: false }] };
-				}),
-			})),
-		};
+		const node: TaskItem = { text: text.trim(), checked: false };
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			parentPath && parentPath.length > 0
+				? appendChild(tasks, parentPath, node)
+				: [...tasks, node]);
 		await this.writeToDisk();
 	}
 
-	async deleteTask(cardId: string, taskIndex: number): Promise<void> {
+	async deleteTask(cardId: string, taskPath: TaskPath): Promise<void> {
 		if (!this.data) return;
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					if (taskIndex >= card.tasks.length) return card;
-					const newTasks = card.tasks.filter((_, i) => i !== taskIndex);
-					return { ...card, tasks: newTasks };
-				}),
-			})),
-		};
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			removeTaskAt(tasks, taskPath).tasks);
+		await this.writeToDisk();
+	}
+
+	async nestTask(cardId: string, taskPath: TaskPath): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			demoteToChild(tasks, taskPath));
+		await this.writeToDisk();
+	}
+
+	async unnestTask(cardId: string, taskPath: TaskPath): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			promoteToTopLevel(tasks, taskPath));
 		await this.writeToDisk();
 	}
 
@@ -211,23 +239,11 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async editTaskReminder(cardId: string, taskIndex: number, reminder: string | undefined): Promise<void> {
+	async editTaskReminder(cardId: string, taskPath: TaskPath, reminder: string | undefined): Promise<void> {
 		if (!this.data) return;
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					if (taskIndex >= card.tasks.length) return card;
-					const tasks = card.tasks.map((t, i) =>
-						i === taskIndex ? { ...t, reminder } : t
-					);
-					return { ...card, tasks };
-				}),
-			})),
-		};
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			updateTaskAt(tasks, taskPath, (t) => ({ ...t, reminder })));
 		await this.writeToDisk();
 	}
 

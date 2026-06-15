@@ -146,6 +146,7 @@ export interface TaskItem {
 	text: string;
 	checked: boolean;
 	reminder?: string;
+	children?: TaskItem[];
 }
 
 export interface TaskTemplate {
@@ -219,12 +220,12 @@ export interface DashboardData {
 export interface RenderCallbacks {
 	onCardEdit(card: DashboardCard): void;
 	onCardDelete(cardId: string): void;
-	onCheckboxToggle(cardId: string, taskIndex: number, checked: boolean): void;
-	onTaskAdd(cardId: string, text: string): void;
-	onTaskDelete(cardId: string, taskIndex: number): void;
-	onTaskReorder(cardId: string, fromIndex: number, toIndex: number): void;
-	onTaskMoveToCard(srcCardId: string, taskIndex: number, destCardId: string, destIndex: number): void;
-	onTaskEdit(cardId: string, taskIndex: number, newText: string): void;
+	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
+	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;
+	onTaskDelete(cardId: string, taskPath: number[]): void;
+	onTaskReorder(cardId: string, fromPath: number[], toPath: number[], before: boolean): void;
+	onTaskMoveToCard(srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest'): void;
+	onTaskEdit(cardId: string, taskPath: number[], newText: string): void;
 	onCardAdd(columnName: string): void;
 	onColumnAdd(name: string, sectionType?: string): void;
 	onBannerEdit(): void;
@@ -245,7 +246,9 @@ export interface RenderCallbacks {
 	onCardGridMove(cardId: string, gridCol: number, gridRow: number): void;
 	onFileDrop(cardId: string, filePath: string): void;
 	onColumnRename(oldName: string, newName: string): void;
-	onTaskReminderEdit(cardId: string, taskIndex: number, reminder: string | undefined): void;
+	onTaskReminderEdit(cardId: string, taskPath: number[], reminder: string | undefined): void;
+	onTaskNest(cardId: string, taskPath: number[]): void;
+	onTaskUnnest(cardId: string, taskPath: number[]): void;
 	onAddFromTemplate(columnName: string): void;
 	onLibraryConfigChange(columnName: string, config: LibraryConfig): void;
 }

@@ -42,7 +42,7 @@ function getCSSVar(name: string): string {
 	return getComputedStyle(el).getPropertyValue(name).trim();
 }
 
-let taskDragSource: { cardId: string; taskIndex: number } | null = null;
+let taskDragSource: { cardId: string; taskPath: number[] } | null = null;
 let docDragSource: { cardId: string; docIndex: number } | null = null;
 
 const VAULT_FILE_EXTS = new Set(['md', 'pdf', 'canvas', 'base', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'mp3', 'mp4', 'm4a', 'm4b', 'mov', 'mkv', 'avi']);
@@ -2262,6 +2262,250 @@ function renderCardBody(container: HTMLElement, card: DashboardCard, columnName:
 	renderProjectBody(container, card, callbacks, app);
 }
 
+function renderTaskItem(
+	list: HTMLElement,
+	task: TaskItem,
+	path: number[],
+	card: DashboardCard,
+	callbacks: RenderCallbacks,
+	app: App,
+	depth: number,
+): void {
+	const item = list.createDiv({ cls: 'dashboard-task-item' });
+	if (depth > 0) item.addClass('dashboard-task-item--child');
+	item.style.marginLeft = `${depth * 18}px`;
+	item.setAttribute('draggable', 'true');
+	item.dataset.taskPath = JSON.stringify(path);
+	item.dataset.cardId = card.id;
+
+	const clearDragClasses = () => {
+		item.removeClass('dashboard-task-item--drag-top');
+		item.removeClass('dashboard-task-item--drag-bottom');
+		item.removeClass('dashboard-task-item--drag-nest');
+	};
+
+	// Mobile gestures: tap (show buttons), long-press (drag), quick-swipe (nest/unnest)
+	let touchState: {
+		startX: number;
+		startY: number;
+		startT: number;
+		moved: boolean;
+		dragging: boolean;
+		timer: number | null;
+	} | null = null;
+
+	item.addEventListener('touchstart', (e) => {
+		const tch = e.touches[0];
+		if (!tch) return;
+		touchState = {
+			startX: tch.clientX,
+			startY: tch.clientY,
+			startT: Date.now(),
+			moved: false,
+			dragging: false,
+			timer: null,
+		};
+		touchState.timer = window.setTimeout(() => {
+			if (touchState && !touchState.moved) {
+				touchState.dragging = true;
+				item.addClass('dashboard-task-item--dragging');
+			}
+		}, 500);
+	}, { passive: true });
+
+	item.addEventListener('touchmove', (e) => {
+		if (!touchState) return;
+		const tch = e.touches[0];
+		if (!tch) return;
+		const dx = tch.clientX - touchState.startX;
+		const dy = tch.clientY - touchState.startY;
+		if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+			touchState.moved = true;
+			if (touchState.timer) {
+				clearTimeout(touchState.timer);
+				touchState.timer = null;
+			}
+		}
+		if (!touchState.dragging && touchState.moved && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+			item.style.transform = `translateX(${Math.max(-40, Math.min(40, dx * 0.5))}px)`;
+		}
+	}, { passive: true });
+
+	item.addEventListener('touchend', (e) => {
+		const ts = touchState;
+		touchState = null;
+		item.style.transform = '';
+		if (!ts) return;
+		if (ts.timer) clearTimeout(ts.timer);
+		if (ts.dragging) {
+			item.removeClass('dashboard-task-item--dragging');
+			return;
+		}
+		const tch = e.changedTouches[0];
+		const dx = tch ? tch.clientX - ts.startX : 0;
+		const dy = tch ? tch.clientY - ts.startY : 0;
+		const dt = Date.now() - ts.startT;
+		const isSwipe = dt < 500 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5;
+		if (isSwipe) {
+			if (dx > 0) callbacks.onTaskNest(card.id, path);
+			else callbacks.onTaskUnnest(card.id, path);
+			return;
+		}
+		if (!ts.moved) {
+			const wasActive = item.hasClass('dashboard-task-item--touched');
+			document.querySelectorAll('.dashboard-task-item--touched').forEach(el => {
+				el.removeClass('dashboard-task-item--touched');
+			});
+			if (!wasActive) item.addClass('dashboard-task-item--touched');
+		}
+	}, { passive: true });
+
+	item.addEventListener('touchcancel', () => {
+		if (touchState?.timer) clearTimeout(touchState.timer);
+		touchState = null;
+		item.style.transform = '';
+		item.removeClass('dashboard-task-item--dragging');
+	}, { passive: true });
+
+	const checkbox = item.createEl('input', {
+		cls: 'dashboard-task-checkbox',
+		attr: { type: 'checkbox' },
+	});
+	checkbox.checked = task.checked;
+	checkbox.addEventListener('change', () => {
+		callbacks.onCheckboxToggle(card.id, path, checkbox.checked);
+	});
+
+	const label = item.createSpan({
+		cls: task.checked ? 'dashboard-task-text dashboard-task-text--done' : 'dashboard-task-text',
+	});
+	renderTextWithLinks(label, task.text, app);
+	label.addEventListener('dblclick', (e) => {
+		e.stopPropagation();
+		const currentText = label.getText();
+		label.empty();
+		item.setAttribute('draggable', 'false');
+
+		const textarea = label.createEl('textarea', {
+			cls: 'dashboard-task-edit-textarea',
+			text: task.text,
+		});
+
+		const autoResize = () => {
+			textarea.style.height = 'auto';
+			textarea.style.height = textarea.scrollHeight + 'px';
+		};
+		autoResize();
+		textarea.focus();
+		textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+		const finish = (save: boolean) => {
+			const newText = textarea.value.trim();
+			if (save && newText && newText !== task.text) {
+				callbacks.onTaskEdit(card.id, path, newText);
+			} else {
+				label.empty();
+				label.setText(currentText);
+			}
+			item.setAttribute('draggable', 'true');
+		};
+
+		textarea.addEventListener('input', autoResize);
+		textarea.addEventListener('keydown', (ke) => {
+			if (ke.key === 'Enter' && !ke.shiftKey) {
+				ke.preventDefault();
+				finish(true);
+			} else if (ke.key === 'Escape') {
+				ke.preventDefault();
+				finish(false);
+			}
+		});
+		textarea.addEventListener('blur', () => finish(true));
+	});
+
+	const delBtn = item.createEl('button', {
+		cls: 'dashboard-task-delete',
+		attr: { 'aria-label': t('renderer.deleteTask') },
+	});
+	setIcon(delBtn, 'x');
+	delBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		callbacks.onTaskDelete(card.id, path);
+	});
+
+	const reminderBtn = createReminderButton(item, card.id, path, task, callbacks);
+	item.appendChild(reminderBtn);
+
+	item.addEventListener('dragstart', (e) => {
+		e.stopPropagation();
+		taskDragSource = { cardId: card.id, taskPath: path };
+		item.addClass('dashboard-task-item--dragging');
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', JSON.stringify(path));
+		}
+	});
+
+	item.addEventListener('dragend', () => {
+		item.removeClass('dashboard-task-item--dragging');
+		document.querySelectorAll(
+			'.dashboard-task-item--drag-top,.dashboard-task-item--drag-bottom,.dashboard-task-item--drag-nest'
+		).forEach(el => el.removeClass('dashboard-task-item--drag-top', 'dashboard-task-item--drag-bottom', 'dashboard-task-item--drag-nest'));
+		taskDragSource = null;
+	});
+
+	item.addEventListener('dragover', (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (!taskDragSource) return;
+		const sameNode = taskDragSource.cardId === card.id &&
+			JSON.stringify(taskDragSource.taskPath) === JSON.stringify(path);
+		if (sameNode) return;
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+		document.querySelectorAll(
+			'.dashboard-task-item--drag-top,.dashboard-task-item--drag-bottom,.dashboard-task-item--drag-nest'
+		).forEach(el => el.removeClass('dashboard-task-item--drag-top', 'dashboard-task-item--drag-bottom', 'dashboard-task-item--drag-nest'));
+		const rect = item.getBoundingClientRect();
+		const ratio = (e.clientY - rect.top) / rect.height;
+		if (ratio < 0.3) item.addClass('dashboard-task-item--drag-top');
+		else if (ratio > 0.7) item.addClass('dashboard-task-item--drag-bottom');
+		else item.addClass('dashboard-task-item--drag-nest');
+	});
+
+	item.addEventListener('dragleave', () => {
+		clearDragClasses();
+	});
+
+	item.addEventListener('drop', (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		clearDragClasses();
+		if (!taskDragSource) return;
+		const sameNode = taskDragSource.cardId === card.id &&
+			JSON.stringify(taskDragSource.taskPath) === JSON.stringify(path);
+		if (sameNode) return;
+
+		const rect = item.getBoundingClientRect();
+		const ratio = (e.clientY - rect.top) / rect.height;
+		const src = taskDragSource;
+
+		if (src.cardId === card.id) {
+			if (ratio < 0.3) callbacks.onTaskReorder(card.id, src.taskPath, path, true);
+			else if (ratio > 0.7) callbacks.onTaskReorder(card.id, src.taskPath, path, false);
+			else callbacks.onTaskNest(card.id, src.taskPath);
+		} else {
+			const mode: 'before' | 'after' | 'nest' = ratio < 0.3 ? 'before' : ratio > 0.7 ? 'after' : 'nest';
+			callbacks.onTaskMoveToCard(src.cardId, src.taskPath, card.id, path, mode);
+		}
+	});
+
+	if (task.children && task.children.length > 0) {
+		for (let i = 0; i < task.children.length; i++) {
+			renderTaskItem(list, task.children[i]!, [...path, i], card, callbacks, app, depth + 1);
+		}
+	}
+}
+
 function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: RenderCallbacks, app: App): void {
 	const list = container.createDiv({ cls: 'dashboard-task-list' });
 	list.dataset.cardId = card.id;
@@ -2286,153 +2530,10 @@ function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: 
 		list.removeClass('dashboard-task-list--drop-target');
 		if (!taskDragSource) return;
 		if (taskDragSource.cardId === card.id) return;
-		callbacks.onTaskMoveToCard(taskDragSource.cardId, taskDragSource.taskIndex, card.id, card.tasks.length);
+		callbacks.onTaskMoveToCard(taskDragSource.cardId, taskDragSource.taskPath, card.id, [card.tasks.length], 'before');
 	});
 
-	card.tasks.forEach((task, index) => {
-		const item = list.createDiv({ cls: 'dashboard-task-item' });
-		item.setAttribute('draggable', 'true');
-		item.dataset.taskIndex = String(index);
-		item.dataset.cardId = card.id;
-
-		// Mobile: tap to toggle action buttons visibility
-		item.addEventListener('touchstart', () => {
-			const wasActive = item.hasClass('dashboard-task-item--touched');
-			document.querySelectorAll('.dashboard-task-item--touched').forEach(el => {
-				el.removeClass('dashboard-task-item--touched');
-			});
-			if (!wasActive) {
-				item.addClass('dashboard-task-item--touched');
-			}
-		}, { passive: true });
-
-		const checkbox = item.createEl('input', {
-			cls: 'dashboard-task-checkbox',
-			attr: { type: 'checkbox' },
-		});
-		checkbox.checked = task.checked;
-		checkbox.addEventListener('change', () => {
-			callbacks.onCheckboxToggle(card.id, index, checkbox.checked);
-		});
-
-		const label = item.createSpan({
-			cls: task.checked ? 'dashboard-task-text dashboard-task-text--done' : 'dashboard-task-text',
-		});
-		renderTextWithLinks(label, task.text, app);
-		label.addEventListener('dblclick', (e) => {
-			e.stopPropagation();
-			const currentText = label.getText();
-			label.empty();
-
-			// Disable dragging on the parent item while editing
-			item.setAttribute('draggable', 'false');
-
-			const textarea = label.createEl('textarea', {
-				cls: 'dashboard-task-edit-textarea',
-				text: task.text,
-			});
-
-			// Auto-size: fit content and expand as user types
-			const autoResize = () => {
-				textarea.style.height = 'auto';
-				textarea.style.height = textarea.scrollHeight + 'px';
-			};
-			autoResize();
-
-			textarea.focus();
-			textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-
-			const finish = (save: boolean) => {
-				const newText = textarea.value.trim();
-				if (save && newText && newText !== task.text) {
-					callbacks.onTaskEdit(card.id, index, newText);
-				} else {
-					label.empty();
-					label.setText(currentText);
-				}
-				item.setAttribute('draggable', 'true');
-			};
-
-			textarea.addEventListener('input', autoResize);
-
-			textarea.addEventListener('keydown', (ke) => {
-				if (ke.key === 'Enter' && !ke.shiftKey) {
-					ke.preventDefault();
-					finish(true);
-				} else if (ke.key === 'Escape') {
-					ke.preventDefault();
-					finish(false);
-				}
-			});
-
-			textarea.addEventListener('blur', () => {
-				finish(true);
-			});
-		});
-
-		const delBtn = item.createEl('button', {
-			cls: 'dashboard-task-delete',
-			attr: { 'aria-label': t('renderer.deleteTask') },
-		});
-		setIcon(delBtn, 'x');
-		delBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onTaskDelete(card.id, index);
-		});
-
-		const reminderBtn = createReminderButton(item, card.id, index, task, callbacks);
-		item.appendChild(reminderBtn);
-
-		item.addEventListener('dragstart', (e) => {
-			e.stopPropagation();
-			taskDragSource = { cardId: card.id, taskIndex: index };
-			item.addClass('dashboard-task-item--dragging');
-			if (e.dataTransfer) {
-				e.dataTransfer.effectAllowed = 'move';
-				e.dataTransfer.setData('text/plain', String(index));
-			}
-		});
-
-		item.addEventListener('dragend', () => {
-			item.removeClass('dashboard-task-item--dragging');
-			document.querySelectorAll('.dashboard-task-item--drag-over').forEach(el => {
-				(el as HTMLElement).removeClass('dashboard-task-item--drag-over');
-			});
-			taskDragSource = null;
-		});
-
-		item.addEventListener('dragover', (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			if (!taskDragSource) return;
-			if (taskDragSource.cardId === card.id && taskDragSource.taskIndex === index) return;
-			if (e.dataTransfer) {
-				e.dataTransfer.dropEffect = 'move';
-			}
-			document.querySelectorAll('.dashboard-task-item--drag-over').forEach(el => {
-				(el as HTMLElement).removeClass('dashboard-task-item--drag-over');
-			});
-			item.addClass('dashboard-task-item--drag-over');
-		});
-
-		item.addEventListener('dragleave', () => {
-			item.removeClass('dashboard-task-item--drag-over');
-		});
-
-		item.addEventListener('drop', (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			item.removeClass('dashboard-task-item--drag-over');
-			if (!taskDragSource) return;
-			if (taskDragSource.cardId === card.id && taskDragSource.taskIndex === index) return;
-
-			if (taskDragSource.cardId === card.id) {
-				callbacks.onTaskReorder(card.id, taskDragSource.taskIndex, index);
-			} else {
-				callbacks.onTaskMoveToCard(taskDragSource.cardId, taskDragSource.taskIndex, card.id, index);
-			}
-		});
-	});
+	card.tasks.forEach((task, i) => renderTaskItem(list, task, [i], card, callbacks, app, 0));
 
 	const addRow = container.createDiv({ cls: 'dashboard-task-add' });
 	const input = addRow.createEl('input', {
@@ -2862,7 +2963,7 @@ function isReminderOverdue(reminder: string): boolean {
 function createReminderButton(
 	taskItem: HTMLElement,
 	cardId: string,
-	taskIndex: number,
+	taskPath: number[],
 	task: TaskItem,
 	callbacks: RenderCallbacks,
 ): HTMLElement {
@@ -2885,7 +2986,7 @@ function createReminderButton(
 	btn.addEventListener('click', (e) => {
 		e.stopPropagation();
 		e.preventDefault();
-		showReminderPopup(btn, cardId, taskIndex, task, callbacks);
+		showReminderPopup(btn, cardId, taskPath, task, callbacks);
 	});
 
 	return btn;
@@ -2894,7 +2995,7 @@ function createReminderButton(
 function showReminderPopup(
 	anchorBtn: HTMLElement,
 	cardId: string,
-	taskIndex: number,
+	taskPath: number[],
 	task: TaskItem,
 	callbacks: RenderCallbacks,
 ): void {
@@ -3070,13 +3171,13 @@ function showReminderPopup(
 		const h = parseInt(hourSelect.value, 10);
 		const m = parseInt(minSelect.value, 10);
 		const reminder = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-		callbacks.onTaskReminderEdit(cardId, taskIndex, reminder);
+		callbacks.onTaskReminderEdit(cardId, taskPath, reminder);
 		closeAllReminderPopups();
 	});
 
 	btnRow.querySelector('.dashboard-task-reminder-clear')?.addEventListener('click', (e) => {
 		e.stopPropagation();
-		callbacks.onTaskReminderEdit(cardId, taskIndex, undefined);
+		callbacks.onTaskReminderEdit(cardId, taskPath, undefined);
 		closeAllReminderPopups();
 	});
 
