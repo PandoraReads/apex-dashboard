@@ -191,29 +191,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 						this.plugin.refreshAllDashboards();
 					}));
 
-			const folders = this.app.vault.getAllLoadedFiles()
-				.filter((f): f is TFolder => 'children' in f && f.path !== '/')
-				.map(f => f.path)
-				.sort()
-				.slice(0, 8);
-			if (folders.length > 0) {
-				folderSetting.descEl.empty();
-				const hintLine = folderSetting.descEl.createDiv({ cls: 'tracker-key-hint' });
-				hintLine.createSpan({ text: t('settings.widgetHeatmapFolderSuggested') + ' ' });
-				for (const f of folders) {
-					const tag = hintLine.createEl('button', { cls: 'tracker-key-tag', text: f });
-					tag.addEventListener('click', async () => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetHeatmapFolder: f,
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-						this.display();
-					});
-				}
-			}
-
 			new Setting(heatmapCard)
 				.setName(t('settings.widgetHeatmapTitle'))
 				.setDesc(t('settings.widgetHeatmapTitlePlaceholder'))
