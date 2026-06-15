@@ -47,7 +47,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 					earth: t('settings.styleEarth'),
 					nordic: t('settings.styleNordic'),
 					aurora: t('settings.styleAurora'),
-					prism: t('settings.stylePrism'),
 					island: t('settings.styleIsland'),
 					tundra: t('settings.styleTundra'),
 					blossom: t('settings.styleBlossom'),
@@ -57,6 +56,8 @@ export class DashboardSettingTab extends PluginSettingTab {
 					ember: t('settings.styleEmber'),
 					jade: t('settings.styleJade'),
 					carbon: t('settings.styleCarbon'),
+					onyx: t('settings.styleOnyx'),
+					mono: t('settings.styleMono'),
 				})
 				.setValue(this.plugin.settings.stylePreset)
 				.onChange(async (value) => {

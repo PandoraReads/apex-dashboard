@@ -51,28 +51,31 @@ The sidebar shows recently edited files with relative timestamps, so you can jum
 ![Themes Preview](screenshot3.png)
 ![Themes Preview](screenshot4.png)
 
-11 handcrafted themes, each with distinct visual identity:
+14 handcrafted themes, each with distinct visual identity:
 
 | Theme | Style |
 |-------|-------|
 | **Earth** | Warm organic tones, parchment textures |
 | **Nordic** | Clean minimal with blue accents |
 | **Aurora** | Frosted glass with animated aurora gradient |
-| **Spring** | Rose glass with warm glow |
 | **Island** | Animal Crossing pastels, forest green and ocean blue |
 | **Tundra** | Cold gray + avocado green aurora, sage glass cards |
 | **Blossom** | Rose glass glow, transparent sections |
 | **Haze** | Smoky white-to-blue mist, extreme glass transparency |
 | **Ember** | Warm campfire smoke gradient, amber glow |
-| **Dusk** | Purple twilight mist, cloud-soft rounded |
 | **Jade** | Green bamboo mist, crisp jade-cut edges |
+| **Matcha** | Morandi green, solid warm tones |
+| **Lilac** | Morandi purple, soft and muted |
+| **Eclipse** | Industrial monochrome, sharp lines |
+| **Onyx** | Pure black with lemon accent, identical in light & dark |
+| **Mono** | Pure black/white minimal, no glass or gradients |
 
 All themes support both Obsidian light and dark modes.
 
 ## Settings
 
 - **Dashboard file** — customize the file path for your dashboard data
-- **Style** — choose from 11 visual themes
+- **Style** — choose from 14 visual themes
 - **Language** — English or Chinese interface
 - **Recent documents count** — control how many recent files appear
 - **Sidebar widgets** — Weather, Heatmap, Pomodoro, Reading, Countdown. Enable/disable and configure each widget independently

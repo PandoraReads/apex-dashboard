@@ -13,6 +13,32 @@ interface OrderedAction {
 	key: string;
 }
 
+// Curated set of common Lucide icons offered in the quick-action icon picker.
+const COMMON_ICONS: readonly string[] = [
+	'file-text', 'folder', 'folder-open', 'notebook-pen',
+	'star', 'bookmark', 'heart', 'flag', 'award', 'trophy',
+	'list', 'list-checks', 'circle-check', 'square-check',
+	'calendar', 'calendar-days', 'clock', 'alarm-clock', 'timer',
+	'pencil', 'pen-line', 'edit',
+	'search', 'home', 'settings', 'sliders-horizontal',
+	'link', 'external-link', 'paperclip',
+	'terminal', 'command', 'play',
+	'mail', 'message-square', 'bell', 'bell-ring',
+	'user', 'users', 'contact',
+	'image', 'camera', 'music', 'headphones', 'film',
+	'plus', 'download', 'upload', 'save', 'send', 'inbox',
+	'zap', 'flame', 'target', 'trending-up', 'rocket', 'sparkles',
+	'book', 'book-open', 'library',
+	'map-pin', 'compass', 'globe',
+	'lock', 'key', 'shield',
+	'tag', 'hash', 'label',
+	'code', 'database', 'git-branch',
+	'sun', 'moon', 'cloud',
+	'coffee', 'dumbbell', 'utensils',
+	'eye', 'filter', 'layers', 'trash-2', 'palette', 'brush',
+	'pin', 'megaphone', 'phone',
+];
+
 function buildOrderedActions(actions: QuickAction[], order?: string[], hiddenPresets?: string[]): OrderedAction[] {
 	const hidden = new Set(hiddenPresets ?? []);
 	const all: OrderedAction[] = [
@@ -191,6 +217,8 @@ export function renderQuickActions(
 export class AddActionModal extends Modal {
 	private onSelect: (action: QuickAction) => void;
 	private activeTab: 'file' | 'command' = 'file';
+	private pendingAction: QuickAction | null = null;
+	private lastQuery = '';
 
 	constructor(app: App, onSelect: (action: QuickAction) => void) {
 		super(app);
@@ -200,36 +228,45 @@ export class AddActionModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass('dashboard-modal');
+		this.render();
+	}
+
+	private render(): void {
+		const { contentEl } = this;
+		contentEl.empty();
 		contentEl.createEl('h2', { text: t('quickActions.addAction') });
 
+		if (this.pendingAction) {
+			this.renderConfirmView(contentEl);
+		} else {
+			this.renderSearchView(contentEl);
+		}
+	}
+
+	private renderSearchView(contentEl: HTMLElement): void {
 		const tabBar = contentEl.createDiv({ cls: 'dashboard-action-tabs' });
 		const fileTab = tabBar.createEl('button', {
-			cls: 'dashboard-action-tab active',
+			cls: 'dashboard-action-tab' + (this.activeTab === 'file' ? ' active' : ''),
 			text: t('quickActions.fileTab'),
 		});
 		const cmdTab = tabBar.createEl('button', {
-			cls: 'dashboard-action-tab',
+			cls: 'dashboard-action-tab' + (this.activeTab === 'command' ? ' active' : ''),
 			text: t('quickActions.commandTab'),
 		});
 
-		const searchWrap = contentEl.createDiv({ cls: 'dashboard-docsearch' });
-
 		const switchTab = (tab: 'file' | 'command') => {
 			this.activeTab = tab;
-			fileTab.toggleClass('active', tab === 'file');
-			cmdTab.toggleClass('active', tab === 'command');
-			input.value = '';
-			renderResults('');
+			this.lastQuery = '';
+			this.render();
 		};
-
 		fileTab.addEventListener('click', () => switchTab('file'));
 		cmdTab.addEventListener('click', () => switchTab('command'));
 
+		const searchWrap = contentEl.createDiv({ cls: 'dashboard-docsearch' });
 		const input = searchWrap.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-docsearch-input',
-			attr: { type: 'text', placeholder: t('quickActions.searchPlaceholder'), autofocus: 'true' },
+			attr: { type: 'text', placeholder: t('quickActions.searchPlaceholder'), autofocus: 'true', value: this.lastQuery },
 		});
-
 		const resultsList = searchWrap.createDiv({ cls: 'dashboard-docsearch-results' });
 
 		const renderResults = (query: string) => {
@@ -242,14 +279,89 @@ export class AddActionModal extends Modal {
 			}
 		};
 
-		input.addEventListener('input', () => renderResults(input.value));
-		renderResults('');
+		input.addEventListener('input', () => {
+			this.lastQuery = input.value;
+			renderResults(input.value);
+		});
+		renderResults(input.value);
+		input.focus();
 
 		const cancelBtn = contentEl.createEl('button', {
 			cls: 'dashboard-docsearch-cancel',
 			text: t('common.cancel'),
 		});
 		cancelBtn.addEventListener('click', () => this.close());
+	}
+
+	private renderConfirmView(contentEl: HTMLElement): void {
+		const action = this.pendingAction!;
+		const defaultName = action.name;
+		const defaultIcon = action.icon;
+
+		// Preview of the selected file/command
+		const preview = contentEl.createDiv({ cls: 'dashboard-qa-confirm-preview' });
+		const previewIcon = preview.createDiv({ cls: 'dashboard-docsearch-icon dashboard-qa-confirm-preview-icon' });
+		setIcon(previewIcon, defaultIcon);
+		const previewInfo = preview.createDiv({ cls: 'dashboard-docsearch-info' });
+		previewInfo.createDiv({ cls: 'dashboard-docsearch-name', text: defaultName });
+		previewInfo.createDiv({ cls: 'dashboard-docsearch-path', text: action.target });
+
+		// Name field
+		const nameField = contentEl.createDiv({ cls: 'dashboard-qa-confirm-field' });
+		nameField.createEl('label', { text: t('quickActions.displayName'), cls: 'dashboard-qa-confirm-label' });
+		const nameInput = nameField.createEl('input', {
+			cls: 'dashboard-modal-input',
+			attr: { type: 'text', value: defaultName },
+		});
+
+		// Icon picker: clickable grid of common icons
+		const iconField = contentEl.createDiv({ cls: 'dashboard-qa-confirm-field' });
+		iconField.createEl('label', { text: t('quickActions.icon'), cls: 'dashboard-qa-confirm-label' });
+		let selectedIcon = defaultIcon;
+		const grid = iconField.createDiv({ cls: 'dashboard-qa-icon-grid' });
+		const allIcons = COMMON_ICONS.includes(defaultIcon) ? COMMON_ICONS : [defaultIcon, ...COMMON_ICONS];
+		const renderGrid = () => {
+			grid.empty();
+			for (const iconName of allIcons) {
+				const opt = grid.createDiv({
+					cls: 'dashboard-qa-icon-option' + (iconName === selectedIcon ? ' dashboard-qa-icon-option--selected' : ''),
+					attr: { title: iconName, 'aria-label': iconName, role: 'button' },
+				});
+				setIcon(opt, iconName);
+				opt.addEventListener('click', () => {
+					selectedIcon = iconName;
+					setIcon(previewIcon, selectedIcon);
+					grid.querySelectorAll('.dashboard-qa-icon-option').forEach(el => el.removeClass('dashboard-qa-icon-option--selected'));
+					opt.addClass('dashboard-qa-icon-option--selected');
+				});
+			}
+		};
+		renderGrid();
+
+		nameInput.focus();
+		nameInput.select();
+
+		const finish = () => {
+			const finalName = nameInput.value.trim() || defaultName;
+			this.onSelect({ ...action, name: finalName, icon: selectedIcon });
+			this.close();
+		};
+
+		nameInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') { e.preventDefault(); finish(); }
+		});
+
+		const actions = contentEl.createDiv({ cls: 'dashboard-modal-actions' });
+		const backBtn = actions.createEl('button', { text: t('quickActions.back') });
+		backBtn.addEventListener('click', () => {
+			this.pendingAction = null;
+			this.render();
+		});
+		const confirmBtn = actions.createEl('button', {
+			cls: 'mod-cta',
+			text: t('quickActions.confirmAdd'),
+		});
+		confirmBtn.addEventListener('click', finish);
 	}
 
 	private renderFileResults(container: HTMLElement, q: string): void {
@@ -277,8 +389,8 @@ export class AddActionModal extends Modal {
 			info.createEl('div', { cls: 'dashboard-docsearch-path', text: file.path });
 
 			item.addEventListener('click', () => {
-				this.onSelect({ name: file.basename, icon: 'file-text', type: 'file', target: file.path });
-				this.close();
+				this.pendingAction = { name: file.basename, icon: 'file-text', type: 'file', target: file.path };
+				this.render();
 			});
 		}
 	}
@@ -319,8 +431,8 @@ export class AddActionModal extends Modal {
 			info.createEl('div', { cls: 'dashboard-docsearch-path', text: entry.id });
 
 			item.addEventListener('click', () => {
-				this.onSelect({ name: entry.name, icon: 'terminal', type: 'command', target: entry.id });
-				this.close();
+				this.pendingAction = { name: entry.name, icon: 'terminal', type: 'command', target: entry.id };
+				this.render();
 			});
 		}
 	}
