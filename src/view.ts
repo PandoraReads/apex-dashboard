@@ -2,7 +2,7 @@ import { ItemView, Notice, setIcon, WorkspaceLeaf, TFile, Events } from 'obsidia
 import type DashboardPlugin from './main';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, WeatherConfig, TrackerConfig, LibraryConfig } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
@@ -53,6 +53,9 @@ export class DashboardView extends ItemView {
 	private mobileWidgetTabsOpen: boolean = false;
 	private static readonly WEATHER_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 	private weatherRefreshTimer: ReturnType<typeof setInterval> | null = null;
+	private static readonly DAY_ROLLOVER_CHECK_MS = 60 * 1000; // 1 minute
+	private dayRolloverTimer: ReturnType<typeof setInterval> | null = null;
+	private lastRenderedDay = new Date().toDateString();
 
 	constructor(leaf: WorkspaceLeaf, plugin: DashboardPlugin) {
 		super(leaf);
@@ -80,6 +83,7 @@ export class DashboardView extends ItemView {
 		this.registerVaultListeners();
 		this.startReminderChecker();
 		this.startWeatherRefresh();
+		this.startDayRolloverChecker();
 		this.pomodoroService = new PomodoroService(this.plugin);
 		await this.pomodoroService.loadSessions();
 		this.readingService = new ReadingService(this.plugin);
@@ -96,6 +100,7 @@ export class DashboardView extends ItemView {
 		this.unregisterVaultListeners();
 		this.stopReminderChecker();
 		this.stopWeatherRefresh();
+		this.stopDayRolloverChecker();
 		this.pomodoroService?.destroy();
 		this.pomodoroService = null;
 		this.readingService?.destroy();
@@ -1061,6 +1066,30 @@ export class DashboardView extends ItemView {
 			this.weatherRefreshTimer = null;
 		}
 		clearWeatherCache();
+	}
+
+	private startDayRolloverChecker(): void {
+		this.dayRolloverTimer = setInterval(() => this.checkDayRollover(), DashboardView.DAY_ROLLOVER_CHECK_MS);
+	}
+
+	private stopDayRolloverChecker(): void {
+		if (this.dayRolloverTimer) {
+			clearInterval(this.dayRolloverTimer);
+			this.dayRolloverTimer = null;
+		}
+	}
+
+	private checkDayRollover(): void {
+		if (!this.data) return;
+		const todayKey = new Date().toDateString();
+		if (todayKey === this.lastRenderedDay) return;
+
+		this.lastRenderedDay = todayKey;
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		if (root && refreshSidebarWeekCalendar(root)) {
+			return;
+		}
+		this.render(this.data);
 	}
 
 	private checkReminders(): void {

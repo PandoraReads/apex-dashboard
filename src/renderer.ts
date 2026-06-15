@@ -7,7 +7,7 @@ import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
-import { readTrackerData } from './tracker-service';
+import { readTrackerData, readTrackerDataForRange, computeStreak, getPeriodRange } from './tracker-service';
 import type { PomodoroService } from './pomodoro-service';
 import type { ReadingService } from './reading-service';
 import { searchBooks, downloadCoverAsBlobUrl } from './book-service';
@@ -55,6 +55,14 @@ function getSearchableFiles(app: App) {
 // ===== Sidebar Widget Rendering =====
 
 export function renderSidebarWeekCalendar(container: HTMLElement): void {
+	// Reuse the existing calendar node so cross-day refreshes don't grow the DOM.
+	let row = container.querySelector<HTMLElement>('.dashboard-sidebar-week-calendar');
+	if (row) {
+		row.empty();
+	} else {
+		row = container.createDiv({ cls: 'dashboard-sidebar-week-calendar' });
+	}
+
 	const now = new Date();
 	const today = now.getDay();
 	const mondayOffset = today === 0 ? -6 : 1 - today;
@@ -62,7 +70,6 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 	monday.setDate(now.getDate() + mondayOffset);
 
 	const lang = getLanguage() === 'zh' ? 'zh-CN' : 'en';
-	const row = container.createDiv({ cls: 'dashboard-sidebar-week-calendar' });
 
 	for (let i = 0; i < 7; i++) {
 		const d = new Date(monday);
@@ -81,6 +88,14 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 			text: String(d.getDate()),
 		});
 	}
+}
+
+// Returns true if the live sidebar week calendar was re-rendered, false if it isn't in the DOM.
+export function refreshSidebarWeekCalendar(root: HTMLElement): boolean {
+	const scroll = root.querySelector<HTMLElement>('.dashboard-sidebar-scroll');
+	if (!scroll) return false;
+	renderSidebarWeekCalendar(scroll);
+	return true;
 }
 
 export function renderSidebarWidgets(
@@ -281,20 +296,35 @@ function renderSidebarWeatherContent(el: HTMLElement, data: import('./types').We
 	}
 }
 
-function renderSidebarHeatmap(container: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
-	if (!settings.widgetTrackerKey) return;
+function renderHeatmapCell(
+	cell: HTMLElement,
+	point: import('./types').TrackerDataPoint | null,
+	minVal: number,
+	range: number,
+	accentColor: string,
+): void {
+	cell.style.width = '8px';
+	cell.style.height = '8px';
+	cell.style.borderRadius = '2px';
+	if (point === null || point.value === null) {
+		cell.addClass('dashboard-sidebar-heatmap-cell--empty');
+		return;
+	}
+	const intensity = range > 0 ? (point.value - minVal) / range : 1;
+	cell.style.backgroundColor = accentColor;
+	cell.style.opacity = String(0.15 + Math.max(0, Math.min(1, intensity)) * 0.85);
+	cell.title = `${point.date}: ${point.value}`;
+}
 
-	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-heatmap' });
-
-	const data = readTrackerData(app, '', settings.widgetTrackerKey, settings.widgetTrackerDays);
-	const validPoints = data.filter(p => p.value !== null);
-
-	if (validPoints.length === 0) return;
-
-	const values = data.map(p => p.value);
-	const minVal = Math.min(...values.filter((v): v is number => v !== null));
-	const maxVal = Math.max(...values.filter((v): v is number => v !== null));
-	const accentColor = getCSSVar('--db-accent') || '#6366f1';
+function renderHeatmapGithubGrid(
+	widget: HTMLElement,
+	data: import('./types').TrackerDataPoint[],
+	minVal: number,
+	range: number,
+	accentColor: string,
+): void {
+	const scroll = widget.createDiv({ cls: 'dashboard-sidebar-heatmap-scroll' });
+	const grid = scroll.createDiv({ cls: 'dashboard-sidebar-heatmap-grid' });
 
 	const firstDate = data[0] ? new Date(data[0].date + 'T00:00:00') : new Date();
 	const startDayOfWeek = firstDate.getDay();
@@ -302,9 +332,7 @@ function renderSidebarHeatmap(container: HTMLElement, settings: import('./types'
 
 	const weeks: (import('./types').TrackerDataPoint | null)[][] = [];
 	let currentWeek: (import('./types').TrackerDataPoint | null)[] = [];
-	for (let i = 0; i < mondayOffset; i++) {
-		currentWeek.push(null);
-	}
+	for (let i = 0; i < mondayOffset; i++) currentWeek.push(null);
 	for (const point of data) {
 		currentWeek.push(point);
 		if (currentWeek.length === 7) {
@@ -312,48 +340,167 @@ function renderSidebarHeatmap(container: HTMLElement, settings: import('./types'
 			currentWeek = [];
 		}
 	}
-	if (currentWeek.length > 0) {
-		weeks.push(currentWeek);
-	}
+	if (currentWeek.length > 0) weeks.push(currentWeek);
 
-	const visibleWeeks = weeks.slice(-20);
-	const range = maxVal - minVal || 1;
-
-	const grid = widget.createDiv({ cls: 'dashboard-sidebar-heatmap-grid' });
 	grid.style.display = 'grid';
-	grid.style.gridTemplateColumns = `repeat(${visibleWeeks.length}, 8px)`;
+	grid.style.gridTemplateColumns = `repeat(${weeks.length}, 8px)`;
 	grid.style.gridTemplateRows = 'repeat(7, 8px)';
 	grid.style.gap = '2px';
 
-	for (const week of visibleWeeks) {
+	for (const week of weeks) {
 		for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
-			const point = week[dayIdx] ?? null;
 			const cell = grid.createDiv({ cls: 'dashboard-sidebar-heatmap-cell' });
-			cell.style.width = '8px';
-			cell.style.height = '8px';
-			cell.style.borderRadius = '2px';
-
-			if (point === null || point.value === null) {
-				cell.addClass('dashboard-sidebar-heatmap-cell--empty');
-			} else {
-				const intensity = (point.value - minVal) / range;
-				cell.style.backgroundColor = accentColor;
-				cell.style.opacity = String(0.15 + intensity * 0.85);
-				cell.title = `${point.date}: ${point.value}`;
-			}
+			renderHeatmapCell(cell, week[dayIdx] ?? null, minVal, range, accentColor);
 		}
 	}
+}
 
-	// Mini stats
+function formatHeatmapMonthLabel(monthKey: string): string {
+	const d = new Date(`${monthKey}-01T00:00:00`);
+	if (isNaN(d.getTime())) return monthKey;
+	const lang = getLanguage();
+	const locale = lang === 'zh' ? 'zh-CN' : 'en-US';
+	return d.toLocaleDateString(locale, { month: 'short' });
+}
+
+function renderHeatmapMonthlyRows(
+	widget: HTMLElement,
+	data: import('./types').TrackerDataPoint[],
+	minVal: number,
+	range: number,
+	accentColor: string,
+): void {
+	const byMonth = new Map<string, import('./types').TrackerDataPoint[]>();
+	for (const p of data) {
+		const monthKey = p.date.slice(0, 7);
+		const arr = byMonth.get(monthKey);
+		if (arr) arr.push(p);
+		else byMonth.set(monthKey, [p]);
+	}
+
+	const rows = widget.createDiv({ cls: 'dashboard-sidebar-heatmap-months' });
+	for (const [monthKey, pts] of byMonth) {
+		const row = rows.createDiv({ cls: 'dashboard-sidebar-heatmap-month-row' });
+		row.createDiv({ cls: 'dashboard-sidebar-heatmap-month-label', text: formatHeatmapMonthLabel(monthKey) });
+		const cells = row.createDiv({ cls: 'dashboard-sidebar-heatmap-month-cells' });
+		for (const p of pts) {
+			const cell = cells.createDiv({ cls: 'dashboard-sidebar-heatmap-cell' });
+			renderHeatmapCell(cell, p, minVal, range, accentColor);
+		}
+	}
+}
+
+function getHeatmapPlugin(app: App) {
+	return (app as unknown as {
+		plugins: {
+			plugins: Record<string, {
+				settings?: import('./types').DashboardSettings;
+				saveSettings?: () => Promise<void>;
+				refreshAllDashboards?: () => void;
+			}>;
+		};
+	}).plugins?.plugins?.['apex-dashboard'];
+}
+
+function bindHeatmapTitleEdit(titleEl: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
+	titleEl.style.cursor = 'pointer';
+	titleEl.addEventListener('dblclick', (e) => {
+		e.stopPropagation();
+		const current = titleEl.getText();
+		titleEl.empty();
+		const input = titleEl.createEl('input', {
+			cls: 'dashboard-title-edit-input dashboard-heatmap-title-edit',
+			attr: { type: 'text', value: current },
+		});
+		input.focus();
+		input.select();
+
+		const finish = (save: boolean) => {
+			const v = input.value.trim();
+			const fallback = t('heatmap.title');
+			const existing = settings.widgetHeatmapTitle?.trim() || '';
+			if (save && v !== existing && v !== fallback) {
+				const plugin = getHeatmapPlugin(app);
+				if (plugin?.settings) {
+					plugin.settings = { ...plugin.settings, widgetHeatmapTitle: v };
+					void plugin.saveSettings?.();
+					plugin.refreshAllDashboards?.();
+					return;
+				}
+			} else if (save && v === fallback) {
+				const plugin = getHeatmapPlugin(app);
+				if (plugin?.settings && existing !== '') {
+					plugin.settings = { ...plugin.settings, widgetHeatmapTitle: '' };
+					void plugin.saveSettings?.();
+					plugin.refreshAllDashboards?.();
+					return;
+				}
+			}
+			titleEl.empty();
+			titleEl.setText(current);
+		};
+
+		input.addEventListener('keydown', (ke: KeyboardEvent) => {
+			if (ke.key === 'Enter') {
+				ke.preventDefault();
+				finish(true);
+			} else if (ke.key === 'Escape') {
+				ke.preventDefault();
+				finish(false);
+			}
+		});
+		input.addEventListener('blur', () => finish(true));
+	});
+}
+
+function renderSidebarHeatmap(container: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
+	if (!settings.widgetTrackerKey) return;
+
+	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-heatmap' });
+
+	const header = widget.createDiv({ cls: 'dashboard-sidebar-heatmap-header' });
+	const titleEl = header.createDiv({
+		cls: 'dashboard-sidebar-heatmap-title',
+		text: settings.widgetHeatmapTitle?.trim() || t('heatmap.title'),
+	});
+	bindHeatmapTitleEdit(titleEl, settings, app);
+
+	const rangeMode = settings.widgetHeatmapRangeMode ?? 'rolling';
+	const folder = settings.widgetHeatmapFolder ?? '';
+	const key = settings.widgetTrackerKey;
+
+	let data: import('./types').TrackerDataPoint[];
+	let expectedCount: number;
+	if (rangeMode === 'period') {
+		const period = settings.widgetHeatmapPeriod ?? 'month';
+		const { start, end } = getPeriodRange(period);
+		data = readTrackerDataForRange(app, folder, key, start, end);
+		expectedCount = data.length;
+	} else {
+		data = readTrackerData(app, folder, key, settings.widgetTrackerDays);
+		expectedCount = settings.widgetTrackerDays;
+	}
+
+	const validPoints = data.filter(p => p.value !== null);
+	if (validPoints.length === 0) return;
+
+	const values = data.map(p => p.value).filter((v): v is number => v !== null);
+	const minVal = Math.min(...values);
+	const maxVal = Math.max(...values);
+	const accentColor = getCSSVar('--db-accent') || '#6366f1';
+	const range = maxVal - minVal || 1;
+
+	if (rangeMode === 'period') {
+		renderHeatmapMonthlyRows(widget, data, minVal, range, accentColor);
+	} else {
+		renderHeatmapGithubGrid(widget, data, minVal, range, accentColor);
+	}
+
 	const summaryMode = settings.widgetTrackerSummary ?? 'streak';
 	if (summaryMode === 'off') return;
 
-	let streak = 0;
-	for (let i = validPoints.length - 1; i >= 0; i--) {
-		if (validPoints[i]!.value !== null) streak++;
-		else break;
-	}
-	const completionRate = Math.round((validPoints.length / data.length) * 100);
+	const streak = computeStreak(data);
+	const completionRate = expectedCount > 0 ? Math.round((validPoints.length / expectedCount) * 100) : 0;
 
 	const stats = widget.createDiv({ cls: 'dashboard-sidebar-heatmap-stats' });
 
@@ -3027,12 +3174,8 @@ function renderTrackerBody(container: HTMLElement, card: DashboardCard, app: App
 	const trendDir = latest > prev ? 'up' : latest < prev ? 'down' : 'flat';
 	const trendPct = prev !== 0 ? ((latest - prev) / Math.abs(prev) * 100).toFixed(1) : '0';
 
-	// Streak: consecutive days with data (from latest backward)
-	let streak = 0;
-	for (let i = validPoints.length - 1; i >= 0; i--) {
-		if (validPoints[i]!.value !== null) streak++;
-		else break;
-	}
+	// Streak: consecutive days with data (from latest backward, today optional)
+	const streak = computeStreak(data);
 
 	if (size === 'S') {
 		const row = el.createDiv({ cls: 'dashboard-tracker-compact' });
