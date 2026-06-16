@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.5 (2026-06-16)
+
+### Added
+- Hover preview for document links and `[[wikilinks]]` (Ctrl/Cmd + hover) across project/note card doc lists, inline wikilinks in memos and todos, and the database (library) section — native page-preview popover, no need to leave the dashboard
+- In-place note editor popup — click a link to open a centered popup embedding a full Obsidian Markdown editor (Live Preview, reading/source toggle that remembers your last choice, and an "Open in tab" escape hatch)
+- Database (library) section support for hover preview and the in-place edit popup across grid, list, table, and kanban views
+
+### Changed
+- Desktop-only feature; on mobile, links keep their original open-in-tab behavior
+
 ## 1.1.1 (2025-05-29)
 
 ### Fixed

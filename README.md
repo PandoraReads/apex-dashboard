@@ -103,6 +103,12 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.1.5
+- **Hover preview for links** — Hold Ctrl/Cmd and hover over any document link or `[[wikilink]]` to see a native page-preview popover without leaving the dashboard. Works across project/note card doc lists, inline wikilinks in memos and todos, and the database (library) section
+- **In-place note editor popup** — Click a link to open a centered popup that embeds a full Obsidian Markdown editor (Live Preview, plus a reading/source toggle that remembers your last choice). Read and edit the note right inside the dashboard instead of opening a new tab; an "Open in tab" button is available when you want the full editor
+- **Database section support** — Library files in grid, list, table, and kanban views now support hover preview and the in-place edit popup, matching the project section experience
+- **Mobile unchanged** — On mobile, links keep their original open-in-tab behavior
+
 ### 1.1.4
 - **Collapsible subtasks** — Tasks with subtasks can now be collapsed; the collapsed state persists across reloads. Only items with children show a toggle arrow, so leaf items carry no extra left padding and lists stay compact
 - **Nested document links (sub-documents) in project cards** — Document links in project cards now support nesting just like subtasks: drag one onto another to nest it (before / after / nest drop zones), and collapse a parent's sub-documents. Saved as indented Markdown nested lists so links stay valid in every Obsidian view (no code-block breakage from indentation)

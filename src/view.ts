@@ -1,4 +1,4 @@
-import { ItemView, Notice, setIcon, WorkspaceLeaf, TFile, Events } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, Notice, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, WeatherConfig, TrackerConfig, LibraryConfig } from './types';
 import { SyncEngine } from './sync';
@@ -8,6 +8,7 @@ import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
 import { setupDragAndDrop } from './dnd';
 import { CardEditModal } from './card-edit-modal';
+import { NotePopoverModal } from './note-popover-modal';
 import { showConfirmDialog } from './confirm-dialog';
 import { clearWeatherCache } from './weather-service';
 import { renderSidebarLunarWidget, loadHolidayData } from './lunar-widget';
@@ -24,7 +25,7 @@ import { t } from './i18n';
 
 export const DASHBOARD_VIEW_TYPE = 'apex-dashboard-view';
 
-export class DashboardView extends ItemView {
+export class DashboardView extends ItemView implements HoverParent {
 	private plugin: DashboardPlugin;
 	private sync: SyncEngine;
 	private data: DashboardData | null = null;
@@ -56,6 +57,15 @@ export class DashboardView extends ItemView {
 	private static readonly DAY_ROLLOVER_CHECK_MS = 60 * 1000; // 1 minute
 	private dayRolloverTimer: ReturnType<typeof setInterval> | null = null;
 	private lastRenderedDay = new Date().toDateString();
+
+	// HoverParent contract: Obsidian assigns/clears this when showing a Page
+	// Preview popover over a dashboard link. Declared so the dashboard can act as
+	// the hover owner for `hover-link` events.
+	hoverPopover: HoverPopover | null = null;
+
+	// The currently-open centered note editor popover, if any. Tracked so it can
+	// be torn down (detaching its embedded leaf) when the view closes.
+	private popoverModal: NotePopoverModal | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: DashboardPlugin) {
 		super(leaf);
@@ -96,6 +106,8 @@ export class DashboardView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.popoverModal?.close();
+		this.popoverModal = null;
 		this.runCleanup();
 		this.unregisterVaultListeners();
 		this.stopReminderChecker();
@@ -193,7 +205,7 @@ export class DashboardView extends ItemView {
 		this.setupSidebarBehavior(sidebar, container);
 
 		const kanban = mainLayout.createDiv({ cls: 'dashboard-kanban-wrapper' });
-		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings);
+		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this);
 		setupDragAndDrop(kanban, this.createCallbacks(), this.cleanupFns);
 		// Library config event delegation
 		kanban.addEventListener('dashboard-library-config', ((e: CustomEvent) => {
@@ -635,6 +647,7 @@ export class DashboardView extends ItemView {
 	private createCallbacks() {
 		return {
 			onCardEdit: (card: DashboardCard) => this.openCardEditModal(card),
+			onOpenNoteInPopover: (file: TFile) => this.openNotePopover(file),
 			onCardDelete: async (cardId: string) => {
 				const confirmed = await showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
@@ -809,6 +822,15 @@ export class DashboardView extends ItemView {
 		const modal = new CardEditModal(this.app, card, (updates) => {
 			this.sync.updateCard(card.id, updates);
 		}, this.plugin.settings.stylePreset);
+		modal.open();
+	}
+
+	private openNotePopover(file: TFile): void {
+		// Close any previously open popover so its embedded leaf is detached
+		// before we open a fresh one.
+		this.popoverModal?.close();
+		const modal = new NotePopoverModal(this.app, file, this.plugin.settings.stylePreset);
+		this.popoverModal = modal;
 		modal.open();
 	}
 

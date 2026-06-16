@@ -20,6 +20,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'common.confirmDelete': 'Confirm Delete',
 		'common.confirmDeleteMessage': 'Are you sure you want to delete this? This action cannot be undone.',
 		'common.delete': 'Delete',
+		'common.close': 'Close',
+		'notePopover.toggleView': 'Toggle reading / source',
+		'notePopover.openInTab': 'Open in tab',
 			'card.deleted': 'Card deleted',
 
 		// Settings
@@ -516,6 +519,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'common.confirmDelete': '确认删除',
 		'common.confirmDeleteMessage': '确定要删除吗？此操作无法撤销。',
 		'common.delete': '删除',
+		'common.close': '关闭',
+		'notePopover.toggleView': '切换 阅读 / 源码',
+		'notePopover.openInTab': '在标签页打开',
 			'card.deleted': '卡片已删除',
 
 		// Settings

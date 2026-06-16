@@ -1,6 +1,15 @@
-import { App, TFile, setIcon } from 'obsidian';
+import { App, Platform, TFile, setIcon } from 'obsidian';
+import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
 import { t, getLanguage } from './i18n';
+import { attachNoteHover } from './hover-preview';
+
+// Set once per render by renderLibrarySection so the grid/list/table/kanban
+// renderers can route opens through the note popover and attach hover previews
+// without threading these through every function signature. Mirrors the
+// renderer.ts module-level idiom.
+let libHoverParent: HoverParent | null = null;
+let libOpener: ((file: TFile) => void) | null = null;
 
 export interface LibraryFileResult {
 	file: TFile;
@@ -368,7 +377,11 @@ export function renderLibrarySection(
 	column: { name: string; color: string; libraryConfig?: LibraryConfig },
 	app: App,
 	onConfigChange: (config: LibraryConfig) => void,
+	hoverParent: HoverParent | null = null,
+	onOpenNote: ((file: TFile) => void) | null = null,
 ): void {
+	libHoverParent = hoverParent;
+	libOpener = onOpenNote;
 	const config = column.libraryConfig ?? {
 		filters: [] as PropertyFilter[],
 		viewMode: 'grid' as LibraryViewMode,
@@ -783,7 +796,18 @@ function renderPagination(
 }
 
 function openFile(app: App, file: TFile): void {
-	app.workspace.getLeaf(false).openFile(file);
+	if (!Platform.isMobile && libOpener) {
+		libOpener(file);
+	} else {
+		void app.workspace.getLeaf(false).openFile(file);
+	}
+}
+
+/** Attach the native hover preview to a library item (desktop only). */
+function attachItemHover(app: App, el: HTMLElement, file: TFile): void {
+	if (!Platform.isMobile && libHoverParent) {
+		attachNoteHover(app, el, file, libHoverParent);
+	}
 }
 
 function renderBadgeRow(container: HTMLElement, fm: Record<string, unknown>, maxBadges = 5): void {
@@ -808,6 +832,7 @@ function renderGridView(container: HTMLElement, results: LibraryFileResult[], ap
 
 	for (const result of results) {
 		const card = grid.createDiv({ cls: 'dashboard-library-card' });
+		attachItemHover(app, card, result.file);
 		card.addEventListener('click', () => openFile(app, result.file));
 
 		card.createDiv({ cls: 'dashboard-library-card-title', text: result.basename });
@@ -841,6 +866,7 @@ function renderListView(container: HTMLElement, results: LibraryFileResult[], ap
 
 	for (const result of results) {
 		const item = list.createDiv({ cls: 'dashboard-library-list-item' });
+		attachItemHover(app, item, result.file);
 		item.addEventListener('click', () => openFile(app, result.file));
 
 		item.createDiv({ cls: 'dashboard-library-list-name', text: result.basename });
@@ -960,6 +986,7 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 			if (col === 'name') {
 				td.textContent = result.basename;
 				td.addClass('dashboard-library-table-name');
+				attachItemHover(app, td, result.file);
 				td.addEventListener('click', (e) => {
 					e.stopPropagation();
 					openFile(app, result.file);
@@ -1019,6 +1046,7 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${groupName} (${groupResults.length})` });
 		for (const result of groupResults) {
 			const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
+			attachItemHover(app, card, result.file);
 			card.addEventListener('click', () => openFile(app, result.file));
 			card.createDiv({ cls: 'dashboard-library-kanban-card-title', text: result.basename });
 			card.createDiv({ cls: 'dashboard-library-kanban-card-date', text: formatDate(result.mtime) });
@@ -1030,6 +1058,7 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${t('library.notSet')} (${noGroup.length})` });
 		for (const result of noGroup) {
 			const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
+			attachItemHover(app, card, result.file);
 			card.addEventListener('click', () => openFile(app, result.file));
 			card.createDiv({ cls: 'dashboard-library-kanban-card-title', text: result.basename });
 		}

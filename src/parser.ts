@@ -17,6 +17,15 @@ import { t } from './i18n';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
 
+// Card colors are persisted without the leading '#' (see serialize) so Obsidian
+// does not register them as tags. Restore the '#' here; legacy '#xxxxxx' values
+// are still accepted.
+function normalizeHexColor(value?: string): string {
+	if (!value) return '';
+	const trimmed = value.trim();
+	return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+}
+
 const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*$/;
 const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
 const DOC_LINE_REGEX = /^(\s*)(?:- )?\[\[([^\]\n]+)]](\s*<!--collapsed-->\s*)?$/;
@@ -188,7 +197,9 @@ export function serialize(data: DashboardData): string {
 			}
 
 			if (card.color) {
-				lines.push(`color: ${card.color}`);
+				// Store without the leading '#': a bare '#f59e0b' in the card body
+				// would be picked up by Obsidian as a tag. Normalize back on read.
+				lines.push(`color: ${card.color.replace(/^#/, '')}`);
 			}
 
 			if (card.coverImage) {
@@ -632,14 +643,37 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			usedDefIndices.add(defIdx);
 		}
 		const cards = parseCards(section.content, section.heading);
+		const resolvedType = resolveSectionType(section.heading, cards, def?.sectionType);
 		return {
 			name: section.heading,
 			color: def?.color ?? '#6366f1',
-			sectionType: resolveSectionType(section.heading, cards, def?.sectionType),
-			cards,
+			sectionType: resolvedType,
+			// Memo cards render only their body text and never a doc list, so wikilinks
+			// the parser lifted into `docs` would be invisible (and lost on round-trip).
+			// Fold them back into the body so they display as clickable links and stay
+			// stable across save/reload. Project/notes/etc. sections keep using `docs`.
+			cards: resolvedType === 'memo' ? cards.map(foldDocsIntoBody) : cards,
 			libraryConfig: def?.libraryConfig,
 		};
 	});
+}
+
+// Memo sections keep their `[[wikilink]]` lines as body text instead of a doc list.
+function foldDocsIntoBody(card: DashboardCard): DashboardCard {
+	if (card.docs.length === 0) return card;
+
+	const paths: string[] = [];
+	const walk = (nodes: DocNode[]) => {
+		for (const n of nodes) {
+			paths.push(n.path);
+			if (n.children) walk(n.children);
+		}
+	};
+	walk(card.docs);
+
+	const docLines = paths.map(p => `[[${p}]]`);
+	const body = card.body ? `${card.body}\n${docLines.join('\n')}` : docLines.join('\n');
+	return { ...card, body, docs: [] };
 }
 
 function resolveSectionType(
@@ -771,7 +805,7 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 		streak: extractStreak(metadata),
 		dueDate: extractDue(metadata),
 		blockquote,
-		color: metadata.color ?? '',
+		color: normalizeHexColor(metadata.color),
 		coverImage: metadata.cover ?? '',
 		width: parseInt(metadata.width ?? '0', 10) || 0,
 			size: parseCardSize(metadata.size),

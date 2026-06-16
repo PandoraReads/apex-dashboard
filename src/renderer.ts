@@ -1,4 +1,5 @@
-import { App, setIcon } from 'obsidian';
+import { App, Platform, setIcon } from 'obsidian';
+import type { HoverParent, TFile } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
@@ -6,6 +7,7 @@ import type { LibraryConfig } from './types';
 import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
+import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, readTrackerDataForRange, computeStreak, getPeriodRange } from './tracker-service';
 import type { PomodoroService } from './pomodoro-service';
@@ -42,14 +44,75 @@ function getCSSVar(name: string): string {
 	return getComputedStyle(el).getPropertyValue(name).trim();
 }
 
+// Determine whether the dashboard accent is light enough that white text on it
+// would be unreadable (e.g. the mono/墨白 and carbon themes in dark mode).
+function isAccentLight(): boolean {
+	const el = document.querySelector('.apex-dashboard-root');
+	if (!el) return false;
+	return isLightColor(getComputedStyle(el).getPropertyValue('--db-accent').trim());
+}
+
+// Accepts "#rgb", "#rrggbb", "rgb(...)" or "rgba(...)"; returns true when the
+// color is bright enough that dark text reads better than white.
+function isLightColor(color: string): boolean {
+	const value = color.trim();
+	if (value.startsWith('rgb')) {
+		const nums = value.match(/[\d.]+/g);
+		if (!nums || nums.length < 3) return false;
+		return relativeLuminance(Number(nums[0]), Number(nums[1]), Number(nums[2])) > 0.6;
+	}
+	const hex = value.replace(/^#/, '');
+	if (!/^[0-9a-fA-F]+$/.test(hex)) return false;
+	const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
+	if (full.length !== 6) return false;
+	return relativeLuminance(
+		parseInt(full.slice(0, 2), 16),
+		parseInt(full.slice(2, 4), 16),
+		parseInt(full.slice(4, 6), 16),
+	) > 0.6;
+}
+
+// WCAG relative luminance (0..1).
+function relativeLuminance(r: number, g: number, b: number): number {
+	const toLinear = (c: number) => {
+		const s = c / 255;
+		return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+	};
+	return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
 let taskDragSource: { cardId: string; taskPath: number[] } | null = null;
 let docDragSource: { cardId: string; docPath: number[] } | null = null;
+
+// Set once per render pass by renderDashboard so the deep doc/wikilink renderers
+// can attach hover previews and open the note popover without threading these
+// through every function signature. Mirrors the docDragSource module-level idiom.
+let activeHoverParent: HoverParent | null = null;
+let activeNoteOpener: ((file: TFile) => void) | null = null;
 
 const VAULT_FILE_EXTS = new Set(['md', 'pdf', 'canvas', 'base', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'mp3', 'mp4', 'm4a', 'm4b', 'mov', 'mkv', 'avi']);
 
 function getSearchableFiles(app: App) {
 	return app.vault.getFiles()
 		.filter(f => !f.path.startsWith('.') && VAULT_FILE_EXTS.has(f.extension));
+}
+
+/**
+ * Resolve a raw doc/wikilink target to a TFile, trying the path verbatim, with
+ * an implicit `.md`, and finally a basename fallback. Centralised so the doc
+ * list and inline wikilinks resolve links identically.
+ */
+function resolveNoteFile(app: App, rawPath: string): TFile | null {
+	const direct = app.vault.getFileByPath(rawPath);
+	if (direct) return direct;
+	const withMd = rawPath.includes('.') ? rawPath : `${rawPath}.md`;
+	const tried = app.vault.getFileByPath(withMd);
+	if (tried) return tried;
+	const basename = rawPath.split('/').pop()?.replace(/\.md$/, '') ?? '';
+	if (basename) {
+		return getSearchableFiles(app).find(mf => mf.basename === basename) ?? null;
+	}
+	return null;
 }
 
 // ===== Sidebar Widget Rendering =====
@@ -70,6 +133,7 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 	monday.setDate(now.getDate() + mondayOffset);
 
 	const lang = getLanguage() === 'zh' ? 'zh-CN' : 'en';
+	const accentLight = isAccentLight();
 
 	for (let i = 0; i < 7; i++) {
 		const d = new Date(monday);
@@ -77,7 +141,9 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 		const isToday = d.toDateString() === now.toDateString();
 
 		const cell = row.createDiv({
-			cls: 'dashboard-sidebar-week-cell' + (isToday ? ' dashboard-sidebar-week-cell--today' : ''),
+			cls: 'dashboard-sidebar-week-cell'
+				+ (isToday ? ' dashboard-sidebar-week-cell--today' : '')
+				+ (isToday && accentLight ? ' dashboard-sidebar-week-cell--today-on-light' : ''),
 		});
 		cell.createDiv({
 			cls: 'dashboard-sidebar-week-day',
@@ -1709,7 +1775,11 @@ export function renderDashboard(
 	callbacks: RenderCallbacks,
 	app: App,
 	settings?: DashboardSettings,
+	hoverParent: HoverParent | null = null,
 ): void {
+	activeHoverParent = hoverParent;
+	activeNoteOpener = callbacks.onOpenNoteInPopover ?? null;
+
 	container.empty();
 	container.addClass('dashboard-kanban');
 
@@ -1922,7 +1992,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 
 		renderLibrarySection(el, column, app, (config) => {
 			callbacks.onLibraryConfigChange(column.name, config);
-		});
+		}, activeHoverParent, activeNoteOpener);
 		return el;
 	}
 
@@ -2753,8 +2823,12 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 				});
 			}
 
-			const file = app.vault.getFileByPath(doc.path);
-			docItem.createSpan({ text: file?.basename ?? doc.path.split('/').pop() ?? doc.path, cls: 'dashboard-project-doc-name' });
+			const resolved = resolveNoteFile(app, doc.path);
+			docItem.createSpan({ text: resolved?.basename ?? doc.path.split('/').pop() ?? doc.path, cls: 'dashboard-project-doc-name' });
+
+			if (resolved && !Platform.isMobile && activeHoverParent) {
+				attachNoteHover(app, docItem, resolved, activeHoverParent);
+			}
 
 			const removeBtn = docItem.createEl('button', {
 				cls: 'dashboard-project-doc-remove',
@@ -2773,15 +2847,11 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 
 			docItem.addEventListener('click', (e) => {
 				if ((e.target as HTMLElement).tagName === 'BUTTON') return;
-				const f = app.vault.getFileByPath(doc.path);
-				if (f) {
-					app.workspace.getLeaf(false).openFile(f);
+				if (!resolved) return;
+				if (Platform.isMobile) {
+					void app.workspace.getLeaf(false).openFile(resolved);
 				} else {
-					const basename = doc.path.split('/').pop()?.replace(/\.md$/, '') ?? '';
-					if (basename) {
-						const found = getSearchableFiles(app).find(mf => mf.basename === basename);
-						if (found) app.workspace.getLeaf(false).openFile(found);
-					}
+					activeNoteOpener?.(resolved);
 				}
 			});
 
@@ -2971,20 +3041,21 @@ function renderWikilink(container: HTMLElement, content: string, app: App): void
 		text: displayName,
 	});
 
+	const file = resolveNoteFile(app, path);
+
+	if (file && !Platform.isMobile && activeHoverParent) {
+		attachNoteHover(app, link, file, activeHoverParent);
+	}
+
 	link.addEventListener('click', (e) => {
 		e.stopPropagation();
-		const filePath = path.includes('.') ? path : `${path}.md`;
-		let file = app.vault.getFileByPath(filePath);
-		if (!file) {
-			const basename = path.split('/').pop()?.replace(/\.md$/, '') ?? '';
-			if (basename) {
-				file = getSearchableFiles(app).find(mf => mf.basename === basename) ?? null;
-			}
-		}
-		if (file) {
-			app.workspace.getLeaf(false).openFile(file, {
+		if (!file) return;
+		if (Platform.isMobile) {
+			void app.workspace.getLeaf(false).openFile(file, {
 				eState: fragment ? { line: 0 } : undefined,
 			});
+		} else {
+			activeNoteOpener?.(file);
 		}
 	});
 }

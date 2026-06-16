@@ -1,4 +1,5 @@
 import type { Language } from './i18n';
+import type { TFile } from 'obsidian';
 
 export interface DashboardSettings {
 	dashboardFile: string;
@@ -227,6 +228,7 @@ export interface DashboardData {
 
 export interface RenderCallbacks {
 	onCardEdit(card: DashboardCard): void;
+	onOpenNoteInPopover(file: TFile): void;
 	onCardDelete(cardId: string): void;
 	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;

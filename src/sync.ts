@@ -33,7 +33,6 @@ export class SyncEngine {
 	private settings: DashboardSettings;
 	private file: TFile | null = null;
 	private data: DashboardData | null = null;
-	private lastWrittenHash = '';
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly debounceMs = 300;
 	private writeQueue: Promise<void> = Promise.resolve();
@@ -725,10 +724,16 @@ export class SyncEngine {
 		if (!this.file) return;
 
 		const content = await this.app.vault.read(this.file);
-		const hash = simpleHash(content);
-		if (hash === this.lastWrittenHash) return;
+		const newData = parse(content);
 
-		this.data = parse(content);
+		// Skip the re-render when the on-disk data is logically equivalent to what
+		// we already hold. Our own writes echo back through the file watcher, and a
+		// byte-level hash misfires on trivial differences (e.g. trailing newlines),
+		// so compare canonical serializations instead — otherwise the whole view
+		// rebuilds a second time (the visible "double flash").
+		if (this.data && serialize(newData) === serialize(this.data)) return;
+
+		this.data = newData;
 		this.notifyCallbacks();
 	}
 
@@ -736,7 +741,6 @@ export class SyncEngine {
 		if (!this.data || !this.file) return;
 
 		const content = serialize(this.data);
-		const hash = simpleHash(content);
 
 		const fileRef = this.file;
 		this.writeQueue = this.writeQueue.then(async () => {
@@ -753,7 +757,6 @@ export class SyncEngine {
 				await this.createBackup(current);
 
 				await this.app.vault.modify(fileRef, content);
-				this.lastWrittenHash = hash;
 			} catch (err) {
 				console.error('Dashboard sync write failed:', err);
 			}
@@ -793,14 +796,4 @@ export class SyncEngine {
 			cb(this.data);
 		}
 	}
-}
-
-function simpleHash(str: string): string {
-	let hash = 0;
-	for (let i = 0; i < str.length; i++) {
-		const ch = str.charCodeAt(i);
-		hash = ((hash << 5) - hash) + ch;
-		hash |= 0;
-	}
-	return hash.toString(36);
 }
