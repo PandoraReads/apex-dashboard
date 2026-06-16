@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, QuickAction, BannerData, CardType } from './types';
+import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
 import { t } from './i18n';
 import {
@@ -13,6 +13,14 @@ import {
 	promoteToTopLevel,
 	recalcChecked,
 } from './task-tree';
+import {
+	type DocPath,
+	updateDocAt,
+	removeDocAt,
+	insertDocSibling,
+	appendDocChild,
+	demoteDocToChild,
+} from './doc-tree';
 
 type DataCallback = (data: DashboardData) => void;
 
@@ -89,6 +97,22 @@ export class SyncEngine {
 				...col,
 				cards: col.cards.map(card =>
 					card.id === cardId ? { ...card, tasks: transform(card.tasks) } : card,
+				),
+			})),
+		};
+	}
+
+	private mapCardDocs(
+		data: DashboardData,
+		cardId: string,
+		transform: (docs: DocNode[]) => DocNode[],
+	): DashboardData {
+		return {
+			...data,
+			columns: data.columns.map(col => ({
+				...col,
+				cards: col.cards.map(card =>
+					card.id === cardId ? { ...card, docs: transform(card.docs) } : card,
 				),
 			})),
 		};
@@ -224,6 +248,14 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async toggleCollapseTask(cardId: string, taskPath: TaskPath): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			updateTaskAt(tasks, taskPath, (t) => ({ ...t, collapsed: !t.collapsed })));
+		await this.writeToDisk();
+	}
+
 	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
 		if (!this.data) return;
 
@@ -274,6 +306,7 @@ export class SyncEngine {
 			column: columnName,
 			body: '',
 			tasks: cardType === 'task' ? [{ text: t('sync.todoDefaultTask'), checked: false }] : [],
+			docs: [],
 			url: '',
 			wikiLink: '',
 			progress: -1,
@@ -438,54 +471,45 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async reorderDocPaths(cardId: string, fromIndex: number, toIndex: number): Promise<void> {
+	async reorderDocs(cardId: string, fromPath: DocPath, toPath: DocPath, before: boolean): Promise<void> {
 		if (!this.data) return;
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					const paths = card.body.split('\n')
-						.map(l => l.trim())
-						.filter(l => l.startsWith('[[') && l.endsWith(']]'))
-						.map(l => l.slice(2, -2));
-					if (fromIndex < 0 || fromIndex >= paths.length) return card;
-					if (toIndex < 0 || toIndex >= paths.length) return card;
-					const moved = paths[fromIndex]!;
-					paths.splice(fromIndex, 1);
-					paths.splice(toIndex, 0, moved);
-					const body = paths.map(p => `[[${p}]]`).join('\n');
-					return { ...card, body };
-				}),
-			})),
-		};
+		this.data = this.mapCardDocs(this.data, cardId, (docs) => {
+			const { removed, docs: d1 } = removeDocAt(docs, fromPath);
+			if (!removed) return docs;
+			return insertDocSibling(d1, toPath, removed, before);
+		});
 		await this.writeToDisk();
 	}
 
-	async moveDocToCard(srcCardId: string, docIndex: number, destCardId: string, destIndex: number): Promise<void> {
+	async moveDocToCard(
+		srcCardId: string,
+		fromPath: DocPath,
+		destCardId: string,
+		destPath: DocPath,
+		mode: TaskDropMode,
+	): Promise<void> {
 		if (!this.data) return;
 
-		let movedDocPath: string | undefined;
+		let movedDoc: DocNode | undefined;
 
 		const columnsWithout = this.data.columns.map(col => ({
 			...col,
 			cards: col.cards.map(card => {
 				if (card.id !== srcCardId) return card;
-				const paths = card.body.split('\n')
-					.map(l => l.trim())
-					.filter(l => l.startsWith('[[') && l.endsWith(']]'))
-					.map(l => l.slice(2, -2));
-				if (docIndex < 0 || docIndex >= paths.length) return card;
-				movedDocPath = paths[docIndex];
-				const newPaths = paths.filter((_, i) => i !== docIndex);
-				const body = newPaths.map(p => `[[${p}]]`).join('\n');
-				return { ...card, body };
+				const { removed, docs } = removeDocAt(card.docs, fromPath);
+				movedDoc = removed;
+				return { ...card, docs };
 			}),
 		}));
 
-		if (!movedDocPath) return;
+		if (!movedDoc) return;
+
+		const node: DocNode = mode === 'nest' ? { ...movedDoc } : (() => {
+			const clean: DocNode = { ...movedDoc };
+			delete clean.children;
+			return clean;
+		})();
 
 		this.data = {
 			...this.data,
@@ -493,57 +517,48 @@ export class SyncEngine {
 				...col,
 				cards: col.cards.map(card => {
 					if (card.id !== destCardId) return card;
-					const paths = card.body.split('\n')
-						.map(l => l.trim())
-						.filter(l => l.startsWith('[[') && l.endsWith(']]'))
-						.map(l => l.slice(2, -2));
-					const clamped = Math.min(destIndex, paths.length);
-					paths.splice(clamped, 0, movedDocPath!);
-					const body = paths.map(p => `[[${p}]]`).join('\n');
-					return { ...card, body };
+					let docs: DocNode[];
+					if (mode === 'nest') {
+						docs = appendDocChild(card.docs, destPath, node);
+					} else {
+						docs = insertDocSibling(card.docs, destPath, node, mode === 'before');
+					}
+					return { ...card, docs };
 				}),
 			})),
 		};
 		await this.writeToDisk();
 	}
 
-	async updateProjectDocs(cardId: string, docPaths: string[]): Promise<void> {
+	async nestDoc(cardId: string, docPath: DocPath): Promise<void> {
 		if (!this.data) return;
 
-		const body = docPaths.map(p => `[[${p}]]`).join('\n');
+		this.data = this.mapCardDocs(this.data, cardId, (docs) =>
+			demoteDocToChild(docs, docPath));
+		await this.writeToDisk();
+	}
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card =>
-					card.id === cardId ? { ...card, body } : card
-				),
-			})),
-		};
+	async toggleCollapseDoc(cardId: string, docPath: DocPath): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardDocs(this.data, cardId, (docs) =>
+			updateDocAt(docs, docPath, (d) => ({ ...d, collapsed: !d.collapsed })));
+		await this.writeToDisk();
+	}
+
+	async deleteDoc(cardId: string, docPath: DocPath): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardDocs(this.data, cardId, (docs) =>
+			removeDocAt(docs, docPath).docs);
 		await this.writeToDisk();
 	}
 
 	async addDocToCard(cardId: string, filePath: string): Promise<void> {
 		if (!this.data) return;
 
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col => ({
-				...col,
-				cards: col.cards.map(card => {
-					if (card.id !== cardId) return card;
-					const paths = card.body.split('\n')
-						.map(l => l.trim())
-						.filter(l => l.startsWith('[[') && l.endsWith(']]'))
-						.map(l => l.slice(2, -2));
-					if (paths.includes(filePath)) return card;
-					paths.push(filePath);
-					const body = paths.map(p => `[[${p}]]`).join('\n');
-					return { ...card, body };
-				}),
-			})),
-		};
+		this.data = this.mapCardDocs(this.data, cardId, (docs) =>
+			docs.some(d => d.path === filePath) ? docs : [...docs, { path: filePath }]);
 		await this.writeToDisk();
 	}
 

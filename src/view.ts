@@ -659,11 +659,15 @@ export class DashboardView extends ItemView {
 			onTaskEdit: (cardId: string, taskPath: number[], text: string) => this.sync.editTask(cardId, taskPath, text),
 			onTaskNest: (cardId: string, taskPath: number[]) => this.sync.nestTask(cardId, taskPath),
 			onTaskUnnest: (cardId: string, taskPath: number[]) => this.sync.unnestTask(cardId, taskPath),
+			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTask(cardId, taskPath),
 			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
-			onProjectDocsUpdate: (card: DashboardCard, docPaths: string[]) => this.sync.updateProjectDocs(card.id, docPaths),
-			onProjectDocsReorder: (cardId: string, from: number, to: number) => this.sync.reorderDocPaths(cardId, from, to),
-				onDocMoveToCard: (srcCardId: string, docIndex: number, destCardId: string, destIndex: number) => this.sync.moveDocToCard(srcCardId, docIndex, destCardId, destIndex),
+			onDocAdd: (cardId: string, path: string) => this.sync.addDocToCard(cardId, path),
+			onDocDelete: (cardId: string, docPath: number[]) => this.sync.deleteDoc(cardId, docPath),
+			onDocReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderDocs(cardId, fromPath, toPath, before),
+			onDocMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveDocToCard(srcCardId, fromPath, destCardId, destPath, mode),
+			onDocNest: (cardId: string, docPath: number[]) => this.sync.nestDoc(cardId, docPath),
+			onDocToggleCollapse: (cardId: string, docPath: number[]) => this.sync.toggleCollapseDoc(cardId, docPath),
 			onCardAdd: (colName: string) => {
 				const column = this.data?.columns.find(col => col.name === colName);
 				const effectiveType = column?.sectionType ?? colName.toLowerCase();

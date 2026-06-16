@@ -7,6 +7,7 @@ import type {
 	DashboardData,
 	QuickAction,
 	TaskItem,
+	DocNode,
 	WeatherConfig,
 	TrackerConfig,
 	LibraryConfig,
@@ -17,6 +18,8 @@ import { t } from './i18n';
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
 
 const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*$/;
+const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
+const DOC_LINE_REGEX = /^(\s*)(?:- )?\[\[([^\]\n]+)]](\s*<!--collapsed-->\s*)?$/;
 
 const DEFAULT_BANNER: BannerData = {
 	quote: 'The mind is everything. What you think you become.',
@@ -232,15 +235,20 @@ export function serialize(data: DashboardData): string {
 					const prefix = indent > 0 ? '    '.repeat(indent) : '';
 					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
 					if (task.reminder) taskLine += ` ⏰ ${task.reminder}`;
+					if (task.collapsed) taskLine += ` <!--collapsed-->`;
 					lines.push(taskLine);
 					for (const child of task.children ?? []) writeTask(child, indent + 1);
 				};
 				for (const task of card.tasks) writeTask(task, 0);
 			}
 
+			if (card.docs.length > 0) {
+				for (const docLine of serializeDocTree(card.docs)) lines.push(docLine);
+			}
+
 			const bodyLines = card.body.trim();
 			if (bodyLines) {
-				if (card.tasks.length > 0 || card.blockquote || card.url || card.wikiLink) {
+				if (card.tasks.length > 0 || card.docs.length > 0 || card.blockquote || card.url || card.wikiLink) {
 					lines.push('');
 				}
 				lines.push(bodyLines);
@@ -273,6 +281,7 @@ export function generateDefaultMarkdown(): string {
 						column: 'Memo',
 						body: t('default.memoBody'),
 						tasks: [],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -295,6 +304,7 @@ export function generateDefaultMarkdown(): string {
 						column: 'Memo',
 						body: t('default.memoPathBody'),
 						tasks: [],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -317,6 +327,7 @@ export function generateDefaultMarkdown(): string {
 						column: 'Memo',
 						body: t('default.memoDeleteBody'),
 						tasks: [],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -351,6 +362,7 @@ export function generateDefaultMarkdown(): string {
 							{ text: t('default.todo3'), checked: false },
 							{ text: t('default.todo4'), checked: false },
 						],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -378,6 +390,7 @@ export function generateDefaultMarkdown(): string {
 							{ text: t('default.guide3'), checked: false },
 							{ text: t('default.guide4'), checked: false },
 						],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -407,6 +420,7 @@ export function generateDefaultMarkdown(): string {
 						column: 'Projects',
 						body: '',
 						tasks: [],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -436,6 +450,7 @@ export function generateDefaultMarkdown(): string {
 						column: 'Library',
 						body: '',
 						tasks: [],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -458,6 +473,7 @@ export function generateDefaultMarkdown(): string {
 						column: 'Library',
 						body: '',
 						tasks: [],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -480,6 +496,7 @@ export function generateDefaultMarkdown(): string {
 						column: 'Library',
 						body: '',
 						tasks: [],
+						docs: [],
 						url: '',
 						wikiLink: '',
 						progress: -1,
@@ -735,7 +752,7 @@ function splitByH3(content: string): Array<{ title: string; body: string }> {
 }
 
 function parseCard(block: { title: string; body: string }, columnName: string): DashboardCard {
-	const { metadata, tasks, blockquote, cleanBody } = extractCardParts(block.body);
+	const { metadata, tasks, docs, blockquote, cleanBody } = extractCardParts(block.body);
 	const cardType = detectCardType(tasks, blockquote, metadata);
 	const weatherConfig = cardType === 'weather' ? parseWeatherConfig(metadata) : undefined;
 	const trackerConfig = cardType === 'tracker' ? parseTrackerConfig(metadata) : undefined;
@@ -747,6 +764,7 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 		column: columnName,
 		body: cleanBody,
 		tasks,
+		docs,
 		url: extractUrl(metadata),
 		wikiLink: extractWikiLink(metadata),
 		progress: extractProgress(metadata),
@@ -769,12 +787,14 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 function extractCardParts(body: string): {
 	metadata: Record<string, string>;
 	tasks: TaskItem[];
+	docs: DocNode[];
 	blockquote: string;
 	cleanBody: string;
 } {
 	const lines = body.split('\n');
 	const metadata: Record<string, string> = {};
 	const tasks: TaskItem[] = [];
+	const docLines: string[] = [];
 	const bodyLines: string[] = [];
 	let blockquote = '';
 	let currentParent: TaskItem | null = null;
@@ -794,18 +814,30 @@ function extractCardParts(body: string): {
 		if (taskMatch && taskMatch[1] && taskMatch[2]) {
 			let taskText = taskMatch[2];
 			let taskReminder: string | undefined;
+			let taskCollapsed = false;
+			const collapsedMatch = taskText.match(COLLAPSED_REGEX);
+			if (collapsedMatch) {
+				taskText = taskText.replace(COLLAPSED_REGEX, '');
+				taskCollapsed = true;
+			}
 			const reminderMatch = taskText.match(REMINDER_REGEX);
 			if (reminderMatch) {
 				taskText = taskText.replace(REMINDER_REGEX, '');
 				taskReminder = reminderMatch[1];
 			}
-			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder };
+			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder, collapsed: taskCollapsed };
 			if (isIndented && currentParent) {
 				currentParent.children = [...(currentParent.children ?? []), node];
 			} else {
 				tasks.push(node);
 				currentParent = node;
 			}
+			continue;
+		}
+
+		const docMatch = line.match(DOC_LINE_REGEX);
+		if (docMatch) {
+			docLines.push(line);
 			continue;
 		}
 
@@ -821,7 +853,46 @@ function extractCardParts(body: string): {
 		}
 	}
 
-	return { metadata, tasks, blockquote, cleanBody: bodyLines.join('\n') };
+	return { metadata, tasks, docs: parseDocTree(docLines), blockquote, cleanBody: bodyLines.join('\n') };
+}
+
+const DOC_TREE_INDENT = 4;
+
+// Parse document-link lines (optionally nested list / indented) into a tree.
+// Stack-based so arbitrary nesting depth is supported (unlike tasks' single parent).
+function parseDocTree(rawLines: string[]): DocNode[] {
+	const root: DocNode[] = [];
+	const stack: { depth: number; node: DocNode }[] = [];
+	for (const line of rawLines) {
+		const m = line.match(DOC_LINE_REGEX);
+		if (!m) continue;
+		const indentSpaces = (m[1] ?? '').replace(/\t/g, '    ');
+		const depth = Math.floor(indentSpaces.length / DOC_TREE_INDENT);
+		const node: DocNode = { path: m[2]! };
+		if (m[3]) node.collapsed = true;
+		while (stack.length && stack[stack.length - 1]!.depth >= depth) stack.pop();
+		if (stack.length === 0) {
+			root.push(node);
+		} else {
+			const parent = stack[stack.length - 1]!.node;
+			parent.children = [...(parent.children ?? []), node];
+		}
+		stack.push({ depth, node });
+	}
+	return root;
+}
+
+function serializeDocTree(docs: DocNode[]): string[] {
+	const lines: string[] = [];
+	const write = (node: DocNode, indent: number) => {
+		const prefix = indent > 0 ? '    '.repeat(indent) : '';
+		let line = `${prefix}- [[${node.path}]]`;
+		if (node.collapsed) line += ` <!--collapsed-->`;
+		lines.push(line);
+		for (const child of node.children ?? []) write(child, indent + 1);
+	};
+	for (const doc of docs) write(doc, 0);
+	return lines;
 }
 
 function detectCardType(

@@ -1,5 +1,5 @@
 import { App, setIcon } from 'obsidian';
-import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DashboardSettings, CardSize, TrackerStyle } from './types';
+import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import type { LibraryConfig } from './types';
@@ -43,7 +43,7 @@ function getCSSVar(name: string): string {
 }
 
 let taskDragSource: { cardId: string; taskPath: number[] } | null = null;
-let docDragSource: { cardId: string; docIndex: number } | null = null;
+let docDragSource: { cardId: string; docPath: number[] } | null = null;
 
 const VAULT_FILE_EXTS = new Set(['md', 'pdf', 'canvas', 'base', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'mp3', 'mp4', 'm4a', 'm4b', 'mov', 'mkv', 'avi']);
 
@@ -2165,10 +2165,8 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 			if (docDragSource.cardId === card.id) return;
 			if (e.defaultPrevented) return;
 			e.preventDefault();
-			const parseDocPaths = (b: string): string[] =>
-				b.split('\n').map(l => l.trim()).filter(l => l.startsWith('[[') && l.endsWith(']]')).map(l => l.slice(2, -2));
-			const destIndex = parseDocPaths(card.body).length;
-			callbacks.onDocMoveToCard(docDragSource.cardId, docDragSource.docIndex, card.id, destIndex);
+			const destPath = [card.docs.length];
+			callbacks.onDocMoveToCard(docDragSource.cardId, docDragSource.docPath, card.id, destPath, 'before');
 		});
 	}
 
@@ -2367,6 +2365,18 @@ function renderTaskItem(
 		item.removeClass('dashboard-task-item--dragging');
 	}, { passive: true });
 
+	const hasChildren = (task.children?.length ?? 0) > 0;
+	if (hasChildren) {
+		const toggle = item.createDiv({ cls: 'dashboard-task-toggle dashboard-task-toggle--active' });
+		toggle.setAttribute('role', 'button');
+		toggle.setAttribute('aria-label', task.collapsed ? t('renderer.expandTask') : t('renderer.collapseTask'));
+		setIcon(toggle, task.collapsed ? 'chevron-right' : 'chevron-down');
+		toggle.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onTaskToggleCollapse(card.id, path);
+		});
+	}
+
 	const checkbox = item.createEl('input', {
 		cls: 'dashboard-task-checkbox',
 		attr: { type: 'checkbox' },
@@ -2499,7 +2509,7 @@ function renderTaskItem(
 		}
 	});
 
-	if (task.children && task.children.length > 0) {
+	if (task.children && task.children.length > 0 && !task.collapsed) {
 		for (let i = 0; i < task.children.length; i++) {
 			renderTaskItem(list, task.children[i]!, [...path, i], card, callbacks, app, depth + 1);
 		}
@@ -2671,18 +2681,36 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 }
 
 	function renderProjectBody(container: HTMLElement, card: DashboardCard, callbacks: RenderCallbacks, app: App): void {
-		const parseDocPaths = (body: string): string[] =>
-			body.split('\n')
-				.map(line => line.trim())
-				.filter(line => line.startsWith('[[') && line.endsWith(']]'))
-				.map(line => line.slice(2, -2));
+		const collectDocPaths = (docs: DocNode[]): string[] => {
+			const out: string[] = [];
+			const walk = (nodes: DocNode[]) => {
+				for (const n of nodes) {
+					out.push(n.path);
+					if (n.children) walk(n.children);
+				}
+			};
+			walk(docs);
+			return out;
+		};
 
-		const docPaths = parseDocPaths(card.body);
+		const clearDragClasses = () => {
+			document.querySelectorAll(
+				'.dashboard-task-item--drag-top,.dashboard-task-item--drag-bottom,.dashboard-task-item--drag-nest,.dashboard-task-item--drag-over,.dashboard-task-item--dragging'
+			).forEach(el => {
+				(el as HTMLElement).removeClass(
+					'dashboard-task-item--drag-top',
+					'dashboard-task-item--drag-bottom',
+					'dashboard-task-item--drag-nest',
+					'dashboard-task-item--drag-over',
+					'dashboard-task-item--dragging',
+				);
+			});
+		};
 
 		const docList = container.createDiv({ cls: 'dashboard-project-docs' });
 		docList.dataset.cardId = card.id;
 
-		// Empty list drop target so docs can be dragged in
+		// Empty list drop target so docs can be dragged in (appends at top-level end)
 		docList.addEventListener('dragover', (e) => {
 			if (!docDragSource) return;
 			if (docDragSource.cardId === card.id) return;
@@ -2702,101 +2730,128 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 			docList.removeClass('dashboard-project-docs--drop-target');
 			if (!docDragSource) return;
 			if (docDragSource.cardId === card.id) return;
-			const destIndex = docPaths.length;
-			callbacks.onDocMoveToCard(docDragSource.cardId, docDragSource.docIndex, card.id, destIndex);
+			const destPath = [card.docs.length];
+			callbacks.onDocMoveToCard(docDragSource.cardId, docDragSource.docPath, card.id, destPath, 'before');
 		});
 
-		if (docPaths.length > 0) {
+		const renderDocItem = (doc: DocNode, path: number[], depth: number) => {
+			const docItem = docList.createDiv({ cls: 'dashboard-project-doc-item' });
+			if (depth > 0) docItem.addClass('dashboard-project-doc-item--child');
+			docItem.style.marginLeft = `${depth * 18}px`;
+			docItem.setAttribute('draggable', 'true');
+			docItem.dataset.docPath = JSON.stringify(path);
 
-			docPaths.forEach((docPath, idx) => {
-				const file = app.vault.getFileByPath(docPath);
-				const docItem = docList.createDiv({ cls: 'dashboard-project-doc-item' });
-				docItem.setAttribute('draggable', 'true');
-				docItem.dataset.docIndex = String(idx);
-				docItem.createSpan({ text: file?.basename ?? docPath.split('/').pop() ?? docPath, cls: 'dashboard-project-doc-name' });
-
-				const removeBtn = docItem.createEl('button', {
-					cls: 'dashboard-project-doc-remove',
-					attr: { 'aria-label': t('renderer.removeDoc') },
-				});
-				setIcon(removeBtn, 'x');
-				removeBtn.addEventListener('click', async (e) => {
+			const hasChildren = (doc.children?.length ?? 0) > 0;
+			if (hasChildren) {
+				const toggle = docItem.createDiv({ cls: 'dashboard-task-toggle dashboard-task-toggle--active' });
+				toggle.setAttribute('role', 'button');
+				toggle.setAttribute('aria-label', doc.collapsed ? t('renderer.expandDoc') : t('renderer.collapseDoc'));
+				setIcon(toggle, doc.collapsed ? 'chevron-right' : 'chevron-down');
+				toggle.addEventListener('click', (e) => {
 					e.stopPropagation();
-					const currentPaths = parseDocPaths(card.body);
-					const newPaths = currentPaths.filter((_, i) => i !== idx);
-					const confirmed = await showConfirmDialog(app, {
-						title: t('common.confirmDelete'),
-						message: t('common.confirmDeleteMessage'),
-					});
-					if (!confirmed) return;
-					callbacks.onProjectDocsUpdate(card, newPaths);
+					callbacks.onDocToggleCollapse(card.id, path);
 				});
+			}
 
-				docItem.addEventListener('click', (e) => {
-					if ((e.target as HTMLElement).tagName === 'BUTTON') return;
-					const f = app.vault.getFileByPath(docPath);
-					if (f) {
-						app.workspace.getLeaf(false).openFile(f);
-					} else {
-						const basename = docPath.split('/').pop()?.replace(/\.md$/, '') ?? '';
-						if (basename) {
-							const found = getSearchableFiles(app).find(mf => mf.basename === basename);
-							if (found) app.workspace.getLeaf(false).openFile(found);
-						}
-					}
-				});
+			const file = app.vault.getFileByPath(doc.path);
+			docItem.createSpan({ text: file?.basename ?? doc.path.split('/').pop() ?? doc.path, cls: 'dashboard-project-doc-name' });
 
-				docItem.addEventListener('dragstart', (e) => {
-					e.stopPropagation();
-					docDragSource = { cardId: card.id, docIndex: idx };
-					docItem.addClass('dashboard-task-item--dragging');
-					if (e.dataTransfer) {
-						e.dataTransfer.effectAllowed = 'move';
-						e.dataTransfer.setData('text/plain', String(idx));
-					}
-				});
-
-				docItem.addEventListener('dragend', () => {
-					docItem.removeClass('dashboard-task-item--dragging');
-					document.querySelectorAll('.dashboard-task-item--drag-over').forEach(el => {
-						(el as HTMLElement).removeClass('dashboard-task-item--drag-over');
-					});
-					docDragSource = null;
-				});
-
-				docItem.addEventListener('dragover', (e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					if (!docDragSource) return;
-					if (docDragSource.cardId === card.id && docDragSource.docIndex === idx) return;
-					if (e.dataTransfer) {
-						e.dataTransfer.dropEffect = 'move';
-					}
-					document.querySelectorAll('.dashboard-task-item--drag-over').forEach(el => {
-						(el as HTMLElement).removeClass('dashboard-task-item--drag-over');
-					});
-					docItem.addClass('dashboard-task-item--drag-over');
-				});
-
-				docItem.addEventListener('dragleave', () => {
-					docItem.removeClass('dashboard-task-item--drag-over');
-				});
-
-				docItem.addEventListener('drop', (e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					docItem.removeClass('dashboard-task-item--drag-over');
-					if (!docDragSource) return;
-					if (docDragSource.cardId === card.id && docDragSource.docIndex === idx) return;
-
-					if (docDragSource.cardId === card.id) {
-						callbacks.onProjectDocsReorder(card.id, docDragSource.docIndex, idx);
-					} else {
-						callbacks.onDocMoveToCard(docDragSource.cardId, docDragSource.docIndex, card.id, idx);
-					}
-				});
+			const removeBtn = docItem.createEl('button', {
+				cls: 'dashboard-project-doc-remove',
+				attr: { 'aria-label': t('renderer.removeDoc') },
 			});
-		}
+			setIcon(removeBtn, 'x');
+			removeBtn.addEventListener('click', async (e) => {
+				e.stopPropagation();
+				const confirmed = await showConfirmDialog(app, {
+					title: t('common.confirmDelete'),
+					message: t('common.confirmDeleteMessage'),
+				});
+				if (!confirmed) return;
+				callbacks.onDocDelete(card.id, path);
+			});
+
+			docItem.addEventListener('click', (e) => {
+				if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+				const f = app.vault.getFileByPath(doc.path);
+				if (f) {
+					app.workspace.getLeaf(false).openFile(f);
+				} else {
+					const basename = doc.path.split('/').pop()?.replace(/\.md$/, '') ?? '';
+					if (basename) {
+						const found = getSearchableFiles(app).find(mf => mf.basename === basename);
+						if (found) app.workspace.getLeaf(false).openFile(found);
+					}
+				}
+			});
+
+			docItem.addEventListener('dragstart', (e) => {
+				e.stopPropagation();
+				docDragSource = { cardId: card.id, docPath: path };
+				docItem.addClass('dashboard-task-item--dragging');
+				if (e.dataTransfer) {
+					e.dataTransfer.effectAllowed = 'move';
+					e.dataTransfer.setData('text/plain', JSON.stringify(path));
+				}
+			});
+
+			docItem.addEventListener('dragend', () => {
+				docItem.removeClass('dashboard-task-item--dragging');
+				clearDragClasses();
+				docDragSource = null;
+			});
+
+			docItem.addEventListener('dragover', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				if (!docDragSource) return;
+				const sameNode = docDragSource.cardId === card.id &&
+					JSON.stringify(docDragSource.docPath) === JSON.stringify(path);
+				if (sameNode) return;
+				if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+				clearDragClasses();
+				const rect = docItem.getBoundingClientRect();
+				const ratio = (e.clientY - rect.top) / rect.height;
+				if (ratio < 0.3) docItem.addClass('dashboard-task-item--drag-top');
+				else if (ratio > 0.7) docItem.addClass('dashboard-task-item--drag-bottom');
+				else docItem.addClass('dashboard-task-item--drag-nest');
+			});
+
+			docItem.addEventListener('dragleave', () => {
+				docItem.removeClass('dashboard-task-item--drag-top');
+				docItem.removeClass('dashboard-task-item--drag-bottom');
+				docItem.removeClass('dashboard-task-item--drag-nest');
+			});
+
+			docItem.addEventListener('drop', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				clearDragClasses();
+				if (!docDragSource) return;
+				const sameNode = docDragSource.cardId === card.id &&
+					JSON.stringify(docDragSource.docPath) === JSON.stringify(path);
+				if (sameNode) return;
+
+				const rect = docItem.getBoundingClientRect();
+				const ratio = (e.clientY - rect.top) / rect.height;
+				const src = docDragSource;
+
+				if (src.cardId === card.id) {
+					if (ratio < 0.3) callbacks.onDocReorder(card.id, src.docPath, path, true);
+					else if (ratio > 0.7) callbacks.onDocReorder(card.id, src.docPath, path, false);
+					else callbacks.onDocNest(card.id, src.docPath);
+				} else {
+					const mode: 'before' | 'after' | 'nest' = ratio < 0.3 ? 'before' : ratio > 0.7 ? 'after' : 'nest';
+					callbacks.onDocMoveToCard(src.cardId, src.docPath, card.id, path, mode);
+				}
+			});
+
+			if (hasChildren && !doc.collapsed) {
+				doc.children!.forEach((child, i) => renderDocItem(child, [...path, i], depth + 1));
+			}
+		};
+
+		card.docs.forEach((doc, i) => renderDocItem(doc, [i], 0));
 
 		const addDocRow = container.createDiv({ cls: 'dashboard-project-add-doc' });
 		const docInput = addDocRow.createEl('input', {
@@ -2811,7 +2866,7 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 			const q = docInput.value.toLowerCase().trim();
 			if (!q) return;
 
-			const currentPaths = parseDocPaths(card.body);
+			const currentPaths = collectDocPaths(card.docs);
 			const files = getSearchableFiles(app)
 				.filter(f => !f.path.startsWith('.'))
 				.filter(f => f.path.toLowerCase().includes(q) || f.basename.toLowerCase().includes(q))
@@ -2822,9 +2877,7 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 				const item = docResults.createDiv({ cls: 'dashboard-project-doc-result' });
 				item.setText(file.basename);
 				item.addEventListener('click', () => {
-					const latestPaths = parseDocPaths(card.body);
-					const newPaths = [...latestPaths, file.path];
-					callbacks.onProjectDocsUpdate(card, newPaths);
+					callbacks.onDocAdd(card.id, file.path);
 				});
 			}
 		});

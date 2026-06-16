@@ -147,6 +147,13 @@ export interface TaskItem {
 	checked: boolean;
 	reminder?: string;
 	children?: TaskItem[];
+	collapsed?: boolean;
+}
+
+export interface DocNode {
+	path: string;
+	children?: DocNode[];
+	collapsed?: boolean;
 }
 
 export interface TaskTemplate {
@@ -164,6 +171,7 @@ export interface DashboardCard {
 	column: string;
 	body: string;
 	tasks: TaskItem[];
+	docs: DocNode[];
 	url: string;
 	wikiLink: string;
 	progress: number;
@@ -234,9 +242,12 @@ export interface RenderCallbacks {
 	onMoveCard(cardId: string, targetColumn: string, targetIndex: number): void;
 	onMemoUpdate(card: DashboardCard, updates: { body: string; blockquote: string }): void;
 	onMemoSaveAsNote(card: DashboardCard): void;
-	onProjectDocsUpdate(card: DashboardCard, docPaths: string[]): void;
-	onProjectDocsReorder(cardId: string, fromIndex: number, toIndex: number): void;
-	onDocMoveToCard(srcCardId: string, docIndex: number, destCardId: string, destIndex: number): void;
+	onDocAdd(cardId: string, path: string): void;
+	onDocDelete(cardId: string, docPath: number[]): void;
+	onDocReorder(cardId: string, fromPath: number[], toPath: number[], before: boolean): void;
+	onDocMoveToCard(srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest'): void;
+	onDocNest(cardId: string, docPath: number[]): void;
+	onDocToggleCollapse(cardId: string, docPath: number[]): void;
 	onMemoColorChange(card: DashboardCard, color: string): void;
 	onProjectCoverChange(card: DashboardCard, imagePath: string): void;
 	onCardTitleEdit(cardId: string, newTitle: string): void;
@@ -249,6 +260,7 @@ export interface RenderCallbacks {
 	onTaskReminderEdit(cardId: string, taskPath: number[], reminder: string | undefined): void;
 	onTaskNest(cardId: string, taskPath: number[]): void;
 	onTaskUnnest(cardId: string, taskPath: number[]): void;
+	onTaskToggleCollapse(cardId: string, taskPath: number[]): void;
 	onAddFromTemplate(columnName: string): void;
 	onLibraryConfigChange(columnName: string, config: LibraryConfig): void;
 }

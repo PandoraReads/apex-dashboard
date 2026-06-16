@@ -5244,6 +5244,32 @@
 	transform: scale(1.0);
 }
 
+.dashboard-task-toggle {
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--db-text-muted);
+}
+
+.dashboard-task-toggle--active {
+	cursor: pointer;
+	border-radius: var(--db-radius-sm);
+	transition: color 0.15s ease, background 0.15s ease;
+}
+
+.dashboard-task-toggle--active:hover {
+	color: var(--db-text);
+	background: var(--db-bg-card-hover);
+}
+
+.dashboard-task-toggle svg {
+	width: 12px;
+	height: 12px;
+}
+
 .dashboard-task-text {
 	font-size: 0.95em;
 	flex: 1;
@@ -5434,6 +5460,11 @@
 	-webkit-backdrop-filter: var(--db-backdrop-blur);
 	cursor: pointer;
 	transition: background 0.15s ease, border-color 0.15s ease;
+	position: relative;
+}
+
+.dashboard-project-doc-item--child {
+	border-left: 2px solid var(--db-border-card);
 }
 
 .dashboard-project-doc-item:hover {
