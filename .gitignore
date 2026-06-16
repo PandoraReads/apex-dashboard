@@ -9,7 +9,6 @@ data.json
 .DS_Store
 
 # Source code
-src/
 esbuild.config.mjs
 tsconfig.json
 eslint.config.mts
