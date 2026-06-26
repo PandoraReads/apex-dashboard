@@ -1,4 +1,4 @@
-import { requestUrl, type App, TFile, Notice } from 'obsidian';
+import { requestUrl } from 'obsidian';
 
 export interface BookSearchResult {
 	title: string;

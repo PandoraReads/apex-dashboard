@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, TFolder } from 'obsidian';
+import { App, PluginSettingTab, Setting } from 'obsidian';
 import type DashboardPlugin from './main';
 import { DEFAULT_SETTINGS, type DashboardSettings } from './types';
 import { t, setLanguage, type Language } from './i18n';
@@ -89,7 +89,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 			.setName(t('settings.dashboardFile'))
 			.setDesc(t('settings.dashboardFileDesc'))
 			.addText(text => text
-				.setPlaceholder('dashboard or path/to/dashboard')
+				.setPlaceholder('Dashboard or path/to/dashboard')
 				.setValue(this.plugin.settings.dashboardFile)
 				.onChange(async (value) => {
 					this.plugin.settings = {
@@ -103,7 +103,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 			.setName(t('settings.memoSavePath'))
 			.setDesc(t('settings.memoSavePathDesc'))
 			.addText(text => text
-				.setPlaceholder('memos')
+				.setPlaceholder('Memos')
 				.setValue(this.plugin.settings.memoSavePath)
 				.onChange(async (value) => {
 					this.plugin.settings = {
@@ -134,7 +134,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 	}
 
 	private renderWidgetSettings(containerEl: HTMLElement): void {
-		containerEl.createEl('h3', { text: t('settings.widgetTheme'), cls: 'dashboard-settings-section-title' });
+		new Setting(containerEl).setName(t('settings.widgetTheme')).setHeading();
 
 		// --- Weather card ---
 		const weatherCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
@@ -190,7 +190,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 				}));
 
 		if (this.plugin.settings.widgetHeatmapEnabled) {
-			const folderSetting = new Setting(heatmapCard)
+			new Setting(heatmapCard)
 				.setName(t('settings.widgetHeatmapFolder'))
 				.setDesc(t('settings.widgetHeatmapFolderPlaceholder'))
 				.addText(text => text
@@ -298,14 +298,8 @@ export class DashboardSettingTab extends PluginSettingTab {
 				hintLine.createSpan({ text: t('settings.widgetTrackerSuggested') + ' ' });
 				for (const k of suggestions.slice(0, 6)) {
 					const tag = hintLine.createEl('button', { cls: 'tracker-key-tag', text: k });
-					tag.addEventListener('click', async () => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetTrackerKey: k,
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-						this.display();
+					tag.addEventListener('click', () => {
+						void this.applyTrackerKey(k);
 					});
 				}
 			}
@@ -481,8 +475,18 @@ export class DashboardSettingTab extends PluginSettingTab {
 		}
 	}
 
+	private async applyTrackerKey(key: string): Promise<void> {
+		this.plugin.settings = {
+			...this.plugin.settings,
+			widgetTrackerKey: key,
+		};
+		await this.plugin.saveSettings();
+		this.plugin.refreshAllDashboards();
+		this.display();
+	}
+
 	private renderLunarSettings(containerEl: HTMLElement): void {
-		containerEl.createEl('h3', { text: t('settings.widgetLunar'), cls: 'dashboard-settings-section-title' });
+		new Setting(containerEl).setName(t('settings.widgetLunar')).setHeading();
 
 		const lunarCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(lunarCard)
@@ -503,76 +507,90 @@ export class DashboardSettingTab extends PluginSettingTab {
 
 	private attachCitySuggest(inputEl: HTMLInputElement): void {
 		let dropdown: HTMLElement | null = null;
-		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+		let debounceTimer: number | null = null;
 
 		const close = () => {
 			if (dropdown) { dropdown.remove(); dropdown = null; }
 		};
 
 		inputEl.addEventListener('input', () => {
-			if (debounceTimer) clearTimeout(debounceTimer);
+			if (debounceTimer) window.clearTimeout(debounceTimer);
 			const query = inputEl.value.trim();
 			if (query.length < 2) { close(); return; }
 
-			debounceTimer = setTimeout(async () => {
-				const results = await geocodeCity(query);
-				close();
-				if (results.length === 0) return;
-
-				dropdown = inputEl.ownerDocument.createElement('div');
-				dropdown.className = 'dashboard-city-suggest';
-				Object.assign(dropdown.style, {
-					position: 'absolute',
-					zIndex: '100',
-					background: 'var(--background-secondary)',
-					border: '1px solid var(--background-modifier-border)',
-					borderRadius: '6px',
-					boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-					maxHeight: '200px',
-					overflowY: 'auto',
-					width: inputEl.getBoundingClientRect().width + 'px',
+			debounceTimer = window.setTimeout(() => {
+				void this.suggestCities(inputEl, query, dropdown, close).then(next => {
+					dropdown = next;
 				});
-
-				const rect = inputEl.getBoundingClientRect();
-				dropdown.style.left = rect.left + 'px';
-				dropdown.style.top = (rect.bottom + 4) + 'px';
-
-				for (const r of results) {
-					const item = dropdown.createDiv({ cls: 'dashboard-city-suggest-item' });
-					const label = r.admin1 ? `${r.name}, ${r.admin1}, ${r.country}` : `${r.name}, ${r.country}`;
-					item.textContent = label;
-					Object.assign(item.style, {
-						padding: '6px 10px',
-						cursor: 'pointer',
-						fontSize: '0.85em',
-						borderBottom: '1px solid var(--background-modifier-border)',
-					});
-					item.addEventListener('mouseenter', () => {
-						item.style.background = 'var(--background-modifier-hover)';
-					});
-					item.addEventListener('mouseleave', () => {
-						item.style.background = '';
-					});
-					item.addEventListener('click', async () => {
-						inputEl.value = r.name;
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetWeatherCity: r.name,
-							widgetWeatherLat: r.latitude,
-							widgetWeatherLon: r.longitude,
-						};
-						await this.plugin.saveSettings();
-						close();
-						this.plugin.refreshAllDashboards();
-					});
-				}
-
-				inputEl.ownerDocument.body.appendChild(dropdown);
 			}, 300);
 		});
 
 		inputEl.addEventListener('blur', () => {
-			setTimeout(close, 200);
+			window.setTimeout(close, 200);
 		});
+	}
+
+	private async suggestCities(
+		inputEl: HTMLInputElement,
+		query: string,
+		dropdown: HTMLElement | null,
+		close: () => void,
+	): Promise<HTMLElement | null> {
+		const results = await geocodeCity(query);
+		close();
+		if (results.length === 0) return dropdown;
+
+		const next = inputEl.ownerDocument.createElement('div');
+		next.className = 'dashboard-city-suggest';
+		Object.assign(next.style, {
+			position: 'absolute',
+			zIndex: '100',
+			background: 'var(--background-secondary)',
+			border: '1px solid var(--background-modifier-border)',
+			borderRadius: '6px',
+			boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+			maxHeight: '200px',
+			overflowY: 'auto',
+			width: inputEl.getBoundingClientRect().width + 'px',
+		});
+
+		const rect = inputEl.getBoundingClientRect();
+		next.style.left = rect.left + 'px';
+		next.style.top = (rect.bottom + 4) + 'px';
+
+		for (const r of results) {
+			const item = next.createDiv({ cls: 'dashboard-city-suggest-item' });
+			const label = r.admin1 ? `${r.name}, ${r.admin1}, ${r.country}` : `${r.name}, ${r.country}`;
+			item.textContent = label;
+			Object.assign(item.style, {
+				padding: '6px 10px',
+				cursor: 'pointer',
+				fontSize: '0.85em',
+				borderBottom: '1px solid var(--background-modifier-border)',
+			});
+			item.addEventListener('mouseenter', () => {
+				item.setCssProps({ background: 'var(--background-modifier-hover)' });
+			});
+			item.addEventListener('mouseleave', () => {
+				item.setCssProps({ background: '' });
+			});
+			item.addEventListener('click', () => {
+				void (async () => {
+					inputEl.value = r.name;
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetWeatherCity: r.name,
+						widgetWeatherLat: r.latitude,
+						widgetWeatherLon: r.longitude,
+					};
+					await this.plugin.saveSettings();
+					close();
+					this.plugin.refreshAllDashboards();
+				})();
+			});
+		}
+
+		inputEl.ownerDocument.body.appendChild(next);
+		return next;
 	}
 }

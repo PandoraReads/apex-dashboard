@@ -47,10 +47,12 @@ export class CalendarMonthModal extends Modal {
 		contentEl.addClass('dashboard-calendar-fullscreen');
 		modalEl.addClass('dashboard-calendar-fullscreen-modal');
 		containerEl.addClass('modal--dashboard');
-		containerEl.style.background = 'transparent';
-		containerEl.style.backgroundColor = 'transparent';
-		containerEl.style.border = 'none';
-		containerEl.style.boxShadow = 'none';
+		containerEl.setCssProps({
+			background: 'transparent',
+			backgroundColor: 'transparent',
+			border: 'none',
+			boxShadow: 'none',
+		});
 		this.scope.register([], 'ArrowLeft', () => { this.shift(-1); return false; });
 		this.scope.register([], 'ArrowRight', () => { this.shift(1); return false; });
 		this.render();
@@ -158,10 +160,12 @@ export class DayAgendaModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		containerEl.style.background = 'transparent';
-		containerEl.style.backgroundColor = 'transparent';
-		containerEl.style.border = 'none';
-		containerEl.style.boxShadow = 'none';
+		containerEl.setCssProps({
+			background: 'transparent',
+			backgroundColor: 'transparent',
+			border: 'none',
+			boxShadow: 'none',
+		});
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });

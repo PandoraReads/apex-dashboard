@@ -191,15 +191,17 @@ export class TemplatePickerModal extends Modal {
 					});
 					setIcon(deleteBtn, 'trash-2');
 					const tmplId = tmpl.id;
-					deleteBtn.addEventListener('click', async () => {
-						const confirmed = await showConfirmDialog(this.app, {
-							title: t('common.confirmDelete'),
-							message: t('common.confirmDeleteMessage'),
-						});
-						if (!confirmed) return;
-						const updated = templates.filter(item => item.id !== tmplId);
-						await this.saveTemplates(updated);
-						this.render();
+					deleteBtn.addEventListener('click', () => {
+						void (async () => {
+							const confirmed = await showConfirmDialog(this.app, {
+								title: t('common.confirmDelete'),
+								message: t('common.confirmDeleteMessage'),
+							});
+							if (!confirmed) return;
+							const updated = templates.filter(item => item.id !== tmplId);
+							await this.saveTemplates(updated);
+							this.render();
+						})();
 					});
 				}
 			}
@@ -298,32 +300,34 @@ export class TemplatePickerModal extends Modal {
 			cls: 'mod-cta',
 			text: t('template.save'),
 		});
-		saveBtn.addEventListener('click', async () => {
-			const name = nameInput.value.trim();
-			if (!name) {
-				nameInput.focus();
-				return;
-			}
+		saveBtn.addEventListener('click', () => {
+			void (async () => {
+				const name = nameInput.value.trim();
+				if (!name) {
+					nameInput.focus();
+					return;
+				}
 
-			const tasks = editing!.tasks.filter(task => task.trim() !== '');
-			if (tasks.length === 0) {
-				return;
-			}
+				const tasks = editing!.tasks.filter(task => task.trim() !== '');
+				if (tasks.length === 0) {
+					return;
+				}
 
-			const saved: TaskTemplate = { ...editing!, name, tasks: [...tasks] };
+				const saved: TaskTemplate = { ...editing!, name, tasks: [...tasks] };
 
-			const existing = [...this.getTemplates()];
-			const idx = existing.findIndex(tmpl => tmpl.id === saved.id);
-			if (idx >= 0) {
-				existing[idx] = saved;
-			} else {
-				existing.push(saved);
-			}
+				const existing = [...this.getTemplates()];
+				const idx = existing.findIndex(tmpl => tmpl.id === saved.id);
+				if (idx >= 0) {
+					existing[idx] = saved;
+				} else {
+					existing.push(saved);
+				}
 
-			await this.saveTemplates(existing);
-			this.editingTemplate = null;
-			this.mode = 'edit';
-			this.render();
+				await this.saveTemplates(existing);
+				this.editingTemplate = null;
+				this.mode = 'edit';
+				this.render();
+			})();
 		});
 
 		nameInput.focus();

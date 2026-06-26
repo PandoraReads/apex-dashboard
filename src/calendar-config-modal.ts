@@ -23,10 +23,12 @@ export class CalendarConfigModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		containerEl.style.background = 'transparent';
-		containerEl.style.backgroundColor = 'transparent';
-		containerEl.style.border = 'none';
-		containerEl.style.boxShadow = 'none';
+		containerEl.setCssProps({
+			background: 'transparent',
+			backgroundColor: 'transparent',
+			border: 'none',
+			boxShadow: 'none',
+		});
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 

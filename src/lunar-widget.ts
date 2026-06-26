@@ -133,7 +133,7 @@ export function renderSidebarLunarWidget(
 	}
 }
 
-export async function loadHolidayData(): Promise<Record<string, HolidayInfo>> {
+export async function loadHolidayData(app: App): Promise<Record<string, HolidayInfo>> {
 	const year = new Date().getFullYear();
-	return fetchHolidayData(year);
+	return fetchHolidayData(app, year);
 }

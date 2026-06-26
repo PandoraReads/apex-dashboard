@@ -156,7 +156,7 @@ function evaluateFilter(
 			if (Array.isArray(fm.tags)) {
 				fileTags.push(...fm.tags.map(String));
 			} else {
-				fileTags.push(String(fm.tags));
+				fileTags.push(String(fm.tags as string | number | boolean));
 			}
 		}
 		if (cache?.tags) {
@@ -188,13 +188,14 @@ function evaluateFilter(
 		return value.some(item => filter.values.includes(String(item)));
 	}
 
-	return filter.values.includes(String(value));
+	return filter.values.includes(String(value as string | number | boolean));
 }
 
 async function loadPreview(app: App, file: TFile): Promise<string> {
 	const cache = app.metadataCache.getFileCache(file);
-	if (!cache?.frontmatter?.position) return '';
-	const startLine = cache.frontmatter.position.end.line + 1;
+	const position = cache?.frontmatter?.position as { end: { line: number } } | undefined;
+	if (!position) return '';
+	const startLine = position.end.line + 1;
 	const raw = await app.vault.cachedRead(file);
 	const lines = raw.split('\n');
 	const previewLines: string[] = [];
@@ -227,8 +228,8 @@ function comparePropertyValues(a: unknown, b: unknown): number {
 	if (a == null && b == null) return 0;
 	if (a == null) return 1;
 	if (b == null) return -1;
-	const sa = String(a);
-	const sb = String(b);
+	const sa = String(a as string | number | boolean);
+	const sb = String(b as string | number | boolean);
 	const na = Number(sa);
 	const nb = Number(sb);
 	if (!isNaN(na) && !isNaN(nb)) return na - nb;
@@ -281,14 +282,18 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 		});
 	}
 
-	popup.style.background = 'var(--db-bg-card, rgba(255, 255, 255, 0.06))';
-	popup.style.backdropFilter = 'blur(16px)';
-	popup.style.color = 'var(--db-text, var(--text-normal))';
-	popup.style.borderColor = 'var(--db-border-card, rgba(255,255,255,0.1))';
+	popup.setCssProps({
+		background: 'var(--db-bg-card, rgba(255, 255, 255, 0.06))',
+		backdropFilter: 'blur(16px)',
+		color: 'var(--db-text, var(--text-normal))',
+		borderColor: 'var(--db-border-card, rgba(255,255,255,0.1))',
+	});
 
 	const rect = anchor.getBoundingClientRect();
-	popup.style.position = 'fixed';
-	popup.style.top = `${rect.bottom + 4}px`;
+	popup.setCssProps({
+		position: 'fixed',
+		top: `${rect.bottom + 4}px`,
+	});
 	const popupWidth = 240;
 	if (rect.left + popupWidth > window.innerWidth) {
 		popup.style.right = `${window.innerWidth - rect.right}px`;
@@ -402,7 +407,7 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 			document.removeEventListener('mousedown', outsideClick);
 		}
 	};
-	setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
+	window.setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
 
 	activeCalendarPopup = popup;
 	renderCalendar();
@@ -521,10 +526,12 @@ export function renderLibrarySection(
 
 			// Position below the filter button
 			const rect = filterBtn.getBoundingClientRect();
-			filterPopup.style.position = 'fixed';
-			filterPopup.style.top = `${rect.bottom + 4}px`;
-			filterPopup.style.left = `${rect.left}px`;
-			filterPopup.style.zIndex = '10000';
+			filterPopup.setCssProps({
+				position: 'fixed',
+				top: `${rect.bottom + 4}px`,
+				left: `${rect.left}px`,
+				zIndex: '10000',
+			});
 
 			// Property selector
 			const propRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
@@ -740,10 +747,10 @@ export function renderLibrarySection(
 	}
 
 	// Search handler
-	let searchTimer: ReturnType<typeof setTimeout> | null = null;
+	let searchTimer: number | null = null;
 	searchInput.addEventListener('input', () => {
-		if (searchTimer) clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => {
+		if (searchTimer) window.clearTimeout(searchTimer);
+		searchTimer = window.setTimeout(() => {
 			currentPage = 1;
 			renderContent(config);
 		}, 200);
@@ -850,23 +857,6 @@ function attachItemHover(app: App, el: HTMLElement, file: TFile): void {
 	}
 }
 
-function renderBadgeRow(container: HTMLElement, fm: Record<string, unknown>, maxBadges = 5): void {
-	const badgeWrap = container.createDiv({ cls: 'dashboard-library-badges' });
-	let count = 0;
-	for (const [key, value] of Object.entries(fm)) {
-		if (key === 'position' || count >= maxBadges) break;
-		if (value == null) continue;
-		const badge = badgeWrap.createDiv({ cls: 'dashboard-library-badge' });
-		badge.createSpan({ cls: 'dashboard-library-badge-key', text: key });
-		if (Array.isArray(value)) {
-			badge.createSpan({ cls: 'dashboard-library-badge-val', text: value.map(String).join(', ') });
-		} else {
-			badge.createSpan({ cls: 'dashboard-library-badge-val', text: String(value) });
-		}
-		count++;
-	}
-}
-
 function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean): void {
 	const grid = container.createDiv({ cls: 'dashboard-library-grid' });
 
@@ -926,7 +916,7 @@ function renderListView(container: HTMLElement, results: LibraryFileResult[], ap
 		item.addEventListener('click', () => openFile(app, result.file));
 
 		item.createDiv({ cls: 'dashboard-library-list-name', text: result.basename });
-		const spacer = item.createDiv({ cls: 'dashboard-library-list-spacer' });
+		item.createDiv({ cls: 'dashboard-library-list-spacer' });
 		item.createDiv({ cls: 'dashboard-library-list-date', text: formatDate(result.ctime) });
 	}
 }
@@ -943,7 +933,7 @@ function startCellEdit(
 	const isArr = Array.isArray(originalValue);
 	const displayValue = originalValue == null ? '' : isArr
 		? (originalValue as unknown[]).map(String).join(', ')
-		: String(originalValue);
+		: String(originalValue as string | number | boolean);
 
 	td.empty();
 	td.removeClass('dashboard-library-table-empty');
@@ -978,7 +968,7 @@ function startCellEdit(
 		}
 
 		// Write via processFrontMatter
-		app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+		void app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
 			if (newValue === null) {
 				delete fm[prop];
 			} else {
@@ -993,7 +983,7 @@ function startCellEdit(
 		} else if (Array.isArray(newValue)) {
 			td.textContent = newValue.join(', ');
 		} else {
-			td.textContent = String(newValue);
+			td.textContent = String(newValue as string | number | boolean);
 		}
 	};
 
@@ -1057,7 +1047,7 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 				} else if (Array.isArray(value)) {
 					td.textContent = value.map(String).join(', ');
 				} else {
-					td.textContent = String(value);
+					td.textContent = String(value as string | number | boolean);
 				}
 				td.addClass('dashboard-library-table-editable');
 				td.addEventListener('dblclick', (e) => {
@@ -1090,7 +1080,7 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 				groups.get(key)!.push(result);
 			}
 		} else {
-			const key = String(value);
+			const key = String(value as string | number | boolean);
 			if (!groups.has(key)) groups.set(key, []);
 			groups.get(key)!.push(result);
 		}

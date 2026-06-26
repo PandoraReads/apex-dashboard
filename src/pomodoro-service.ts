@@ -37,7 +37,7 @@ export class PomodoroService {
 	private pausedRemaining = 0;
 	private durationMs = 0;
 	private completedWorkSessions = 0;
-	private tickInterval: ReturnType<typeof setInterval> | null = null;
+	private tickInterval: number | null = null;
 	private onTickCallback: (() => void) | null = null;
 	private onCompleteCallback: (() => void) | null = null;
 	private sessions: PomodoroSession[] = [];
@@ -167,12 +167,12 @@ export class PomodoroService {
 
 	private ensureTickInterval(): void {
 		if (this.tickInterval) return;
-		this.tickInterval = setInterval(() => this.tick(), 1000);
+		this.tickInterval = window.setInterval(() => this.tick(), 1000);
 	}
 
 	private clearTickInterval(): void {
 		if (this.tickInterval) {
-			clearInterval(this.tickInterval);
+			window.clearInterval(this.tickInterval);
 			this.tickInterval = null;
 		}
 	}
@@ -196,7 +196,7 @@ export class PomodoroService {
 
 		if (completedPhase === 'work') {
 			this.completedWorkSessions++;
-			this.recordSession();
+			void this.recordSession();
 			this.playSound();
 			new Notice(t('pomodoro.workComplete'));
 		} else {

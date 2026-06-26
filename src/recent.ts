@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App } from 'obsidian';
 import { t } from './i18n';
 
 export interface RecentDoc {

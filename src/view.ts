@@ -1,6 +1,7 @@
 import { Events, HoverParent, HoverPopover, ItemView, moment, Notice, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
-import type { DashboardData, DashboardCard, QuickAction, BannerData, WeatherConfig, TrackerConfig, LibraryConfig } from './types';
+import type { AppWithCommands } from './obsidian-internal';
+import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
@@ -10,6 +11,7 @@ import { setupDragAndDrop } from './dnd';
 import { CardEditModal } from './card-edit-modal';
 import { NotePopoverModal } from './note-popover-modal';
 import { showConfirmDialog } from './confirm-dialog';
+import { showPromptDialog } from './prompt-dialog';
 import { clearWeatherCache } from './weather-service';
 import { renderSidebarLunarWidget, loadHolidayData } from './lunar-widget';
 import type { HolidayInfo } from './holiday-service';
@@ -66,8 +68,8 @@ export class DashboardView extends ItemView implements HoverParent {
 	private data: DashboardData | null = null;
 	private cleanupFns: Array<() => void> = [];
 	private vaultEventRefs: Array<{ evt: Events; ref: unknown }> = [];
-	private recentDocsTimer: ReturnType<typeof setTimeout> | null = null;
-	private libraryRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+	private recentDocsTimer: number | null = null;
+	private libraryRefreshTimer: number | null = null;
 	private readonly RECENT_DOCS_DEBOUNCE = 500;
 	private bannerQuoteIndex = 0;
 	private bannerImageIndex = 0;
@@ -75,11 +77,11 @@ export class DashboardView extends ItemView implements HoverParent {
 	private static readonly BANNER_IMAGE_ROTATION_MS = 30 * 60 * 1000; // 30 min (on the half)
 	private static readonly REMINDER_CHECK_MS = 60 * 1000; // 1 minute
 	private static readonly BANNER_QUOTE_OFFSET_MS = 60 * 60 * 1000; // offset by 1 hour from image
-	private reminderTimer: ReturnType<typeof setInterval> | null = null;
+	private reminderTimer: number | null = null;
 	private firedReminders = new Set<string>();
-	private sidebarPinned = localStorage.getItem('apex-dashboard-sidebar-pinned') === 'true';
+	private sidebarPinned = this.app.loadLocalStorage('apex-dashboard-sidebar-pinned') === 'true';
 	private sidebarExpanded = false;
-	private bannerCollapsed = localStorage.getItem('apex-dashboard-banner-collapsed') === 'true';
+	private bannerCollapsed = this.app.loadLocalStorage('apex-dashboard-banner-collapsed') === 'true';
 	private pendingScrollCardId: string | null = null;
 	private pendingScrollToLastCardOfColumn: string | null = null;
 	private pomodoroService: PomodoroService | null = null;
@@ -88,9 +90,9 @@ export class DashboardView extends ItemView implements HoverParent {
 	private mobileWidgetExpanded: 'pomodoro' | 'reading' | 'lunar' | null = null;
 	private mobileWidgetTabsOpen: boolean = false;
 	private static readonly WEATHER_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
-	private weatherRefreshTimer: ReturnType<typeof setInterval> | null = null;
+	private weatherRefreshTimer: number | null = null;
 	private static readonly DAY_ROLLOVER_CHECK_MS = 60 * 1000; // 1 minute
-	private dayRolloverTimer: ReturnType<typeof setInterval> | null = null;
+	private dayRolloverTimer: number | null = null;
 	private lastRenderedDay = new Date().toDateString();
 
 	// HoverParent contract: Obsidian assigns/clears this when showing a Page
@@ -133,7 +135,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		await this.pomodoroService.loadSessions();
 		this.readingService = new ReadingService(this.plugin);
 		await this.readingService.loadSessions();
-		loadHolidayData().then(data => {
+		void loadHolidayData(this.app).then(data => {
 			this.holidayData = data;
 			const currentData = this.sync.getData();
 			if (currentData) this.render(currentData);
@@ -163,10 +165,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 	}
 
-	addSection(): void {
-		const name = prompt(t('renderer.sectionName'));
-		if (name?.trim()) {
-			this.sync.addColumn(name.trim());
+	async addSection(): Promise<void> {
+		const name = await showPromptDialog(this.app, { title: t('renderer.sectionName') });
+		if (name) {
+			void this.sync.addColumn(name);
 		}
 	}
 
@@ -280,7 +282,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (this.pendingScrollCardId) {
 			const cardEl = container.querySelector(`[data-card-id="${this.pendingScrollCardId}"]`);
 			if (cardEl) {
-				requestAnimationFrame(() => {
+				window.requestAnimationFrame(() => {
 					cardEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
 				});
 			}
@@ -293,7 +295,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				const cards = sectionRow.querySelectorAll('.dashboard-card');
 				const lastCard = cards[cards.length - 1];
 				if (lastCard) {
-					requestAnimationFrame(() => {
+					window.requestAnimationFrame(() => {
 						lastCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
 					});
 				}
@@ -331,7 +333,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (overlay) {
 			overlay.addEventListener('click', (e) => {
 				const rect = overlay.getBoundingClientRect();
-				const tapX = (e as MouseEvent).clientX - rect.left;
+				const tapX = e.clientX - rect.left;
 				if (tapX > rect.width * 0.5) {
 					const editBtn = overlay.querySelector('.dashboard-banner-edit-btn') as HTMLElement;
 					if (editBtn) {
@@ -369,7 +371,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			{ key: 'lunar', label: t('mobile.lunar'), icon: 'moon' },
 		];
 
-		const panel = bar.createDiv({ cls: 'dashboard-mobile-widget-panel' });
+		bar.createDiv({ cls: 'dashboard-mobile-widget-panel' });
 
 		for (const w of widgets) {
 			const btn = tabs.createEl('button', {
@@ -397,7 +399,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private refreshMobileWidgetPanel(bar: HTMLElement): void {
 		const strip = bar.querySelector('.dashboard-mobile-widget-strip');
 		const tabs = bar.querySelector('.dashboard-mobile-widget-tabs');
-		const panel = bar.querySelector('.dashboard-mobile-widget-panel') as HTMLElement | null;
+		const panel = bar.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
 		if (!strip || !tabs || !panel) return;
 
 		// Toggle strip active state
@@ -443,7 +445,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (window.innerWidth <= 640) return;
 			this.bannerCollapsed = !this.bannerCollapsed;
 			bannerEl.toggleClass('dashboard-banner--collapsed', this.bannerCollapsed);
-			localStorage.setItem('apex-dashboard-banner-collapsed', String(this.bannerCollapsed));
+			this.app.saveLocalStorage('apex-dashboard-banner-collapsed', String(this.bannerCollapsed));
 		});
 
 		const onResize = () => {
@@ -479,7 +481,7 @@ export class DashboardView extends ItemView implements HoverParent {
 					quoteEl.addClass('dashboard-banner-quote--fading');
 					authorEl.addClass('dashboard-banner-author--fading');
 
-					setTimeout(() => {
+					window.setTimeout(() => {
 						quoteEl.textContent = next.quote;
 						authorEl.textContent = next.author;
 						quoteEl.removeClass('dashboard-banner-quote--fading');
@@ -487,8 +489,8 @@ export class DashboardView extends ItemView implements HoverParent {
 					}, 400);
 				};
 
-				const quoteTimer = setInterval(rotateQuote, DashboardView.BANNER_QUOTE_ROTATION_MS);
-				this.cleanupFns.push(() => clearInterval(quoteTimer));
+				const quoteTimer = window.setInterval(rotateQuote, DashboardView.BANNER_QUOTE_ROTATION_MS);
+				this.cleanupFns.push(() => window.clearInterval(quoteTimer));
 			}
 		}
 
@@ -512,7 +514,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 					bannerEl.addClass('dashboard-banner--fading');
 
-					setTimeout(() => {
+					window.setTimeout(() => {
 						if (nextResolved) {
 							bannerEl.style.backgroundImage = `url("${nextResolved}")`;
 						}
@@ -520,8 +522,8 @@ export class DashboardView extends ItemView implements HoverParent {
 					}, 600);
 				};
 
-				const imgTimer = setInterval(rotateImage, DashboardView.BANNER_IMAGE_ROTATION_MS);
-				this.cleanupFns.push(() => clearInterval(imgTimer));
+				const imgTimer = window.setInterval(rotateImage, DashboardView.BANNER_IMAGE_ROTATION_MS);
+				this.cleanupFns.push(() => window.clearInterval(imgTimer));
 			}
 		}
 	}
@@ -546,27 +548,31 @@ export class DashboardView extends ItemView implements HoverParent {
 				renderQuickActions(
 					content,
 					this.data.quickActions,
-					(action) => { this.executeAction(action); this.closeMobileDrawer(); },
-					async (index) => {
-						const confirmed = await showConfirmDialog(this.app, {
-							title: t('common.confirmDelete'),
-							message: t('common.confirmDeleteMessage'),
-						});
-						if (!confirmed) return;
-						this.sync.removeQuickAction(index);
+					(action) => { void this.executeAction(action); this.closeMobileDrawer(); },
+					(index) => {
+						void (async () => {
+							const confirmed = await showConfirmDialog(this.app, {
+								title: t('common.confirmDelete'),
+								message: t('common.confirmDeleteMessage'),
+							});
+							if (!confirmed) return;
+							void this.sync.removeQuickAction(index);
+						})();
 					},
 					() => this.openAddActionModal(),
 					undefined,
 					undefined,
 					this.data.quickActionOrder,
-					(order) => this.sync.reorderQuickActions(order),
-					async (key) => {
-						const confirmed = await showConfirmDialog(this.app, {
-							title: t('common.confirmDelete'),
-							message: t('common.confirmDeleteMessage'),
-						});
-						if (!confirmed) return;
-						this.sync.removeQuickActionByKey(key);
+					(order) => { void this.sync.reorderQuickActions(order); },
+					(key) => {
+						void (async () => {
+							const confirmed = await showConfirmDialog(this.app, {
+								title: t('common.confirmDelete'),
+								message: t('common.confirmDeleteMessage'),
+							});
+							if (!confirmed) return;
+							void this.sync.removeQuickActionByKey(key);
+						})();
 					},
 					this.data.hiddenPresets,
 					undefined,
@@ -575,13 +581,13 @@ export class DashboardView extends ItemView implements HoverParent {
 		} else {
 			content.createEl('h4', { text: t('mobile.recent'), cls: 'dashboard-mobile-drawer-title' });
 			const docs = getRecentDocs(this.app, this.plugin.settings.recentDocCount);
-			renderRecentDocs(content, docs, (path) => this.navigateToPath(path));
+			renderRecentDocs(content, docs, (path) => { void this.navigateToPath(path); });
 		}
 
 		const backdrop = drawer.createDiv({ cls: 'dashboard-mobile-drawer-backdrop' });
 		backdrop.addEventListener('click', () => this.closeMobileDrawer());
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			content.addClass('dashboard-mobile-drawer-content--open');
 		});
 	}
@@ -600,32 +606,34 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		renderSidebarWeekCalendar(scroll);
 
-		renderSidebarWidgets(scroll, this.plugin.settings, this.app, this.pomodoroService ?? undefined, this.readingService ?? undefined, this.holidayData, async (order) => {
-			this.plugin.settings = {
-				...this.plugin.settings,
-				widgetOrder: order,
-			};
-			await this.plugin.saveSettings();
-			this.render(this.data!);
+		renderSidebarWidgets(scroll, this.plugin.settings, this.app, this.pomodoroService ?? undefined, this.readingService ?? undefined, this.holidayData, (order) => {
+			void (async () => {
+				this.plugin.settings = {
+					...this.plugin.settings,
+					widgetOrder: order,
+				};
+				await this.plugin.saveSettings();
+				this.render(this.data!);
+			})();
 		});
 
 		renderQuickActions(
 			scroll,
 			this.data.quickActions,
-			(action) => this.executeAction(action),
+			(action) => { void this.executeAction(action); },
 			(index) => {
-				showConfirmDialog(this.app, {
+				void showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
 					message: t('common.confirmDeleteMessage'),
 				}).then(confirmed => {
-					if (confirmed) this.sync.removeQuickAction(index);
+					if (confirmed) void this.sync.removeQuickAction(index);
 				});
 			},
 			() => this.openAddActionModal(),
 			this.sidebarPinned,
 			() => {
 				this.sidebarPinned = !this.sidebarPinned;
-				localStorage.setItem('apex-dashboard-sidebar-pinned', String(this.sidebarPinned));
+				this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', String(this.sidebarPinned));
 				if (this.sidebarPinned) {
 					sidebar.addClass('dashboard-sidebar--pinned');
 					sidebar.removeClass('dashboard-sidebar--expanded');
@@ -638,13 +646,13 @@ export class DashboardView extends ItemView implements HoverParent {
 				}
 			},
 			this.data.quickActionOrder,
-			(order) => this.sync.reorderQuickActions(order),
+			(order) => { void this.sync.reorderQuickActions(order); },
 			(key) => {
-				showConfirmDialog(this.app, {
+				void showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
 					message: t('common.confirmDeleteMessage'),
 				}).then(confirmed => {
-					if (confirmed) this.sync.removeQuickActionByKey(key);
+					if (confirmed) void this.sync.removeQuickActionByKey(key);
 				});
 			},
 			this.data.hiddenPresets,
@@ -655,7 +663,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		renderRecentDocs(
 			scroll,
 			docs,
-			(path) => this.navigateToPath(path),
+			(path) => { void this.navigateToPath(path); },
 		);
 	}
 
@@ -698,7 +706,7 @@ export class DashboardView extends ItemView implements HoverParent {
 					message: t('common.confirmDeleteMessage'),
 				});
 				if (!confirmed) return;
-				this.sync.deleteCard(cardId);
+				void this.sync.deleteCard(cardId);
 				new Notice(t('card.deleted'));
 			},
 			onCheckboxToggle: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTask(cardId, taskPath, checked),
@@ -709,7 +717,7 @@ export class DashboardView extends ItemView implements HoverParent {
 					message: t('common.confirmDeleteMessage'),
 				});
 				if (!confirmed) return;
-				this.sync.deleteTask(cardId, taskPath);
+				void this.sync.deleteTask(cardId, taskPath);
 			},
 			onTaskReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderTask(cardId, fromPath, toPath, before),
 			onTaskMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveTaskToCard(srcCardId, fromPath, destCardId, destPath, mode),
@@ -733,13 +741,13 @@ export class DashboardView extends ItemView implements HoverParent {
 					this.openWidgetTypeModal(colName);
 				} else if (effectiveType === 'memo' || effectiveType === 'todo') {
 					this.pendingScrollToLastCardOfColumn = colName;
-					this.sync.addCard(colName);
+					void this.sync.addCard(colName);
 				} else {
 					this.openProjectSearchModal(colName);
 				}
 			},
 				onColumnAdd: (name: string, sectionType?: string) => {
-					this.sync.addColumn(name, sectionType).then(() => {
+					void this.sync.addColumn(name, sectionType).then(() => {
 						if (sectionType === 'library') {
 							this.openLibraryConfigModal(name);
 						} else if (sectionType === 'folder') {
@@ -752,11 +760,11 @@ export class DashboardView extends ItemView implements HoverParent {
 			},
 			onQuickActionAdd: () => this.openAddActionModal(),
 			onQuickActionRemove: (index: number) => {
-				showConfirmDialog(this.app, {
+				void showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
 					message: t('common.confirmDeleteMessage'),
 				}).then(confirmed => {
-					if (confirmed) this.sync.removeQuickAction(index);
+					if (confirmed) void this.sync.removeQuickAction(index);
 				});
 			},
 			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.sync.moveCard(cardId, targetCol, targetIdx),
@@ -791,11 +799,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 		if (cardType === 'weather' || cardType === 'tracker') return;
 			if (cardType === 'task' || sectionType === 'todo') {
-			this.sync.addTask(cardId, `[[${filePath}]]`);
+			void this.sync.addTask(cardId, `[[${filePath}]]`);
 		} else if (sectionType === 'memo') {
-			this.sync.addFileLinkToMemo(cardId, filePath);
+			void this.sync.addFileLinkToMemo(cardId, filePath);
 		} else {
-			this.sync.addDocToCard(cardId, filePath);
+			void this.sync.addDocToCard(cardId, filePath);
 		}
 	}
 
@@ -962,14 +970,14 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private openBannerEditModal(data: DashboardData): void {
 		const modal = new BannerEditModal(this.app, data.banner, (updates) => {
-			this.sync.updateBanner(updates);
+			void this.sync.updateBanner(updates);
 		}, this.plugin.settings.stylePreset);
 		modal.open();
 	}
 
 	private openCardEditModal(card: DashboardCard): void {
 		const modal = new CardEditModal(this.app, card, (updates) => {
-			this.sync.updateCard(card.id, updates);
+			void this.sync.updateCard(card.id, updates);
 		}, this.plugin.settings.stylePreset);
 		modal.open();
 	}
@@ -996,7 +1004,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private openWeatherConfigModal(colName: string): void {
 		const modal = new WeatherConfigModal(this.app, (title, config) => {
-			this.sync.addCard(colName, {
+			void this.sync.addCard(colName, {
 				title,
 				type: 'weather',
 				weatherConfig: config,
@@ -1007,7 +1015,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private openTrackerConfigModal(colName: string): void {
 		const modal = new TrackerConfigModal(this.app, (title, config) => {
-			this.sync.addCard(colName, {
+			void this.sync.addCard(colName, {
 				title,
 				type: 'tracker',
 				trackerConfig: config,
@@ -1022,7 +1030,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.plugin,
 			(template) => {
 				this.pendingScrollToLastCardOfColumn = colName;
-				this.sync.addCard(colName, {
+				void this.sync.addCard(colName, {
 					title: template.name,
 					type: 'task',
 					tasks: template.tasks.map(text => ({ text, checked: false })),
@@ -1045,7 +1053,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existingConfig,
 			(config) => {
-				this.sync.updateLibraryConfig(colName, config);
+				void this.sync.updateLibraryConfig(colName, config);
 			},
 		);
 		modal.open();
@@ -1063,7 +1071,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existingConfig,
 			(config) => {
-				this.sync.updateLibraryConfig(colName, config);
+				void this.sync.updateLibraryConfig(colName, config);
 			},
 		);
 		modal.open();
@@ -1097,7 +1105,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private openAddActionModal(): void {
 		const modal = new AddActionModal(this.app, (action) => {
-			this.sync.addQuickAction(action);
+			void this.sync.addQuickAction(action);
 		});
 		modal.open();
 	}
@@ -1133,14 +1141,13 @@ export class DashboardView extends ItemView implements HoverParent {
 			// system so the core Daily notes plugin honors its folder/format/template
 			// settings. (Previously 'daily-notes' was short-circuited to a root-level
 			// file that ignored all of those settings.)
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(this.app as any).commands.executeCommandById(action.target);
+			(this.app as AppWithCommands).commands.executeCommandById(action.target);
 		}
 	}
 
 	private openProjectSearchModal(colName: string): void {
 		const modal = new DocSearchModal(this.app, (link) => {
-			this.sync.addCard(colName, {
+			void this.sync.addCard(colName, {
 				title: link.name,
 				body: `[[${link.path}]]`,
 			});
@@ -1148,10 +1155,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	private promptAddColumn(): void {
-		const name = prompt(t('renderer.sectionName'));
-		if (name?.trim()) {
-			this.sync.addColumn(name.trim());
+	private async promptAddColumn(): Promise<void> {
+		const name = await showPromptDialog(this.app, { title: t('renderer.sectionName') });
+		if (name) {
+			void this.sync.addColumn(name);
 		}
 	}
 
@@ -1219,14 +1226,14 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 		this.vaultEventRefs = [];
 		if (this.recentDocsTimer) {
-			clearTimeout(this.recentDocsTimer);
+			window.clearTimeout(this.recentDocsTimer);
 			this.recentDocsTimer = null;
 		}
 	}
 
 	private debouncedRefreshRecentDocs(): void {
-		if (this.recentDocsTimer) clearTimeout(this.recentDocsTimer);
-		this.recentDocsTimer = setTimeout(() => {
+		if (this.recentDocsTimer) window.clearTimeout(this.recentDocsTimer);
+		this.recentDocsTimer = window.setTimeout(() => {
 			this.refreshRecentDocs();
 		}, this.RECENT_DOCS_DEBOUNCE);
 	}
@@ -1245,8 +1252,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Only refresh if there's a section that needs it: scanning sections on
 		// any change, media sections only on structural changes.
 		if (!hasScanning && !(structure && hasMedia)) return;
-		if (this.libraryRefreshTimer) clearTimeout(this.libraryRefreshTimer);
-		this.libraryRefreshTimer = setTimeout(() => {
+		if (this.libraryRefreshTimer) window.clearTimeout(this.libraryRefreshTimer);
+		this.libraryRefreshTimer = window.setTimeout(() => {
 			const data = this.sync.getData();
 			if (!data) return;
 			const root = this.containerEl.children[1] as HTMLElement | undefined;
@@ -1279,7 +1286,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		recentSection.remove();
 		const docs = getRecentDocs(this.app, this.plugin.settings.recentDocCount);
-		renderRecentDocs(parent, docs, (path) => this.navigateToPath(path));
+		renderRecentDocs(parent, docs, (path) => { void this.navigateToPath(path); });
 	}
 
 	private runCleanup(): void {
@@ -1297,18 +1304,18 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private startReminderChecker(): void {
 		this.checkReminders();
-		this.reminderTimer = setInterval(() => this.checkReminders(), DashboardView.REMINDER_CHECK_MS);
+		this.reminderTimer = window.setInterval(() => this.checkReminders(), DashboardView.REMINDER_CHECK_MS);
 	}
 
 	private stopReminderChecker(): void {
 		if (this.reminderTimer) {
-			clearInterval(this.reminderTimer);
+			window.clearInterval(this.reminderTimer);
 			this.reminderTimer = null;
 		}
 	}
 
 	private startWeatherRefresh(): void {
-		this.weatherRefreshTimer = setInterval(() => {
+		this.weatherRefreshTimer = window.setInterval(() => {
 			if (!this.data) return;
 			const hasWeather = this.data.columns.some(col =>
 				col.cards.some(c => c.type === 'weather')
@@ -1321,19 +1328,19 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private stopWeatherRefresh(): void {
 		if (this.weatherRefreshTimer) {
-			clearInterval(this.weatherRefreshTimer);
+			window.clearInterval(this.weatherRefreshTimer);
 			this.weatherRefreshTimer = null;
 		}
 		clearWeatherCache();
 	}
 
 	private startDayRolloverChecker(): void {
-		this.dayRolloverTimer = setInterval(() => this.checkDayRollover(), DashboardView.DAY_ROLLOVER_CHECK_MS);
+		this.dayRolloverTimer = window.setInterval(() => this.checkDayRollover(), DashboardView.DAY_ROLLOVER_CHECK_MS);
 	}
 
 	private stopDayRolloverChecker(): void {
 		if (this.dayRolloverTimer) {
-			clearInterval(this.dayRolloverTimer);
+			window.clearInterval(this.dayRolloverTimer);
 			this.dayRolloverTimer = null;
 		}
 	}
@@ -1406,14 +1413,14 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			taskText,
 			() => {
-				this.sync.editTaskReminder(cardId, taskPath, undefined);
+				void this.sync.editTaskReminder(cardId, taskPath, undefined);
 			},
 			() => {
 				const snoozed = new Date(Date.now() + 60 * 60 * 1000);
 				const pad = (n: number) => String(n).padStart(2, '0');
 				const newReminder = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
 				this.firedReminders.delete(`${cardId}-${JSON.stringify(taskPath)}`);
-				this.sync.editTaskReminder(cardId, taskPath, newReminder);
+				void this.sync.editTaskReminder(cardId, taskPath, newReminder);
 			},
 		);
 		modal.open();

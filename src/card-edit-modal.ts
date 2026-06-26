@@ -154,15 +154,15 @@ export class CardEditModal extends Modal {
 			cls: 'dashboard-modal-batch-add mod-cta',
 			text: t('cardEdit.addSelected'),
 		});
-		addBtn.style.display = 'none';
+		addBtn.setCssProps({ display: 'none' });
 
 		const updateAddBtn = () => {
 			const count = this.pendingPaths.size;
 			if (count > 0) {
-				addBtn.style.display = '';
+				addBtn.setCssProps({ display: '' });
 				addBtn.textContent = t('cardEdit.addSelectedCount', { count: String(count) });
 			} else {
-				addBtn.style.display = 'none';
+				addBtn.setCssProps({ display: 'none' });
 			}
 		};
 

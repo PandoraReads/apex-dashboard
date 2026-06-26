@@ -2,6 +2,89 @@ import { requestUrl } from 'obsidian';
 import type { WeatherConfig, WeatherData } from './types';
 import { getLanguage } from './i18n';
 
+// ---------- API response shapes ----------
+// `requestUrl(...).json` is typed `any`; these interfaces model each provider's
+// payload so structured access doesn't leak `any` downstream.
+
+interface OpenMeteoCurrent {
+	temperature_2m?: number;
+	weather_code?: number;
+	wind_speed_10m?: number;
+	relative_humidity_2m?: number;
+	apparent_temperature?: number;
+}
+
+interface OpenMeteoDaily {
+	temperature_2m_max?: number[];
+	temperature_2m_min?: number[];
+	weather_code?: number[];
+	time?: string[];
+}
+
+interface OpenMeteoResponse {
+	current?: OpenMeteoCurrent;
+	daily?: OpenMeteoDaily;
+}
+
+interface MetNoDetails {
+	air_temperature?: number;
+	wind_speed?: number;
+	relative_humidity?: number;
+}
+
+interface MetNoSummary {
+	symbol_code?: string;
+}
+
+interface MetNoEntry {
+	time: string;
+	data: {
+		instant: { details: MetNoDetails };
+		next_1_hours?: { summary?: MetNoSummary };
+		next_6_hours?: { summary?: MetNoSummary };
+	};
+}
+
+interface MetNoResponse {
+	properties?: { timeseries?: MetNoEntry[] };
+}
+
+interface WttrHourly {
+	weatherCode?: string;
+}
+
+interface WttrDay {
+	maxtempC: string;
+	mintempC: string;
+	date: string;
+	hourly: WttrHourly[];
+}
+
+interface WttrCurrent {
+	temp_C: string;
+	weatherCode: string;
+	windspeedKmph: string;
+	humidity: string;
+	FeelsLikeC: string;
+}
+
+interface WttrResponse {
+	current_condition?: WttrCurrent[];
+	weather?: WttrDay[];
+}
+
+interface GeocodeItem {
+	name: string;
+	latitude: number;
+	longitude: number;
+	country: string;
+	admin1?: string;
+}
+
+interface GeocodeResponse {
+	results?: GeocodeItem[];
+}
+
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 interface CacheEntry {
@@ -72,7 +155,7 @@ async function fetchFromOpenMeteoBase(base: string, config: WeatherConfig): Prom
 	const url = `${base}/v1/forecast?latitude=${config.latitude}&longitude=${config.longitude}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=5`;
 
 	const resp = await requestUrl({ url });
-	const json = resp.json;
+	const json = resp.json as OpenMeteoResponse;
 
 	const current = json.current;
 	const daily = json.daily;
@@ -104,14 +187,14 @@ async function fetchFromMetNo(config: WeatherConfig): Promise<WeatherData> {
 	const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${config.latitude}&lon=${config.longitude}`;
 
 	const resp = await requestUrl({ url, headers: { 'User-Agent': 'obsidian-dashboard' } });
-	const json = resp.json;
+	const json = resp.json as MetNoResponse;
 
 	const timeseries = json.properties?.timeseries;
 	if (!Array.isArray(timeseries) || timeseries.length === 0) {
 		throw new Error('Invalid Met.no response');
 	}
 
-	const now = timeseries[0];
+	const now = timeseries[0]!;
 	const nowDetails = now.data.instant.details;
 	const nowSymbol = now.data.next_1_hours?.summary?.symbol_code
 		?? now.data.next_6_hours?.summary?.symbol_code
@@ -120,7 +203,7 @@ async function fetchFromMetNo(config: WeatherConfig): Promise<WeatherData> {
 	// Group by date, compute daily max/min and representative weather code
 	const dayMap = new Map<string, { min: number; max: number; codes: string[] }>();
 	for (const entry of timeseries) {
-		const dateStr = (entry.time as string).slice(0, 10);
+		const dateStr = entry.time.slice(0, 10);
 		const temp = entry.data.instant.details.air_temperature as number;
 		const sym = entry.data.next_1_hours?.summary?.symbol_code
 			?? entry.data.next_6_hours?.summary?.symbol_code;
@@ -198,7 +281,7 @@ async function fetchFromWttr(config: WeatherConfig): Promise<WeatherData> {
 	const url = `https://wttr.in/${config.latitude},${config.longitude}?format=j1`;
 
 	const resp = await requestUrl({ url });
-	const json = resp.json;
+	const json = resp.json as WttrResponse;
 
 	const current = json.current_condition?.[0];
 	if (!current) {
@@ -221,7 +304,7 @@ async function fetchFromWttr(config: WeatherConfig): Promise<WeatherData> {
 		dailyDates.push(day.date || '');
 
 		const hourlyCodes = (day.hourly || [])
-			.map((h: Record<string, string>) => parseInt(h.weatherCode ?? '0', 10))
+			.map((h: WttrHourly) => parseInt(h.weatherCode ?? '0', 10))
 			.filter((n: number) => !isNaN(n));
 		dailyCodes.push(hourlyCodes.length > 0 ? mostSevereWttrCode(hourlyCodes) : 0);
 	}
@@ -299,15 +382,15 @@ export async function geocodeCity(query: string): Promise<GeocodeResult[]> {
 
 	try {
 		const resp = await requestUrl({ url });
-		const json = resp.json;
+		const json = resp.json as GeocodeResponse;
 		if (!json.results) return [];
 
-		return json.results.map((r: Record<string, unknown>) => ({
-			name: r.name as string,
-			latitude: r.latitude as number,
-			longitude: r.longitude as number,
-			country: r.country as string,
-			admin1: r.admin1 as string | undefined,
+		return json.results.map((r: GeocodeItem) => ({
+			name: r.name,
+			latitude: r.latitude,
+			longitude: r.longitude,
+			country: r.country,
+			admin1: r.admin1,
 		}));
 	} catch {
 		return [];

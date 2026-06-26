@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App } from 'obsidian';
 import type { HeatmapPeriod, TrackerDataPoint } from './types';
 
 export function readTrackerDataForRange(
@@ -32,7 +32,7 @@ export function readTrackerDataForRange(
 			continue;
 		}
 
-		const raw = fm[key];
+		const raw: unknown = fm[key];
 		const num = typeof raw === 'number' ? raw : parseFloat(String(raw));
 		points.push({ date: dateStr, value: isNaN(num) ? null : num });
 		d.setDate(d.getDate() + 1);

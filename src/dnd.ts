@@ -95,7 +95,7 @@ export function setupDragAndDrop(
 
 			const targetColumn = colEl.dataset.column ?? '';
 
-			if (colEl.dataset.sectionType === 'dashboard' && cardsContainer instanceof HTMLElement) {
+			if (colEl.dataset.sectionType === 'dashboard' && cardsContainer.instanceOf(HTMLElement)) {
 				const targetIndex = getDropIndex(cardsContainer, e.clientX, e.clientY);
 				callbacks.onMoveCard(state.draggingCardId, targetColumn, targetIndex);
 			} else {
@@ -117,7 +117,7 @@ export function setupDragAndDrop(
 }
 
 function getDropIndex(container: HTMLElement, clientX: number, clientY: number): number {
-	const cards = Array.from(container.querySelectorAll('.dashboard-card:not(.dashboard-card--dragging)')) as HTMLElement[];
+	const cards = Array.from(container.querySelectorAll<HTMLElement>('.dashboard-card:not(.dashboard-card--dragging)'));
 	if (cards.length === 0) return 0;
 
 	for (let i = 0; i < cards.length; i++) {
@@ -136,7 +136,7 @@ function updateDropIndicator(state: DnDState, column: HTMLElement, clientX: numb
 	const cardsContainer = column.querySelector('.dashboard-section-cards');
 	if (!cardsContainer) return;
 
-	const cards = Array.from(cardsContainer.querySelectorAll('.dashboard-card:not(.dashboard-card--dragging)')) as HTMLElement[];
+	const cards = Array.from(cardsContainer.querySelectorAll<HTMLElement>('.dashboard-card:not(.dashboard-card--dragging)'));
 	const indicator = document.createElement('div');
 	indicator.addClass('dashboard-drop-indicator');
 	state.dropIndicator = indicator;
@@ -181,7 +181,7 @@ function setupTouchDrag(
 	let startY = 0;
 	let isDragging = false;
 	const LONG_PRESS_MS = 200;
-	let timer: ReturnType<typeof setTimeout> | null = null;
+	let timer: number | null = null;
 
 	const onTouchStart = (e: TouchEvent) => {
 		const t = e.touches[0];
@@ -194,7 +194,7 @@ function setupTouchDrag(
 		startY = t.clientY;
 		isDragging = false;
 
-		timer = setTimeout(() => {
+		timer = window.setTimeout(() => {
 			isDragging = true;
 			ghost = createGhost(cardEl, startX, startY);
 			cardEl.addClass('dashboard-card--dragging');
@@ -207,7 +207,7 @@ function setupTouchDrag(
 				const t = e.touches[0];
 				if (!t) return;
 				if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) {
-					clearTimeout(timer);
+					window.clearTimeout(timer);
 					timer = null;
 				}
 			}
@@ -242,7 +242,7 @@ function setupTouchDrag(
 
 	const onTouchEnd = (e: TouchEvent) => {
 		if (timer) {
-			clearTimeout(timer);
+			window.clearTimeout(timer);
 			timer = null;
 		}
 
@@ -267,7 +267,7 @@ function setupTouchDrag(
 	// it would strand on screen as a permanent text afterimage.
 	const onTouchCancel = () => {
 		if (timer) {
-			clearTimeout(timer);
+			window.clearTimeout(timer);
 			timer = null;
 		}
 		cleanupDrag();
@@ -291,20 +291,22 @@ function createGhost(cardEl: HTMLElement, x: number, y: number): HTMLElement {
 	ghost.removeAttribute('draggable');
 	ghost.querySelectorAll('[draggable]').forEach((el) => el.removeAttribute('draggable'));
 	ghost.addClass('dashboard-card--ghost');
-	ghost.style.position = 'fixed';
-	ghost.style.width = `${cardEl.offsetWidth}px`;
-	ghost.style.left = `${x - cardEl.offsetWidth / 2}px`;
-	ghost.style.top = `${y - cardEl.offsetHeight / 2}px`;
-	ghost.style.zIndex = '9999';
-	ghost.style.pointerEvents = 'none';
-	ghost.style.opacity = '0.85';
-	ghost.style.transform = 'rotate(3deg)';
+	ghost.setCssProps({
+		position: 'fixed',
+		width: `${cardEl.offsetWidth}px`,
+		left: `${x - cardEl.offsetWidth / 2}px`,
+		top: `${y - cardEl.offsetHeight / 2}px`,
+		zIndex: '9999',
+		pointerEvents: 'none',
+		opacity: '0.85',
+		transform: 'rotate(3deg)',
+	});
 	document.body.appendChild(ghost);
 	return ghost;
 }
 
 function findColumnAtPoint(container: HTMLElement, x: number, y: number): HTMLElement | null {
-	const columns = Array.from(container.querySelectorAll('.dashboard-section-row')) as HTMLElement[];
+	const columns = Array.from(container.querySelectorAll<HTMLElement>('.dashboard-section-row'));
 	for (const col of columns) {
 		const rect = col.getBoundingClientRect();
 		if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {

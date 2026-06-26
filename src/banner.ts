@@ -1,4 +1,4 @@
-import { App, Modal, setIcon, Vault } from 'obsidian';
+import { App, Modal, setIcon } from 'obsidian';
 import type { BannerData, QuoteItem } from './types';
 import { t } from './i18n';
 
@@ -172,7 +172,7 @@ export class BannerEditModal extends Modal {
 		addQuoteBtn.addEventListener('click', () => {
 			this.quotes.push({ quote: '', author: '' });
 			renderQuotes();
-			const last = quotesList.querySelector('.dashboard-modal-quote-item:last-child textarea') as HTMLTextAreaElement | null;
+			const last = quotesList.querySelector<HTMLTextAreaElement>('.dashboard-modal-quote-item:last-child textarea');
 			if (last) last.focus();
 		});
 
@@ -218,7 +218,7 @@ export class BannerEditModal extends Modal {
 		addImageBtn.addEventListener('click', () => {
 			this.images.push('');
 			renderImages();
-			const last = imagesList.querySelector('.dashboard-modal-image-item:last-child input') as HTMLInputElement | null;
+			const last = imagesList.querySelector<HTMLInputElement>('.dashboard-modal-image-item:last-child input');
 			if (last) last.focus();
 		});
 

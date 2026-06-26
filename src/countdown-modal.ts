@@ -149,8 +149,10 @@ export class CountdownSettingsModal extends Modal {
 		const popup = document.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-countdown-calendar-popup' });
 
 		const rect = anchor.getBoundingClientRect();
-		popup.style.position = 'fixed';
-		popup.style.top = `${rect.bottom + 4}px`;
+		popup.setCssProps({
+			position: 'fixed',
+			top: `${rect.bottom + 4}px`,
+		});
 		const popupWidth = 240;
 		if (rect.left + popupWidth > window.innerWidth) {
 			popup.style.right = `${window.innerWidth - rect.right}px`;
@@ -267,6 +269,6 @@ export class CountdownSettingsModal extends Modal {
 				document.removeEventListener('mousedown', outsideClick);
 			}
 		};
-		setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
+		window.setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
 	}
 }

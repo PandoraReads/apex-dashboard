@@ -4207,16 +4207,6 @@
 	color: rgba(0, 0, 0, 0.85);
 }
 
-/* Settings section title */
-.dashboard-settings-section-title {
-	font-size: 0.9em;
-	color: var(--db-text-faint);
-	margin-top: 20px;
-	margin-bottom: 4px;
-	padding-bottom: 4px;
-	border-bottom: 1px solid var(--db-border-card);
-}
-
 /* Settings widget card */
 .dashboard-widget-settings-card {
 	border: 1px solid var(--background-modifier-border);
@@ -11266,3 +11256,32 @@
 .dashboard-calendar-fullscreen-inner { width: 100%; height: 100%; display: flex; flex-direction: column; }
 .dashboard-calendar-fullscreen-body { flex: 1; min-height: 0; overflow: auto; }
 .dashboard-calendar-fullscreen-body .dashboard-calendar.is-full .dashboard-calendar-cell-list { overflow: hidden; }
+
+/* Prompt dialog (text-input variant of the confirm dialog) */
+.dashboard-prompt-input {
+	width: 100%;
+	margin: 0 0 20px;
+	padding: 8px 12px;
+	font-size: 0.95em;
+	color: var(--text-normal);
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+}
+.dashboard-prompt-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+.dashboard-confirm-confirm {
+	padding: 7px 20px;
+	border-radius: 8px;
+	font-size: 0.9em;
+	cursor: pointer;
+	background: var(--interactive-accent);
+	border: 1px solid transparent;
+	color: var(--text-on-accent);
+	transition: all 0.15s ease;
+}
+.dashboard-confirm-confirm:hover {
+	opacity: 0.85;
+}

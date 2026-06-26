@@ -188,7 +188,7 @@ export async function collectVaultTasks(app: App, excludeFolders: string[] = [])
 		// freeze the app (especially on mobile) — this is what made the section
 		// feel stuck/unresponsive and the phone overheat while it churned through
 		// every file.
-		if (i > 0 && i % 50 === 0) await new Promise<void>(r => setTimeout(r, 0));
+		if (i > 0 && i % 50 === 0) await new Promise<void>(r => window.setTimeout(r, 0));
 
 		if (file.path.startsWith('.')) { stale.delete(file.path); continue; }
 		if (isExcluded(file.path, normalized)) { stale.delete(file.path); continue; }

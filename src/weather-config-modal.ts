@@ -12,7 +12,7 @@ export class WeatherConfigModal extends Modal {
 	private longitude = 0;
 	private useManual = false;
 	private results: GeocodeResult[] = [];
-	private searchTimer: ReturnType<typeof setTimeout> | null = null;
+	private searchTimer: number | null = null;
 
 	constructor(
 		app: App,
@@ -62,16 +62,18 @@ export class WeatherConfigModal extends Modal {
 		};
 
 		cityInput.addEventListener('input', () => {
-			if (this.searchTimer) clearTimeout(this.searchTimer);
+			if (this.searchTimer) window.clearTimeout(this.searchTimer);
 			const query = cityInput.value.trim();
 			if (!query) {
 				this.results = [];
 				resultsList.empty();
 				return;
 			}
-			this.searchTimer = setTimeout(async () => {
-				this.results = await geocodeCity(query);
-				renderResults();
+			this.searchTimer = window.setTimeout(() => {
+				void (async () => {
+					this.results = await geocodeCity(query);
+					renderResults();
+				})();
 			}, 400);
 		});
 
@@ -137,7 +139,7 @@ export class WeatherConfigModal extends Modal {
 	}
 
 	onClose(): void {
-		if (this.searchTimer) clearTimeout(this.searchTimer);
+		if (this.searchTimer) window.clearTimeout(this.searchTimer);
 		const { contentEl } = this;
 		contentEl.empty();
 	}

@@ -5,7 +5,6 @@ import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
 import { renderCalendarSection } from './calendar-section';
-import type { LibraryConfig } from './types';
 import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
@@ -371,9 +370,11 @@ function renderHeatmapCell(
 	range: number,
 	accentColor: string,
 ): void {
-	cell.style.width = '8px';
-	cell.style.height = '8px';
-	cell.style.borderRadius = '2px';
+	cell.setCssProps({
+		width: '8px',
+		height: '8px',
+		borderRadius: '2px',
+	});
 	if (point === null || point.value === null) {
 		cell.addClass('dashboard-sidebar-heatmap-cell--empty');
 		return;
@@ -410,10 +411,12 @@ function renderHeatmapGithubGrid(
 	}
 	if (currentWeek.length > 0) weeks.push(currentWeek);
 
-	grid.style.display = 'grid';
-	grid.style.gridTemplateColumns = `repeat(${weeks.length}, 8px)`;
-	grid.style.gridTemplateRows = 'repeat(7, 8px)';
-	grid.style.gap = '2px';
+	grid.setCssProps({
+		display: 'grid',
+		gridTemplateColumns: `repeat(${weeks.length}, 8px)`,
+		gridTemplateRows: 'repeat(7, 8px)',
+		gap: '2px',
+	});
 
 	for (const week of weeks) {
 		for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
@@ -471,7 +474,7 @@ function getHeatmapPlugin(app: App) {
 }
 
 function bindHeatmapTitleEdit(titleEl: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
-	titleEl.style.cursor = 'pointer';
+	titleEl.setCssProps({ cursor: 'pointer' });
 	titleEl.addEventListener('dblclick', (e) => {
 		e.stopPropagation();
 		const current = titleEl.getText();
@@ -607,7 +610,7 @@ export function renderSidebarPomodoro(
 
 	// Activity selector (in title position)
 	const currentActivity = service.getActivity();
-	const { activityTrigger, updateActivityDisplay } = createActivitySelector(topRow, service, currentActivity);
+	createActivitySelector(topRow, service, currentActivity);
 
 	const statsBtn = topRow.createDiv({ cls: 'dashboard-sidebar-pomodoro-stats-btn' });
 	setIcon(statsBtn, 'bar-chart-2');
@@ -712,14 +715,13 @@ function createActivitySelector(
 	});
 
 	let colorDot: HTMLElement | null = null;
-	let nameSpan: HTMLElement;
 
 	if (initialActivity) {
 		colorDot = trigger.createDiv({ cls: 'dashboard-pomodoro-activity-color-dot' });
 		colorDot.style.backgroundColor = activityColor(initialActivity);
-		nameSpan = trigger.createSpan({ text: initialActivity });
+		trigger.createSpan({ text: initialActivity });
 	} else {
-		nameSpan = trigger.createSpan({ text: t('pomodoro.tapToSetActivity'), cls: 'dashboard-pomodoro-activity-placeholder' });
+		trigger.createSpan({ text: t('pomodoro.tapToSetActivity'), cls: 'dashboard-pomodoro-activity-placeholder' });
 	}
 
 	let panel: HTMLElement | null = null;
@@ -730,9 +732,9 @@ function createActivitySelector(
 		if (name) {
 			const dot = trigger.createDiv({ cls: 'dashboard-pomodoro-activity-color-dot' });
 			dot.style.backgroundColor = activityColor(name);
-			nameSpan = trigger.createSpan({ text: name });
+			trigger.createSpan({ text: name });
 		} else {
-			nameSpan = trigger.createSpan({ text: t('pomodoro.tapToSetActivity'), cls: 'dashboard-pomodoro-activity-placeholder' });
+			trigger.createSpan({ text: t('pomodoro.tapToSetActivity'), cls: 'dashboard-pomodoro-activity-placeholder' });
 		}
 	}
 
@@ -824,12 +826,12 @@ export function renderSidebarCountdown(
 
 	settingsBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		const modal = new CountdownSettingsModal(app, settings, async (updates) => {
+		const modal = new CountdownSettingsModal(app, settings, (updates) => {
 			Object.assign(settings, updates);
 			const plugin = (app as unknown as { plugins: { plugins: Record<string, { settings?: import('./types').DashboardSettings; saveSettings?: () => Promise<void>; refreshAllDashboards?: () => void }> } }).plugins?.plugins?.['apex-dashboard'];
 			if (plugin?.settings) {
-				Object.assign(plugin.settings!, updates);
-				await plugin.saveSettings?.();
+				Object.assign(plugin.settings, updates);
+				void plugin.saveSettings?.();
 				plugin.refreshAllDashboards?.();
 			}
 		});
@@ -875,10 +877,10 @@ export function renderSidebarCountdown(
 
 	// Auto-refresh with flip animation
 	let prevVal = currentVal;
-	const timer = setInterval(() => {
+	const timer = window.setInterval(() => {
 		const now2 = new Date();
 		if (now2 >= target) {
-			clearInterval(timer);
+			window.clearInterval(timer);
 			content.empty();
 			content.createDiv({ cls: 'dashboard-sidebar-countdown-expired', text: t('countdown.expired') });
 			return;
@@ -889,7 +891,7 @@ export function renderSidebarCountdown(
 			prevVal = newVal;
 			valueEl.textContent = String(newVal);
 			valueEl.addClass('dashboard-sidebar-countdown-value--flip');
-			setTimeout(() => valueEl.removeClass('dashboard-sidebar-countdown-value--flip'), 400);
+			window.setTimeout(() => valueEl.removeClass('dashboard-sidebar-countdown-value--flip'), 400);
 		}
 	}, 60000);
 }
@@ -1149,9 +1151,9 @@ export function renderSidebarReading(
 		const placeholder = coverWrap.createDiv({ cls: 'dashboard-reading-book-card-cover-placeholder' });
 		placeholder.textContent = book.title.length > 8 ? book.title.slice(0, 8) + '..' : book.title;
 		if (book.coverUrl) {
-			downloadCoverAsBlobUrl(book.coverUrl).then(blobUrl => {
+			void downloadCoverAsBlobUrl(book.coverUrl).then(blobUrl => {
 				if (blobUrl) {
-					placeholder.style.display = 'none';
+					placeholder.setCssProps({ display: 'none' });
 					coverWrap.style.backgroundImage = `url(${blobUrl})`;
 				}
 			});
@@ -1230,7 +1232,7 @@ export function renderSidebarReading(
 		setIcon(removeBtn, 'x');
 		removeBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			service.removeActiveBook(book.title).then(() => refreshCards());
+			void service.removeActiveBook(book.title).then(() => refreshCards());
 		});
 	}
 
@@ -1245,7 +1247,7 @@ export function renderSidebarReading(
 
 	addBtn.addEventListener('click', () => {
 		openBookSearch(widget.ownerDocument, service, (book) => {
-			if (book) service.addActiveBook(book).then(() => refreshCards());
+			if (book) void service.addActiveBook(book).then(() => refreshCards());
 		});
 	});
 
@@ -1413,32 +1415,34 @@ function openEndReadingModal(
 	footer.createEl('button', {
 		cls: 'dashboard-reading-end-btn dashboard-reading-end-btn--confirm',
 		text: t('reading.endConfirm'),
-	}).addEventListener('click', async () => {
-		const endInput = inputsContainer.querySelector('.dashboard-reading-end-page-input:not(.dashboard-reading-end-page-input--total)') as HTMLInputElement | null;
-		const totalInput = inputsContainer.querySelector('.dashboard-reading-end-page-input--total') as HTMLInputElement | null;
-		const endVal = parseInt(endInput?.value || '0') || 0;
-		const finished = checkbox.checked;
+	}).addEventListener('click', () => {
+		void (async () => {
+			const endInput = inputsContainer.querySelector<HTMLInputElement>('.dashboard-reading-end-page-input:not(.dashboard-reading-end-page-input--total)');
+			const totalInput = inputsContainer.querySelector<HTMLInputElement>('.dashboard-reading-end-page-input--total');
+			const endVal = parseInt(endInput?.value || '0') || 0;
+			const finished = checkbox.checked;
 
-		let endPage: number;
-		let totalPages = book.totalPages;
+			let endPage: number;
+			let totalPages = book.totalPages;
 
-		if (progressMode === 'pct') {
-			if (totalPages > 0) {
-				endPage = Math.round((Math.min(endVal, 100) / 100) * totalPages);
+			if (progressMode === 'pct') {
+				if (totalPages > 0) {
+					endPage = Math.round((Math.min(endVal, 100) / 100) * totalPages);
+				} else {
+					endPage = Math.min(endVal, 100);
+					totalPages = 100;
+				}
 			} else {
-				endPage = Math.min(endVal, 100);
-				totalPages = 100;
+				endPage = endVal;
+				if (totalInput) {
+					totalPages = parseInt(totalInput.value) || 0;
+				}
 			}
-		} else {
-			endPage = endVal;
-			if (totalInput) {
-				totalPages = parseInt(totalInput.value) || 0;
-			}
-		}
 
-		await service.finishSession(endPage, totalPages, finished);
-		close();
-		onDone();
+			await service.finishSession(endPage, totalPages, finished);
+			close();
+			onDone();
+		})();
 	});
 }
 
@@ -1509,24 +1513,28 @@ function openEditBookInfo(
 		cls: 'dashboard-reading-end-btn dashboard-reading-end-btn--delete',
 		text: t('reading.editDeleteBook'),
 	});
-	deleteBtn.addEventListener('click', async () => {
-		await service.removeActiveBook(book.title);
-		close();
-		onDone();
+	deleteBtn.addEventListener('click', () => {
+		void (async () => {
+			await service.removeActiveBook(book.title);
+			close();
+			onDone();
+		})();
 	});
 
-	saveBtn.addEventListener('click', async () => {
-		const newTitle = titleInput.value.trim();
-		if (!newTitle) return;
+	saveBtn.addEventListener('click', () => {
+		void (async () => {
+			const newTitle = titleInput.value.trim();
+			if (!newTitle) return;
 
-		await service.updateBookInfo(book.title, {
-			title: newTitle,
-			author: authorInput.value.trim(),
-			coverUrl: coverInput.value.trim(),
-			totalPages: parseInt(pagesInput.value) || 0,
-		});
-		close();
-		onDone();
+			await service.updateBookInfo(book.title, {
+				title: newTitle,
+				author: authorInput.value.trim(),
+				coverUrl: coverInput.value.trim(),
+				totalPages: parseInt(pagesInput.value) || 0,
+			});
+			close();
+			onDone();
+		})();
 	});
 
 	titleInput.focus();
@@ -1583,16 +1591,16 @@ function openBookSearch(
 		}
 	});
 
-	let searchTimer: ReturnType<typeof setTimeout> | null = null;
+	let searchTimer: number | null = null;
 	let searching = false;
 
 	input.addEventListener('input', () => {
-		if (searchTimer) clearTimeout(searchTimer);
+		if (searchTimer) window.clearTimeout(searchTimer);
 		const query = input.value.trim();
 
 		// Remove previous search results (keep manual row)
 		while (resultsArea.firstChild && resultsArea.firstChild !== manualRow) {
-			resultsArea.removeChild(resultsArea.firstChild!);
+			resultsArea.removeChild(resultsArea.firstChild);
 		}
 
 		if (!query) return;
@@ -1600,51 +1608,53 @@ function openBookSearch(
 		const indicator = resultsArea.createDiv({ cls: 'dashboard-reading-book-searching', text: t('reading.searching') });
 		resultsArea.insertBefore(indicator, manualRow);
 
-		searchTimer = setTimeout(async () => {
-			if (searching) return;
-			searching = true;
+		searchTimer = window.setTimeout(() => {
+			void (async () => {
+				if (searching) return;
+				searching = true;
 
-			let results: import('./book-service').BookSearchResult[] = [];
-			try {
-				results = await searchBooks(query);
-			} catch {
-				results = [];
-			}
-			searching = false;
-
-			// Remove previous results
-			while (resultsArea.firstChild && resultsArea.firstChild !== manualRow) {
-				resultsArea.removeChild(resultsArea.firstChild!);
-			}
-
-			if (results.length === 0) {
-				const noResult = resultsArea.createDiv({ cls: 'dashboard-reading-book-no-results', text: t('reading.noResults') });
-				resultsArea.insertBefore(noResult, manualRow);
-				return;
-			}
-
-			for (const book of results) {
-				const item = resultsArea.createDiv({ cls: 'dashboard-reading-book-item' });
-				if (book.coverUrl) {
-					const c = item.createDiv({ cls: 'dashboard-reading-book-item-cover' });
-					downloadCoverAsBlobUrl(book.coverUrl).then(url => { if (url) c.style.backgroundImage = `url(${url})`; });
-				} else {
-					item.createDiv({ cls: 'dashboard-reading-book-item-nocover' });
+				let results: import('./book-service').BookSearchResult[] = [];
+				try {
+					results = await searchBooks(query);
+				} catch {
+					results = [];
 				}
-				const info = item.createDiv({ cls: 'dashboard-reading-book-item-info' });
-				info.createDiv({ cls: 'dashboard-reading-book-item-title', text: book.title });
-				if (book.author) {
-					info.createDiv({ cls: 'dashboard-reading-book-item-author', text: book.author });
+				searching = false;
+
+				// Remove previous results
+				while (resultsArea.firstChild && resultsArea.firstChild !== manualRow) {
+					resultsArea.removeChild(resultsArea.firstChild);
 				}
-				item.addEventListener('click', () => {
-					onSelect({
-						title: book.title, author: book.author, coverUrl: book.coverUrl,
-						isbn: book.isbn, source: 'google', currentPage: 0, totalPages: 0, finished: false,
+
+				if (results.length === 0) {
+					const noResult = resultsArea.createDiv({ cls: 'dashboard-reading-book-no-results', text: t('reading.noResults') });
+					resultsArea.insertBefore(noResult, manualRow);
+					return;
+				}
+
+				for (const book of results) {
+					const item = resultsArea.createDiv({ cls: 'dashboard-reading-book-item' });
+					if (book.coverUrl) {
+						const c = item.createDiv({ cls: 'dashboard-reading-book-item-cover' });
+						void downloadCoverAsBlobUrl(book.coverUrl).then(url => { if (url) c.style.backgroundImage = `url(${url})`; });
+					} else {
+						item.createDiv({ cls: 'dashboard-reading-book-item-nocover' });
+					}
+					const info = item.createDiv({ cls: 'dashboard-reading-book-item-info' });
+					info.createDiv({ cls: 'dashboard-reading-book-item-title', text: book.title });
+					if (book.author) {
+						info.createDiv({ cls: 'dashboard-reading-book-item-author', text: book.author });
+					}
+					item.addEventListener('click', () => {
+						onSelect({
+							title: book.title, author: book.author, coverUrl: book.coverUrl,
+							isbn: book.isbn, source: 'google', currentPage: 0, totalPages: 0, finished: false,
+						});
+						close();
 					});
-					close();
-				});
-				resultsArea.insertBefore(item, manualRow);
-			}
+					resultsArea.insertBefore(item, manualRow);
+				}
+			})();
 		}, 500);
 	});
 }
@@ -1717,7 +1727,7 @@ function showReadingStats(doc: Document, service: ReadingService): void {
 				const row = bookListContainer.createDiv({ cls: 'dashboard-reading-book-list-row' });
 				if (book.coverUrl) {
 					const c = row.createDiv({ cls: 'dashboard-reading-book-list-cover' });
-					downloadCoverAsBlobUrl(book.coverUrl).then(url => {
+					void downloadCoverAsBlobUrl(book.coverUrl).then(url => {
 						if (url) c.style.backgroundImage = `url(${url})`;
 					});
 				} else {
@@ -1731,10 +1741,12 @@ function showReadingStats(doc: Document, service: ReadingService): void {
 				meta.createDiv({ cls: 'dashboard-reading-book-list-sessions', text: t('reading.times', { count: book.sessions }) });
 				const del = meta.createDiv({ cls: 'dashboard-reading-stats-record-del' });
 				setIcon(del, 'trash-2');
-				del.addEventListener('click', async (e) => {
+				del.addEventListener('click', (e) => {
 					e.stopPropagation();
-					await service.deleteBookRecords(book.title);
-					renderBookList(rangeKey);
+					void (async () => {
+						await service.deleteBookRecords(book.title);
+						renderBookList(rangeKey);
+					})();
 				});
 			}
 		}
@@ -1761,10 +1773,12 @@ function showReadingStats(doc: Document, service: ReadingService): void {
 				row.createDiv({ cls: 'dashboard-reading-stats-record-dur', text: formatReadingDuration(rec.durationSeconds) });
 				const del = row.createDiv({ cls: 'dashboard-reading-stats-record-del' });
 				setIcon(del, 'trash-2');
-				del.addEventListener('click', async (e) => {
+				del.addEventListener('click', (e) => {
 					e.stopPropagation();
-					await service.deleteRecord(rec.timestamp);
-					renderContent();
+					void (async () => {
+						await service.deleteRecord(rec.timestamp);
+						renderContent();
+					})();
 				});
 			}
 		}
@@ -1945,9 +1959,9 @@ export function refreshMediaSections(
 
 const COLLAPSED_KEY = 'apex-dashboard-collapsed';
 
-function getCollapsedSections(): Set<string> {
+function getCollapsedSections(app: App): Set<string> {
 	try {
-		const raw = localStorage.getItem(COLLAPSED_KEY);
+		const raw = app.loadLocalStorage(COLLAPSED_KEY) as string | null;
 		if (!raw) return new Set();
 		return new Set(JSON.parse(raw) as string[]);
 	} catch {
@@ -1955,8 +1969,8 @@ function getCollapsedSections(): Set<string> {
 	}
 }
 
-function saveCollapsedSections(collapsed: Set<string>): void {
-	localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
+function saveCollapsedSections(app: App, collapsed: Set<string>): void {
+	app.saveLocalStorage(COLLAPSED_KEY, JSON.stringify([...collapsed]));
 }
 
 function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
@@ -1966,7 +1980,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 	const sectionType = getSectionType(column);
 	el.dataset.sectionType = sectionType;
 
-	const collapsed = getCollapsedSections();
+	const collapsed = getCollapsedSections(app);
 	if (collapsed.has(column.name)) {
 		el.addClass('dashboard-section-row--collapsed');
 	}
@@ -2014,7 +2028,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 			finish(true);
 		});
 	});
-	titleEl.style.cursor = 'pointer';
+	titleEl.setCssProps({ cursor: 'pointer' });
 
 	toggle.addEventListener('click', (e) => {
 		e.stopPropagation();
@@ -2026,7 +2040,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 			el.addClass('dashboard-section-row--collapsed');
 			collapsed.add(column.name);
 		}
-		saveCollapsedSections(collapsed);
+		saveCollapsedSections(app, collapsed);
 	});
 
 		const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
@@ -2250,7 +2264,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 			finish(true);
 		});
 	});
-	titleEl.style.cursor = 'pointer';
+	titleEl.setCssProps({ cursor: 'pointer' });
 
 	const actions = header.createDiv({ cls: 'dashboard-card-actions' });
 
@@ -2295,10 +2309,12 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 			const input = document.createElement('input');
 			input.type = 'color';
 			input.value = card.color || '#f59e0b';
-			input.style.position = 'absolute';
-			input.style.opacity = '0';
-			input.style.width = '0';
-			input.style.height = '0';
+			input.setCssProps({
+				position: 'absolute',
+				opacity: '0',
+				width: '0',
+				height: '0',
+			});
 			document.body.appendChild(input);
 			input.addEventListener('input', () => {
 				callbacks.onMemoColorChange(card, input.value);
@@ -2541,7 +2557,7 @@ function renderTaskItem(
 		if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
 			touchState.moved = true;
 			if (touchState.timer) {
-				clearTimeout(touchState.timer);
+				window.clearTimeout(touchState.timer);
 				touchState.timer = null;
 			}
 		}
@@ -2553,9 +2569,9 @@ function renderTaskItem(
 	item.addEventListener('touchend', (e) => {
 		const ts = touchState;
 		touchState = null;
-		item.style.transform = '';
+		item.setCssProps({ transform: '' });
 		if (!ts) return;
-		if (ts.timer) clearTimeout(ts.timer);
+		if (ts.timer) window.clearTimeout(ts.timer);
 		if (ts.dragging) {
 			item.removeClass('dashboard-task-item--dragging');
 			return;
@@ -2580,9 +2596,9 @@ function renderTaskItem(
 	}, { passive: true });
 
 	item.addEventListener('touchcancel', () => {
-		if (touchState?.timer) clearTimeout(touchState.timer);
+		if (touchState?.timer) window.clearTimeout(touchState.timer);
 		touchState = null;
-		item.style.transform = '';
+		item.setCssProps({ transform: '' });
 		item.removeClass('dashboard-task-item--dragging');
 	}, { passive: true });
 
@@ -2623,7 +2639,7 @@ function renderTaskItem(
 		});
 
 		const autoResize = () => {
-			textarea.style.height = 'auto';
+			textarea.setCssProps({ height: 'auto' });
 			textarea.style.height = textarea.scrollHeight + 'px';
 		};
 		autoResize();
@@ -2806,8 +2822,8 @@ function renderMemoBody(container: HTMLElement, card: DashboardCard, callbacks: 
 	const view = container.createDiv({ cls: 'dashboard-memo-view' });
 	renderMemoViewContent(view, text, app);
 	view.addEventListener('click', () => {
-		view.style.display = 'none';
-		textarea.style.display = '';
+		view.setCssProps({ display: 'none' });
+		textarea.setCssProps({ display: '' });
 		textarea.focus();
 	});
 
@@ -2817,7 +2833,7 @@ function renderMemoBody(container: HTMLElement, card: DashboardCard, callbacks: 
 		text: text,
 		attr: { placeholder: t('renderer.writeThoughts') },
 	});
-	textarea.style.display = 'none';
+	textarea.setCssProps({ display: 'none' });
 
 	attachFileSuggest(textarea, app);
 
@@ -2852,8 +2868,8 @@ function renderMemoBody(container: HTMLElement, card: DashboardCard, callbacks: 
 		// If re-render didn't happen (not dirty), switch to view manually
 		if (document.body.contains(view)) {
 			renderMemoViewContent(view, textarea.value, app);
-			view.style.display = '';
-			textarea.style.display = 'none';
+			view.setCssProps({ display: '' });
+			textarea.setCssProps({ display: 'none' });
 		}
 	});
 }
@@ -2877,27 +2893,6 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 		} else {
 			renderTextWithLinks(container, line, app);
 		}
-	}
-}
-
-function renderNoteBody(container: HTMLElement, card: DashboardCard): void {
-	if (card.blockquote) {
-		const quote = container.createDiv({ cls: 'dashboard-note-quote' });
-		quote.setText(card.blockquote);
-	}
-	if (card.body) {
-		container.createDiv({ cls: 'dashboard-note-body', text: card.body });
-	}
-}
-
-function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
-	const link = container.createEl('a', {
-		cls: 'dashboard-link-url',
-		attr: { href: card.url, target: '_blank', rel: 'noopener' },
-		text: card.url,
-	});
-	if (card.body) {
-		container.createDiv({ cls: 'dashboard-link-desc', text: card.body });
 	}
 }
 
@@ -2986,14 +2981,16 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 				attr: { 'aria-label': t('renderer.removeDoc') },
 			});
 			setIcon(removeBtn, 'x');
-			removeBtn.addEventListener('click', async (e) => {
+			removeBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				const confirmed = await showConfirmDialog(app, {
-					title: t('common.confirmDelete'),
-					message: t('common.confirmDeleteMessage'),
-				});
-				if (!confirmed) return;
-				callbacks.onDocDelete(card.id, path);
+				void (async () => {
+					const confirmed = await showConfirmDialog(app, {
+						title: t('common.confirmDelete'),
+						message: t('common.confirmDeleteMessage'),
+					});
+					if (!confirmed) return;
+					callbacks.onDocDelete(card.id, path);
+				})();
 			});
 
 			docItem.addEventListener('click', (e) => {
@@ -3100,19 +3097,9 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 		});
 
 		docInput.addEventListener('blur', () => {
-			setTimeout(() => docResults.empty(), 200);
+			window.setTimeout(() => docResults.empty(), 200);
 		});
 	}
-
-function renderHabitBody(container: HTMLElement, card: DashboardCard): void {
-	const streakEl = container.createDiv({ cls: 'dashboard-habit-streak' });
-	streakEl.createSpan({ cls: 'dashboard-habit-icon', text: '🔥' });
-	streakEl.createSpan({ text: t('renderer.dayStreak', { count: card.streak }) });
-
-	if (card.body) {
-		container.createDiv({ cls: 'dashboard-habit-body', text: card.body });
-	}
-}
 
 function getSectionType(column: DashboardColumn): string {
 	if (column.sectionType) return column.sectionType;
@@ -3286,8 +3273,10 @@ function showReminderPopup(
 	}
 
 	const rect = anchorBtn.getBoundingClientRect();
-	popup.style.position = 'fixed';
-	popup.style.top = `${rect.bottom + 4}px`;
+	popup.setCssProps({
+		position: 'fixed',
+		top: `${rect.bottom + 4}px`,
+	});
 
 	const popupWidth = 240;
 	if (rect.left + popupWidth > window.innerWidth) {
@@ -3306,16 +3295,20 @@ function showReminderPopup(
 		}
 		popup.style.top = `${r.bottom + 4}px`;
 		if (r.left + popupWidth > window.innerWidth) {
-			popup.style.right = `${window.innerWidth - r.right}px`;
-			popup.style.left = 'auto';
+			popup.setCssProps({
+				right: `${window.innerWidth - r.right}px`,
+				left: 'auto',
+			});
 		} else {
-			popup.style.left = `${r.left}px`;
-			popup.style.right = 'auto';
+			popup.setCssProps({
+				left: `${r.left}px`,
+				right: 'auto',
+			});
 		}
 	};
 	document.addEventListener('scroll', updatePopupPosition, { passive: true, capture: true });
 	window.addEventListener('resize', updatePopupPosition);
-	(popup as any).__reminderCleanup = () => {
+	(popup as HTMLElement & { __reminderCleanup?: () => void }).__reminderCleanup = () => {
 		document.removeEventListener('scroll', updatePopupPosition, { capture: true });
 		window.removeEventListener('resize', updatePopupPosition);
 	};
@@ -3457,7 +3450,7 @@ function showReminderPopup(
 			document.removeEventListener('mousedown', outsideClick);
 		}
 	};
-	setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
+	window.setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
 
 	renderCalendar();
 }
@@ -3705,10 +3698,12 @@ function renderTrackerHeatmap(el: HTMLElement, data: import('./types').TrackerDa
 	const visibleWeeks = weeks.slice(-maxWeeks);
 
 	const grid = heatmap.createDiv({ cls: 'dashboard-tracker-heatmap-grid' });
-	grid.style.display = 'grid';
-	grid.style.gridTemplateColumns = `repeat(${visibleWeeks.length}, ${cellSize}px)`;
-	grid.style.gridTemplateRows = `repeat(7, ${cellSize}px)`;
-	grid.style.gap = `${gap}px`;
+	grid.setCssProps({
+		display: 'grid',
+		gridTemplateColumns: `repeat(${visibleWeeks.length}, ${cellSize}px)`,
+		gridTemplateRows: `repeat(7, ${cellSize}px)`,
+		gap: `${gap}px`,
+	});
 
 	// Day labels (Mon, Tue, ... Sun) for L size
 	if (size === 'L') {

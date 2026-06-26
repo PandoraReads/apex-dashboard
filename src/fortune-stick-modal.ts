@@ -117,7 +117,7 @@ export class FortuneStickModal {
 			text: '解签',
 		});
 
-		setTimeout(() => {
+		window.setTimeout(() => {
 			revealBtn.classList.remove('fortune-result-reveal-btn--hidden');
 			revealBtn.classList.add('fortune-result-reveal-btn--show');
 		}, verseTotalMs);

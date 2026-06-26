@@ -7,7 +7,6 @@ import {
 	updateTaskAt,
 	removeTaskAt,
 	insertSibling,
-	insertAt,
 	appendChild,
 	demoteToChild,
 	promoteToTopLevel,
@@ -25,8 +24,6 @@ import {
 
 type DataCallback = (data: DashboardData) => void;
 
-const KNOWN_METADATA_KEYS = new Set(['link', 'progress', 'due', 'streak', 'type']);
-
 type TaskDropMode = 'before' | 'after' | 'nest';
 
 export class SyncEngine {
@@ -34,7 +31,7 @@ export class SyncEngine {
 	private settings: DashboardSettings;
 	private file: TFile | null = null;
 	private data: DashboardData | null = null;
-	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private debounceTimer: number | null = null;
 	private readonly debounceMs = 300;
 	private writeQueue: Promise<void> = Promise.resolve();
 	private callbacks: DataCallback[] = [];
@@ -71,10 +68,10 @@ export class SyncEngine {
 			this.renameEventRef = null;
 		}
 		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
+			window.clearTimeout(this.debounceTimer);
 		}
 		if (this.deferredWriteTimer) {
-			clearTimeout(this.deferredWriteTimer);
+			window.clearTimeout(this.deferredWriteTimer);
 		}
 	}
 
@@ -684,7 +681,7 @@ export class SyncEngine {
 		this.file = await this.app.vault.create(path, content);
 	}
 
-	private deferredWriteTimer: ReturnType<typeof setTimeout> | null = null;
+	private deferredWriteTimer: number | null = null;
 	private renameEventRef: ReturnType<typeof this.app.vault.on> | null = null;
 
 	private registerFileWatcher(): void {
@@ -736,28 +733,28 @@ export class SyncEngine {
 
 		// Cancel pending re-parse to prevent race condition
 		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
+			window.clearTimeout(this.debounceTimer);
 			this.debounceTimer = null;
 		}
 
 		this.data = { ...this.data, banner, quickActions, columns };
-		this.writeToDisk();
+		void this.writeToDisk();
 	}
 
 	private scheduleDeferredWrite(): void {
-		if (this.deferredWriteTimer) clearTimeout(this.deferredWriteTimer);
-		this.deferredWriteTimer = setTimeout(() => {
+		if (this.deferredWriteTimer) window.clearTimeout(this.deferredWriteTimer);
+		this.deferredWriteTimer = window.setTimeout(() => {
 			this.deferredWriteTimer = null;
 			if (this.data) {
-				this.writeToDisk();
+				void this.writeToDisk();
 			}
 		}, 1000);
 	}
 
 	private onFileModify(): void {
-		if (this.debounceTimer) clearTimeout(this.debounceTimer);
-		this.debounceTimer = setTimeout(() => {
-			this.load();
+		if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
+		this.debounceTimer = window.setTimeout(() => {
+			void this.load();
 		}, this.debounceMs);
 	}
 

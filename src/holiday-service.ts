@@ -1,3 +1,5 @@
+import { App, requestUrl } from 'obsidian';
+
 export interface HolidayInfo {
 	type: number;
 	name: string;
@@ -25,11 +27,11 @@ function isValidCache(obj: unknown): obj is HolidayCache {
 		&& typeof c.data === 'object' && c.data !== null;
 }
 
-function loadDiskCache(): HolidayCache | null {
+function loadDiskCache(app: App): HolidayCache | null {
 	try {
-		const raw = localStorage.getItem(CACHE_KEY);
+		const raw = app.loadLocalStorage(CACHE_KEY) as string | null;
 		if (!raw) return null;
-		const parsed = JSON.parse(raw);
+		const parsed: unknown = JSON.parse(raw);
 		if (!isValidCache(parsed)) return null;
 		if (Date.now() - parsed.fetchedAt > CACHE_TTL) return null;
 		return parsed;
@@ -38,9 +40,9 @@ function loadDiskCache(): HolidayCache | null {
 	}
 }
 
-function saveDiskCache(cache: HolidayCache): void {
+function saveDiskCache(app: App, cache: HolidayCache): void {
 	try {
-		localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+		app.saveLocalStorage(CACHE_KEY, JSON.stringify(cache));
 	} catch {
 		// ignore storage errors
 	}
@@ -50,8 +52,8 @@ function isValidApiEntry(obj: unknown): boolean {
 	return obj !== null && typeof obj === 'object';
 }
 
-export async function fetchHolidayData(year: number): Promise<Record<string, HolidayInfo>> {
-	const diskCache = loadDiskCache();
+export async function fetchHolidayData(app: App, year: number): Promise<Record<string, HolidayInfo>> {
+	const diskCache = loadDiskCache(app);
 	if (diskCache && diskCache.year === year) {
 		memoryCache = diskCache;
 		return diskCache.data;
@@ -63,16 +65,14 @@ export async function fetchHolidayData(year: number): Promise<Record<string, Hol
 
 	try {
 		const url = `https://timor.tech/api/holiday/year/${year}/`;
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 5000);
-		const resp = await fetch(url, {
+		const resp = await requestUrl({
+			url,
+			method: 'GET',
 			headers: { 'Accept': 'application/json' },
-			signal: controller.signal,
 		});
-		clearTimeout(timeoutId);
-		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+		if (resp.status < 200 || resp.status >= 300) throw new Error(`HTTP ${resp.status}`);
 
-		const json = await resp.json();
+		const json: unknown = resp.json;
 		if (!json || typeof json !== 'object') return {};
 
 		const data: Record<string, HolidayInfo> = {};
@@ -96,7 +96,7 @@ export async function fetchHolidayData(year: number): Promise<Record<string, Hol
 
 		const cache: HolidayCache = { year, data, fetchedAt: Date.now() };
 		memoryCache = cache;
-		saveDiskCache(cache);
+		saveDiskCache(app, cache);
 		return data;
 	} catch {
 		return {};

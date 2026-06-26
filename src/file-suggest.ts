@@ -12,8 +12,6 @@ interface SuggestItem {
 	select: () => void;
 }
 
-type SuggestMode = 'file' | 'heading' | 'block';
-
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'pdf']);
 
 export function attachFileSuggest(
@@ -34,10 +32,12 @@ export function attachFileSuggest(
 		hide();
 		dropdown = document.body.createDiv({ cls: 'dashboard-file-suggest' });
 		const rect = inputEl.getBoundingClientRect();
-		dropdown.style.position = 'fixed';
-		dropdown.style.left = `${rect.left}px`;
-		dropdown.style.top = `${rect.bottom + 2}px`;
-		dropdown.style.width = `${Math.min(rect.width, 320)}px`;
+		dropdown.setCssProps({
+			position: 'fixed',
+			left: `${rect.left}px`,
+			top: `${rect.bottom + 2}px`,
+			width: `${Math.min(rect.width, 320)}px`,
+		});
 		dropdown.addEventListener('mousedown', (e) => e.preventDefault());
 	}
 
@@ -245,7 +245,7 @@ export function attachFileSuggest(
 			selectedFile = file;
 
 			if (afterHash.startsWith('^')) {
-				showBlocks(file, afterHash.slice(1).trim());
+				void showBlocks(file, afterHash.slice(1).trim());
 			} else {
 				showHeadings(file, afterHash.trim());
 			}
@@ -307,7 +307,7 @@ export function attachFileSuggest(
 
 	inputEl.addEventListener('input', onInput);
 	inputEl.addEventListener('keydown', onKeyDown);
-	inputEl.addEventListener('blur', () => setTimeout(hide, 150));
+	inputEl.addEventListener('blur', () => window.setTimeout(hide, 150));
 
 	return {
 		isActive: () => active,

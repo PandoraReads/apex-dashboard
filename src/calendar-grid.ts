@@ -320,7 +320,7 @@ export function renderWeekTimeGrid(
 	// Land on the first event (or 7:00).
 	const targetMin = earliestMin !== undefined ? Math.max(0, earliestMin - 60) : 7 * 60;
 	const targetTop = Math.round(targetMin * TIMEGRID_HOUR_PX / 60);
-	requestAnimationFrame(() => { scroll.scrollTop = targetTop; });
+	window.requestAnimationFrame(() => { scroll.scrollTop = targetTop; });
 
 	return { label: weekLabel(weekStart) };
 }

@@ -67,7 +67,7 @@ export default class DashboardPlugin extends Plugin {
 				}
 				const leaf = leaves[0]!;
 				if (leaf.view instanceof DashboardView) {
-					leaf.view.addSection();
+					void leaf.view.addSection();
 				}
 			},
 		});
@@ -117,7 +117,7 @@ export default class DashboardPlugin extends Plugin {
 		const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
 		for (const leaf of leaves) {
 			if (leaf.view instanceof DashboardView) {
-				leaf.view.refresh();
+				void leaf.view.refresh();
 			}
 		}
 	}

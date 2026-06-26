@@ -593,7 +593,7 @@ function parseQuickActions(fm: Record<string, unknown>): QuickAction[] {
 		return rawActions.map((item: Record<string, string>) => ({
 			name: item.name ?? '',
 			icon: item.icon ?? (item.type === 'command' ? 'terminal' : 'file-text'),
-			type: (item.type === 'command' ? 'command' : 'file') as 'file' | 'command',
+			type: item.type === 'command' ? 'command' as const : 'file' as const,
 			target: item.target ?? '',
 		})).filter(a => a.name && a.target);
 	}
@@ -633,9 +633,9 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
 	return (raw as Array<Record<string, unknown>>).map(item => ({
-			name: String(item.name ?? 'Unnamed'),
-			color: String(item.color ?? '#6366f1'),
-			sectionType: item.type ? String(item.type) : undefined,
+			name: String((item.name ?? 'Unnamed') as string | number | boolean),
+			color: String((item.color ?? '#6366f1') as string | number | boolean),
+			sectionType: item.type ? String(item.type as string | number | boolean) : undefined,
 		libraryConfig: item.library ? parseLibraryConfig(item.library as Record<string, unknown>) : undefined,
 	}));
 }
@@ -727,11 +727,11 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 	if (Array.isArray(rawFilters)) {
 		for (const item of rawFilters) {
 			const rec = item as Record<string, unknown>;
-			const property = String(rec.property ?? '');
+			const property = String((rec.property ?? '') as string | number | boolean);
 			const rawValues = rec.values;
 			const values = Array.isArray(rawValues) ? rawValues.map((v: unknown) => String(v)) : [];
-			const dateStart = rec.dateStart ? String(rec.dateStart) : '';
-			const dateEnd = rec.dateEnd ? String(rec.dateEnd) : '';
+			const dateStart = rec.dateStart ? String(rec.dateStart as string | number | boolean) : '';
+			const dateEnd = rec.dateEnd ? String(rec.dateEnd as string | number | boolean) : '';
 			const dateRange = (dateStart || dateEnd) ? { start: dateStart, end: dateEnd } : undefined;
 			filters.push({ property, values, dateRange });
 		}
@@ -739,18 +739,18 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 
 	return {
 		filters,
-		viewMode: (['grid', 'list', 'table', 'kanban'].includes(String(raw.viewMode ?? '')) ? raw.viewMode : 'grid') as import('./types').LibraryViewMode,
-		sortBy: String(raw.sortBy ?? 'modified'),
+		viewMode: (['grid', 'list', 'table', 'kanban'].includes(String((raw.viewMode ?? '') as string | number | boolean)) ? raw.viewMode : 'grid') as import('./types').LibraryViewMode,
+		sortBy: String((raw.sortBy ?? 'modified') as string | number | boolean),
 		sortDesc: raw.sortDesc !== false,
-		kanbanGroupBy: raw.kanbanGroupBy ? String(raw.kanbanGroupBy) : undefined,
+		kanbanGroupBy: raw.kanbanGroupBy ? String(raw.kanbanGroupBy as string | number | boolean) : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
 		folder: typeof raw.folder === 'string' ? raw.folder : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
-		taskGroupBy: ['date', 'priority', 'none'].includes(String(raw.taskGroupBy ?? '')) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
+		taskGroupBy: ['date', 'priority', 'none'].includes(String((raw.taskGroupBy ?? '') as string | number | boolean)) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {
 				property: (raw.quickDateFilter as Record<string, unknown>).property === 'modified' ? 'modified' as const : 'created' as const,
-				start: String((raw.quickDateFilter as Record<string, unknown>).start ?? ''),
-				end: String((raw.quickDateFilter as Record<string, unknown>).end ?? ''),
+				start: String(((raw.quickDateFilter as Record<string, unknown>).start ?? '') as string | number | boolean),
+				end: String(((raw.quickDateFilter as Record<string, unknown>).end ?? '') as string | number | boolean),
 			} : undefined,
 		};
 	}
@@ -855,7 +855,7 @@ function extractCardParts(body: string): {
 
 	for (const line of lines) {
 		const trimmed = line.trim();
-		const isIndented = /^(\t|    )/.test(line);
+		const isIndented = /^(\t| {4})/.test(line);
 
 		const kvMatch = trimmed.match(/^(\w+):\s*(.+)$/);
 		if (kvMatch && kvMatch[1] && kvMatch[2] && KNOWN_METADATA_KEYS.has(kvMatch[1])) {

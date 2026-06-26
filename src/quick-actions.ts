@@ -2,6 +2,7 @@ import { App, Modal, setIcon } from 'obsidian';
 import type { QuickAction } from './types';
 import { PRESET_ACTIONS } from './types';
 import { t } from './i18n';
+import type { AppWithCommands } from './obsidian-internal';
 
 function actionKey(action: QuickAction, isPreset: boolean): string {
 	return isPreset ? `p:${action.target}` : `c:${action.target}`;
@@ -163,7 +164,7 @@ export function renderQuickActions(
 		if (!targetKey || targetKey === draggedKey) return;
 
 		// Build new order from current DOM order with the swap
-		const items = Array.from(list.querySelectorAll('.dashboard-qa-item')) as HTMLElement[];
+		const items = Array.from(list.querySelectorAll<HTMLElement>('.dashboard-qa-item'));
 		const currentKeys = items.map(el => el.dataset.qaKey ?? '');
 		const fromIdx = currentKeys.indexOf(draggedKey);
 		const toIdx = currentKeys.indexOf(targetKey);
@@ -220,7 +221,7 @@ export function renderQuickActions(
 		item.setAttribute('role', 'button');
 
 		// DnD events
-		item.addEventListener('dragstart', (e) => onDragStart(e as DragEvent, key));
+		item.addEventListener('dragstart', (e) => onDragStart(e, key));
 		item.addEventListener('dragend', onDragEnd);
 		item.addEventListener('dragover', onDragOver);
 		item.addEventListener('dragleave', onDragLeave);
@@ -420,8 +421,7 @@ export class AddActionModal extends Modal {
 	}
 
 	private renderCommandResults(container: HTMLElement, q: string): void {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const commands = (this.app as any).commands.commands as Record<string, { name?: string }>;
+		const commands = (this.app as AppWithCommands).commands.commands;
 
 		if (!commands) {
 			container.createDiv({ cls: 'dashboard-docsearch-hint', text: t('quickActions.noResults') });
