@@ -17,6 +17,8 @@ import { WidgetTypeModal, type WidgetType } from './widget-type-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
+import { AllTasksConfigModal } from './alltasks-config-modal';
+import { CalendarConfigModal } from './calendar-config-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
 import { PomodoroService } from './pomodoro-service';
@@ -247,6 +249,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (col?.sectionType === 'folder') {
 				this.openFolderConfigModal(columnName);
+			} else if (col?.sectionType === 'alltasks') {
+				this.openAllTasksConfigModal(columnName);
+			} else if (col?.sectionType === 'calendar') {
+				this.openCalendarConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
 			}
@@ -1048,6 +1054,42 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
+	private openAllTasksConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const existingConfig = column?.libraryConfig ?? {
+			filters: [],
+			viewMode: 'list' as const,
+			sortBy: 'modified',
+			sortDesc: true,
+		};
+		const modal = new AllTasksConfigModal(
+			this.app,
+			existingConfig,
+			(config) => {
+				this.sync.updateLibraryConfig(colName, config);
+			},
+		);
+		modal.open();
+	}
+
+	private openCalendarConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const existingConfig = column?.libraryConfig ?? {
+			filters: [],
+			viewMode: 'grid' as const,
+			sortBy: 'modified',
+			sortDesc: true,
+		};
+		const modal = new CalendarConfigModal(
+			this.app,
+			existingConfig,
+			(config) => {
+				this.sync.updateLibraryConfig(colName, config);
+			},
+		);
+		modal.open();
+	}
+
 	private openFolderConfigModal(colName: string): void {
 		const column = this.data?.columns.find(col => col.name === colName);
 		const libraryConfig = column?.libraryConfig;
@@ -1208,8 +1250,8 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private debouncedRefreshLibrarySections(): void {
 		if (!this.data) return;
-		const hasLibrary = this.data.columns.some(col => col.sectionType === 'library');
-		if (!hasLibrary) return;
+		const hasScanningSection = this.data.columns.some(col => col.sectionType === 'library' || col.sectionType === 'alltasks' || col.sectionType === 'calendar');
+		if (!hasScanningSection) return;
 		if (this.libraryRefreshTimer) clearTimeout(this.libraryRefreshTimer);
 		this.libraryRefreshTimer = setTimeout(() => {
 			const data = this.sync.getData();

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.8 (2026-06-26)
+
+### Added
+- **All Tasks section** — New section type that aggregates every checkbox task (`- [ ]` / `- [x]`) across the entire vault, like a dataview `TASK` query. Search, status filter (open/all/done), and sort (file/due/priority/modified)
+- **Task grouping** — Group aggregated tasks by date (Overdue / Today / This week / Later / No due) or by priority (High / Medium / Low / None). List view shows collapsible group headers; kanban view lays groups out as columns
+- **Kanban view** — All Tasks section gains a board view with one column per group (date or priority bucket)
+- **Task write-back** — Checking a task off in the All Tasks or Calendar view flips the checkbox in its source note (atomic, line-precise edit)
+- **Due date & priority parsing** — Tasks read due dates from `⏰` reminders, `[due::]` fields, and `📅` emoji; priority from `[priority:: high|medium|low]`
+- **Exclude folders** — All Tasks and Calendar sections can be configured to skip given vault folders (e.g. Archive/Templates) when aggregating
+- **Calendar section** — New section type showing a native month grid of every dated task across the vault (no dataview or external plugin needed)
+- **Compact + fullscreen calendar** — In-column compact grid (each day lists its tasks; click a day for its agenda) plus a full-screen month grid modal with inline toggle and month navigation
+- **Multi-day events** — Tasks with `[start::]` / `[end::]` (or `🛫` / `🛬`) span across days on the calendar
+
 ## 1.2.7 (2026-06-26)
 
 ### Added

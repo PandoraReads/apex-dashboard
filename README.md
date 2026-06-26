@@ -20,6 +20,12 @@ Organize your vault documents into project cards. Each card links to related not
 ### 📝 Notes
 A compact, list-style section for organizing reference documents and quick-access files. Displays up to 5 cards per row without cover images for maximum density.
 
+### ✅ All Tasks
+Aggregate every checkbox task across your entire vault into one section — like a dataview `TASK` query, but interactive. Search, filter by status (open / all / done), and group by date (Overdue / Today / This week / Later / No due) or by priority. Switch between a grouped list and a kanban board. Check a task off and it updates in the source note. Reads due dates (`⏰`, `[due::]`, `📅`) and priorities (`[priority:: high]`). Exclude folders like Archive/Templates from the scan.
+
+### 📅 Calendar
+A native month-grid calendar of every dated task across your vault (no dataview or external plugin needed). Each day cell lists its tasks; click a day for its agenda. Open a full-screen calendar with month navigation and inline toggling. Multi-day events with `[start::]` / `[end::]` span across days.
+
 ### ⚡ Quick Actions
 Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
 
@@ -102,6 +108,14 @@ All themes support both Obsidian light and dark modes.
 > **Note:** Deleting, renaming, or reordering sections must be done by editing the `dashboard.md` file directly. Any changes made to the note will take effect in the dashboard view immediately.
 
 ## What's New
+
+### 1.2.8
+- **All Tasks section** — New section type that aggregates every checkbox task across the vault (like a dataview `TASK` query); search, status filter, and sort
+- **Grouping + kanban** — Group tasks by date (Overdue/Today/This week/Later/No due) or priority; list view with collapsible groups, or kanban board with one column per group
+- **Task write-back** — Check a task in the All Tasks or Calendar view and it updates the checkbox in the source note
+- **Due dates & priority** — Reads `⏰`, `[due::]`, `📅` due dates and `[priority::]` priorities
+- **Calendar section** — New section type: native month grid of every dated task across the vault, with a compact in-column view and a full-screen calendar modal; multi-day events (`[start::]`/`[end::]`) span across days
+- **Exclude folders** — All Tasks and Calendar sections can exclude vault folders (e.g. Archive/Templates) from aggregation
 
 ### 1.2.7
 - **Thumbnail size toggle** — Images/videos grid view has an S/M/L size toggle in the toolbar (medium = previous size)

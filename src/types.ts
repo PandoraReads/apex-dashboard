@@ -208,9 +208,13 @@ export interface LibraryConfig {
 	sortBy: string;
 	sortDesc: boolean;
 	kanbanGroupBy?: string;
-		pageSize?: number;
-		quickDateFilter?: { property: 'created' | 'modified'; start: string; end: string };
+	pageSize?: number;
+	quickDateFilter?: { property: 'created' | 'modified'; start: string; end: string };
 	folder?: string;
+	/** All-tasks section: vault folders whose tasks are excluded from aggregation. */
+	excludeFolders?: string[];
+	/** All-tasks section: dimension used to group tasks into list sections / kanban columns. */
+	taskGroupBy?: 'date' | 'priority' | 'none';
 }
 
 export interface DashboardColumn {

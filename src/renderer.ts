@@ -4,6 +4,8 @@ import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, Ta
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection } from './media-section';
+import { renderAllTasksSection } from './alltasks-section';
+import { renderCalendarSection } from './calendar-section';
 import type { LibraryConfig } from './types';
 import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
@@ -1819,6 +1821,8 @@ export function renderDashboard(
 			{ value: 'folder', label: t('renderer.typeFolder') },
 			{ value: 'images', label: t('renderer.typeImages') },
 			{ value: 'videos', label: t('renderer.typeVideos') },
+			{ value: 'alltasks', label: t('renderer.typeAllTasks') },
+			{ value: 'calendar', label: t('renderer.typeCalendar') },
 		];
 
 		for (const opt of typeOptions) {
@@ -2042,6 +2046,58 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 		});
 
 		renderMediaSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
+		return el;
+	}
+
+	// All-tasks section: aggregates every checkbox task across the vault.
+	if (sectionType === 'alltasks') {
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('alltasks.configure') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name);
+		});
+
+		void renderAllTasksSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
+		return el;
+	}
+
+	// Calendar section: month grid of every dated task across the vault.
+	if (sectionType === 'calendar') {
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('calendar.configure') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name);
+		});
+
+		void renderCalendarSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
 		return el;
 	}
 
@@ -3046,6 +3102,8 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'folder') return 'folder';
 	if (lower === 'images') return 'images';
 	if (lower === 'videos') return 'videos';
+	if (lower === 'alltasks') return 'alltasks';
+	if (lower === 'calendar') return 'calendar';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);
@@ -3058,7 +3116,7 @@ function getSectionType(column: DashboardColumn): string {
 	return 'projects';
 }
 
-function renderTextWithLinks(container: HTMLElement, text: string, app: App): void {
+export function renderTextWithLinks(container: HTMLElement, text: string, app: App): void {
 	const parts = text.split(/(\[\[[^\]]+?\]\]|\[[^\]]+\]\([^)]+\))/g);
 	for (const part of parts) {
 		const wikiMatch = part.match(/^\[\[([^\]]+)\]\]$/);

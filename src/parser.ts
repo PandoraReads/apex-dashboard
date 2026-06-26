@@ -127,6 +127,15 @@ export function serialize(data: DashboardData): string {
 			if (lc.folder) {
 				lines.push(`      folder: "${escapeYamlString(lc.folder)}"`);
 			}
+			if (lc.excludeFolders && lc.excludeFolders.length > 0) {
+				lines.push('      excludeFolders:');
+				for (const f of lc.excludeFolders) {
+					lines.push(`        - "${escapeYamlString(f)}"`);
+				}
+			}
+			if (lc.taskGroupBy) {
+				lines.push(`      taskGroupBy: ${lc.taskGroupBy}`);
+			}
 			if (lc.kanbanGroupBy) {
 				lines.push(`      kanbanGroupBy: "${escapeYamlString(lc.kanbanGroupBy)}"`);
 			}
@@ -164,7 +173,7 @@ export function serialize(data: DashboardData): string {
 		lines.push(`## ${column.name}`);
 		lines.push('');
 
-		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos') continue;
+		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar') continue;
 
 		for (const card of column.cards) {
 			lines.push(`### ${card.title}`);
@@ -696,6 +705,8 @@ function resolveSectionType(
 	if (lower === 'folder') return 'folder';
 	if (lower === 'images') return 'images';
 	if (lower === 'videos') return 'videos';
+	if (lower === 'alltasks') return 'alltasks';
+	if (lower === 'calendar') return 'calendar';
 
 	if (cards.length > 0) {
 		const types = new Set(cards.map(c => c.type));
@@ -734,6 +745,8 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		kanbanGroupBy: raw.kanbanGroupBy ? String(raw.kanbanGroupBy) : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
 		folder: typeof raw.folder === 'string' ? raw.folder : undefined,
+		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
+		taskGroupBy: ['date', 'priority', 'none'].includes(String(raw.taskGroupBy ?? '')) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {
 				property: (raw.quickDateFilter as Record<string, unknown>).property === 'modified' ? 'modified' as const : 'created' as const,
 				start: String((raw.quickDateFilter as Record<string, unknown>).start ?? ''),
