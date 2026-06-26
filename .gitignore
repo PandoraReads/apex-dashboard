@@ -1,6 +1,5 @@
 # Dependencies
 node_modules
-package-lock.json
 
 # Obsidian plugin data
 data.json
@@ -9,8 +8,6 @@ data.json
 .DS_Store
 
 # Source code
-esbuild.config.mjs
-tsconfig.json
 eslint.config.mts
 version-bump.mjs
 .npmrc
