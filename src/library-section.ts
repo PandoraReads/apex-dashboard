@@ -18,6 +18,7 @@ export interface LibraryFileResult {
 	ctime: number;
 	frontmatter: Record<string, unknown>;
 	preview: string;
+	tags: string[];
 }
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -66,12 +67,43 @@ export function extractFrontmatterProperties(app: App): Map<string, Set<string>>
 	return props;
 }
 
+export function getAllTags(app: App): string[] {
+	return [...(extractFrontmatterProperties(app).get('tags') ?? [])].sort();
+}
+
+/** Render clickable tag chips; toggling a tag calls onToggle(tag). Caller owns selection state. */
+export function renderTagsSelector(
+	container: HTMLElement,
+	allTags: string[],
+	selectedTags: string[],
+	onToggle: (tag: string) => void,
+): void {
+	container.empty();
+	if (allTags.length === 0) {
+		container.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noTags') });
+		return;
+	}
+	for (const tag of allTags) {
+		const chip = container.createDiv({
+			cls: 'dashboard-library-filter-chip' + (selectedTags.includes(tag) ? ' active' : ''),
+			text: tag,
+		});
+		chip.addEventListener('click', () => onToggle(tag));
+	}
+}
+
 export function queryVaultFiles(app: App, config: LibraryConfig): LibraryFileResult[] {
 	const files = app.vault.getMarkdownFiles();
 	const results: LibraryFileResult[] = [];
 
 	for (const file of files) {
 		if (file.path.startsWith('.')) continue;
+
+		// Folder section: restrict to files under the configured folder (recursive).
+		if (config.folder) {
+			const folder = config.folder.trim().replace(/^\/+|\/+$/g, '');
+			if (folder && !file.path.startsWith(folder + '/')) continue;
+		}
 
 		const cache = app.metadataCache.getFileCache(file);
 		const fm = (cache?.frontmatter ?? {}) as Record<string, unknown>;
@@ -86,6 +118,11 @@ export function queryVaultFiles(app: App, config: LibraryConfig): LibraryFileRes
 		}
 		if (!matches) continue;
 
+		const tags: string[] = [];
+		if (cache?.tags) {
+			for (const tag of cache.tags) tags.push(tag.tag);
+		}
+
 		results.push({
 			file,
 			basename: file.basename,
@@ -93,6 +130,7 @@ export function queryVaultFiles(app: App, config: LibraryConfig): LibraryFileRes
 			ctime: file.stat.ctime,
 			frontmatter: fm,
 			preview: '',
+			tags,
 		});
 	}
 
@@ -374,7 +412,7 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 
 export function renderLibrarySection(
 	el: HTMLElement,
-	column: { name: string; color: string; libraryConfig?: LibraryConfig },
+	column: { name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig },
 	app: App,
 	onConfigChange: (config: LibraryConfig) => void,
 	hoverParent: HoverParent | null = null,
@@ -388,6 +426,7 @@ export function renderLibrarySection(
 		sortBy: 'modified',
 		sortDesc: true,
 	};
+	const isFolder = column.sectionType === 'folder';
 
 	const sectionContent = el.createDiv({ cls: 'dashboard-library-content' });
 
@@ -553,20 +592,21 @@ export function renderLibrarySection(
 
 		function renderFilterTag(): void {
 			filterTag.empty();
-			if (!quickStart && !quickEnd) return;
-			const start = quickStart || '...';
-			const end = quickEnd || '...';
-			const tag = filterTag.createDiv({
-				cls: 'dashboard-library-filter-tag',
-				text: `${quickProp}: ${start} ~ ${end}`,
-			});
-			const x = tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' });
-			x.addEventListener('click', () => {
-				quickStart = '';
-				quickEnd = '';
-				applyQuickFilter();
-				openPopup();
-			});
+			if (quickStart && quickEnd) {
+				const start = quickStart || '...';
+				const end = quickEnd || '...';
+				const tag = filterTag.createDiv({
+					cls: 'dashboard-library-filter-tag',
+					text: `${quickProp}: ${start} ~ ${end}`,
+				});
+				const x = tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' });
+				x.addEventListener('click', () => {
+					quickStart = '';
+					quickEnd = '';
+					applyQuickFilter();
+					openPopup();
+				});
+			}
 		}
 
 		function updateFilterBtnState(): void {
@@ -653,7 +693,7 @@ export function renderLibrarySection(
 		const totalResults = results.length;
 		countEl.textContent = t('library.fileCount', { count: totalResults });
 
-		if (totalResults === 0 && currentConfig.filters.length === 0) {
+		if (totalResults === 0 && currentConfig.filters.length === 0 && !currentConfig.folder) {
 			contentArea.createDiv({ cls: 'dashboard-library-empty', text: t('library.noConfig') });
 			return;
 		}
@@ -675,7 +715,7 @@ export function renderLibrarySection(
 
 		switch (currentConfig.viewMode) {
 			case 'grid':
-				renderGridView(contentArea, pageResults, app);
+				renderGridView(contentArea, pageResults, app, isFolder);
 				break;
 			case 'list':
 				renderListView(contentArea, pageResults, app);
@@ -827,7 +867,7 @@ function renderBadgeRow(container: HTMLElement, fm: Record<string, unknown>, max
 	}
 }
 
-function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App): void {
+function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean): void {
 	const grid = container.createDiv({ cls: 'dashboard-library-grid' });
 
 	for (const result of results) {
@@ -837,11 +877,27 @@ function renderGridView(container: HTMLElement, results: LibraryFileResult[], ap
 
 		card.createDiv({ cls: 'dashboard-library-card-title', text: result.basename });
 
-		// Path + creation time on same row
+		// Tags (folder section) or path + creation time on the meta row
 		const metaRow = card.createDiv({ cls: 'dashboard-library-card-meta' });
-		const parts = result.file.path.split('/');
-		if (parts.length > 1) {
-			metaRow.createDiv({ cls: 'dashboard-library-card-path', text: parts.slice(0, -1).join('/') + '/' });
+		if (showTags) {
+			if (result.tags.length > 0) {
+				const tagsRow = metaRow.createDiv({ cls: 'dashboard-library-card-tags' });
+				const maxTags = 2;
+				for (const tag of result.tags.slice(0, maxTags)) {
+					tagsRow.createDiv({ cls: 'dashboard-library-card-tag', text: tag });
+				}
+				if (result.tags.length > maxTags) {
+					tagsRow.createDiv({
+						cls: 'dashboard-library-card-tag dashboard-library-card-tag--more',
+						text: `+${result.tags.length - maxTags}`,
+					});
+				}
+			}
+		} else {
+			const parts = result.file.path.split('/');
+			if (parts.length > 1) {
+				metaRow.createDiv({ cls: 'dashboard-library-card-path', text: parts.slice(0, -1).join('/') + '/' });
+			}
 		}
 		metaRow.createDiv({ cls: 'dashboard-library-card-date', text: formatDate(result.ctime) });
 
@@ -1014,7 +1070,7 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 }
 
 function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig): void {
-	const groupBy = config.kanbanGroupBy ?? config.filters[0]?.property ?? 'tags';
+	const groupBy = config.kanbanGroupBy ?? 'tags';
 	const kanban = container.createDiv({ cls: 'dashboard-library-kanban' });
 
 	// Group results

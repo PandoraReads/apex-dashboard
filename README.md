@@ -103,6 +103,51 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.2.5
+- **Tag filter removed from toolbar funnel** — The database/folder section's filter (funnel) popup no longer has a tag filter (it was redundant); it does date filtering only. The folder section's tag filter in its gear config dialog is unchanged
+
+### 1.2.4
+- **Media filter funnel** — Images/videos sections gained a toolbar filter funnel: filter by created/modified date range and by folder path (subfolders included); active filters show as removable chips
+- **Fixed-width Name column** — Images/videos table view Name column is now a fixed width with ellipsis, instead of growing with long filenames
+
+### 1.2.3
+- **Media list & table views** — Images/videos sections now support list and table views (in addition to the grid thumbnail wall) via a toolbar toggle
+- **Rename media files** — Double-click a file's name in the table view to rename it; `![[embeds]]` and `[[links]]` update automatically
+- **Delete media files** — A trash button (with confirmation) on every media item in grid/list/table; deleted files go to Obsidian's trash (recoverable)
+- **Pomodoro week/month stats fixed** — Week/month now use calendar boundaries (Mon→Sun / 1st→end) instead of a rolling 7/30-day window
+- **Media lightbox fixed** — Images/videos now fill and center correctly in the viewport
+
+### 1.2.2
+- **Tag filter moved to toolbar funnel** — The database section's tag filter moved from the config dialog to the funnel popup (alongside the date filter)
+- **Value search repositioned** — Database config: the property value search box now sits to the right of the property dropdown (same row) instead of below it
+- **Folder card tag limit** — Folder section grid cards show at most 2 tags (+N badge) on a single non-wrapping line, so cards no longer grow taller with many tags
+
+### 1.2.1
+- **Images section** — A new section type that scans the whole vault for images (png/jpg/jpeg/gif/svg/webp/bmp) and shows them as a thumbnail wall; click any thumbnail to open a full-screen lightbox (←/→ to browse, Esc to close)
+- **Videos section** — Same idea for videos (mp4/mov/mkv/avi/webm/m4v); the grid shows the first frame with a play badge, click to play inline in the lightbox
+- Both sections support search, sort, and pagination
+
+### 1.2.0
+- **Edit quick actions** — Hover a custom quick link/command chip to reveal an edit button (top-left); click to rename it and pick a new icon. Desktop only
+- **Delete section** — Every section header now has a trash button that removes the whole section after a confirmation dialog
+- **"New Journal" fixed** — The quick action now goes through Obsidian's command system, so the created daily note honors the core Daily notes plugin's folder, date format, and template settings
+
+### 1.1.9
+- **Folder cards show tags** — Folder section grid cards now show the file's tags (as chips) instead of the folder path on the meta row
+- **Value search box** — Database config: each property value picker now has a search box to filter the chip list
+- **Kanban defaults to tags** — Database config "Group by" now defaults to tags (with a hint)
+
+### 1.1.8
+- **Tag filter** — Folder and database sections gained a dedicated Tags filter section (toggleable chips; a file shows if it has any selected tag)
+
+### 1.1.7
+- **Folder section** — A new section type that lists every document under a chosen vault folder (including subfolders). Pick a folder by typing the path or browsing with a fuzzy picker; the display reuses the database section's grid/list/table/kanban views with sort, search, and pagination
+
+### 1.1.6
+- **Save todo to daily note** — A new save button on each todo card writes its tasks (with completion state and nesting preserved) to the top of today's daily note (located via the core Daily notes plugin settings)
+- **Archive completed tasks** — A new archive button on the todo section header moves every checked task into a single accumulating archive file as a timestamped log
+- **Task archive path setting** — New setting for the archive file path (defaults to `归档/已完成.md`)
+
 ### 1.1.5
 - **Hover preview for links** — Hold Ctrl/Cmd and hover over any document link or `[[wikilink]]` to see a native page-preview popover without leaving the dashboard. Works across project/note card doc lists, inline wikilinks in memos and todos, and the database (library) section
 - **In-place note editor popup** — Click a link to open a centered popup that embeds a full Obsidian Markdown editor (Live Preview, plus a reading/source toggle that remembers your last choice). Read and edit the note right inside the dashboard instead of opening a new tab; an "Open in tab" button is available when you want the full editor

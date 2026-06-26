@@ -124,6 +124,9 @@ export function serialize(data: DashboardData): string {
 			lines.push(`      viewMode: ${lc.viewMode}`);
 			lines.push(`      sortBy: "${lc.sortBy}"`);
 			lines.push(`      sortDesc: ${lc.sortDesc}`);
+			if (lc.folder) {
+				lines.push(`      folder: "${escapeYamlString(lc.folder)}"`);
+			}
 			if (lc.kanbanGroupBy) {
 				lines.push(`      kanbanGroupBy: "${escapeYamlString(lc.kanbanGroupBy)}"`);
 			}
@@ -161,7 +164,7 @@ export function serialize(data: DashboardData): string {
 		lines.push(`## ${column.name}`);
 		lines.push('');
 
-		if (column.sectionType === 'library') continue;
+		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos') continue;
 
 		for (const card of column.cards) {
 			lines.push(`### ${card.title}`);
@@ -690,6 +693,9 @@ function resolveSectionType(
 	if (lower === 'notes') return 'notes';
 	if (lower === 'dashboard') return 'dashboard';
 	if (lower === 'library') return 'library';
+	if (lower === 'folder') return 'folder';
+	if (lower === 'images') return 'images';
+	if (lower === 'videos') return 'videos';
 
 	if (cards.length > 0) {
 		const types = new Set(cards.map(c => c.type));
@@ -727,6 +733,7 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		sortDesc: raw.sortDesc !== false,
 		kanbanGroupBy: raw.kanbanGroupBy ? String(raw.kanbanGroupBy) : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
+		folder: typeof raw.folder === 'string' ? raw.folder : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {
 				property: (raw.quickDateFilter as Record<string, unknown>).property === 'modified' ? 'modified' as const : 'created' as const,
 				start: String((raw.quickDateFilter as Record<string, unknown>).start ?? ''),

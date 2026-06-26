@@ -72,6 +72,7 @@ export function renderQuickActions(
 	onReorder?: (order: string[]) => void,
 	onRemoveByKey?: (key: string) => void,
 	hiddenPresets?: string[],
+	onEdit?: (action: QuickAction) => void,
 ): void {
 	const section = container.createDiv({ cls: 'dashboard-section dashboard-quick-actions' });
 
@@ -201,6 +202,20 @@ export function renderQuickActions(
 			removeHandler(key);
 		});
 
+		// Edit button: custom actions only, and only when an onEdit handler is
+		// supplied (desktop). Mobile omits onEdit, so no edit button there.
+		if (onEdit && !isPreset) {
+			const editBtn = item.createEl('button', {
+				cls: 'dashboard-qa-edit',
+				attr: { 'aria-label': t('quickActions.editAction') },
+			});
+			setIcon(editBtn, 'pencil');
+			editBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				onEdit(action);
+			});
+		}
+
 		item.addEventListener('click', () => onExecute(action));
 		item.setAttribute('role', 'button');
 
@@ -219,10 +234,13 @@ export class AddActionModal extends Modal {
 	private activeTab: 'file' | 'command' = 'file';
 	private pendingAction: QuickAction | null = null;
 	private lastQuery = '';
+	private isEditMode = false;
 
-	constructor(app: App, onSelect: (action: QuickAction) => void) {
+	constructor(app: App, onSelect: (action: QuickAction) => void, initialAction?: QuickAction) {
 		super(app);
 		this.onSelect = onSelect;
+		this.pendingAction = initialAction ?? null;
+		this.isEditMode = !!initialAction;
 	}
 
 	onOpen(): void {
@@ -352,14 +370,20 @@ export class AddActionModal extends Modal {
 		});
 
 		const actions = contentEl.createDiv({ cls: 'dashboard-modal-actions' });
-		const backBtn = actions.createEl('button', { text: t('quickActions.back') });
+		const backBtn = actions.createEl('button', {
+			text: this.isEditMode ? t('common.cancel') : t('quickActions.back'),
+		});
 		backBtn.addEventListener('click', () => {
-			this.pendingAction = null;
-			this.render();
+			if (this.isEditMode) {
+				this.close();
+			} else {
+				this.pendingAction = null;
+				this.render();
+			}
 		});
 		const confirmBtn = actions.createEl('button', {
 			cls: 'mod-cta',
-			text: t('quickActions.confirmAdd'),
+			text: this.isEditMode ? t('quickActions.saveAction') : t('quickActions.confirmAdd'),
 		});
 		confirmBtn.addEventListener('click', finish);
 	}

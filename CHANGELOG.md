@@ -1,5 +1,78 @@
 # Changelog
 
+## 1.2.5 (2026-06-26)
+
+### Removed
+- Tag filter removed from the database/folder section toolbar filter (funnel) popup — it was redundant there; the funnel now does date filtering only. (Folder section's tag filter in its gear config dialog is unchanged.)
+
+## 1.2.4 (2026-06-26)
+
+### Added
+- Images/videos sections: a filter funnel in the toolbar to filter by created/modified date range and by folder path (subfolders included); active filters show as removable chips
+
+### Changed
+- Images/videos table view: the Name column is now a fixed width with ellipsis, instead of growing with long filenames
+
+## 1.2.3 (2026-06-26)
+
+### Added
+- Images/videos sections now support list and table views (in addition to the grid thumbnail wall), with a view toggle in the toolbar
+- Rename a media file by double-clicking its name in the table view — backlinks (`![[embeds]]`, `[[links]]`) update automatically
+- Delete a media file from any view (grid/list/table) via a trash button with a confirmation dialog; deleted files go to the Obsidian trash (recoverable)
+
+### Fixed
+- Pomodoro week/month stats now use calendar boundaries (week = Monday→Sunday, month = 1st→end) instead of a rolling 7/30-day window, so this week/month no longer leaks last week/month's data
+- Media lightbox: images and videos now fill and center correctly in the viewport (previously constrained/offset by the default modal sizing)
+
+## 1.2.2 (2026-06-26)
+
+### Changed
+- Tag filter moved out of the database config dialog into the toolbar filter (funnel) popup — it now sits alongside the date filter; the config dialog no longer has a Tags section
+- Database config: the property value search box now sits to the right of the property dropdown (same row) instead of below it
+- Folder section grid cards show at most 2 tags (+N badge for the rest) on a single non-wrapping line, so cards no longer grow taller when a file has many tags
+
+## 1.2.1 (2026-06-26)
+
+### Added
+- Images section — a new section type that scans the whole vault for image files (png/jpg/jpeg/gif/svg/webp/bmp) and shows them as a thumbnail wall; click any thumbnail to open a full-screen lightbox (←/→ to browse, Esc to close)
+- Videos section — same idea for video files (mp4/mov/mkv/avi/webm/m4v); grid shows the first frame with a play badge, click to play inline in the lightbox
+- Both sections support search, sort (modified/created/name) and pagination, reusing the database section's toolbar styling
+
+## 1.2.0 (2026-06-26)
+
+### Added
+- Edit quick actions — hover a custom quick link/command chip to reveal an edit button (top-left), click to rename it and pick a new icon. Desktop only
+- Delete section — every section header now has a trash button (right of the add-card button) that removes the whole section after a confirmation dialog
+
+### Fixed
+- "New Journal" quick action now goes through Obsidian's command system (`executeCommandById('daily-notes')`), so the created daily note honors the core Daily notes plugin's folder, date format, and template settings. Previously it created a root-level `YYYY-MM-DD.md` that ignored all of those.
+
+## 1.1.9 (2026-06-26)
+
+### Changed
+- Folder section grid cards now show the file's tags (as small chips) instead of the folder path on the meta row
+- Database section config: each property value picker now has a search box to filter the chip list, so you can quickly locate a value among many
+
+### Added
+- Database section config: "Group by" now defaults to tags (with an explanatory hint); the kanban view groups by tags unless you choose another property
+
+## 1.1.8 (2026-06-26)
+
+### Added
+- Tag filter for folder and database sections — both config dialogs now have a dedicated Tags section listing every tag in the vault as toggleable chips. Select tags to show only files carrying any of them (OR); folder section combines folder path + tags, database section combines property filters + tags. All views (grid/list/table/kanban) honor it.
+
+## 1.1.7 (2026-06-26)
+
+### Added
+- Folder section — a new section type that lists every document under a chosen vault folder (including subfolders). Pick a folder by typing the path or browsing with a fuzzy folder picker; the display reuses the database section's grid/list/table/kanban views with sort, search, and pagination. Whereas the database section filters by frontmatter properties, the folder section filters by folder path.
+
+## 1.1.6 (2026-06-26)
+
+### Added
+- Save todo card to today's daily note — a new save button on each todo card (left of the delete button) writes all of the card's tasks, with completion state and nesting preserved, to the top of today's daily note (located automatically via the core "Daily notes" plugin settings)
+- Archive completed tasks — a new archive button on the todo section header (left of the template button) moves every checked task off the board into a single accumulating archive file as a timestamped log, e.g. `- 2026-06-26 14:30 ✓ 完成「task」(card)`
+- New setting: task archive file path (defaults to `归档/已完成.md`)
+
 ## 1.1.5 (2026-06-16)
 
 ### Added

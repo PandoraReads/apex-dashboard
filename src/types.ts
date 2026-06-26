@@ -36,6 +36,7 @@ export interface DashboardSettings {
 	readingSoundEnabled: boolean;
 	taskTemplates: TaskTemplate[];
 	memoSavePath: string;
+	taskArchivePath: string;
 }
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
@@ -73,6 +74,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	readingSoundEnabled: true,
 	taskTemplates: [],
 	memoSavePath: '',
+	taskArchivePath: '归档/已完成.md',
 };
 
 export interface QuoteItem {
@@ -208,6 +210,7 @@ export interface LibraryConfig {
 	kanbanGroupBy?: string;
 		pageSize?: number;
 		quickDateFilter?: { property: 'created' | 'modified'; start: string; end: string };
+	folder?: string;
 }
 
 export interface DashboardColumn {
@@ -244,6 +247,7 @@ export interface RenderCallbacks {
 	onMoveCard(cardId: string, targetColumn: string, targetIndex: number): void;
 	onMemoUpdate(card: DashboardCard, updates: { body: string; blockquote: string }): void;
 	onMemoSaveAsNote(card: DashboardCard): void;
+	onTaskSaveToDaily(card: DashboardCard): void;
 	onDocAdd(cardId: string, path: string): void;
 	onDocDelete(cardId: string, docPath: number[]): void;
 	onDocReorder(cardId: string, fromPath: number[], toPath: number[], before: boolean): void;
@@ -259,10 +263,12 @@ export interface RenderCallbacks {
 	onCardGridMove(cardId: string, gridCol: number, gridRow: number): void;
 	onFileDrop(cardId: string, filePath: string): void;
 	onColumnRename(oldName: string, newName: string): void;
+	onColumnDelete(columnName: string): void;
 	onTaskReminderEdit(cardId: string, taskPath: number[], reminder: string | undefined): void;
 	onTaskNest(cardId: string, taskPath: number[]): void;
 	onTaskUnnest(cardId: string, taskPath: number[]): void;
 	onTaskToggleCollapse(cardId: string, taskPath: number[]): void;
 	onAddFromTemplate(columnName: string): void;
+	onArchiveTasks(columnName: string): void;
 	onLibraryConfigChange(columnName: string, config: LibraryConfig): void;
 }

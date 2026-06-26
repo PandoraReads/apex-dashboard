@@ -1,7 +1,7 @@
 {
 	"id": "apex-dashboard",
 	"name": "Apex Dashboard",
-	"version": "1.1.5",
+	"version": "1.2.5",
 	"minAppVersion": "0.15.0",
 	"description": "Your personal command center \u2014 memos, todos, and projects in one stunning glassmorphism dashboard.",
 	"author": "PandoraReads",

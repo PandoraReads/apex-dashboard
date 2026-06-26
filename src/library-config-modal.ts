@@ -53,11 +53,13 @@ export class LibraryConfigModal extends Modal {
 
 			for (let i = 0; i < this.config.filters.length; i++) {
 				const filter = this.config.filters[i]!;
+				if (filter.property === 'tags') continue; // managed by the dedicated Tags section
 				const row = filtersContainer.createDiv({ cls: 'dashboard-library-filter-row' });
+				const header = row.createDiv({ cls: 'dashboard-library-filter-header' });
 
-				// Property selector
-				const propSelect = row.createEl('select', { cls: 'dashboard-library-filter-property' });
-				const propKeys = [...this.availableProps.keys()].sort();
+				// Property selector (left of the search box in the header row)
+				const propSelect = header.createEl('select', { cls: 'dashboard-library-filter-property' });
+				const propKeys = [...this.availableProps.keys()].sort().filter(k => k !== 'tags');
 				propSelect.createEl('option', { text: t('library.selectProperty'), attr: { value: '' } });
 				for (const key of propKeys) {
 					const opt = propSelect.createEl('option', { text: key, attr: { value: key } });
@@ -70,14 +72,47 @@ export class LibraryConfigModal extends Modal {
 					renderFilters();
 				});
 
-				// Value chips
+				// Value search box (right of the property dropdown)
+				let searchInput: HTMLInputElement | null = null;
 				if (filter.property) {
-					const valuesWrap = row.createDiv({ cls: 'dashboard-library-filter-values' });
+					searchInput = header.createEl('input', {
+						cls: 'dashboard-library-value-search',
+						attr: { type: 'text', placeholder: t('library.searchValues') },
+					});
+				}
+
+				// Remove button (far right of the header row)
+				const removeBtn = header.createEl('button', {
+					cls: 'dashboard-library-filter-remove',
+					attr: { 'aria-label': t('library.removeFilter') },
+				});
+				setIcon(removeBtn, 'x');
+				removeBtn.addEventListener('click', () => {
+					this.config.filters = this.config.filters.filter((_, idx) => idx !== i);
+					renderFilters();
+				});
+
+				// Value chips (below the header)
+				if (filter.property && searchInput) {
 					const availableValues = this.availableProps.get(filter.property);
-					if (availableValues && availableValues.size > 0) {
-						const sorted = [...availableValues].sort();
-						for (const val of sorted) {
-							const chip = valuesWrap.createDiv({
+					const sorted = availableValues ? [...availableValues].sort() : [];
+					const valuesList = row.createDiv({ cls: 'dashboard-library-value-list' });
+
+					const renderValues = (): void => {
+						valuesList.empty();
+						if (sorted.length === 0) {
+							valuesList.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noValues') });
+							return;
+						}
+						if (!searchInput) return;
+						const query = searchInput.value.trim().toLowerCase();
+						const visible = query ? sorted.filter(v => v.toLowerCase().includes(query)) : sorted;
+						if (visible.length === 0) {
+							valuesList.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noMatchingValues') });
+							return;
+						}
+						for (const val of visible) {
+							const chip = valuesList.createDiv({
 								cls: 'dashboard-library-filter-chip' + (filter.values.includes(val) ? ' active' : ''),
 								text: val,
 							});
@@ -88,25 +123,14 @@ export class LibraryConfigModal extends Modal {
 								} else {
 									filter.values = [...filter.values, val];
 								}
-								renderFilters();
+								renderValues();
 							});
 						}
+					};
 
-					} else {
-						valuesWrap.createDiv({ cls: 'dashboard-library-filter-empty', text: 'No values found' });
-					}
+					searchInput.addEventListener('input', renderValues);
+					renderValues();
 				}
-
-				// Remove button
-				const removeBtn = row.createEl('button', {
-					cls: 'dashboard-library-filter-remove',
-					attr: { 'aria-label': t('library.removeFilter') },
-				});
-				setIcon(removeBtn, 'x');
-				removeBtn.addEventListener('click', () => {
-					this.config.filters = this.config.filters.filter((_, idx) => idx !== i);
-					renderFilters();
-				});
 			}
 		};
 
@@ -125,11 +149,13 @@ export class LibraryConfigModal extends Modal {
 		// Kanban group by
 		const kanbanSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		kanbanSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.kanbanGroupBy') });
+		kanbanSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.kanbanGroupByHint') });
 		const groupSelect = kanbanSection.createEl('select', { cls: 'dashboard-library-filter-property' });
+		const effectiveGroup = this.config.kanbanGroupBy ?? 'tags';
 		groupSelect.createEl('option', { text: t('library.noGroup'), attr: { value: '' } });
 		for (const key of [...this.availableProps.keys()].sort()) {
 			const opt = groupSelect.createEl('option', { text: key, attr: { value: key } });
-			if (key === this.config.kanbanGroupBy) opt.selected = true;
+			if (key === effectiveGroup) opt.selected = true;
 		}
 		groupSelect.addEventListener('change', () => {
 			this.config.kanbanGroupBy = groupSelect.value || undefined;

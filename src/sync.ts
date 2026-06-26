@@ -12,6 +12,7 @@ import {
 	demoteToChild,
 	promoteToTopLevel,
 	recalcChecked,
+	archiveCompleted,
 } from './task-tree';
 import {
 	type DocPath,
@@ -115,6 +116,25 @@ export class SyncEngine {
 				),
 			})),
 		};
+	}
+
+	async archiveTasks(columnName: string): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map((col) => {
+				if (col.name !== columnName) return col;
+				return {
+					...col,
+					cards: col.cards.map((card) => {
+						const { archived, remaining } = archiveCompleted(card.tasks);
+						return archived.length === 0 ? card : { ...card, tasks: remaining };
+					}),
+				};
+			}),
+		};
+		await this.writeToDisk();
 	}
 
 	async toggleTask(cardId: string, taskPath: TaskPath, checked: boolean): Promise<void> {
@@ -369,6 +389,15 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async deleteColumn(columnName: string): Promise<void> {
+		if (!this.data) return;
+		this.data = {
+			...this.data,
+			columns: this.data.columns.filter(col => col.name !== columnName),
+		};
+		await this.writeToDisk();
+	}
+
 	async moveCard(cardId: string, targetColumn: string, targetIndex: number): Promise<void> {
 		if (!this.data) return;
 
@@ -419,6 +448,18 @@ export class SyncEngine {
 		this.data = {
 			...this.data,
 			quickActions: this.data.quickActions.filter((_, i) => i !== index),
+		};
+		await this.writeToDisk();
+	}
+
+	async updateQuickAction(index: number, updates: Partial<Pick<QuickAction, 'name' | 'icon'>>): Promise<void> {
+		if (!this.data) return;
+		const actions = [...this.data.quickActions];
+		if (index < 0 || index >= actions.length) return;
+		actions[index] = { ...actions[index]!, ...updates };
+		this.data = {
+			...this.data,
+			quickActions: actions,
 		};
 		await this.writeToDisk();
 	}

@@ -367,6 +367,40 @@ export class PomodoroService {
 		return breakdown;
 	}
 
+	/** Activity breakdown for the current calendar week (Monday → Sunday). */
+	getActivityBreakdownByCalendarWeek(): Map<string, number> {
+		const today = new Date();
+		// getDay(): 0=Sun..6=Sat. Shift so Monday=0 for "days since Monday".
+		const daysSinceMonday = (today.getDay() + 6) % 7;
+		const monday = new Date(today);
+		monday.setDate(today.getDate() - daysSinceMonday);
+		return this.collectSince(formatDate(monday));
+	}
+
+	/** Activity breakdown for the current calendar month (1st → end of month). */
+	getActivityBreakdownByCalendarMonth(): Map<string, number> {
+		const today = new Date();
+		const first = new Date(today.getFullYear(), today.getMonth(), 1);
+		return this.collectSince(formatDate(first));
+	}
+
+	private collectSince(cutoffStr: string): Map<string, number> {
+		const breakdown = new Map<string, number>();
+		for (const s of this.sessions) {
+			if (s.date < cutoffStr) continue;
+			if (s.records) {
+				for (const r of s.records) {
+					breakdown.set(r.activity || t('pomodoro.defaultActivity'), (breakdown.get(r.activity || t('pomodoro.defaultActivity')) ?? 0) + r.duration);
+				}
+			} else {
+				const mins = s.completed * this.getSettings().pomodoroWorkMinutes;
+				const key = t('pomodoro.defaultActivity');
+				breakdown.set(key, (breakdown.get(key) ?? 0) + mins);
+			}
+		}
+		return breakdown;
+	}
+
 	getRecentRecords(limit: number): PomodoroRecord[] {
 		const allRecords: PomodoroRecord[] = [];
 		for (const s of this.sessions) {

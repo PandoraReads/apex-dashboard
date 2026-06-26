@@ -3,6 +3,7 @@ import type { HoverParent, TFile } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
+import { renderMediaSection } from './media-section';
 import type { LibraryConfig } from './types';
 import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
@@ -963,7 +964,11 @@ function showPomodoroStats(doc: Document, service: PomodoroService): void {
 		const rangeInfo = ranges.find(r => r.key === rangeKey);
 		if (!rangeInfo) return;
 
-		const breakdown = service.getActivityBreakdownByRange(rangeInfo.days);
+		const breakdown = rangeKey === 'week'
+			? service.getActivityBreakdownByCalendarWeek()
+			: rangeKey === 'month'
+				? service.getActivityBreakdownByCalendarMonth()
+				: service.getActivityBreakdownByRange(rangeInfo.days);
 		const sorted = [...breakdown.entries()].sort((a, b) => b[1] - a[1]);
 		const totalRangeMin = sorted.reduce((sum, [, m]) => sum + m, 0);
 
@@ -1811,6 +1816,9 @@ export function renderDashboard(
 			{ value: 'memo', label: t('renderer.typeMemo') },
 			{ value: 'notes', label: t('renderer.typeNotesPlain') },
 			{ value: 'library', label: t('renderer.typeLibrary') },
+			{ value: 'folder', label: t('renderer.typeFolder') },
+			{ value: 'images', label: t('renderer.typeImages') },
+			{ value: 'videos', label: t('renderer.typeVideos') },
 		];
 
 		for (const opt of typeOptions) {
@@ -1970,6 +1978,13 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 		const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
 
 	if (sectionType === 'todo') {
+		const archiveBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('renderer.archiveTasks') },
+		});
+		setIcon(archiveBtn, 'archive');
+		archiveBtn.addEventListener('click', () => callbacks.onArchiveTasks(column.name));
+
 		const templateBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('template.addFromTemplate') },
@@ -1979,10 +1994,10 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 	}
 
 	// Library section: render differently
-	if (sectionType === 'library') {
+	if (sectionType === 'library' || sectionType === 'folder') {
 		const configBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('library.configure') },
+			attr: { 'aria-label': sectionType === 'folder' ? t('folder.configure') : t('library.configure') },
 		});
 		setIcon(configBtn, 'settings');
 		configBtn.addEventListener('click', () => {
@@ -1990,9 +2005,43 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 			el.dispatchEvent(event);
 		});
 
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name);
+		});
+
+		// A folder section with no folder set would otherwise list the entire vault
+		// (queryVaultFiles skips the folder filter when it is empty). Show a prompt
+		// to configure instead, until a folder is chosen.
+		if (sectionType === 'folder' && !(column.libraryConfig?.folder?.trim())) {
+			el.createDiv({ cls: 'dashboard-library-empty dashboard-folder-empty', text: t('folder.empty') });
+			return el;
+		}
+
 		renderLibrarySection(el, column, app, (config) => {
 			callbacks.onLibraryConfigChange(column.name, config);
 		}, activeHoverParent, activeNoteOpener);
+		return el;
+	}
+
+	// Images / videos sections: full-vault media thumbnail wall (no config needed)
+	if (sectionType === 'images' || sectionType === 'videos') {
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name);
+		});
+
+		renderMediaSection(el, column, app, activeHoverParent);
 		return el;
 	}
 
@@ -2002,6 +2051,16 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 	});
 	setIcon(addCardBtn, 'plus');
 	addCardBtn.addEventListener('click', () => callbacks.onCardAdd(column.name));
+
+	const deleteSectionBtn = headerActions.createEl('button', {
+		cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+		attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+	});
+	setIcon(deleteSectionBtn, 'trash-2');
+	deleteSectionBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		callbacks.onColumnDelete(column.name);
+	});
 
 	const cardsContainer = el.createDiv({ cls: 'dashboard-section-cards' });
 
@@ -2198,6 +2257,18 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		saveBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			callbacks.onMemoSaveAsNote(card);
+		});
+	}
+
+	if (isTask) {
+		const saveBtn = actions.createEl('button', {
+			cls: 'dashboard-card-btn',
+			attr: { 'aria-label': t('renderer.saveTasksToDaily') },
+		});
+		setIcon(saveBtn, 'save');
+		saveBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onTaskSaveToDaily(card);
 		});
 	}
 
@@ -2976,6 +3047,9 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'notes') return 'notes';
 	if (lower === 'dashboard') return 'dashboard';
 	if (lower === 'library') return 'library';
+	if (lower === 'folder') return 'folder';
+	if (lower === 'images') return 'images';
+	if (lower === 'videos') return 'videos';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);

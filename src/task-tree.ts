@@ -122,3 +122,61 @@ export function recalcChecked(task: TaskItem): TaskItem {
 	const allChecked = kids.every((k) => k.checked);
 	return { ...task, checked: allChecked };
 }
+
+/**
+ * Partition a task tree into completed (to be archived) and remaining items.
+ *
+ * Rules:
+ * - A top-level checked task is archived wholesale (its text becomes the
+ *   archive entry; subtree goes with it).
+ * - A top-level unchecked task is kept; its checked descendants are archived
+ *   individually, unchecked descendants are preserved.
+ *
+ * Both halves are returned so view (writes the archive log from `archived`)
+ * and sync (persists `remaining`) share one rule definition.
+ */
+export function archiveCompleted(tasks: TaskItem[]): { archived: TaskItem[]; remaining: TaskItem[] } {
+	const archived: TaskItem[] = [];
+	const remaining: TaskItem[] = [];
+
+	for (const task of tasks) {
+		if (task.checked) {
+			archived.push(task);
+			continue;
+		}
+
+		if (task.children && task.children.length > 0) {
+			const childResult = archiveCompleted(task.children);
+			archived.push(...childResult.archived);
+			remaining.push({
+				...task,
+				children: childResult.remaining.length > 0 ? childResult.remaining : undefined,
+			});
+		} else {
+			remaining.push(task);
+		}
+	}
+
+	return { archived, remaining };
+}
+
+/**
+ * Serialize a task tree to Markdown checkbox lines for export (daily note).
+ * Mirrors parser.serialize's task formatting but drops the internal
+ * `<!--collapsed-->` marker and keeps the reminder, so the output reads as a
+ * plain Obsidian task list.
+ */
+export function serializeTasksForNote(tasks: TaskItem[]): string {
+	const lines: string[] = [];
+
+	const write = (task: TaskItem, indent: number) => {
+		const prefix = indent > 0 ? '    '.repeat(indent) : '';
+		let line = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
+		if (task.reminder) line += ` ⏰ ${task.reminder}`;
+		lines.push(line);
+		for (const child of task.children ?? []) write(child, indent + 1);
+	};
+
+	for (const task of tasks) write(task, 0);
+	return lines.join('\n');
+}

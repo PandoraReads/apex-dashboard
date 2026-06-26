@@ -1,4 +1,4 @@
-import { Events, HoverParent, HoverPopover, ItemView, Notice, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, moment, Notice, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, WeatherConfig, TrackerConfig, LibraryConfig } from './types';
 import { SyncEngine } from './sync';
@@ -16,12 +16,46 @@ import type { HolidayInfo } from './holiday-service';
 import { WidgetTypeModal, type WidgetType } from './widget-type-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
+import { FolderConfigModal } from './folder-config-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
 import { PomodoroService } from './pomodoro-service';
 import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
 import { t } from './i18n';
+import { archiveCompleted, serializeTasksForNote } from './task-tree';
+import type { App } from 'obsidian';
+
+interface DailyNotesOptions {
+	folder?: string;
+	format?: string;
+}
+
+interface DailyNotesPlugin {
+	enabled?: boolean;
+	instance?: { options?: DailyNotesOptions };
+}
+
+/** Read the core "Daily notes" plugin handle (folder/format live on instance.options). */
+function getDailyNotesPlugin(app: App): DailyNotesPlugin | undefined {
+	const internalPlugins = (app as unknown as {
+		internalPlugins?: { getPluginById?: (id: string) => DailyNotesPlugin | undefined };
+	}).internalPlugins;
+	return internalPlugins?.getPluginById?.('daily-notes');
+}
+
+/** Insert `block` right after the YAML frontmatter (or at the very top when there
+ *  is none), preserving the original frontmatter text verbatim. */
+function prependAfterFrontmatter(md: string, block: string): string {
+	const fmMatch = md.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+	if (fmMatch) {
+		const header = fmMatch[0];
+		const body = md.slice(header.length).replace(/^\s+/, '');
+		return body ? `${header}${block}\n\n${body}` : `${header}${block}\n`;
+	}
+	const body = md.replace(/^\s+/, '');
+	return body ? `${block}\n\n${body}` : `${block}\n`;
+}
 
 export const DASHBOARD_VIEW_TYPE = 'apex-dashboard-view';
 
@@ -210,7 +244,12 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Library config event delegation
 		kanban.addEventListener('dashboard-library-config', ((e: CustomEvent) => {
 			const { columnName } = e.detail as { columnName: string };
-			this.openLibraryConfigModal(columnName);
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (col?.sectionType === 'folder') {
+				this.openFolderConfigModal(columnName);
+			} else {
+				this.openLibraryConfigModal(columnName);
+			}
 		}) as EventListener);
 
 
@@ -527,6 +566,7 @@ export class DashboardView extends ItemView implements HoverParent {
 						this.sync.removeQuickActionByKey(key);
 					},
 					this.data.hiddenPresets,
+					undefined,
 				);
 			}
 		} else {
@@ -605,6 +645,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				});
 			},
 			this.data.hiddenPresets,
+			(action) => this.openEditActionModal(action),
 		);
 
 		const docs = getRecentDocs(this.app, this.plugin.settings.recentDocCount);
@@ -675,6 +716,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTask(cardId, taskPath),
 			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
+			onTaskSaveToDaily: (card: DashboardCard) => this.saveTasksToDaily(card),
 			onDocAdd: (cardId: string, path: string) => this.sync.addDocToCard(cardId, path),
 			onDocDelete: (cardId: string, docPath: number[]) => this.sync.deleteDoc(cardId, docPath),
 			onDocReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderDocs(cardId, fromPath, toPath, before),
@@ -697,6 +739,8 @@ export class DashboardView extends ItemView implements HoverParent {
 					this.sync.addColumn(name, sectionType).then(() => {
 						if (sectionType === 'library') {
 							this.openLibraryConfigModal(name);
+						} else if (sectionType === 'folder') {
+							this.openFolderConfigModal(name);
 						}
 					});
 				},
@@ -722,8 +766,10 @@ export class DashboardView extends ItemView implements HoverParent {
 				onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => this.sync.updateCardGridMove(cardId, gridCol, gridRow),
 				onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
 				onColumnRename: (oldName: string, newName: string) => this.sync.renameColumn(oldName, newName),
+				onColumnDelete: (columnName: string) => this.deleteColumn(columnName),
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
+			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
 				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => this.sync.updateLibraryConfig(columnName, config),
 		};
 	}
@@ -808,6 +854,106 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (!(await adapter.exists(current))) {
 				await adapter.mkdir(current);
 			}
+		}
+	}
+
+	private async saveTasksToDaily(card: DashboardCard): Promise<void> {
+		try {
+			if (!card.tasks || card.tasks.length === 0) {
+				new Notice(t('notice.noTasksToSave'));
+				return;
+			}
+
+			// Locate today's daily note via the core "Daily notes" plugin settings.
+			const dailyPlugin = getDailyNotesPlugin(this.app);
+			const options = dailyPlugin?.instance?.options;
+			if (!dailyPlugin?.enabled || !options) {
+				new Notice(t('notice.dailyNotesDisabled'), 5000);
+				return;
+			}
+
+			const folder = (options.folder || '').trim().replace(/^\/+|\/+$/g, '');
+			const format = options.format || 'YYYY-MM-DD';
+			const dateStr = moment().format(format);
+			const fileName = `${dateStr}.md`;
+			const path = folder ? `${folder}/${fileName}` : fileName;
+
+			const title = card.title?.trim() || t('notice.memoUntitled');
+			const block = `### ${title}\n${serializeTasksForNote(card.tasks)}`;
+
+			if (folder) await this.ensureFolder(folder);
+
+			const existing = this.app.vault.getAbstractFileByPath(path);
+			if (existing instanceof TFile) {
+				const raw = await this.app.vault.read(existing);
+				await this.app.vault.modify(existing, prependAfterFrontmatter(raw, block));
+			} else {
+				await this.app.vault.create(path, `${block}\n`);
+			}
+			new Notice(t('notice.tasksSavedToDaily', { path }), 4000);
+		} catch (err) {
+			console.error('[Dashboard] saveTasksToDaily failed:', err);
+			new Notice(t('notice.dailySaveError'), 4000);
+		}
+	}
+
+	private async archiveCompletedTasks(columnName: string): Promise<void> {
+		try {
+			if (!this.data) return;
+			const column = this.data.columns.find((c) => c.name === columnName);
+			if (!column) return;
+
+			const now = new Date();
+			const pad = (n: number) => String(n).padStart(2, '0');
+			const time = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+			const entries: Array<{ task: string; card: string }> = [];
+			for (const card of column.cards) {
+				const { archived } = archiveCompleted(card.tasks);
+				if (archived.length === 0) continue;
+				const cardTitle = card.title?.trim() || t('notice.memoUntitled');
+				for (const item of archived) {
+					entries.push({ task: item.text, card: cardTitle });
+				}
+			}
+
+			if (entries.length === 0) {
+				new Notice(t('notice.archiveEmpty'));
+				return;
+			}
+
+			const confirmed = await showConfirmDialog(this.app, {
+				title: t('renderer.archiveTasks'),
+				message: t('notice.archiveConfirm', { count: entries.length }),
+			});
+			if (!confirmed) return;
+
+			// Write the running log before mutating the board: if the write fails,
+			// the tasks stay on the board (no data loss).
+			const configured = this.plugin.settings.taskArchivePath.trim().replace(/^\/+|\/+$/g, '');
+			const fullPath = configured || '归档/已完成.md';
+			const slash = fullPath.lastIndexOf('/');
+			const folder = slash >= 0 ? fullPath.slice(0, slash) : '';
+			if (folder) await this.ensureFolder(folder);
+
+			const lines = entries.map((e) => t('notice.archiveLine', { time, task: e.task, card: e.card }));
+			const appendText = `${lines.join('\n')}\n`;
+
+			const existing = this.app.vault.getAbstractFileByPath(fullPath);
+			if (existing instanceof TFile) {
+				const raw = await this.app.vault.read(existing);
+				const sep = raw.endsWith('\n') ? '' : '\n';
+				await this.app.vault.modify(existing, `${raw}${sep}${appendText}`);
+			} else {
+				await this.app.vault.create(fullPath, appendText);
+			}
+
+			await this.sync.archiveTasks(columnName);
+
+			new Notice(t('notice.archived', { count: entries.length, path: fullPath }), 4000);
+		} catch (err) {
+			console.error('[Dashboard] archiveCompletedTasks failed:', err);
+			new Notice(t('notice.archiveError'), 4000);
 		}
 	}
 
@@ -902,6 +1048,32 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
+	private openFolderConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const libraryConfig = column?.libraryConfig;
+		const currentPath = libraryConfig?.folder ?? '';
+		const currentTags = libraryConfig?.filters.find(f => f.property === 'tags')?.values ?? [];
+		const modal = new FolderConfigModal(
+			this.app,
+			currentPath,
+			currentTags,
+			(path, tags) => {
+				const base = libraryConfig ?? {
+					filters: [],
+					viewMode: 'grid' as const,
+					sortBy: 'modified',
+					sortDesc: true,
+				};
+				const filtersWithoutTags = base.filters.filter(f => f.property !== 'tags');
+				const filters = tags.length > 0
+					? [...filtersWithoutTags, { property: 'tags', values: tags }]
+					: filtersWithoutTags;
+				void this.sync.updateLibraryConfig(colName, { ...base, folder: path, filters });
+			},
+		);
+		modal.open();
+	}
+
 	private openAddActionModal(): void {
 		const modal = new AddActionModal(this.app, (action) => {
 			this.sync.addQuickAction(action);
@@ -909,30 +1081,40 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
+	private openEditActionModal(action: QuickAction): void {
+		const index = this.data?.quickActions.findIndex(a => a.target === action.target) ?? -1;
+		if (index < 0) return;
+		const modal = new AddActionModal(
+			this.app,
+			(updated) => {
+				void this.sync.updateQuickAction(index, { name: updated.name, icon: updated.icon });
+			},
+			action,
+		);
+		modal.open();
+	}
+
+	private async deleteColumn(columnName: string): Promise<void> {
+		const confirmed = await showConfirmDialog(this.app, {
+			title: t('common.confirmDelete'),
+			message: t('renderer.confirmDeleteSection', { column: columnName }),
+		});
+		if (!confirmed) return;
+		await this.sync.deleteColumn(columnName);
+		new Notice(t('renderer.sectionDeleted'));
+	}
+
 	private async executeAction(action: QuickAction): Promise<void> {
 		if (action.type === 'file') {
 			await this.navigateToPath(action.target);
 		} else if (action.type === 'command') {
-			if (action.target === 'daily-notes') {
-				await this.createNewJournal();
-			} else {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(this.app as any).commands.executeCommandById(action.target);
-			}
+			// Route every command (including 'daily-notes') through Obsidian's command
+			// system so the core Daily notes plugin honors its folder/format/template
+			// settings. (Previously 'daily-notes' was short-circuited to a root-level
+			// file that ignored all of those settings.)
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			(this.app as any).commands.executeCommandById(action.target);
 		}
-	}
-
-	private async createNewJournal(): Promise<void> {
-		const now = new Date();
-		const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-		const filePath = `${dateStr}.md`;
-
-		let file = this.app.vault.getFileByPath(filePath);
-		if (!file) {
-			file = await this.app.vault.create(filePath, `# ${dateStr}\n\n`);
-		}
-
-		await this.app.workspace.getLeaf(false).openFile(file);
 	}
 
 	private openProjectSearchModal(colName: string): void {

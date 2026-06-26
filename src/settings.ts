@@ -112,6 +112,20 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName(t('settings.taskArchivePath'))
+			.setDesc(t('settings.taskArchivePathDesc'))
+			.addText(text => text
+				.setPlaceholder('Archive/Done.md')
+				.setValue(this.plugin.settings.taskArchivePath)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						taskArchivePath: value.trim(),
+					};
+					await this.plugin.saveSettings();
+				}));
 		this.renderWidgetSettings(containerEl);
 
 		this.renderLunarSettings(containerEl);
