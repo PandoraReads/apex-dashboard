@@ -2919,11 +2919,7 @@ function renderLinkBody(container: HTMLElement, card: DashboardCard): void {
 			docItem.addEventListener('click', (e) => {
 				if ((e.target as HTMLElement).tagName === 'BUTTON') return;
 				if (!resolved) return;
-				if (Platform.isMobile) {
-					void app.workspace.getLeaf(false).openFile(resolved);
-				} else {
-					activeNoteOpener?.(resolved);
-				}
+				activeNoteOpener?.(resolved);
 			});
 
 			docItem.addEventListener('dragstart', (e) => {
@@ -3124,13 +3120,7 @@ function renderWikilink(container: HTMLElement, content: string, app: App): void
 	link.addEventListener('click', (e) => {
 		e.stopPropagation();
 		if (!file) return;
-		if (Platform.isMobile) {
-			void app.workspace.getLeaf(false).openFile(file, {
-				eState: fragment ? { line: 0 } : undefined,
-			});
-		} else {
-			activeNoteOpener?.(file);
-		}
+		activeNoteOpener?.(file);
 	});
 }
 

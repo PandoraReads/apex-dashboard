@@ -6,6 +6,7 @@
 - Images/videos sections: thumbnail size toggle (S/M/L) in the toolbar — small/medium/large grid thumbnails (medium = previous default)
 - Images/videos sections: list and table views now show backlinks (notes that link to/embed each file) as clickable chips; click to open the note in the in-place editor popover (same as the database section)
 - Images/videos sections: per-page count selector (20/50/100)
+- Mobile: clicking document links (project docs) and wikilinks (in memos/todos) now opens the in-place note editor popover, matching desktop (previously mobile opened a new tab)
 
 ### Changed
 - Images/videos sections are taller by default (more room for the thumbnail wall)

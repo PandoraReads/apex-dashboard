@@ -107,6 +107,7 @@ All themes support both Obsidian light and dark modes.
 - **Thumbnail size toggle** — Images/videos grid view has an S/M/L size toggle in the toolbar (medium = previous size)
 - **Backlinks** — Images/videos list & table views show which notes link to / embed each file; click a chip to open that note in the in-place editor popover
 - **Per-page selector** — Images/videos sections: choose 20 / 50 / 100 items per page
+- **Mobile note popover** — On mobile, clicking document links and wikilinks now opens the in-place note editor popover (matching desktop; previously it opened a new tab)
 - **Taller sections + toolbar layout** — Images/videos sections are taller by default; the file count and per-page selector sit at the far right of the toolbar
 - **Overlap fixed** — Images/videos sections no longer overlap the content below after the height increase
 
