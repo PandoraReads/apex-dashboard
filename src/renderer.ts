@@ -3,8 +3,7 @@ import type { HoverParent, TFile } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
-import { renderMediaSection } from './media-section';
-import { renderAllTasksSection } from './alltasks-section';
+import { renderMediaSection, destroyMediaSection } from './media-section';
 import { renderCalendarSection } from './calendar-section';
 import type { LibraryConfig } from './types';
 import { resolveVaultImage } from './banner';
@@ -1821,7 +1820,6 @@ export function renderDashboard(
 			{ value: 'folder', label: t('renderer.typeFolder') },
 			{ value: 'images', label: t('renderer.typeImages') },
 			{ value: 'videos', label: t('renderer.typeVideos') },
-			{ value: 'alltasks', label: t('renderer.typeAllTasks') },
 			{ value: 'calendar', label: t('renderer.typeCalendar') },
 		];
 
@@ -1891,6 +1889,58 @@ export function renderDashboard(
 
 		input.focus();
 	});
+}
+
+const SCANNING_SECTION_TYPES = new Set(['library', 'folder', 'calendar']);
+const MEDIA_SECTION_TYPES = new Set(['images', 'videos']);
+
+/**
+ * Re-render only the vault-scanning sections (library/folder/calendar)
+ * in place, leaving media and card sections untouched. Used by the view's
+ * vault-event debounce so editing a note no longer tears down the whole board
+ * (and the media section's <video> thumbnails with it).
+ */
+export function refreshScanningSections(
+	kanban: HTMLElement,
+	data: DashboardData,
+	callbacks: RenderCallbacks,
+	app: App,
+	settings: DashboardSettings | undefined,
+	hoverParent: HoverParent | null,
+): void {
+	activeHoverParent = hoverParent;
+	for (const column of data.columns) {
+		if (!SCANNING_SECTION_TYPES.has(getSectionType(column))) continue;
+		const oldEl = kanban.querySelector(`:scope > [data-column="${CSS.escape(column.name)}"]`);
+		if (!oldEl) continue;
+		const newEl = renderSection(column, callbacks, app, data, settings);
+		oldEl.replaceWith(newEl);
+	}
+}
+
+/**
+ * Re-render only the media sections (images/videos) in place. Releases the old
+ * sections' <video> decoders + lazy observers (via destroyMediaSection) before
+ * swapping. Only invoked on structural vault changes (create/delete/rename),
+ * never on plain note edits, so videos are not churned during normal editing.
+ */
+export function refreshMediaSections(
+	kanban: HTMLElement,
+	data: DashboardData,
+	callbacks: RenderCallbacks,
+	app: App,
+	settings: DashboardSettings | undefined,
+	hoverParent: HoverParent | null,
+): void {
+	activeHoverParent = hoverParent;
+	for (const column of data.columns) {
+		if (!MEDIA_SECTION_TYPES.has(getSectionType(column))) continue;
+		const matched = kanban.querySelector(`:scope > [data-column="${CSS.escape(column.name)}"]`);
+		if (!(matched instanceof HTMLElement)) continue;
+		destroyMediaSection(matched);
+		const newEl = renderSection(column, callbacks, app, data, settings);
+		matched.replaceWith(newEl);
+	}
 }
 
 const COLLAPSED_KEY = 'apex-dashboard-collapsed';
@@ -2046,32 +2096,6 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 		});
 
 		renderMediaSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
-		return el;
-	}
-
-	// All-tasks section: aggregates every checkbox task across the vault.
-	if (sectionType === 'alltasks') {
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('alltasks.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
-		});
-
-		void renderAllTasksSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
 		return el;
 	}
 

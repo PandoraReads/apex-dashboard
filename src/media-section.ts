@@ -1,4 +1,4 @@
-import { App, Notice, TFile, setIcon } from 'obsidian';
+import { App, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { DashboardColumn } from './types';
 import { resolveVaultImage } from './banner';
@@ -25,6 +25,7 @@ interface MediaFileResult {
 	mtime: number;
 	ctime: number;
 	ext: string;
+	size: number;
 }
 
 function extsFor(sectionType: string): Set<string> | null {
@@ -49,6 +50,7 @@ function queryMediaFiles(app: App, exts: Set<string>): MediaFileResult[] {
 			mtime: file.stat.mtime,
 			ctime: file.stat.ctime,
 			ext: file.extension,
+			size: file.stat.size,
 		});
 	}
 	return results;
@@ -74,6 +76,113 @@ function formatDate(ts: number): string {
 	const m = String(d.getMonth() + 1).padStart(2, '0');
 	const day = String(d.getDate()).padStart(2, '0');
 	return `${y}-${m}-${day}`;
+}
+
+/** Human-readable file size for the static video placeholder badge. */
+function formatFileSize(bytes: number): string {
+	if (!bytes || bytes <= 0) return '';
+	if (bytes < 1024) return `${bytes} B`;
+	const units = ['KB', 'MB', 'GB'];
+	let val = bytes / 1024;
+	let i = 0;
+	while (val >= 1024 && i < units.length - 1) {
+		val /= 1024;
+		i++;
+	}
+	return `${val.toFixed(val >= 10 ? 0 : 1)} ${units[i]}`;
+}
+
+/**
+ * Release every `<video>` under `root`: pause, clear src, and reload so the
+ * platform frees the underlying media decoder/buffer. Removing the node from
+ * the DOM alone does NOT release the decoder promptly on mobile WebViews, which
+ * is the root cause of the runaway memory growth across re-renders.
+ */
+export function releaseVideoMedia(root: HTMLElement): void {
+	const vids = Array.from(root.querySelectorAll('video'));
+	for (const v of vids) {
+		try { v.pause(); } catch { /* ignore */ }
+		v.removeAttribute('src');
+		try { v.load(); } catch { /* ignore */ }
+	}
+}
+
+/** Lazy mounter for desktop video thumbnails: only visible tiles hold a live
+ *  `<video>` decoder; tiles scrolled out of view are released. One mounter per
+ *  section render; mobile never creates one (static placeholders only). */
+interface LazyVideoMounter {
+	observe(tile: HTMLElement, src: string): void;
+	disconnect(): void;
+}
+
+/** Per-section mounter registry so an in-place section replacement (renderer
+ *  refresh) can disconnect the old observer + release videos before swap. */
+const sectionMounters = new WeakMap<HTMLElement, LazyVideoMounter>();
+
+/** Tear down a media section's video resources: disconnect its lazy mounter
+ *  (if any) and release every `<video>` under it. Called before re-render and
+ *  before the renderer replaces the section element in place. */
+export function destroyMediaSection(sectionEl: HTMLElement): void {
+	const mounter = sectionMounters.get(sectionEl);
+	if (mounter) {
+		mounter.disconnect();
+		sectionMounters.delete(sectionEl);
+	}
+	releaseVideoMedia(sectionEl);
+}
+
+function createLazyVideoMounter(): LazyVideoMounter | null {
+	if (Platform.isMobile || typeof IntersectionObserver === 'undefined') return null;
+	const mounted = new WeakSet<HTMLElement>();
+	const observer = new IntersectionObserver((entries) => {
+		for (const entry of entries) {
+			const tile = entry.target as HTMLElement;
+			if (!tile.isConnected) continue;
+			if (entry.isIntersecting) {
+				if (mounted.has(tile)) continue;
+				const src = tile.dataset.lazyVideoSrc;
+				if (!src) continue;
+				mountVideoInTile(tile, src);
+				mounted.add(tile);
+			} else {
+				if (!mounted.has(tile)) continue;
+				releaseVideoMedia(tile);
+				tile.querySelector('video')?.remove();
+				tile.removeClass('is-video-mounted');
+				mounted.delete(tile);
+			}
+		}
+	}, { rootMargin: '300px' });
+
+	return {
+		observe(tile, src) {
+			tile.dataset.lazyVideoSrc = src;
+			observer.observe(tile);
+		},
+		disconnect() { observer.disconnect(); },
+	};
+}
+
+/** Create the `<video>` element inside a lazy tile. CSS hides the placeholder
+ *  via the `.is-video-mounted` class on the tile once the real `<video>` is
+ *  appended (no direct style mutation needed). */
+function mountVideoInTile(tile: HTMLElement, src: string): void {
+	tile.addClass('is-video-mounted');
+	tile.createEl('video', {
+		cls: 'dashboard-media-thumb',
+		attr: { src, preload: 'metadata', muted: '', playsinline: '' },
+	});
+}
+
+/** Static placeholder shown for video tiles until (desktop) a real `<video>` is
+ *  lazily mounted, or always (mobile, where no `<video>` is ever created). */
+function renderVideoThumbPlaceholder(parent: HTMLElement, result: MediaFileResult, showSize: boolean): void {
+	const ph = parent.createDiv({ cls: 'dashboard-media-thumb dashboard-media-thumb--video-placeholder' });
+	setIcon(ph.createDiv({ cls: 'dashboard-media-thumb-icon' }), 'film');
+	if (showSize) {
+		const size = formatFileSize(result.size);
+		if (size) ph.createDiv({ cls: 'dashboard-media-size-badge', text: size });
+	}
 }
 
 /** Notes that link to or embed the given media file (backlinks via resolvedLinks). */
@@ -213,6 +322,7 @@ export function renderMediaSection(
 	let filterEnd = '';
 	let filterFolder = '';
 	let filterPopup: HTMLElement | null = null;
+	let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
 	const folderNorm = (f: string): string => f.trim().replace(/^\/+|\/+$/g, '');
 
@@ -255,6 +365,10 @@ export function renderMediaSection(
 	}
 
 	function closeMediaPopup(): void {
+		if (outsideClickHandler) {
+			document.removeEventListener('click', outsideClickHandler);
+			outsideClickHandler = null;
+		}
 		if (filterPopup) { filterPopup.remove(); filterPopup = null; }
 	}
 
@@ -319,16 +433,20 @@ export function renderMediaSection(
 				closeMediaPopup();
 			});
 		}
+
+		// Outside-click-to-close: registered when the popup opens and removed
+		// when it closes (closeMediaPopup) so it never accumulates across renders.
+		outsideClickHandler = (e: MouseEvent): void => {
+			if (filterPopup && !filterPopup.contains(e.target as Node) && !filterBtn.contains(e.target as Node)) {
+				closeMediaPopup();
+			}
+		};
+		window.setTimeout(() => document.addEventListener('click', outsideClickHandler!), 0);
 	}
 
 	filterBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
 		if (filterPopup) closeMediaPopup(); else openMediaPopup();
-	});
-	document.addEventListener('click', (e) => {
-		if (filterPopup && !filterPopup.contains(e.target as Node) && !filterBtn.contains(e.target as Node)) {
-			closeMediaPopup();
-		}
 	});
 
 	let pageSize = 20;
@@ -366,6 +484,12 @@ export function renderMediaSection(
 	}
 
 	function render(): void {
+		// Teardown: disconnect the previous lazy mounter and release every
+		// <video> decoder before clearing the DOM, so re-renders (search/sort/
+		// page/filter) don't leak decoders — the main cause of memory growth.
+		const prevMounter = sectionMounters.get(el);
+		if (prevMounter) prevMounter.disconnect();
+		releaseVideoMedia(resultArea);
 		resultArea.empty();
 		paginationArea.empty();
 
@@ -397,10 +521,17 @@ export function renderMediaSection(
 			new MediaLightboxModal(app, results.map(r => r.file), start + pageIndex, kind).open();
 		};
 
+		// One lazy mounter per render: desktop video tiles mount a real <video>
+		// only when scrolled into view; mobile stays on static placeholders
+		// (mounter is null) so no decoder is ever created on the board.
+		const mounter = createLazyVideoMounter();
+		if (mounter) sectionMounters.set(el, mounter);
+		else sectionMounters.delete(el);
+
 		if (viewMode === 'grid') {
-			renderMediaGrid(resultArea, page, app, kind, thumbSize, openLightbox, (f) => { void deleteWithConfirm(f); });
+			renderMediaGrid(resultArea, page, app, kind, thumbSize, openLightbox, (f) => { void deleteWithConfirm(f); }, mounter);
 		} else if (viewMode === 'list') {
-			renderMediaList(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, onOpenNote);
+			renderMediaList(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, onOpenNote, mounter);
 		} else {
 			renderMediaTable(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, render, onOpenNote);
 		}
@@ -427,6 +558,7 @@ function renderMediaGrid(
 	thumbSize: ThumbSize,
 	onOpen: (index: number) => void,
 	onDelete: (file: TFile) => void,
+	mounter: LazyVideoMounter | null,
 ): void {
 	const grid = container.createDiv({ cls: `dashboard-media-grid dashboard-media-grid--${thumbSize}` });
 
@@ -442,10 +574,11 @@ function renderMediaGrid(
 					attr: { src, alt: result.basename, loading: 'lazy' },
 				});
 			} else {
-				item.createEl('video', {
-					cls: 'dashboard-media-thumb',
-					attr: { src, preload: 'metadata', muted: '', playsinline: '' },
-				});
+				// Static placeholder first; on desktop a real <video> is lazily
+				// mounted only when this tile scrolls into view (mounter.observe),
+				// on mobile no <video> is ever created on the board.
+				renderVideoThumbPlaceholder(item, result, true);
+				if (mounter) mounter.observe(item, src);
 				const play = item.createDiv({ cls: 'dashboard-media-play' });
 				setIcon(play, 'play');
 			}
@@ -476,6 +609,7 @@ function renderMediaList(
 	onOpen: (index: number) => void,
 	onDelete: (file: TFile) => void,
 	onOpenNote?: (file: TFile) => void,
+	mounter: LazyVideoMounter | null = null,
 ): void {
 	const list = container.createDiv({ cls: 'dashboard-media-list' });
 	for (let i = 0; i < results.length; i++) {
@@ -490,7 +624,8 @@ function renderMediaList(
 			if (kind === 'image') {
 				thumb.createEl('img', { attr: { src, alt: result.basename, loading: 'lazy' } });
 			} else {
-				thumb.createEl('video', { attr: { src, preload: 'metadata', muted: '', playsinline: '' } });
+				renderVideoThumbPlaceholder(thumb, result, false);
+				if (mounter) mounter.observe(thumb, src);
 			}
 		}
 

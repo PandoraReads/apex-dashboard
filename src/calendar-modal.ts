@@ -1,9 +1,10 @@
-import { App, Modal, setIcon } from 'obsidian';
+import { App, Modal, Notice, setIcon } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { t } from './i18n';
 import { renderTextWithLinks } from './renderer';
-import { renderMonthGrid, monthLabel } from './calendar-grid';
+import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskTime, byTaskTime } from './calendar-grid';
 import { toIsoDate, type VaultTask } from './alltasks-scan';
+import { appendTaskToDailyNote } from './daily-notes';
 
 interface CalendarModalCallbacks {
 	onToggle: (task: VaultTask, nextChecked: boolean) => Promise<void> | void;
@@ -19,15 +20,25 @@ export class CalendarMonthModal extends Modal {
 	private readonly byDay: Map<string, VaultTask[]>;
 	private year: number;
 	private month: number;
+	private view: 'month' | 'week';
+	private weekStart: Date;
 	private readonly cb: CalendarModalCallbacks;
 
-	constructor(app: App, byDay: Map<string, VaultTask[]>, cb: CalendarModalCallbacks) {
+	constructor(
+		app: App,
+		byDay: Map<string, VaultTask[]>,
+		cb: CalendarModalCallbacks,
+		initialView: 'month' | 'week' = 'month',
+		initialWeekStart?: Date,
+	) {
 		super(app);
 		this.byDay = byDay;
 		this.cb = cb;
 		const now = new Date();
 		this.year = now.getFullYear();
 		this.month = now.getMonth();
+		this.view = initialView;
+		this.weekStart = initialWeekStart ?? mondayOf(now);
 	}
 
 	onOpen(): void {
@@ -54,16 +65,33 @@ export class CalendarMonthModal extends Modal {
 		const prev = header.createDiv({ cls: 'dashboard-calendar-nav-btn' });
 		setIcon(prev, 'chevron-left');
 		prev.addEventListener('click', () => this.shift(-1));
-		header.createDiv({ cls: 'dashboard-modal-title dashboard-calendar-nav-label', text: monthLabel(this.year, this.month) });
+		const labelEl = header.createDiv({ cls: 'dashboard-modal-title dashboard-calendar-nav-label' });
 		const next = header.createDiv({ cls: 'dashboard-calendar-nav-btn' });
 		setIcon(next, 'chevron-right');
 		next.addEventListener('click', () => this.shift(1));
+
+		// Month | Week toggle
+		const viewToggle = header.createDiv({ cls: 'dashboard-library-view-toggle dashboard-calendar-view-toggle' });
+		(['month', 'week'] as const).forEach((v) => {
+			const btn = viewToggle.createDiv({
+				cls: 'dashboard-library-view-btn' + (v === this.view ? ' active' : ''),
+				attr: { 'aria-label': v === 'month' ? t('calendar.viewMonth') : t('calendar.viewWeek') },
+			});
+			setIcon(btn, v === 'month' ? 'calendar' : 'calendar-range');
+			btn.addEventListener('click', () => {
+				if (this.view === v) return;
+				this.view = v;
+				if (v === 'week') this.weekStart = mondayOf(new Date());
+				this.render();
+			});
+		});
 
 		const todayBtn = header.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--cancel', text: t('calendar.today') });
 		todayBtn.addEventListener('click', () => {
 			const now = new Date();
 			this.year = now.getFullYear();
 			this.month = now.getMonth();
+			this.weekStart = mondayOf(now);
 			this.render();
 		});
 
@@ -72,21 +100,31 @@ export class CalendarMonthModal extends Modal {
 		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body dashboard-calendar-fullscreen-body' });
-		renderMonthGrid(body, this.year, this.month, this.byDay, {
-			compact: false,
+		const gridOpts = {
+			compact: false as const,
 			app: this.app,
-			onToggle: (task, next) => { void this.toggle(task, next); },
+			onToggle: (task: VaultTask, next: boolean) => { void this.toggle(task, next); },
 			onOpenNote: this.cb.onOpenNote,
-		});
+		};
+		const { label } = this.view === 'week'
+			? renderWeekTimeGrid(body, this.weekStart, this.byDay, gridOpts)
+			: renderMonthGrid(body, this.year, this.month, this.byDay, gridOpts);
+		labelEl.textContent = label;
 	}
 
 	private shift(delta: number): void {
-		let m = this.month + delta;
-		let y = this.year;
-		while (m < 0) { m += 12; y -= 1; }
-		while (m > 11) { m -= 12; y += 1; }
-		this.month = m;
-		this.year = y;
+		if (this.view === 'week') {
+			const d = new Date(this.weekStart);
+			d.setDate(this.weekStart.getDate() + delta * 7);
+			this.weekStart = d;
+		} else {
+			let m = this.month + delta;
+			let y = this.year;
+			while (m < 0) { m += 12; y -= 1; }
+			while (m > 11) { m -= 12; y += 1; }
+			this.month = m;
+			this.year = y;
+		}
 		this.render();
 	}
 
@@ -104,7 +142,7 @@ export class CalendarMonthModal extends Modal {
 /** Compact single-day agenda: lists one day's tasks with checkboxes + open buttons. */
 export class DayAgendaModal extends Modal {
 	private readonly iso: string;
-	private readonly tasks: VaultTask[];
+	private tasks: VaultTask[];
 	private readonly cb: CalendarModalCallbacks;
 
 	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks) {
@@ -133,11 +171,32 @@ export class DayAgendaModal extends Modal {
 		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
+		// Add-task row: optional time (HH:MM) + title + Add. Writes to the daily
+		// note for this day (created from the Daily Notes template/path if absent).
+		const addRow = body.createDiv({ cls: 'dashboard-cal-day-add' });
+		const timeInput = addRow.createEl('input', {
+			cls: 'dashboard-modal-input dashboard-cal-day-add-time',
+			attr: { type: 'time', 'aria-label': t('calendar.taskTime') },
+		});
+		const titleInput = addRow.createEl('input', {
+			cls: 'dashboard-modal-input dashboard-cal-day-add-title',
+			attr: { type: 'text', placeholder: t('calendar.addTaskPlaceholder') },
+		});
+		titleInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') { e.preventDefault(); void this.addTask(titleInput, timeInput); }
+		});
+		const addBtn = addRow.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm dashboard-cal-day-add-btn',
+			text: t('calendar.addTask'),
+		});
+		addBtn.addEventListener('click', () => void this.addTask(titleInput, timeInput));
+
 		if (this.tasks.length === 0) {
 			body.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
 		} else {
 			const list = body.createDiv({ cls: 'dashboard-alltasks-list' });
-			for (const task of this.tasks) {
+			for (const task of [...this.tasks].sort(byTaskTime)) {
 				list.appendChild(this.renderRow(task));
 			}
 		}
@@ -156,6 +215,9 @@ export class DayAgendaModal extends Modal {
 		check.checked = task.checked;
 		check.addEventListener('click', (e) => { e.preventDefault(); void this.toggle(task, !task.checked); });
 
+		const tm = taskTime(task);
+		if (tm) row.createDiv({ cls: 'dashboard-calendar-event-time', text: tm });
+
 		if (task.priority) {
 			row.createDiv({ cls: `dashboard-alltasks-prio dashboard-alltasks-prio--${task.priority}`, text: task.priority[0]!.toUpperCase() });
 		}
@@ -169,6 +231,43 @@ export class DayAgendaModal extends Modal {
 		chip.setAttribute('role', 'button');
 		chip.addEventListener('click', (e) => { e.stopPropagation(); this.cb.onOpenNote?.(task.file); });
 		return row;
+	}
+
+	/** Add the entered task (optional time + title) to this day's daily note. */
+	private async addTask(titleInput: HTMLInputElement, timeInput: HTMLInputElement): Promise<void> {
+		const title = titleInput.value.trim();
+		if (!title) return;
+		const time = timeInput.value; // '' or 'HH:MM'
+		const reminder = time ? `${this.iso} ${time}` : undefined;
+		// Timed tasks use the plugin's ⏰ reminder; date-only tasks use 📅 so they
+		// still land on this calendar day (a task with no date marker wouldn't
+		// be calendar-relevant and would never show up).
+		const line = reminder ? `- [ ] ${title} ⏰ ${reminder}` : `- [ ] ${title} 📅 ${this.iso}`;
+
+		let file: TFile | null = null;
+		try {
+			file = await appendTaskToDailyNote(this.app, this.iso, line);
+		} catch (err) {
+			console.error('[Dashboard] add task to daily note failed:', err);
+			new Notice(t('calendar.taskAddFailed'), 4000);
+			return;
+		}
+		if (!file) {
+			new Notice(t('calendar.dailyNotesDisabled'), 5000);
+			return;
+		}
+		new Notice(t('calendar.taskAdded', { path: file.path }), 3000);
+
+		// Optimistic: show the new task immediately at its time slot. The
+		// calendar section also re-scans automatically on the vault write event.
+		this.tasks = [...this.tasks, {
+			file, path: file.path, line: 0, originalLine: line, checked: false,
+			text: title, reminder, due: this.iso, time: time || undefined,
+			priority: undefined, mtime: Date.now(), ctime: Date.now(),
+		}].sort(byTaskTime);
+		titleInput.value = '';
+		timeInput.value = '';
+		this.onOpen();
 	}
 
 	private async toggle(task: VaultTask, nextChecked: boolean): Promise<void> {

@@ -1,6 +1,7 @@
 import { App, Modal, setIcon } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { resolveVaultImage } from './banner';
+import { releaseVideoMedia } from './media-section';
 
 /**
  * Full-screen lightbox for browsing a list of image or video files.
@@ -38,6 +39,9 @@ export class MediaLightboxModal extends Modal {
 
 	private renderCurrent(): void {
 		const { contentEl } = this;
+		// Release the previously shown video (pause + clear src + load) before
+		// wiping the DOM so navigating between items never stacks decoders.
+		releaseVideoMedia(contentEl);
 		contentEl.empty();
 		const file = this.files[this.index];
 		if (!file) {
@@ -91,6 +95,7 @@ export class MediaLightboxModal extends Modal {
 	}
 
 	onClose(): void {
+		releaseVideoMedia(this.contentEl);
 		this.contentEl.empty();
 	}
 }

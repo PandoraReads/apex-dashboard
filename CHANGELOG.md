@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.9 (2026-06-27)
+
+### Added
+- **Calendar week view** — The Calendar section gains a Month | Week toggle. The in-column week view is a compact vertical 7-day list (tasks sorted by time-of-day with time labels). The full-screen modal's week view is a Google-Calendar-style time grid (left hour axis + 7 day columns, tasks positioned and sized by their start/end time, an all-day strip for untimed tasks, and a red "now" line). Times are read from `⏰` reminders and from `[due::]` / `[start::]` / `[end::]` when they carry `HH:MM`
+- **Add a task to any day from the calendar** — Click a day in the calendar to open its agenda, then add a task with an optional time directly; it is written into that day's daily note (created from the core Daily Notes template/folder if it doesn't exist yet). Timed tasks use `⏰`, date-only tasks use `📅`
+
+### Removed
+- **All Tasks section** — Removed. It scanned and parsed every markdown file in the vault on each render; on mobile this caused sustained CPU load and overheating (confirmed: removing it brings phone temperature back under control). The Calendar section still offers dated-task aggregation with a far lighter footprint
+
+### Fixed
+- **Video library memory leak & mobile overheating** — `<video>` thumbnails no longer leak media decoders: decoders are now released on every re-render and when the lightbox closes. Previously they accumulated indefinitely, causing runaway memory growth and phone overheating/freezing
+- **Mobile video thumbnails** — On mobile, video tiles render lightweight static placeholders (icon + file size) instead of live `<video>` elements, eliminating per-tile decoder cost entirely on phones
+- **Dashboard no longer rebuilds on every note edit** — Vault file events now refresh only the affected sections (library / folder / calendar) in place, instead of tearing down and rebuilding the whole board. The video library and other sections no longer flicker / "keep refreshing" during sync or editing
+- **Media filter popup listener leak** — The outside-click listener is now added/removed with the popup instead of accumulating one per render
+
+### Changed
+- **Desktop video thumbnails are lazy-loaded** — Only thumbnails scrolled into view mount a real `<video>` (via IntersectionObserver); off-screen tiles release their decoder. Live decoders are bounded to the visible few instead of the page size (up to 100)
+- **Faster vault-task scan** — The scan behind the Calendar section now skips files with no checkboxes (via the metadata cache) and yields to the UI thread every ~50 files, so large vaults no longer freeze the app or spike CPU
+- **Mobile glass blur disabled** — The per-card `backdrop-filter` blur is turned off on mobile (≤640px) to cut GPU load and heat; desktop glassmorphism is unchanged
+
 ## 1.2.8 (2026-06-26)
 
 ### Added

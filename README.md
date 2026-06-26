@@ -109,6 +109,13 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.2.9
+- **Calendar week view** — New Month | Week toggle on the Calendar section. In-column week view is a compact vertical list (sorted by time, with time labels); the full-screen modal's week view is a Google-Calendar-style time grid (hour axis + 7 day columns, tasks positioned/sized by time, all-day strip, "now" line). Times come from `⏰` reminders and `[due::]`/`[start::]`/`[end::]` with `HH:MM`
+- **Add tasks from the calendar** — Click a day → its agenda lets you add a task (optional time) that writes to that day's daily note (auto-created from the Daily Notes template/path); timed with `⏰`, date-only with `📅`
+- **Removed: All Tasks section** — It scanned every markdown file in the vault on each render, which overheated phones. The Calendar section still covers dated-task aggregation
+- **Performance & mobile fix** — Video thumbnails no longer leak media decoders (fixed runaway memory + phone overheating/freezing); on mobile they render static placeholders. Editing a note now refreshes only the affected section in place instead of rebuilding the whole board (no more "video library keeps refreshing")
+- **Lazy video (desktop) + faster scan + mobile GPU** — Only on-screen tiles mount a real `<video>` (IntersectionObserver); the vault-task scan (Calendar) skips task-less files and yields to the UI; the per-card glass blur is disabled on mobile (≤640px) to cut GPU load and heat
+
 ### 1.2.8
 - **All Tasks section** — New section type that aggregates every checkbox task across the vault (like a dataview `TASK` query); search, status filter, and sort
 - **Grouping + kanban** — Group tasks by date (Overdue/Today/This week/Later/No due) or priority; list view with collapsible groups, or kanban board with one column per group

@@ -27,6 +27,10 @@ export interface VaultTask {
 	start?: string;
 	/** Multi-day event end `YYYY-MM-DD` (from `[end::]` / 🛬), if any. */
 	end?: string;
+	/** Start time-of-day `HH:MM` (from ⏰ / `[due::]` / `[start::]` when a time is present). */
+	time?: string;
+	/** End time-of-day `HH:MM` (from `[end::]` when a time is present). */
+	endTime?: string;
 	priority?: Priority;
 	mtime: number;
 	ctime: number;
@@ -66,6 +70,11 @@ function normalizePriority(raw: string): Priority | undefined {
 	if (['medium', 'mid', 'm', 'normal', 'n', '2', '!!', 'p2'].includes(v)) return 'medium';
 	if (['low', 'l', 'low-priority', '3', '!', 'p3'].includes(v)) return 'low';
 	return undefined;
+}
+
+/** `HH:MM` from a `YYYY-MM-DD HH:MM`-shaped value (undefined if no time part). */
+function hhmm(s: string | undefined): string | undefined {
+	return s && s.length >= 16 ? s.slice(11, 16) : undefined;
 }
 
 /**
@@ -127,6 +136,11 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 			text = text.replace(END_FIELD_REGEX, '').replace(END_EMOJI_REGEX, '');
 		}
 
+		// Time-of-day (for the calendar week time-grid): start time from ⏰ / due
+		// / start (whichever carries HH:MM), end time from [end::].
+		const time = hhmm(reminder) ?? hhmm(df?.[1]) ?? hhmm(sf?.[1]);
+		const endTime = hhmm(ef?.[1]);
+
 		out.push({
 			file,
 			path: file.path,
@@ -138,6 +152,8 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 			due,
 			start,
 			end,
+			time,
+			endTime,
 			priority,
 			mtime: file.stat.mtime,
 			ctime: file.stat.ctime,
@@ -166,15 +182,34 @@ export async function collectVaultTasks(app: App, excludeFolders: string[] = [])
 	const stale = new Set(moduleCache.keys());
 	const all: VaultTask[] = [];
 
-	for (const file of files) {
-		if (file.path.startsWith('.')) continue;
-		if (isExcluded(file.path, normalized)) continue;
+	for (let i = 0; i < files.length; i++) {
+		const file = files[i]!;
+		// Yield to the UI thread periodically so scanning a large vault doesn't
+		// freeze the app (especially on mobile) — this is what made the section
+		// feel stuck/unresponsive and the phone overheat while it churned through
+		// every file.
+		if (i > 0 && i % 50 === 0) await new Promise<void>(r => setTimeout(r, 0));
+
+		if (file.path.startsWith('.')) { stale.delete(file.path); continue; }
+		if (isExcluded(file.path, normalized)) { stale.delete(file.path); continue; }
 		stale.delete(file.path);
+
 		const cached = moduleCache.get(file.path);
 		if (cached && cached.mtime === file.stat.mtime) {
 			all.push(...cached.tasks);
 			continue;
 		}
+
+		// Cheap pre-filter via the metadata cache: skip files Obsidian has already
+		// parsed that contain no checkbox tasks at all (the common case — most notes
+		// have none). This avoids reading + regex-parsing the vast majority of notes.
+		// (Don't cache the empty result: re-checking the metadata cache each scan is
+		// cheap and self-heals if the cache was briefly stale after a write.)
+		const fc = app.metadataCache.getFileCache(file);
+		if (fc && !fc.listItems?.some(li => li.task !== undefined)) {
+			continue;
+		}
+
 		let content: string;
 		try {
 			content = await app.vault.cachedRead(file);

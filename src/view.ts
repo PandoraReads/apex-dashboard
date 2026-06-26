@@ -2,7 +2,7 @@ import { Events, HoverParent, HoverPopover, ItemView, moment, Notice, setIcon, W
 import type DashboardPlugin from './main';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, WeatherConfig, TrackerConfig, LibraryConfig } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
@@ -17,7 +17,6 @@ import { WidgetTypeModal, type WidgetType } from './widget-type-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
-import { AllTasksConfigModal } from './alltasks-config-modal';
 import { CalendarConfigModal } from './calendar-config-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
@@ -249,8 +248,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (col?.sectionType === 'folder') {
 				this.openFolderConfigModal(columnName);
-			} else if (col?.sectionType === 'alltasks') {
-				this.openAllTasksConfigModal(columnName);
 			} else if (col?.sectionType === 'calendar') {
 				this.openCalendarConfigModal(columnName);
 			} else {
@@ -1054,24 +1051,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	private openAllTasksConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const existingConfig = column?.libraryConfig ?? {
-			filters: [],
-			viewMode: 'list' as const,
-			sortBy: 'modified',
-			sortDesc: true,
-		};
-		const modal = new AllTasksConfigModal(
-			this.app,
-			existingConfig,
-			(config) => {
-				this.sync.updateLibraryConfig(colName, config);
-			},
-		);
-		modal.open();
-	}
-
 	private openCalendarConfigModal(colName: string): void {
 		const column = this.data?.columns.find(col => col.name === colName);
 		const existingConfig = column?.libraryConfig ?? {
@@ -1208,19 +1187,23 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private registerVaultListeners(): void {
 		const events = this.app.vault;
-		const handler = () => {
+		// `structure` distinguishes file add/remove/rename (which can change the
+		// media listing) from plain .md content edits (which only affect task/
+		// calendar/library scans). Media sections are refreshed only on the
+		// former, so editing notes never churns the video thumbnails.
+		const handler = (structure: boolean): void => {
 			this.debouncedRefreshRecentDocs();
-			this.debouncedRefreshLibrarySections();
+			this.debouncedRefreshSections(structure);
 		};
 
-		const createRef = events.on('create', handler);
+		const createRef = events.on('create', () => handler(true));
 		const modifyRef = events.on('modify', (file) => {
 			if (file instanceof TFile && file.extension === 'md') {
-				handler();
+				handler(false);
 			}
 		});
-		const deleteRef = events.on('delete', handler);
-		const renameRef = events.on('rename', handler);
+		const deleteRef = events.on('delete', () => handler(true));
+		const renameRef = events.on('rename', () => handler(true));
 
 		this.vaultEventRefs = [
 			{ evt: events, ref: createRef },
@@ -1248,14 +1231,38 @@ export class DashboardView extends ItemView implements HoverParent {
 		}, this.RECENT_DOCS_DEBOUNCE);
 	}
 
-	private debouncedRefreshLibrarySections(): void {
+	private debouncedRefreshSections(structure: boolean): void {
 		if (!this.data) return;
-		const hasScanningSection = this.data.columns.some(col => col.sectionType === 'library' || col.sectionType === 'alltasks' || col.sectionType === 'calendar');
-		if (!hasScanningSection) return;
+		const sectionType = (col: { sectionType?: string }) => col.sectionType;
+		const hasScanning = this.data.columns.some(col => {
+			const st = sectionType(col);
+			return st === 'library' || st === 'calendar' || st === 'folder';
+		});
+		const hasMedia = this.data.columns.some(col => {
+			const st = sectionType(col);
+			return st === 'images' || st === 'videos';
+		});
+		// Only refresh if there's a section that needs it: scanning sections on
+		// any change, media sections only on structural changes.
+		if (!hasScanning && !(structure && hasMedia)) return;
 		if (this.libraryRefreshTimer) clearTimeout(this.libraryRefreshTimer);
 		this.libraryRefreshTimer = setTimeout(() => {
 			const data = this.sync.getData();
-			if (data) this.render(data);
+			if (!data) return;
+			const root = this.containerEl.children[1] as HTMLElement | undefined;
+			const kanban = root?.querySelector('.dashboard-kanban') as HTMLElement | null;
+			if (!kanban) {
+				// View not laid out yet — fall back to a full render.
+				this.render(data);
+				return;
+			}
+			const callbacks = this.createCallbacks();
+			if (hasScanning) {
+				refreshScanningSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
+			}
+			if (structure && hasMedia) {
+				refreshMediaSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
+			}
 		}, 500);
 	}
 

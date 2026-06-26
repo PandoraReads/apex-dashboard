@@ -7840,6 +7840,13 @@
 }
 
 @media (max-width: 640px) {
+	/* Disable per-element glass backdrop blur on mobile. blur(24px) on every
+	   card/section/row is the single biggest GPU/heat driver on phones; the
+	   variable cascades to all .dashboard-card / .dashboard-section / etc. */
+	.apex-dashboard-root[data-theme] {
+		--db-backdrop-blur: none;
+	}
+
 	/* Hide sidebar widgets on mobile */
 	.dashboard-sidebar-widgets {
 		display: none !important;
@@ -10519,6 +10526,40 @@
 	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.06));
 }
 
+/* Static placeholder for video tiles (mobile always; desktop until the lazy
+   <video> mounts). Avoids creating a media decoder per thumbnail. */
+.dashboard-media-thumb--video-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--db-bg-card-hover, rgba(0, 0, 0, 0.25));
+	color: var(--db-text-muted, rgba(255, 255, 255, 0.55));
+}
+.dashboard-media-thumb-icon svg {
+	width: 30%;
+	height: 30%;
+	opacity: 0.7;
+}
+.dashboard-media-size-badge {
+	position: absolute;
+	right: 4px;
+	bottom: 4px;
+	padding: 1px 5px;
+	font-size: 10px;
+	line-height: 1.4;
+	border-radius: 4px;
+	color: #fff;
+	background: rgba(0, 0, 0, 0.6);
+	pointer-events: none;
+}
+/* Once a real <video> is lazily mounted into a tile, hide its placeholder. */
+.dashboard-media-item.is-video-mounted > .dashboard-media-thumb--video-placeholder,
+.dashboard-media-list-thumb.is-video-mounted > .dashboard-media-thumb--video-placeholder {
+	display: none;
+}
+/* Size badge hidden inside the tiny list-view thumb (40x40) */
+.dashboard-media-list-thumb .dashboard-media-size-badge { display: none; }
+
 .dashboard-media-name {
 	position: absolute;
 	left: 0;
@@ -10969,6 +11010,31 @@
 }
 .dashboard-alltasks-group.is-collapsed .dashboard-alltasks-list { display: none; }
 
+/* "+N more" hint (grouped view hit the render cap) */
+.dashboard-alltasks-group-more {
+	padding: 4px 8px;
+	font-size: 11px;
+	color: var(--db-text-muted, var(--text-muted));
+	font-style: italic;
+}
+.dashboard-alltasks-kanban-more {
+	margin-top: 4px;
+	font-size: 11px;
+	text-align: center;
+	color: var(--db-text-muted, var(--text-muted));
+	font-style: italic;
+}
+/* Cap notice shown when the grouped view exceeds the render cap */
+.dashboard-alltasks-cap-notice {
+	margin-top: 8px;
+	padding: 6px 10px;
+	font-size: 12px;
+	text-align: center;
+	color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.04));
+	border-radius: var(--db-radius-sm, 6px);
+}
+
 /* Kanban board (alltasks) */
 .dashboard-alltasks-kanban {
 	display: flex;
@@ -11062,6 +11128,33 @@
 /* Full (modal) sizing */
 .dashboard-calendar.is-full .dashboard-calendar-cell { min-height: 108px; }
 
+/* Week view: vertical list of 7 day rows (distinct from the month grid) */
+.dashboard-calendar.dashboard-calendar--week { display: flex; flex-direction: column; gap: 4px; }
+.dashboard-calendar-week-row {
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-card, rgba(255,255,255,0.03));
+	border: 1px solid var(--db-border-card, rgba(255,255,255,0.06));
+	padding: 4px 6px;
+}
+.dashboard-calendar-week-row.is-today {
+	border-color: var(--db-accent, var(--interactive-accent));
+	box-shadow: 0 0 0 1px var(--db-accent, var(--interactive-accent)) inset;
+}
+.dashboard-calendar-week-row-head { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.dashboard-calendar-week-row-namewrap { display: flex; align-items: baseline; gap: 5px; }
+.dashboard-calendar-week-row-name { font-size: 11px; font-weight: 600; color: var(--db-text, var(--text-normal)); }
+.dashboard-calendar-week-row.is-today .dashboard-calendar-week-row-name { color: var(--db-accent, var(--text-accent)); }
+.dashboard-calendar-week-row-date { font-size: 10px; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-calendar-week-row-count {
+	margin-left: auto;
+	font-size: 10px; color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-hover, rgba(255,255,255,0.06));
+	padding: 0 6px; border-radius: 999px;
+}
+.dashboard-calendar-week-row-list { gap: 3px; }
+.dashboard-calendar-week-row-head.is-clickable { cursor: pointer; border-radius: 4px; margin: -2px -4px; padding: 2px 4px; }
+.dashboard-calendar-week-row-head.is-clickable:hover { background: var(--db-bg-hover, rgba(255,255,255,0.06)); }
+
 .dashboard-calendar-event {
 	display: flex; align-items: center; gap: 3px;
 	font-size: 9px; line-height: 1.2;
@@ -11072,6 +11165,89 @@
 }
 .dashboard-calendar.is-full .dashboard-calendar-event { font-size: 11px; padding: 2px 5px; }
 .dashboard-calendar-event.is-done { opacity: 0.5; text-decoration: line-through; }
+/* Time-of-day label shown on week-view tasks and the day agenda */
+.dashboard-calendar-event-time {
+	flex-shrink: 0;
+	font-size: 9px;
+	font-variant-numeric: tabular-nums;
+	color: var(--db-text-muted, var(--text-muted));
+	background: rgba(0, 0, 0, 0.2);
+	padding: 0 3px;
+	border-radius: 3px;
+	min-width: 28px;
+	text-align: center;
+}
+.dashboard-calendar.is-full .dashboard-calendar-event-time { font-size: 11px; }
+.dashboard-alltasks-row .dashboard-calendar-event-time { font-size: 11px; }
+
+/* Add-task row in the day agenda modal (time + title + Add -> daily note) */
+.dashboard-cal-day-add { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+.dashboard-cal-day-add-time { width: 92px; flex-shrink: 0; }
+.dashboard-cal-day-add-title { flex: 1; min-width: 0; }
+.dashboard-cal-day-add-btn { flex-shrink: 0; }
+
+/* Google-style week time grid (full-screen modal). Hour rows are 48px; day
+   column height is 24*48 = 1152px — keep in sync with TIMEGRID_HOUR_PX. */
+.dashboard-calgrid { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.dashboard-calgrid-head {
+	display: grid; grid-template-columns: 52px repeat(7, 1fr);
+	border-bottom: 1px solid var(--db-border-card, rgba(255,255,255,0.08));
+}
+.dashboard-calgrid-dayhead { text-align: center; padding: 6px 0 4px; }
+.dashboard-calgrid-dayhead-wd { font-size: 11px; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-calgrid-dayhead-date { font-size: 15px; font-weight: 600; color: var(--db-text, var(--text-normal)); }
+.dashboard-calgrid-dayhead.is-today .dashboard-calgrid-dayhead-date { color: var(--db-accent, var(--interactive-accent)); }
+.dashboard-calgrid-allday {
+	display: grid; grid-template-columns: 52px repeat(7, 1fr);
+	border-bottom: 1px solid var(--db-border-card, rgba(255,255,255,0.08));
+	min-height: 22px;
+}
+.dashboard-calgrid-allday-corner { font-size: 9px; color: var(--db-text-muted, var(--text-muted)); padding: 3px 4px; align-self: center; }
+.dashboard-calgrid-allday-cell { padding: 2px 1px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dashboard-calgrid-allday-chip {
+	font-size: 9px; line-height: 1.2;
+	background: var(--db-bg-hover, rgba(255,255,255,0.06));
+	border-radius: 3px; padding: 0 3px;
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dashboard-calgrid-allday-chip.is-done { opacity: 0.5; text-decoration: line-through; }
+.dashboard-calgrid-allday-more { font-size: 9px; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-calgrid-scroll { flex: 1; min-height: 0; overflow-y: auto; max-height: calc(100vh - 180px); }
+.dashboard-calgrid-body { display: grid; grid-template-columns: 52px repeat(7, 1fr); position: relative; }
+.dashboard-calgrid-hours { border-right: 1px solid var(--db-border-card, rgba(255,255,255,0.08)); }
+.dashboard-calgrid-hour {
+	height: 48px; font-size: 10px; color: var(--db-text-muted, var(--text-muted));
+	text-align: right; padding: 0 4px; box-sizing: border-box;
+}
+.dashboard-calgrid-daycol {
+	position: relative; height: 1152px; min-width: 0;
+	border-right: 1px solid var(--db-border-card, rgba(255,255,255,0.06));
+	background-image: linear-gradient(to bottom, var(--db-border-card, rgba(255,255,255,0.06)) 1px, transparent 1px);
+	background-size: 100% 48px; background-position: 0 0;
+}
+.dashboard-calgrid-daycol.is-today { background-color: var(--db-bg-banner, rgba(168,85,247,0.06)); }
+.dashboard-calgrid-event {
+	position: absolute; left: 2px; right: 2px;
+	border-radius: 5px; padding: 3px 6px; overflow: hidden;
+	background: var(--db-bg-card-hover, rgba(255,255,255,0.08));
+	border-left: 3px solid var(--db-accent, var(--interactive-accent));
+	font-size: 11px; line-height: 1.25; cursor: pointer;
+	color: var(--db-text, var(--text-normal));
+}
+.dashboard-calgrid-event.is-done { opacity: 0.5; text-decoration: line-through; }
+.dashboard-calgrid-event.prio-high { border-left-color: var(--db-danger, #f43f5e); }
+.dashboard-calgrid-event.prio-medium { border-left-color: var(--db-accent-light, #6366f1); }
+.dashboard-calgrid-event-check { margin-right: 3px; }
+.dashboard-calgrid-event-time { font-size: 9px; color: var(--db-text-muted, var(--text-muted)); font-variant-numeric: tabular-nums; }
+.dashboard-calgrid-event-title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dashboard-calgrid-nowline {
+	position: absolute; left: 52px; right: 0; height: 2px;
+	background: var(--db-danger, #f43f5e); z-index: 5; pointer-events: none;
+}
+.dashboard-calgrid-nowline::before {
+	content: ''; position: absolute; left: -4px; top: -3px;
+	width: 8px; height: 8px; border-radius: 50%; background: var(--db-danger, #f43f5e);
+}
 .dashboard-calendar-event.is-overdue { background: rgba(239,68,68,0.25); }
 .dashboard-calendar-event.prio-high { border-left: 2px solid #ef4444; }
 .dashboard-calendar-event.prio-medium { border-left: 2px solid #f59e0b; }
