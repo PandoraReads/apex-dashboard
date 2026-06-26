@@ -2041,7 +2041,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 			callbacks.onColumnDelete(column.name);
 		});
 
-		renderMediaSection(el, column, app, activeHoverParent);
+		renderMediaSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
 		return el;
 	}
 

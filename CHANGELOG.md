@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.7 (2026-06-26)
+
+### Added
+- Images/videos sections: thumbnail size toggle (S/M/L) in the toolbar — small/medium/large grid thumbnails (medium = previous default)
+- Images/videos sections: list and table views now show backlinks (notes that link to/embed each file) as clickable chips; click to open the note in the in-place editor popover (same as the database section)
+- Images/videos sections: per-page count selector (20/50/100)
+
+### Changed
+- Images/videos sections are taller by default (more room for the thumbnail wall)
+- Images/videos sections: file count and per-page selector moved to the far right of the toolbar (count left of the selector)
+
+### Fixed
+- Images/videos sections no longer overlap the sections / "add section" bar below after the height increase (section max-height was capping content)
+
 ## 1.2.6 (2026-06-26)
 
 ### Changed

@@ -103,6 +103,13 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.2.7
+- **Thumbnail size toggle** — Images/videos grid view has an S/M/L size toggle in the toolbar (medium = previous size)
+- **Backlinks** — Images/videos list & table views show which notes link to / embed each file; click a chip to open that note in the in-place editor popover
+- **Per-page selector** — Images/videos sections: choose 20 / 50 / 100 items per page
+- **Taller sections + toolbar layout** — Images/videos sections are taller by default; the file count and per-page selector sit at the far right of the toolbar
+- **Overlap fixed** — Images/videos sections no longer overlap the content below after the height increase
+
 ### 1.2.6
 - **Media pagination** — Images/videos sections pagination now matches the database section: centered, with multiple page numbers (first/last + ellipsis), instead of a single prev/next
 - **Media folder picker** — The filter funnel's folder field now has a "Browse" button that opens a fuzzy folder search (same as the folder section config), instead of typing the path manually

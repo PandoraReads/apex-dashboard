@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "1.2.6",
+	"version": "1.2.7",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",

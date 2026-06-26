@@ -13,9 +13,10 @@ export const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', '
 /** Video file extensions shown in a videos section. */
 export const VIDEO_EXTS = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v']);
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 type MediaViewMode = 'grid' | 'list' | 'table';
+type ThumbSize = 'small' | 'medium' | 'large';
 
 interface MediaFileResult {
 	file: TFile;
@@ -75,6 +76,42 @@ function formatDate(ts: number): string {
 	return `${y}-${m}-${day}`;
 }
 
+/** Notes that link to or embed the given media file (backlinks via resolvedLinks). */
+function getMediaBacklinks(app: App, file: TFile): TFile[] {
+	const target = file.path;
+	const out: TFile[] = [];
+	const resolved = app.metadataCache.resolvedLinks;
+	for (const [srcPath, targets] of Object.entries(resolved)) {
+		if (targets[target]) {
+			const src = app.vault.getFileByPath(srcPath);
+			if (src) out.push(src);
+		}
+	}
+	out.sort((a, b) => a.basename.localeCompare(b.basename));
+	return out;
+}
+
+/** Render backlinks as clickable chips that open the note in a popover. */
+function appendBacklinks(container: HTMLElement, files: TFile[], onOpenNote?: (file: TFile) => void): void {
+	if (files.length === 0) {
+		container.createDiv({ cls: 'dashboard-media-no-links', text: '—' });
+		return;
+	}
+	const wrap = container.createDiv({ cls: 'dashboard-media-backlinks' });
+	for (const f of files.slice(0, 5)) {
+		const chip = wrap.createDiv({ cls: 'dashboard-media-backlink', text: f.basename });
+		chip.title = f.path;
+		chip.setAttribute('role', 'button');
+		chip.addEventListener('click', (e) => {
+			e.stopPropagation();
+			onOpenNote?.(f);
+		});
+	}
+	if (files.length > 5) {
+		wrap.createDiv({ cls: 'dashboard-media-backlink dashboard-media-backlink--more', text: `+${files.length - 5}` });
+	}
+}
+
 /** Rename a media file; fileManager.renameFile updates all [[links]]/![[embeds]] automatically. */
 async function renameMediaFile(app: App, file: TFile, newBasename: string): Promise<void> {
 	const name = newBasename.trim();
@@ -101,6 +138,7 @@ export function renderMediaSection(
 	column: DashboardColumn,
 	app: App,
 	_hoverParent: HoverParent | null,
+	onOpenNote?: (file: TFile) => void,
 ): void {
 	const sectionType = column.sectionType ?? '';
 	const exts = extsFor(sectionType);
@@ -146,6 +184,23 @@ export function renderMediaSection(
 		});
 	};
 	buildViewToggle();
+
+	// Thumbnail size toggle (small / medium / large) — affects the grid view
+	let thumbSize: ThumbSize = 'medium';
+	const sizeToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-media-size-toggle' });
+	const sizeLabels: Record<ThumbSize, string> = { small: 'S', medium: 'M', large: 'L' };
+	const buildSizeToggle = (): void => {
+		sizeToggle.empty();
+		(['small', 'medium', 'large'] as ThumbSize[]).forEach((s) => {
+			const btn = sizeToggle.createDiv({
+				cls: 'dashboard-library-view-btn' + (s === thumbSize ? ' active' : ''),
+				attr: { 'aria-label': t('media.size' + s.charAt(0).toUpperCase() + s.slice(1)) },
+			});
+			btn.textContent = sizeLabels[s];
+			btn.addEventListener('click', () => { thumbSize = s; buildSizeToggle(); render(); });
+		});
+	};
+	buildSizeToggle();
 
 	// Filter funnel: date range (created/modified) + folder path
 	const filterBtn = toolbar.createDiv({ cls: 'dashboard-library-filter-btn' });
@@ -276,7 +331,19 @@ export function renderMediaSection(
 		}
 	});
 
+	let pageSize = 20;
+	toolbar.createDiv({ cls: 'dashboard-library-toolbar-spacer' });
 	const countEl = toolbar.createDiv({ cls: 'dashboard-library-count' });
+	const pageSizeSelect = toolbar.createEl('select', { cls: 'dashboard-library-page-size' });
+	for (const size of PAGE_SIZE_OPTIONS) {
+		const opt = pageSizeSelect.createEl('option', { text: t('library.pageSize', { count: size }), attr: { value: String(size) } });
+		if (size === pageSize) opt.selected = true;
+	}
+	pageSizeSelect.addEventListener('change', () => {
+		pageSize = parseInt(pageSizeSelect.value) || 20;
+		currentPage = 1;
+		render();
+	});
 
 	const resultArea = content.createDiv({ cls: 'dashboard-media-area' });
 	const paginationArea = content.createDiv({ cls: 'dashboard-library-pagination' });
@@ -320,22 +387,22 @@ export function renderMediaSection(
 			return;
 		}
 
-		const totalPages = Math.ceil(results.length / PAGE_SIZE);
+		const totalPages = Math.ceil(results.length / pageSize);
 		if (currentPage > totalPages) currentPage = totalPages;
 		if (currentPage < 1) currentPage = 1;
-		const start = (currentPage - 1) * PAGE_SIZE;
-		const page = results.slice(start, start + PAGE_SIZE);
+		const start = (currentPage - 1) * pageSize;
+		const page = results.slice(start, start + pageSize);
 
 		const openLightbox = (pageIndex: number): void => {
 			new MediaLightboxModal(app, results.map(r => r.file), start + pageIndex, kind).open();
 		};
 
 		if (viewMode === 'grid') {
-			renderMediaGrid(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); });
+			renderMediaGrid(resultArea, page, app, kind, thumbSize, openLightbox, (f) => { void deleteWithConfirm(f); });
 		} else if (viewMode === 'list') {
-			renderMediaList(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); });
+			renderMediaList(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, onOpenNote);
 		} else {
-			renderMediaTable(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, render);
+			renderMediaTable(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, render, onOpenNote);
 		}
 
 		if (totalPages > 1) {
@@ -357,10 +424,11 @@ function renderMediaGrid(
 	results: MediaFileResult[],
 	app: App,
 	kind: 'image' | 'video',
+	thumbSize: ThumbSize,
 	onOpen: (index: number) => void,
 	onDelete: (file: TFile) => void,
 ): void {
-	const grid = container.createDiv({ cls: 'dashboard-media-grid' });
+	const grid = container.createDiv({ cls: `dashboard-media-grid dashboard-media-grid--${thumbSize}` });
 
 	for (let i = 0; i < results.length; i++) {
 		const result = results[i]!;
@@ -407,6 +475,7 @@ function renderMediaList(
 	kind: 'image' | 'video',
 	onOpen: (index: number) => void,
 	onDelete: (file: TFile) => void,
+	onOpenNote?: (file: TFile) => void,
 ): void {
 	const list = container.createDiv({ cls: 'dashboard-media-list' });
 	for (let i = 0; i < results.length; i++) {
@@ -428,6 +497,7 @@ function renderMediaList(
 		const info = row.createDiv({ cls: 'dashboard-media-list-info' });
 		info.createDiv({ cls: 'dashboard-media-list-name', text: result.basename });
 		info.createDiv({ cls: 'dashboard-media-list-meta', text: `${result.path} · ${formatDate(result.mtime)}` });
+		appendBacklinks(info, getMediaBacklinks(app, result.file), onOpenNote);
 
 		const delBtn = row.createEl('button', {
 			cls: 'dashboard-library-page-btn dashboard-media-delete',
@@ -448,6 +518,7 @@ function renderMediaTable(
 	onOpen: (index: number) => void,
 	onDelete: (file: TFile) => void,
 	refresh: () => void,
+	onOpenNote?: (file: TFile) => void,
 ): void {
 	const wrap = container.createDiv({ cls: 'dashboard-media-table-wrap' });
 	const table = wrap.createEl('table', { cls: 'dashboard-library-table dashboard-media-table' });
@@ -455,7 +526,7 @@ function renderMediaTable(
 	const thead = table.createEl('thead');
 	const headRow = thead.createEl('tr');
 	headRow.createEl('th', { text: t('media.colName'), cls: 'dashboard-media-table-name-col' });
-	[t('media.colModified'), t('media.colCreated'), t('media.colPath'), ''].forEach((label) => {
+	[t('media.colModified'), t('media.colCreated'), t('media.colPath'), t('media.colLinks'), ''].forEach((label) => {
 		headRow.createEl('th', { text: label });
 	});
 
@@ -471,6 +542,9 @@ function renderMediaTable(
 		tr.createEl('td', { text: formatDate(result.ctime) });
 		const pathTd = tr.createEl('td', { cls: 'dashboard-media-table-path', text: result.path });
 		pathTd.title = result.path;
+
+		const linksTd = tr.createEl('td', { cls: 'dashboard-media-table-links' });
+		appendBacklinks(linksTd, getMediaBacklinks(app, result.file), onOpenNote);
 
 		const opTd = tr.createEl('td', { cls: 'dashboard-media-table-op' });
 		const openBtn = opTd.createEl('button', {
