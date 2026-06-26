@@ -103,6 +103,10 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.2.6
+- **Media pagination** — Images/videos sections pagination now matches the database section: centered, with multiple page numbers (first/last + ellipsis), instead of a single prev/next
+- **Media folder picker** — The filter funnel's folder field now has a "Browse" button that opens a fuzzy folder search (same as the folder section config), instead of typing the path manually
+
 ### 1.2.5
 - **Tag filter removed from toolbar funnel** — The database/folder section's filter (funnel) popup no longer has a tag filter (it was redundant); it does date filtering only. The folder section's tag filter in its gear config dialog is unchanged
 

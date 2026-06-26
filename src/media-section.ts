@@ -5,6 +5,8 @@ import { resolveVaultImage } from './banner';
 import { t } from './i18n';
 import { showConfirmDialog } from './confirm-dialog';
 import { MediaLightboxModal } from './media-lightbox-modal';
+import { renderPagination } from './library-section';
+import { FolderSuggestModal } from './folder-config-modal';
 
 /** Image file extensions shown in an images section (excludes pdf). */
 export const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp']);
@@ -240,8 +242,17 @@ export function renderMediaSection(
 
 		const folderRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
 		folderRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('media.filterFolder') });
-		const folderInput = folderRow.createEl('input', { cls: 'dashboard-media-filter-folder', attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder'), value: filterFolder } });
+		const folderInputWrap = folderRow.createDiv({ cls: 'dashboard-media-folder-input-row' });
+		const folderInput = folderInputWrap.createEl('input', { cls: 'dashboard-media-filter-folder', attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder'), value: filterFolder } });
 		folderInput.addEventListener('change', () => { filterFolder = folderInput.value; refreshMedia(); });
+		const browseBtn = folderInputWrap.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
+		browseBtn.addEventListener('click', () => {
+			new FolderSuggestModal(app, (folder) => {
+				folderInput.value = folder.path;
+				filterFolder = folder.path;
+				refreshMedia();
+			}).open();
+		});
 		folderRow.createDiv({ cls: 'dashboard-library-config-hint', text: t('media.filterFolderHint') });
 
 		if (hasMediaFilter()) {
@@ -328,7 +339,7 @@ export function renderMediaSection(
 		}
 
 		if (totalPages > 1) {
-			renderMediaPagination(paginationArea, currentPage, totalPages, results.length, (p) => {
+			renderPagination(paginationArea, currentPage, totalPages, results.length, (p) => {
 				currentPage = p;
 				render();
 			});
@@ -519,29 +530,6 @@ function nameElClick(td: HTMLElement, result: MediaFileResult, app: App, refresh
 		});
 		input.addEventListener('blur', () => { void finish(true); });
 	});
-}
-
-function renderMediaPagination(
-	container: HTMLElement,
-	current: number,
-	total: number,
-	_totalItems: number,
-	onPage: (page: number) => void,
-): void {
-	container.empty();
-	const create = (label: string, page: number | null, disabled: boolean, cls: string): void => {
-		const btn = container.createEl('button', { cls: `dashboard-library-page-btn ${cls}`, text: label });
-		if (disabled || page === null) {
-			btn.disabled = true;
-			btn.addClass('is-disabled');
-		} else {
-			btn.addEventListener('click', () => onPage(page));
-		}
-	};
-	create('‹', current === 1 ? null : current - 1, current === 1, 'dashboard-library-page-prev');
-	const span = container.createDiv({ cls: 'dashboard-library-page-info' });
-	span.textContent = `${current} / ${total}`;
-	create('›', current === total ? null : current + 1, current === total, 'dashboard-library-page-next');
 }
 
 export { isMediaSection };

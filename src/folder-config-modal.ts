@@ -103,7 +103,7 @@ export class FolderConfigModal extends Modal {
 }
 
 /** Fuzzy-search picker over all vault folders (excludes the vault root). */
-class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
+export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 	private readonly onChooseFolder: (folder: TFolder) => void;
 
 	constructor(app: App, onChoose: (folder: TFolder) => void) {

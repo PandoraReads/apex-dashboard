@@ -775,7 +775,7 @@ export function renderLibrarySection(
 	renderContent(config);
 }
 
-function renderPagination(
+export function renderPagination(
 	container: HTMLElement,
 	currentPage: number,
 	totalPages: number,

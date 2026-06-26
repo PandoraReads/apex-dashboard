@@ -10664,6 +10664,31 @@
 	font-size: 12px;
 	outline: none;
 }
+.dashboard-media-folder-input-row {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	margin-top: 4px;
+}
+.dashboard-media-folder-input-row .dashboard-media-filter-folder {
+	flex: 1;
+	min-width: 0;
+	width: auto;
+	margin-top: 0;
+}
+.dashboard-media-folder-browse {
+	flex-shrink: 0;
+	padding: 4px 10px;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
+	color: var(--db-text, var(--text-normal));
+	font-size: 12px;
+	cursor: pointer;
+}
+.dashboard-media-folder-browse:hover {
+	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.12));
+}
 .dashboard-media-table .dashboard-media-delete {
 	position: static;
 	opacity: 1;

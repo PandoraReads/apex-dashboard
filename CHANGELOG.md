@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.6 (2026-06-26)
+
+### Changed
+- Images/videos sections: pagination now matches the database section style — centered, with multiple page numbers (first/last + ellipsis), instead of a single prev/next
+- Images/videos filter funnel: the folder field now has a "Browse" button that opens a fuzzy folder search (same as the folder section config), instead of typing the path manually
+
 ## 1.2.5 (2026-06-26)
 
 ### Removed
