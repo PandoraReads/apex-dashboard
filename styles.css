@@ -1736,6 +1736,7 @@
 		border: none !important;
 		border-radius: 4px 4px 6px 6px;
 		color: var(--db-text-faint);
+		/* stylelint-disable-next-line */
 		clip-path: polygon(0% 0%, 100% 0%, 100% 82%, 55% 100%, 45% 100%, 0% 82%);
 		transition: opacity 0.2s ease, color 0.2s ease, transform 0.15s ease;
 	}
@@ -1801,9 +1802,8 @@
 .dashboard-wikilink {
 	color: var(--db-accent, #6366f1);
 	cursor: pointer;
-	text-decoration: underline;
-	text-decoration-style: dotted;
-	text-underline-offset: 2px;
+	text-decoration: none;
+	border-bottom: 1px dotted currentColor;
 }
 
 .dashboard-wikilink:hover {
