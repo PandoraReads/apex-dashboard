@@ -3,6 +3,7 @@ import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
 import { t, getLanguage } from './i18n';
 import { attachNoteHover } from './hover-preview';
+import { FolderSuggestModal } from './folder-config-modal';
 
 // Set once per render by renderLibrarySection so the grid/list/table/kanban
 // renderers can route opens through the note popover and attach hover previews
@@ -96,13 +97,17 @@ export function queryVaultFiles(app: App, config: LibraryConfig): LibraryFileRes
 	const files = app.vault.getMarkdownFiles();
 	const results: LibraryFileResult[] = [];
 
+	// Folder section: restrict to files under any configured folder (recursive, OR).
+	const scanFolders = (config.folders ?? [])
+		.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
+		.filter(f => f.length > 0);
+
 	for (const file of files) {
 		if (file.path.startsWith('.')) continue;
 
-		// Folder section: restrict to files under the configured folder (recursive).
-		if (config.folder) {
-			const folder = config.folder.trim().replace(/^\/+|\/+$/g, '');
-			if (folder && !file.path.startsWith(folder + '/')) continue;
+		if (scanFolders.length > 0) {
+			const lp = file.path.toLowerCase();
+			if (!scanFolders.some(f => lp.startsWith(f.toLowerCase() + '/'))) continue;
 		}
 
 		const cache = app.metadataCache.getFileCache(file);
@@ -497,10 +502,20 @@ export function renderLibrarySection(
 
 		// Popup
 		let filterPopup: HTMLElement | null = null;
+	let funnelFolders: string[] = [...(config.folderFilter ?? [])];
 
 
 		function applyQuickFilter(): void {
 			config.quickDateFilter = (quickStart || quickEnd) ? { property: quickProp, start: quickStart, end: quickEnd } : undefined;
+			onConfigChange({ ...config });
+			currentPage = 1;
+			renderContent(config);
+			renderFilterTag();
+			updateFilterBtnState();
+		}
+
+		function applyFunnelFolders(): void {
+			config.folderFilter = funnelFolders.length > 0 ? [...funnelFolders] : undefined;
 			onConfigChange({ ...config });
 			currentPage = 1;
 			renderContent(config);
@@ -574,8 +589,50 @@ export function renderLibrarySection(
 				});
 			});
 
+			// Folder filter
+			const folderRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
+			folderRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('media.filterFolder') });
+			const folderChipsHost = folderRow.createDiv({ cls: 'dashboard-alltasks-exclude-chips' });
+			const folderAddRow = folderRow.createDiv({ cls: 'dashboard-media-folder-input-row' });
+			const folderInput = folderAddRow.createEl('input', {
+				cls: 'dashboard-media-filter-folder',
+				attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder') },
+			});
+			const folderBrowseBtn = folderAddRow.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
+			folderBrowseBtn.addEventListener('click', () => {
+				new FolderSuggestModal(app, (folder) => { folderInput.value = folder.path; addFunnelFolder(); }).open();
+			});
+			const renderFolderChips = (): void => {
+				folderChipsHost.empty();
+				if (funnelFolders.length === 0) {
+					folderChipsHost.createDiv({ cls: 'dashboard-library-filter-empty', text: t('folder.noFolders') });
+					return;
+				}
+				for (const folder of funnelFolders) {
+					const chip = folderChipsHost.createDiv({ cls: 'dashboard-alltasks-exclude-chip' });
+					chip.createSpan({ text: folder });
+					const x = chip.createSpan({ cls: 'dashboard-alltasks-exclude-chip-x', text: '×' });
+					x.addEventListener('click', () => {
+						funnelFolders = funnelFolders.filter(f => f !== folder);
+						applyFunnelFolders();
+						renderFolderChips();
+					});
+				}
+			};
+			const addFunnelFolder = (): void => {
+				const folder = folderInput.value.trim().replace(/^\/+|\/+$/g, '');
+				folderInput.value = '';
+				if (!folder) return;
+				if (funnelFolders.some(f => f.toLowerCase() === folder.toLowerCase())) return;
+				funnelFolders = [...funnelFolders, folder];
+				applyFunnelFolders();
+				renderFolderChips();
+			};
+			folderInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addFunnelFolder(); } });
+			renderFolderChips();
+
 			// Clear button
-			if (quickStart || quickEnd) {
+			if (quickStart || quickEnd || funnelFolders.length > 0) {
 				const clearBtn = filterPopup.createEl('button', {
 					cls: 'dashboard-library-filter-popup-clear',
 					text: t('reminder.clearReminder'),
@@ -584,7 +641,9 @@ export function renderLibrarySection(
 					ev.stopPropagation();
 					quickStart = '';
 					quickEnd = '';
+					funnelFolders = [];
 					applyQuickFilter();
+					applyFunnelFolders();
 					closePopup();
 				});
 			}
@@ -614,10 +673,20 @@ export function renderLibrarySection(
 					openPopup();
 				});
 			}
+			for (const folder of funnelFolders) {
+				const tag = filterTag.createDiv({ cls: 'dashboard-library-filter-tag' });
+				const label = tag.createSpan({ cls: 'dashboard-library-filter-tag-label', text: folder.split('/').filter(Boolean).pop() ?? folder });
+				label.title = folder;
+				const x = tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' });
+				x.addEventListener('click', () => {
+					funnelFolders = funnelFolders.filter(f => f !== folder);
+					applyFunnelFolders();
+				});
+			}
 		}
 
 		function updateFilterBtnState(): void {
-			filterBtn.classList.toggle('active', !!(quickStart || quickEnd));
+			filterBtn.classList.toggle('active', !!(quickStart || quickEnd || (config.folderFilter?.length ?? 0) > 0));
 		}
 
 		filterBtn.addEventListener('click', (e) => {
@@ -630,9 +699,11 @@ export function renderLibrarySection(
 		});
 
 		activeDocument.addEventListener('click', (e) => {
-			if (filterPopup && !filterPopup.contains(e.target as Node) && !filterBtn.contains(e.target as Node)) {
-				closePopup();
-			}
+			if (!filterPopup) return;
+			const target = e.target as Node;
+			if (filterPopup.contains(target) || filterBtn.contains(target)) return;
+			if (target instanceof Element && target.closest('.modal-container')) return;
+			closePopup();
 		});
 
 		renderFilterTag();
@@ -697,10 +768,23 @@ export function renderLibrarySection(
 				});
 			}
 
+			// Apply folder funnel filter (OR across selected folders)
+			if (currentConfig.folderFilter && currentConfig.folderFilter.length > 0) {
+				const ff = currentConfig.folderFilter
+					.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
+					.filter(f => f.length > 0);
+				if (ff.length > 0) {
+					results = results.filter(r => {
+						const lp = r.file.path.toLowerCase();
+						return ff.some(f => lp.startsWith(f.toLowerCase() + '/'));
+					});
+				}
+			}
+
 		const totalResults = results.length;
 		countEl.textContent = t('library.fileCount', { count: totalResults });
 
-		if (totalResults === 0 && currentConfig.filters.length === 0 && !currentConfig.folder) {
+		if (totalResults === 0 && currentConfig.filters.length === 0 && !(currentConfig.folders && currentConfig.folders.length)) {
 			contentArea.createDiv({ cls: 'dashboard-library-empty', text: t('library.noConfig') });
 			return;
 		}

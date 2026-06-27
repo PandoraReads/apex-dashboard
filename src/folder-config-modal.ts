@@ -9,19 +9,18 @@ import { getAllTags, renderTagsSelector } from './library-section';
  * Reuses the library config modal's styles and tag-selector helper.
  */
 export class FolderConfigModal extends Modal {
-	private readonly currentPath: string;
-	private readonly onSave: (path: string, tags: string[]) => void;
+	private folders: string[];
+	private readonly onSave: (folders: string[], tags: string[]) => void;
 	private selectedTags: string[];
-	private pathInput!: HTMLInputElement;
 
 	constructor(
 		app: App,
-		currentPath: string,
+		currentFolders: string[],
 		currentTags: string[],
-		onSave: (path: string, tags: string[]) => void,
+		onSave: (folders: string[], tags: string[]) => void,
 	) {
 		super(app);
-		this.currentPath = currentPath;
+		this.folders = [...currentFolders];
 		this.selectedTags = [...currentTags];
 		this.onSave = onSave;
 	}
@@ -45,26 +44,55 @@ export class FolderConfigModal extends Modal {
 		// Body
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
-		// Folder path
+		// Folder paths
 		const pathSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		pathSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('folder.path') });
 
-		const inputRow = pathSection.createDiv({ cls: 'dashboard-folder-input-row' });
-		this.pathInput = inputRow.createEl('input', {
-			cls: 'dashboard-folder-path-input',
+		const chipsHost = pathSection.createDiv({ cls: 'dashboard-alltasks-exclude-chips' });
+		const addRow = pathSection.createDiv({ cls: 'dashboard-media-folder-input-row' });
+		const pathInput = addRow.createEl('input', {
+			cls: 'dashboard-media-filter-folder',
 			attr: { type: 'text', placeholder: t('folder.pathPlaceholder') },
 		});
-		this.pathInput.value = this.currentPath;
-
-		const browseBtn = inputRow.createEl('button', {
-			cls: 'dashboard-folder-browse-btn',
+		const browseBtn = addRow.createEl('button', {
+			cls: 'dashboard-media-folder-browse',
 			text: t('folder.browse'),
 		});
 		browseBtn.addEventListener('click', () => {
-			new FolderSuggestModal(this.app, (folder) => {
-				this.pathInput.value = folder.path;
-			}).open();
+			new FolderSuggestModal(this.app, (folder) => { pathInput.value = folder.path; }).open();
 		});
+		const addBtn = addRow.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('media.addFolder'),
+		});
+
+		const renderFolderChips = (): void => {
+			chipsHost.empty();
+			if (this.folders.length === 0) {
+				chipsHost.createDiv({ cls: 'dashboard-library-filter-empty', text: t('folder.noFolders') });
+				return;
+			}
+			for (const folder of this.folders) {
+				const chip = chipsHost.createDiv({ cls: 'dashboard-alltasks-exclude-chip' });
+				chip.createSpan({ text: folder });
+				const x = chip.createSpan({ cls: 'dashboard-alltasks-exclude-chip-x', text: '×' });
+				x.addEventListener('click', () => {
+					this.folders = this.folders.filter(f => f !== folder);
+					renderFolderChips();
+				});
+			}
+		};
+		const addFolder = (): void => {
+			const folder = pathInput.value.trim().replace(/^\/+|\/+$/g, '');
+			pathInput.value = '';
+			if (!folder) return;
+			if (this.folders.some(f => f.toLowerCase() === folder.toLowerCase())) return;
+			this.folders = [...this.folders, folder];
+			renderFolderChips();
+		};
+		addBtn.addEventListener('click', addFolder);
+		pathInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addFolder(); } });
+		renderFolderChips();
 
 		// Tags filter
 		const tagsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -92,7 +120,7 @@ export class FolderConfigModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		}).addEventListener('click', () => {
-			this.onSave(this.pathInput.value.trim(), this.selectedTags);
+			this.onSave(this.folders, this.selectedTags);
 			this.close();
 		});
 	}

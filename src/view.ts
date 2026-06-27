@@ -1080,13 +1080,13 @@ export class DashboardView extends ItemView implements HoverParent {
 	private openFolderConfigModal(colName: string): void {
 		const column = this.data?.columns.find(col => col.name === colName);
 		const libraryConfig = column?.libraryConfig;
-		const currentPath = libraryConfig?.folder ?? '';
+		const currentFolders = libraryConfig?.folders ?? [];
 		const currentTags = libraryConfig?.filters.find(f => f.property === 'tags')?.values ?? [];
 		const modal = new FolderConfigModal(
 			this.app,
-			currentPath,
+			currentFolders,
 			currentTags,
-			(path, tags) => {
+			(folders, tags) => {
 				const base = libraryConfig ?? {
 					filters: [],
 					viewMode: 'grid' as const,
@@ -1097,7 +1097,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				const filters = tags.length > 0
 					? [...filtersWithoutTags, { property: 'tags', values: tags }]
 					: filtersWithoutTags;
-				void this.sync.updateLibraryConfig(colName, { ...base, folder: path, filters });
+				void this.sync.updateLibraryConfig(colName, { ...base, folders, filters });
 			},
 		);
 		modal.open();

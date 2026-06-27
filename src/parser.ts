@@ -124,8 +124,17 @@ export function serialize(data: DashboardData): string {
 			lines.push(`      viewMode: ${lc.viewMode}`);
 			lines.push(`      sortBy: "${lc.sortBy}"`);
 			lines.push(`      sortDesc: ${lc.sortDesc}`);
-			if (lc.folder) {
-				lines.push(`      folder: "${escapeYamlString(lc.folder)}"`);
+			if (lc.folders && lc.folders.length > 0) {
+				lines.push('      folders:');
+				for (const f of lc.folders) {
+					lines.push(`        - "${escapeYamlString(f)}"`);
+				}
+			}
+			if (lc.folderFilter && lc.folderFilter.length > 0) {
+				lines.push('      folderFilter:');
+				for (const f of lc.folderFilter) {
+					lines.push(`        - "${escapeYamlString(f)}"`);
+				}
 			}
 			if (lc.excludeFolders && lc.excludeFolders.length > 0) {
 				lines.push('      excludeFolders:');
@@ -744,7 +753,8 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		sortDesc: raw.sortDesc !== false,
 		kanbanGroupBy: raw.kanbanGroupBy ? String(raw.kanbanGroupBy as string | number | boolean) : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
-		folder: typeof raw.folder === 'string' ? raw.folder : undefined,
+		folders: Array.isArray(raw.folders) ? raw.folders.map((v: unknown) => String(v)) : (typeof raw.folder === 'string' ? [raw.folder] : undefined),
+		folderFilter: Array.isArray(raw.folderFilter) ? raw.folderFilter.map((v: unknown) => String(v)) : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
 		taskGroupBy: ['date', 'priority', 'none'].includes(String((raw.taskGroupBy ?? '') as string | number | boolean)) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {

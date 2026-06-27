@@ -210,7 +210,10 @@ export interface LibraryConfig {
 	kanbanGroupBy?: string;
 	pageSize?: number;
 	quickDateFilter?: { property: 'created' | 'modified'; start: string; end: string };
-	folder?: string;
+	/** Folder section: scan scope. A file shows if it lives under any of these folders (recursive). Legacy single `folder` is normalized into this array on parse. */
+	folders?: string[];
+	/** Library/folder funnel: persistent folder-prefix filter (OR across entries). */
+	folderFilter?: string[];
 	/** All-tasks section: vault folders whose tasks are excluded from aggregation. */
 	excludeFolders?: string[];
 	/** All-tasks section: dimension used to group tasks into list sections / kanban columns. */

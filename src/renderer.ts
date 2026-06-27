@@ -2070,7 +2070,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 		// as the only entry point. For a configured folder or any library section,
 		// renderLibrarySection renders that toolbar config button, so we skip this
 		// header one to avoid a duplicate next to the delete button.
-		const folderUnconfigured = sectionType === 'folder' && !(column.libraryConfig?.folder?.trim());
+		const folderUnconfigured = sectionType === 'folder' && !(column.libraryConfig?.folders && column.libraryConfig.folders.some(f => f.trim()));
 
 		if (folderUnconfigured) {
 			const configBtn = headerActions.createEl('button', {

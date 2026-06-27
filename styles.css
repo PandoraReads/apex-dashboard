@@ -9518,8 +9518,11 @@
 .dashboard-library-filter-tags {
 	display: flex;
 	gap: 4px;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	align-items: center;
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow: hidden;
 }
 
 .dashboard-library-filter-tag {
@@ -9533,6 +9536,15 @@
 	color: var(--db-accent, var(--interactive-accent));
 	border: 1px solid transparent;
 	white-space: nowrap;
+	max-width: 160px;
+	min-width: 0;
+}
+
+.dashboard-library-filter-tag-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
 }
 
 .dashboard-library-filter-tag-x {

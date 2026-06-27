@@ -320,7 +320,7 @@ export function renderMediaSection(
 	let filterProp: 'created' | 'modified' = 'modified';
 	let filterStart = '';
 	let filterEnd = '';
-	let filterFolder = '';
+	let filterFolders: string[] = [];
 	let filterPopup: HTMLElement | null = null;
 	let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
@@ -333,13 +333,16 @@ export function renderMediaSection(
 			if (filterStart && d < filterStart) return false;
 			if (filterEnd && d > filterEnd) return false;
 		}
-		const folder = folderNorm(filterFolder);
-		if (folder && !r.path.toLowerCase().startsWith(folder.toLowerCase() + '/')) return false;
+		const folders = filterFolders.map(folderNorm).filter(Boolean);
+		if (folders.length > 0) {
+			const lp = r.path.toLowerCase();
+			if (!folders.some(f => lp.startsWith(f.toLowerCase() + '/'))) return false;
+		}
 		return true;
 	}
 
 	function hasMediaFilter(): boolean {
-		return !!(filterStart || filterEnd || folderNorm(filterFolder));
+		return !!(filterStart || filterEnd || filterFolders.length > 0);
 	}
 
 	function renderMediaFilterTags(): void {
@@ -350,10 +353,13 @@ export function renderMediaSection(
 			const tag = filterTagBar.createDiv({ cls: 'dashboard-library-filter-tag', text: `${filterProp}: ${start} ~ ${end}` });
 			tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' }).addEventListener('click', () => { filterStart = ''; filterEnd = ''; refreshMedia(); });
 		}
-		const folder = folderNorm(filterFolder);
-		if (folder) {
-			const tag = filterTagBar.createDiv({ cls: 'dashboard-library-filter-tag', text: folder });
-			tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' }).addEventListener('click', () => { filterFolder = ''; refreshMedia(); });
+		for (const folder of filterFolders) {
+			const norm = folderNorm(folder);
+			if (!norm) continue;
+			const tag = filterTagBar.createDiv({ cls: 'dashboard-library-filter-tag' });
+			const label = tag.createSpan({ cls: 'dashboard-library-filter-tag-label', text: norm.split('/').filter(Boolean).pop() ?? norm });
+			label.title = norm;
+			tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' }).addEventListener('click', () => { filterFolders = filterFolders.filter(f => f !== folder); refreshMedia(); });
 		}
 	}
 
@@ -411,24 +417,48 @@ export function renderMediaSection(
 
 		const folderRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
 		folderRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('media.filterFolder') });
-		const folderInputWrap = folderRow.createDiv({ cls: 'dashboard-media-folder-input-row' });
-		const folderInput = folderInputWrap.createEl('input', { cls: 'dashboard-media-filter-folder', attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder'), value: filterFolder } });
-		folderInput.addEventListener('change', () => { filterFolder = folderInput.value; refreshMedia(); });
-		const browseBtn = folderInputWrap.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
-		browseBtn.addEventListener('click', () => {
-			new FolderSuggestModal(app, (folder) => {
-				folderInput.value = folder.path;
-				filterFolder = folder.path;
-				refreshMedia();
-			}).open();
+		const folderChipsHost = folderRow.createDiv({ cls: 'dashboard-alltasks-exclude-chips' });
+		const folderAddRow = folderRow.createDiv({ cls: 'dashboard-media-folder-input-row' });
+		const folderInput = folderAddRow.createEl('input', { cls: 'dashboard-media-filter-folder', attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder') } });
+		const folderBrowseBtn = folderAddRow.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
+		folderBrowseBtn.addEventListener('click', () => {
+			new FolderSuggestModal(app, (folder) => { folderInput.value = folder.path; addFilterFolder(); }).open();
 		});
+		const renderFolderChips = (): void => {
+			folderChipsHost.empty();
+			if (filterFolders.length === 0) {
+				folderChipsHost.createDiv({ cls: 'dashboard-library-filter-empty', text: t('folder.noFolders') });
+				return;
+			}
+			for (const folder of filterFolders) {
+				const chip = folderChipsHost.createDiv({ cls: 'dashboard-alltasks-exclude-chip' });
+				chip.createSpan({ text: folderNorm(folder) });
+				const x = chip.createSpan({ cls: 'dashboard-alltasks-exclude-chip-x', text: '×' });
+				x.addEventListener('click', () => {
+					filterFolders = filterFolders.filter(f => f !== folder);
+					refreshMedia();
+					renderFolderChips();
+				});
+			}
+		};
+		const addFilterFolder = (): void => {
+			const folder = folderNorm(folderInput.value);
+			folderInput.value = '';
+			if (!folder) return;
+			if (filterFolders.some(f => f.toLowerCase() === folder.toLowerCase())) return;
+			filterFolders = [...filterFolders, folder];
+			refreshMedia();
+			renderFolderChips();
+		};
+		folderInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addFilterFolder(); } });
+		renderFolderChips();
 		folderRow.createDiv({ cls: 'dashboard-library-config-hint', text: t('media.filterFolderHint') });
 
 		if (hasMediaFilter()) {
 			const clearBtn = filterPopup.createEl('button', { cls: 'dashboard-library-filter-popup-clear', text: t('reminder.clearReminder') });
 			clearBtn.addEventListener('click', (ev) => {
 				ev.stopPropagation();
-				filterStart = ''; filterEnd = ''; filterFolder = '';
+				filterStart = ''; filterEnd = ''; filterFolders = [];
 				refreshMedia();
 				closeMediaPopup();
 			});
@@ -437,9 +467,11 @@ export function renderMediaSection(
 		// Outside-click-to-close: registered when the popup opens and removed
 		// when it closes (closeMediaPopup) so it never accumulates across renders.
 		outsideClickHandler = (e: MouseEvent): void => {
-			if (filterPopup && !filterPopup.contains(e.target as Node) && !filterBtn.contains(e.target as Node)) {
-				closeMediaPopup();
-			}
+			if (!filterPopup) return;
+			const target = e.target as Node;
+			if (filterPopup.contains(target) || filterBtn.contains(target)) return;
+			if (target instanceof Element && target.closest('.modal-container')) return;
+			closeMediaPopup();
 		};
 		window.setTimeout(() => activeDocument.addEventListener('click', outsideClickHandler!), 0);
 	}
