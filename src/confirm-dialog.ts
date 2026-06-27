@@ -15,7 +15,7 @@ export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promi
 		};
 
 		// Full-screen overlay
-		const overlay = document.body.createDiv({ cls: 'dashboard-confirm-overlay' });
+		const overlay = activeDocument.body.createDiv({ cls: 'dashboard-confirm-overlay' });
 
 		// Dialog card
 		const dialog = overlay.createDiv({ cls: 'dashboard-confirm-card' });
@@ -54,11 +54,11 @@ export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promi
 		// Close on Escape
 		const onKeydown = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
-				document.removeEventListener('keydown', onKeydown);
+				activeDocument.removeEventListener('keydown', onKeydown);
 				overlay.remove();
 				done(false);
 			}
 		};
-		document.addEventListener('keydown', onKeydown);
+		activeDocument.addEventListener('keydown', onKeydown);
 	});
 }

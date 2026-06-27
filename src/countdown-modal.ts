@@ -146,7 +146,7 @@ export class CountdownSettingsModal extends Modal {
 	private showCalendarPopup(anchor: HTMLElement, dateText: HTMLElement): void {
 		this.closeCalendarPopup();
 
-		const popup = document.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-countdown-calendar-popup' });
+		const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-countdown-calendar-popup' });
 
 		const rect = anchor.getBoundingClientRect();
 		popup.setCssProps({
@@ -266,9 +266,9 @@ export class CountdownSettingsModal extends Modal {
 		const outsideClick = (ev: MouseEvent) => {
 			if (!popup.contains(ev.target as Node) && !anchor.contains(ev.target as Node)) {
 				this.closeCalendarPopup();
-				document.removeEventListener('mousedown', outsideClick);
+				activeDocument.removeEventListener('mousedown', outsideClick);
 			}
 		};
-		window.setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
+		window.setTimeout(() => activeDocument.addEventListener('mousedown', outsideClick), 0);
 	}
 }

@@ -200,10 +200,10 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		const container = this.containerEl.children[1] as HTMLElement;
 
-		// Sweep any touch-drag ghost clones stranded on document.body from a prior
+		// Sweep any touch-drag ghost clones stranded on activeDocument.body from a prior
 		// interrupted drag (touchcancel). They live outside the container, so
 		// container.empty() cannot reach them.
-		document.body.querySelectorAll(':scope > .dashboard-card--ghost').forEach((el) => el.remove());
+		activeDocument.body.querySelectorAll(':scope > .dashboard-card--ghost').forEach((el) => el.remove());
 
 		container.empty();
 		container.addClass('apex-dashboard-root');

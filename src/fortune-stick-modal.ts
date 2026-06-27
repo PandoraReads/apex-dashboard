@@ -12,7 +12,7 @@ export class FortuneStickModal {
 	private handleKeydown: ((e: KeyboardEvent) => void) | null = null;
 
 	public open(): void {
-		this.overlay = document.body.createDiv({ cls: 'fortune-overlay' });
+		this.overlay = activeDocument.body.createDiv({ cls: 'fortune-overlay' });
 
 		// Click overlay (outside card) to close
 		this.overlay.addEventListener('click', (e) => {
@@ -27,14 +27,14 @@ export class FortuneStickModal {
 				this.close();
 			}
 		};
-		document.addEventListener('keydown', this.handleKeydown);
+		activeDocument.addEventListener('keydown', this.handleKeydown);
 
 		this.renderCategorySelection();
 	}
 
 	public close(): void {
 		if (this.handleKeydown) {
-			document.removeEventListener('keydown', this.handleKeydown);
+			activeDocument.removeEventListener('keydown', this.handleKeydown);
 			this.handleKeydown = null;
 		}
 		if (this.overlay) {

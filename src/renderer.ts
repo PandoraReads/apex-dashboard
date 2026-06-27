@@ -40,7 +40,7 @@ export function destroyAllCharts(): void {
 }
 
 function getCSSVar(name: string): string {
-	const el = document.querySelector('.apex-dashboard-root');
+	const el = activeDocument.querySelector('.apex-dashboard-root');
 	if (!el) return '';
 	return getComputedStyle(el).getPropertyValue(name).trim();
 }
@@ -48,7 +48,7 @@ function getCSSVar(name: string): string {
 // Determine whether the dashboard accent is light enough that white text on it
 // would be unreadable (e.g. the mono/墨白 and carbon themes in dark mode).
 function isAccentLight(): boolean {
-	const el = document.querySelector('.apex-dashboard-root');
+	const el = activeDocument.querySelector('.apex-dashboard-root');
 	if (!el) return false;
 	return isLightColor(getComputedStyle(el).getPropertyValue('--db-accent').trim());
 }
@@ -1974,7 +1974,7 @@ function saveCollapsedSections(app: App, collapsed: Set<string>): void {
 }
 
 function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
-	const el = document.createElement('div');
+	const el = activeDocument.createElement('div');
 	el.addClass('dashboard-section-row');
 	el.dataset.column = column.name;
 	const sectionType = getSectionType(column);
@@ -2171,7 +2171,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 }
 
 function renderCard(card: DashboardCard, columnName: string, sectionType: string, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
-	const el = document.createElement('div');
+	const el = activeDocument.createElement('div');
 	el.addClass('dashboard-card', `dashboard-card--${card.type}`);
 	el.dataset.cardId = card.id;
 	el.dataset.cardType = card.type;
@@ -2217,7 +2217,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 	// Mobile: tap header to toggle card action buttons
 	header.addEventListener('touchstart', () => {
 		const wasActive = header.hasClass('dashboard-card-header--touched');
-		document.querySelectorAll('.dashboard-card-header--touched').forEach(el => {
+		activeDocument.querySelectorAll('.dashboard-card-header--touched').forEach(el => {
 			el.removeClass('dashboard-card-header--touched');
 		});
 		if (!wasActive) {
@@ -2306,7 +2306,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		}
 		colorBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			const input = document.createElement('input');
+			const input = activeDocument.createElement('input');
 			input.type = 'color';
 			input.value = card.color || '#f59e0b';
 			input.setCssProps({
@@ -2315,7 +2315,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 				width: '0',
 				height: '0',
 			});
-			document.body.appendChild(input);
+			activeDocument.body.appendChild(input);
 			input.addEventListener('input', () => {
 				callbacks.onMemoColorChange(card, input.value);
 			});
@@ -2452,8 +2452,8 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 			};
 
 			const onUp = (ev: MouseEvent) => {
-				document.removeEventListener('mousemove', onMove);
-				document.removeEventListener('mouseup', onUp);
+				activeDocument.removeEventListener('mousemove', onMove);
+				activeDocument.removeEventListener('mouseup', onUp);
 				el.removeClass('dashboard-card--resizing');
 				const finalWidth = Math.max(minW, Math.min(maxW, startWidth + (ev.clientX - startX)));
 				if (finalWidth !== card.width) {
@@ -2461,8 +2461,8 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 				}
 			};
 
-			document.addEventListener('mousemove', onMove);
-			document.addEventListener('mouseup', onUp);
+			activeDocument.addEventListener('mousemove', onMove);
+			activeDocument.addEventListener('mouseup', onUp);
 		});
 	}
 
@@ -2588,7 +2588,7 @@ function renderTaskItem(
 		}
 		if (!ts.moved) {
 			const wasActive = item.hasClass('dashboard-task-item--touched');
-			document.querySelectorAll('.dashboard-task-item--touched').forEach(el => {
+			activeDocument.querySelectorAll('.dashboard-task-item--touched').forEach(el => {
 				el.removeClass('dashboard-task-item--touched');
 			});
 			if (!wasActive) item.addClass('dashboard-task-item--touched');
@@ -2695,7 +2695,7 @@ function renderTaskItem(
 
 	item.addEventListener('dragend', () => {
 		item.removeClass('dashboard-task-item--dragging');
-		document.querySelectorAll(
+		activeDocument.querySelectorAll(
 			'.dashboard-task-item--drag-top,.dashboard-task-item--drag-bottom,.dashboard-task-item--drag-nest'
 		).forEach(el => el.removeClass('dashboard-task-item--drag-top', 'dashboard-task-item--drag-bottom', 'dashboard-task-item--drag-nest'));
 		taskDragSource = null;
@@ -2709,7 +2709,7 @@ function renderTaskItem(
 			JSON.stringify(taskDragSource.taskPath) === JSON.stringify(path);
 		if (sameNode) return;
 		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-		document.querySelectorAll(
+		activeDocument.querySelectorAll(
 			'.dashboard-task-item--drag-top,.dashboard-task-item--drag-bottom,.dashboard-task-item--drag-nest'
 		).forEach(el => el.removeClass('dashboard-task-item--drag-top', 'dashboard-task-item--drag-bottom', 'dashboard-task-item--drag-nest'));
 		const rect = item.getBoundingClientRect();
@@ -2866,7 +2866,7 @@ function renderMemoBody(container: HTMLElement, card: DashboardCard, callbacks: 
 	textarea.addEventListener('blur', () => {
 		save();
 		// If re-render didn't happen (not dirty), switch to view manually
-		if (document.body.contains(view)) {
+		if (activeDocument.body.contains(view)) {
 			renderMemoViewContent(view, textarea.value, app);
 			view.setCssProps({ display: '' });
 			textarea.setCssProps({ display: 'none' });
@@ -2910,7 +2910,7 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 		};
 
 		const clearDragClasses = () => {
-			document.querySelectorAll(
+			activeDocument.querySelectorAll(
 				'.dashboard-task-item--drag-top,.dashboard-task-item--drag-bottom,.dashboard-task-item--drag-nest,.dashboard-task-item--drag-over,.dashboard-task-item--dragging'
 			).forEach(el => {
 				(el as HTMLElement).removeClass(
@@ -3141,7 +3141,7 @@ export function renderTextWithLinks(container: HTMLElement, text: string, app: A
 			continue;
 		}
 		if (part) {
-			container.appendChild(document.createTextNode(part));
+			container.appendChild(activeDocument.createTextNode(part));
 		}
 	}
 }
@@ -3224,7 +3224,7 @@ function createReminderButton(
 	task: TaskItem,
 	callbacks: RenderCallbacks,
 ): HTMLElement {
-	const btn = document.createElement('button');
+	const btn = activeDocument.createElement('button');
 	btn.setAttribute('draggable', 'false');
 	btn.addClass('dashboard-task-reminder-btn');
 
@@ -3258,7 +3258,7 @@ function showReminderPopup(
 ): void {
 	closeAllReminderPopups();
 
-	const popup = document.body.createDiv({ cls: 'dashboard-task-reminder-popup' });
+	const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup' });
 
 	// Inherit theme variables from dashboard root (popup is on body, outside theme scope)
 	const dashboardRoot = anchorBtn.closest('.apex-dashboard-root') as HTMLElement;
@@ -3306,10 +3306,10 @@ function showReminderPopup(
 			});
 		}
 	};
-	document.addEventListener('scroll', updatePopupPosition, { passive: true, capture: true });
+	activeDocument.addEventListener('scroll', updatePopupPosition, { passive: true, capture: true });
 	window.addEventListener('resize', updatePopupPosition);
 	(popup as HTMLElement & { __reminderCleanup?: () => void }).__reminderCleanup = () => {
-		document.removeEventListener('scroll', updatePopupPosition, { capture: true });
+		activeDocument.removeEventListener('scroll', updatePopupPosition, { capture: true });
 		window.removeEventListener('resize', updatePopupPosition);
 	};
 
@@ -3447,16 +3447,16 @@ function showReminderPopup(
 	const outsideClick = (ev: MouseEvent) => {
 		if (!popup.contains(ev.target as Node)) {
 			closeAllReminderPopups();
-			document.removeEventListener('mousedown', outsideClick);
+			activeDocument.removeEventListener('mousedown', outsideClick);
 		}
 	};
-	window.setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
+	window.setTimeout(() => activeDocument.addEventListener('mousedown', outsideClick), 0);
 
 	renderCalendar();
 }
 
 function closeAllReminderPopups(): void {
-	document.querySelectorAll('.dashboard-task-reminder-popup').forEach(el => {
+	activeDocument.querySelectorAll('.dashboard-task-reminder-popup').forEach(el => {
 		const popup = el as HTMLElement & { __reminderCleanup?: () => void };
 		popup.__reminderCleanup?.();
 		popup.remove();

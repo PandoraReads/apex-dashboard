@@ -213,7 +213,7 @@ export class DayAgendaModal extends Modal {
 	}
 
 	private renderRow(task: VaultTask): HTMLElement {
-		const row = document.createElement('div');
+		const row = activeDocument.createElement('div');
 		row.className = 'dashboard-alltasks-row' + (task.checked ? ' is-done' : '');
 		const check = row.createEl('input', { cls: 'dashboard-alltasks-check', attr: { type: 'checkbox' } });
 		check.checked = task.checked;

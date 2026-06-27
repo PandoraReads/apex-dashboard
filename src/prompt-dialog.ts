@@ -15,7 +15,7 @@ export function showPromptDialog(_app: unknown, options: PromptOptions): Promise
 	return new Promise((resolve) => {
 		let resolved = false;
 
-		const overlay = document.body.createDiv({ cls: 'dashboard-confirm-overlay' });
+		const overlay = activeDocument.body.createDiv({ cls: 'dashboard-confirm-overlay' });
 		const dialog = overlay.createDiv({ cls: 'dashboard-confirm-card' });
 
 		dialog.createEl('h3', { text: options.title, cls: 'dashboard-confirm-title' });
@@ -28,7 +28,7 @@ export function showPromptDialog(_app: unknown, options: PromptOptions): Promise
 			if (resolved) return;
 			resolved = true;
 			overlay.remove();
-			document.removeEventListener('keydown', onKeydown);
+			activeDocument.removeEventListener('keydown', onKeydown);
 			resolve(value);
 		}
 
@@ -66,7 +66,7 @@ export function showPromptDialog(_app: unknown, options: PromptOptions): Promise
 			if (e.target === overlay) finish(null);
 		});
 
-		document.addEventListener('keydown', onKeydown);
+		activeDocument.addEventListener('keydown', onKeydown);
 
 		// Defer focus until the input is laid out.
 		window.setTimeout(() => {

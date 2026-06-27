@@ -269,7 +269,7 @@ function closeCalendarPopup(): void {
 function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: (date: string) => void): void {
 	closeCalendarPopup();
 
-		const popup = document.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-library-calendar-popup' });
+		const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-library-calendar-popup' });
 
 	const dashboardRoot = anchor.closest('.apex-dashboard-root') as HTMLElement;
 	if (dashboardRoot) {
@@ -404,10 +404,10 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 	const outsideClick = (ev: MouseEvent) => {
 		if (!popup.contains(ev.target as Node) && !anchor.contains(ev.target as Node)) {
 			closeCalendarPopup();
-			document.removeEventListener('mousedown', outsideClick);
+			activeDocument.removeEventListener('mousedown', outsideClick);
 		}
 	};
-	window.setTimeout(() => document.addEventListener('mousedown', outsideClick), 0);
+	window.setTimeout(() => activeDocument.addEventListener('mousedown', outsideClick), 0);
 
 	activeCalendarPopup = popup;
 	renderCalendar();
@@ -510,7 +510,7 @@ export function renderLibrarySection(
 
 		function openPopup(): void {
 			closePopup();
-			filterPopup = document.body.createDiv({ cls: 'dashboard-library-filter-popup' });
+			filterPopup = activeDocument.body.createDiv({ cls: 'dashboard-library-filter-popup' });
 
 			// Inherit theme from dashboard
 			const dashboardRoot = filterBtn.closest('.apex-dashboard-root') as HTMLElement;
@@ -562,7 +562,7 @@ export function renderLibrarySection(
 				showCalendarPopup(startBtn, quickStart, (date) => {
 					quickStart = date;
 					applyQuickFilter();
-					if (document.body.contains(filterBtn)) openPopup();
+					if (activeDocument.body.contains(filterBtn)) openPopup();
 				});
 			});
 			endBtn.addEventListener('click', (ev) => {
@@ -570,7 +570,7 @@ export function renderLibrarySection(
 				showCalendarPopup(endBtn, quickEnd, (date) => {
 					quickEnd = date;
 					applyQuickFilter();
-					if (document.body.contains(filterBtn)) openPopup();
+					if (activeDocument.body.contains(filterBtn)) openPopup();
 				});
 			});
 
@@ -629,7 +629,7 @@ export function renderLibrarySection(
 			}
 		});
 
-		document.addEventListener('click', (e) => {
+		activeDocument.addEventListener('click', (e) => {
 			if (filterPopup && !filterPopup.contains(e.target as Node) && !filterBtn.contains(e.target as Node)) {
 				closePopup();
 			}

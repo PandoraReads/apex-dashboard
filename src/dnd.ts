@@ -137,7 +137,7 @@ function updateDropIndicator(state: DnDState, column: HTMLElement, clientX: numb
 	if (!cardsContainer) return;
 
 	const cards = Array.from(cardsContainer.querySelectorAll<HTMLElement>('.dashboard-card:not(.dashboard-card--dragging)'));
-	const indicator = document.createElement('div');
+	const indicator = activeDocument.createElement('div');
 	indicator.addClass('dashboard-drop-indicator');
 	state.dropIndicator = indicator;
 
@@ -162,7 +162,7 @@ function removeDropIndicator(state: DnDState): void {
 }
 
 function clearAllDragOver(): void {
-	document.querySelectorAll('.dashboard-section-row--drag-over').forEach((el) => {
+	activeDocument.querySelectorAll('.dashboard-section-row--drag-over').forEach((el) => {
 		(el as HTMLElement).removeClass('dashboard-section-row--drag-over');
 	});
 }
@@ -263,7 +263,7 @@ function setupTouchDrag(
 
 	// touchcancel fires on system interruptions (edge gestures, scroll hijack,
 	// notifications) instead of touchend. The ghost clone is appended to
-	// document.body, invisible to container re-renders, so without this handler
+	// activeDocument.body, invisible to container re-renders, so without this handler
 	// it would strand on screen as a permanent text afterimage.
 	const onTouchCancel = () => {
 		if (timer) {
@@ -301,7 +301,7 @@ function createGhost(cardEl: HTMLElement, x: number, y: number): HTMLElement {
 		opacity: '0.85',
 		transform: 'rotate(3deg)',
 	});
-	document.body.appendChild(ghost);
+	activeDocument.body.appendChild(ghost);
 	return ghost;
 }
 
@@ -375,13 +375,13 @@ function setupExternalFileDrop(
 	cardEl.addEventListener('dragover', onFileDragOver);
 	cardEl.addEventListener('dragleave', onFileDragLeave);
 	cardEl.addEventListener('drop', onFileDrop);
-	document.addEventListener('dragend', onAnyDragEnd);
+	activeDocument.addEventListener('dragend', onAnyDragEnd);
 
 	cleanupFns.push(() => {
 		cardEl.removeEventListener('dragover', onFileDragOver);
 		cardEl.removeEventListener('dragleave', onFileDragLeave);
 		cardEl.removeEventListener('drop', onFileDrop);
-		document.removeEventListener('dragend', onAnyDragEnd);
+		activeDocument.removeEventListener('dragend', onAnyDragEnd);
 	});
 }
 

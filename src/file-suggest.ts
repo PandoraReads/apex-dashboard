@@ -30,7 +30,7 @@ export function attachFileSuggest(
 
 	function createDropdown() {
 		hide();
-		dropdown = document.body.createDiv({ cls: 'dashboard-file-suggest' });
+		dropdown = activeDocument.body.createDiv({ cls: 'dashboard-file-suggest' });
 		const rect = inputEl.getBoundingClientRect();
 		dropdown.setCssProps({
 			position: 'fixed',

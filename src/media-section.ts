@@ -366,7 +366,7 @@ export function renderMediaSection(
 
 	function closeMediaPopup(): void {
 		if (outsideClickHandler) {
-			document.removeEventListener('click', outsideClickHandler);
+			activeDocument.removeEventListener('click', outsideClickHandler);
 			outsideClickHandler = null;
 		}
 		if (filterPopup) { filterPopup.remove(); filterPopup = null; }
@@ -374,7 +374,7 @@ export function renderMediaSection(
 
 	function openMediaPopup(): void {
 		closeMediaPopup();
-		filterPopup = document.body.createDiv({ cls: 'dashboard-library-filter-popup' });
+		filterPopup = activeDocument.body.createDiv({ cls: 'dashboard-library-filter-popup' });
 		const dashboardRoot = filterBtn.closest<HTMLElement>('.apex-dashboard-root');
 		if (dashboardRoot) {
 			const rs = getComputedStyle(dashboardRoot);
@@ -441,7 +441,7 @@ export function renderMediaSection(
 				closeMediaPopup();
 			}
 		};
-		window.setTimeout(() => document.addEventListener('click', outsideClickHandler!), 0);
+		window.setTimeout(() => activeDocument.addEventListener('click', outsideClickHandler!), 0);
 	}
 
 	filterBtn.addEventListener('click', (e) => {
