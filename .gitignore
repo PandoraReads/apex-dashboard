@@ -8,7 +8,6 @@ data.json
 .DS_Store
 
 # Source code
-eslint.config.mts
 version-bump.mjs
 .npmrc
 .editorconfig
