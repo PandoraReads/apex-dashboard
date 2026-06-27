@@ -9351,10 +9351,6 @@
 	display: none;
 }
 
-.dashboard-section-row[data-section-type="library"] .dashboard-section-header-actions .dashboard-section-add-btn:first-child {
-	display: none;
-}
-
 .dashboard-library-content {
 	padding: 0 0 8px 0;
 	flex: 1;
