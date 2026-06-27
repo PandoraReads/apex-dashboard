@@ -2063,15 +2063,26 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 
 	// Library section: render differently
 	if (sectionType === 'library' || sectionType === 'folder') {
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': sectionType === 'folder' ? t('folder.configure') : t('library.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
+		// A folder section with no folder set would otherwise list the entire vault
+		// (queryVaultFiles skips the folder filter when it is empty). In that state
+		// renderLibrarySection never runs, so the toolbar (which hosts the always-
+		// visible config button) does not exist yet — keep a header config button
+		// as the only entry point. For a configured folder or any library section,
+		// renderLibrarySection renders that toolbar config button, so we skip this
+		// header one to avoid a duplicate next to the delete button.
+		const folderUnconfigured = sectionType === 'folder' && !(column.libraryConfig?.folder?.trim());
+
+		if (folderUnconfigured) {
+			const configBtn = headerActions.createEl('button', {
+				cls: 'dashboard-section-add-btn',
+				attr: { 'aria-label': t('folder.configure') },
+			});
+			setIcon(configBtn, 'settings');
+			configBtn.addEventListener('click', () => {
+				const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+				el.dispatchEvent(event);
+			});
+		}
 
 		const deleteSectionBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
@@ -2083,10 +2094,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 			callbacks.onColumnDelete(column.name);
 		});
 
-		// A folder section with no folder set would otherwise list the entire vault
-		// (queryVaultFiles skips the folder filter when it is empty). Show a prompt
-		// to configure instead, until a folder is chosen.
-		if (sectionType === 'folder' && !(column.libraryConfig?.folder?.trim())) {
+		if (folderUnconfigured) {
 			el.createDiv({ cls: 'dashboard-library-empty dashboard-folder-empty', text: t('folder.empty') });
 			return el;
 		}
