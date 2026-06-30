@@ -11,6 +11,9 @@ import type {
 	WeatherConfig,
 	TrackerConfig,
 	LibraryConfig,
+	HeatmapConfig,
+	WereadConfig,
+	TickTickConfig,
 } from './types';
 import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
@@ -151,6 +154,12 @@ export function serialize(data: DashboardData): string {
 			if (lc.pageSize) {
 				lines.push(`      pageSize: ${lc.pageSize}`);
 			}
+			if (lc.showProperties === false) {
+				lines.push(`      showProperties: false`);
+			}
+			if (lc.propertyLimit != null) {
+				lines.push(`      propertyLimit: ${lc.propertyLimit}`);
+			}
 				if (lc.quickDateFilter) {
 					lines.push(`      quickDateFilter:`);
 					lines.push(`        property: "${lc.quickDateFilter.property}"`);
@@ -171,6 +180,47 @@ export function serialize(data: DashboardData): string {
 						if (filter.dateRange.end) lines.push(`          dateEnd: "${filter.dateRange.end}"`);
 					}
 				}
+			}
+		}
+		if (col.height != null) {
+			lines.push(`    height: ${col.height}`);
+		}
+		if (col.heatmapConfig) {
+			const hc = col.heatmapConfig;
+			lines.push('    heatmap:');
+			lines.push(`      folder: "${escapeYamlString(hc.folder)}"`);
+			lines.push(`      trackerKey: "${escapeYamlString(hc.trackerKey)}"`);
+			if (hc.title) lines.push(`      title: "${escapeYamlString(hc.title)}"`);
+			lines.push(`      period: ${hc.period === 'thisYear' ? 'thisYear' : 'pastYear'}`);
+		}
+		if (col.wereadConfig) {
+			const wc = col.wereadConfig;
+			lines.push('    weread:');
+			lines.push('      widgets:');
+			for (const w of wc.widgets) {
+				lines.push(`        - id: "${escapeYamlString(w.id)}"`);
+				lines.push(`          view: ${w.view}`);
+				if (w.progressFilters?.length) {
+					lines.push('          progressFilters:');
+					for (const p of w.progressFilters) lines.push(`            - ${p}`);
+				}
+				if (w.categoryFilters?.length) {
+					lines.push('          categoryFilters:');
+					for (const c of w.categoryFilters) lines.push(`            - "${escapeYamlString(c)}"`);
+				}
+				if (w.title) lines.push(`          title: "${escapeYamlString(w.title)}"`);
+			}
+		}
+		if (col.ticktickConfig) {
+			const tc = col.ticktickConfig;
+			lines.push('    ticktick:');
+			lines.push('      widgets:');
+			for (const w of tc.widgets) {
+				lines.push(`        - id: "${escapeYamlString(w.id)}"`);
+				lines.push(`          view: ${w.view}`);
+				if (w.projectId != null) lines.push(`          projectId: "${escapeYamlString(w.projectId)}"`);
+				if (w.days != null) lines.push(`          days: ${w.days}`);
+				if (w.title) lines.push(`          title: "${escapeYamlString(w.title)}"`);
 			}
 		}
 	}
@@ -637,7 +687,7 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; height?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -646,10 +696,14 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 			color: String((item.color ?? '#6366f1') as string | number | boolean),
 			sectionType: item.type ? String(item.type as string | number | boolean) : undefined,
 		libraryConfig: item.library ? parseLibraryConfig(item.library as Record<string, unknown>) : undefined,
+		heatmapConfig: item.heatmap ? parseHeatmapConfig(item.heatmap as Record<string, unknown>) : undefined,
+		wereadConfig: item.weread ? parseWereadConfig(item.weread as Record<string, unknown>) : undefined,
+		ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
+		height: typeof item.height === 'number' ? item.height : undefined,
 	}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; height?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -675,6 +729,10 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			// stable across save/reload. Project/notes/etc. sections keep using `docs`.
 			cards: resolvedType === 'memo' ? cards.map(foldDocsIntoBody) : cards,
 			libraryConfig: def?.libraryConfig,
+			heatmapConfig: def?.heatmapConfig,
+			wereadConfig: def?.wereadConfig,
+			ticktickConfig: def?.ticktickConfig,
+			height: def?.height,
 		};
 	});
 }
@@ -753,17 +811,77 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		sortDesc: raw.sortDesc !== false,
 		kanbanGroupBy: raw.kanbanGroupBy ? String(raw.kanbanGroupBy as string | number | boolean) : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
+		showProperties: raw.showProperties === false ? false : undefined,
+		propertyLimit: typeof raw.propertyLimit === 'number' ? raw.propertyLimit : undefined,
 		folders: Array.isArray(raw.folders) ? raw.folders.map((v: unknown) => String(v)) : (typeof raw.folder === 'string' ? [raw.folder] : undefined),
 		folderFilter: Array.isArray(raw.folderFilter) ? raw.folderFilter.map((v: unknown) => String(v)) : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
 		taskGroupBy: ['date', 'priority', 'none'].includes(String((raw.taskGroupBy ?? '') as string | number | boolean)) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {
 				property: (raw.quickDateFilter as Record<string, unknown>).property === 'modified' ? 'modified' as const : 'created' as const,
-				start: String(((raw.quickDateFilter as Record<string, unknown>).start ?? '') as string | number | boolean),
+			start: String(((raw.quickDateFilter as Record<string, unknown>).start ?? '') as string | number | boolean),
 				end: String(((raw.quickDateFilter as Record<string, unknown>).end ?? '') as string | number | boolean),
 			} : undefined,
 		};
 	}
+
+function parseHeatmapConfig(raw: Record<string, unknown>): HeatmapConfig {
+	// New: period ∈ {pastYear, thisYear}. Legacy rangeMode/days/period values are migrated.
+	const period: HeatmapConfig['period'] = raw.period === 'thisYear' ? 'thisYear' : 'pastYear';
+	return {
+		folder: String((raw.folder ?? '') as string | number | boolean),
+		trackerKey: String((raw.trackerKey ?? '') as string | number | boolean),
+		title: raw.title ? String(raw.title as string | number | boolean) : undefined,
+		period,
+	};
+}
+
+function parseWereadConfig(raw: Record<string, unknown>): WereadConfig {
+	const validView = (v: unknown): WereadConfig['widgets'][number]['view'] =>
+		['shelf', 'stats', 'notes'].includes(String((v ?? '') as string | number | boolean)) ? String(v) as WereadConfig['widgets'][number]['view'] : 'shelf';
+
+	// New shape: widgets[]
+	if (Array.isArray(raw.widgets)) {
+		const widgets = (raw.widgets as Array<Record<string, unknown>>)
+			.filter(w => w && typeof w === 'object')
+			.map((w, i) => ({
+				id: String((w.id ?? `w${i + 1}`) as string | number | boolean),
+				view: validView(w.view),
+				progressFilters: Array.isArray(w.progressFilters) ? (w.progressFilters as Array<unknown>).map(p => String(p as string | number | boolean)) : undefined,
+				categoryFilters: Array.isArray(w.categoryFilters) ? (w.categoryFilters as Array<unknown>).map(c => String(c as string | number | boolean)) : undefined,
+				title: w.title ? String(w.title as string | number | boolean) : undefined,
+			}));
+		if (widgets.length > 0) return { widgets };
+	}
+	// Legacy shape: single view (+ bookFilter) → migrate to a category filter.
+	const legacyFilter = typeof raw.bookFilter === 'string' ? raw.bookFilter : undefined;
+	return {
+		widgets: [{
+			id: 'w1',
+			view: validView(raw.view),
+			categoryFilters: legacyFilter && legacyFilter !== 'all' ? [legacyFilter] : undefined,
+		}],
+	};
+}
+
+function parseTickTickConfig(raw: Record<string, unknown>): TickTickConfig {
+	const validView = (v: unknown): TickTickConfig['widgets'][number]['view'] =>
+		['today', 'projects', 'completed', 'habits'].includes(String((v ?? '') as string | number | boolean)) ? String(v) as TickTickConfig['widgets'][number]['view'] : 'today';
+	if (Array.isArray(raw.widgets)) {
+		const widgets = (raw.widgets as Array<Record<string, unknown>>)
+			.filter(w => w && typeof w === 'object')
+			.map((w, i) => ({
+				id: String((w.id ?? `w${i + 1}`) as string | number | boolean),
+				view: validView(w.view),
+				projectId: typeof w.projectId === 'string' && w.projectId.length > 0 ? w.projectId : undefined,
+				days: typeof w.days === 'number' ? w.days : undefined,
+				title: w.title ? String(w.title as string | number | boolean) : undefined,
+			}));
+		if (widgets.length > 0) return { widgets };
+	}
+	return { widgets: [{ id: 'w1', view: 'today' }] };
+}
+
 function splitByH2(body: string): Array<{ heading: string; content: string }> {
 	const lines = body.split('\n');
 	const sections: Array<{ heading: string; content: string }> = [];

@@ -16,9 +16,14 @@ import { clearWeatherCache } from './weather-service';
 import { renderSidebarLunarWidget, loadHolidayData } from './lunar-widget';
 import type { HolidayInfo } from './holiday-service';
 import { WidgetTypeModal, type WidgetType } from './widget-type-modal';
+import { AddSectionModal } from './add-section-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
+import { HeatmapConfigModal } from './heatmap-config-modal';
+import { WereadConfigModal } from './weread-config-modal';
+import { fetchWereadCategories } from './weread-service';
+import { TickTickConfigModal, fetchTickTickProjects } from './ticktick-config-modal';
 import { CalendarConfigModal } from './calendar-config-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
@@ -67,6 +72,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private sync: SyncEngine;
 	private data: DashboardData | null = null;
 	private cleanupFns: Array<() => void> = [];
+	private dndCleanupFns: Array<() => void> = [];
 	private vaultEventRefs: Array<{ evt: Events; ref: unknown }> = [];
 	private recentDocsTimer: number | null = null;
 	private libraryRefreshTimer: number | null = null;
@@ -243,7 +249,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		const kanban = mainLayout.createDiv({ cls: 'dashboard-kanban-wrapper' });
 		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this);
-		setupDragAndDrop(kanban, this.createCallbacks(), this.cleanupFns);
+		setupDragAndDrop(kanban, this.createCallbacks(), this.dndCleanupFns);
 		// Library config event delegation
 		kanban.addEventListener('dashboard-library-config', ((e: CustomEvent) => {
 			const { columnName } = e.detail as { columnName: string };
@@ -252,6 +258,12 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openFolderConfigModal(columnName);
 			} else if (col?.sectionType === 'calendar') {
 				this.openCalendarConfigModal(columnName);
+			} else if (col?.sectionType === 'heatmap') {
+				this.openHeatmapConfigModal(columnName);
+			} else if (col?.sectionType === 'weread') {
+				this.openWereadConfigModal(columnName);
+			} else if (col?.sectionType === 'ticktick') {
+				void this.openTickTickConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
 			}
@@ -723,6 +735,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onTaskMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveTaskToCard(srcCardId, fromPath, destCardId, destPath, mode),
 			onTaskEdit: (cardId: string, taskPath: number[], text: string) => this.sync.editTask(cardId, taskPath, text),
 			onTaskNest: (cardId: string, taskPath: number[]) => this.sync.nestTask(cardId, taskPath),
+			onTaskNestInto: (cardId: string, srcPath: number[], destPath: number[]) => this.sync.nestTaskInto(cardId, srcPath, destPath),
 			onTaskUnnest: (cardId: string, taskPath: number[]) => this.sync.unnestTask(cardId, taskPath),
 			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTask(cardId, taskPath),
 			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
@@ -747,14 +760,9 @@ export class DashboardView extends ItemView implements HoverParent {
 				}
 			},
 				onColumnAdd: (name: string, sectionType?: string) => {
-					void this.sync.addColumn(name, sectionType).then(() => {
-						if (sectionType === 'library') {
-							this.openLibraryConfigModal(name);
-						} else if (sectionType === 'folder') {
-							this.openFolderConfigModal(name);
-						}
-					});
+					void this.addColumnWithType(name, sectionType);
 				},
+				onRequestAddSection: () => this.openAddSectionModal(),
 			onBannerEdit: () => {
 				if (this.data) this.openBannerEditModal(this.data);
 			},
@@ -778,6 +786,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
 				onColumnRename: (oldName: string, newName: string) => this.sync.renameColumn(oldName, newName),
 				onColumnDelete: (columnName: string) => this.deleteColumn(columnName),
+				onColumnMove: (fromIndex: number, toIndex: number) => { void this.sync.moveColumn(fromIndex, toIndex); },
+				onColumnHeightChange: (name: string, height: number) => { void this.sync.updateColumnHeight(name, height); },
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
@@ -991,6 +1001,28 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
+	private async addColumnWithType(name: string, sectionType?: string): Promise<void> {
+		await this.sync.addColumn(name, sectionType);
+		if (sectionType === 'library') {
+			this.openLibraryConfigModal(name);
+		} else if (sectionType === 'folder') {
+			this.openFolderConfigModal(name);
+		} else if (sectionType === 'heatmap') {
+			this.openHeatmapConfigModal(name);
+		} else if (sectionType === 'weread') {
+			this.openWereadConfigModal(name);
+		} else if (sectionType === 'ticktick') {
+			void this.openTickTickConfigModal(name);
+		}
+	}
+
+	private openAddSectionModal(): void {
+		const modal = new AddSectionModal(this.app, (name, sectionType) => {
+			void this.addColumnWithType(name, sectionType);
+		});
+		modal.open();
+	}
+
 	private openWidgetTypeModal(colName: string): void {
 		const modal = new WidgetTypeModal(this.app, (type: WidgetType) => {
 			if (type === 'weather') {
@@ -1059,9 +1091,52 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	private openCalendarConfigModal(colName: string): void {
+	private openHeatmapConfigModal(colName: string): void {
 		const column = this.data?.columns.find(col => col.name === colName);
-		const existingConfig = column?.libraryConfig ?? {
+		const existing = column?.heatmapConfig ?? {
+			folder: '',
+			trackerKey: '',
+			period: 'pastYear' as const,
+		};
+		const modal = new HeatmapConfigModal(
+			this.app,
+			existing,
+			(config) => { void this.sync.updateHeatmapConfig(colName, config); },
+		);
+		modal.open();
+	}
+
+	private openWereadConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const existing = column?.wereadConfig ?? { widgets: [{ id: 'w1', view: 'shelf' as const }] };
+		void (async () => {
+			const categories = await fetchWereadCategories(this.plugin.settings.wereadApiKey);
+			const modal = new WereadConfigModal(
+				this.app,
+				existing,
+				categories,
+				(config) => { void this.sync.updateWereadConfig(colName, config); },
+			);
+			modal.open();
+		})();
+	}
+
+	private async openTickTickConfigModal(colName: string): Promise<void> {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const existing = column?.ticktickConfig ?? { widgets: [{ id: 'w1', view: 'today' as const }] };
+		const region = this.plugin.settings.ticktickRegion === 'ticktick' ? 'ticktick' : 'dida365';
+		const projects = await fetchTickTickProjects(region, this.plugin.settings.ticktickCookie, this.plugin.settings.ticktickDeviceVersion);
+		const modal = new TickTickConfigModal(
+			this.app,
+			existing,
+			projects,
+			(config) => { void this.sync.updateTickTickConfig(colName, config); },
+		);
+		modal.open();
+	}
+
+	private openCalendarConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);		const existingConfig = column?.libraryConfig ?? {
 			filters: [],
 			viewMode: 'grid' as const,
 			sortBy: 'modified',
@@ -1082,11 +1157,13 @@ export class DashboardView extends ItemView implements HoverParent {
 		const libraryConfig = column?.libraryConfig;
 		const currentFolders = libraryConfig?.folders ?? [];
 		const currentTags = libraryConfig?.filters.find(f => f.property === 'tags')?.values ?? [];
+		const currentGroupBy = libraryConfig?.kanbanGroupBy;
 		const modal = new FolderConfigModal(
 			this.app,
 			currentFolders,
 			currentTags,
-			(folders, tags) => {
+			currentGroupBy,
+			(folders, tags, groupBy) => {
 				const base = libraryConfig ?? {
 					filters: [],
 					viewMode: 'grid' as const,
@@ -1097,7 +1174,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				const filters = tags.length > 0
 					? [...filtersWithoutTags, { property: 'tags', values: tags }]
 					: filtersWithoutTags;
-				void this.sync.updateLibraryConfig(colName, { ...base, folders, filters });
+				void this.sync.updateLibraryConfig(colName, { ...base, folders, filters, kanbanGroupBy: groupBy });
 			},
 		);
 		modal.open();
@@ -1270,6 +1347,11 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (structure && hasMedia) {
 				refreshMediaSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
 			}
+			// Scanning/media sections were replaced (new DOM), so their grip/card
+			// DnD handlers are gone — re-wire DnD across the whole kanban.
+			for (const fn of this.dndCleanupFns) fn();
+			this.dndCleanupFns = [];
+			setupDragAndDrop(kanban, callbacks, this.dndCleanupFns);
 		}, 500);
 	}
 
@@ -1300,6 +1382,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 		for (const fn of this.cleanupFns) fn();
 		this.cleanupFns = [];
+		for (const fn of this.dndCleanupFns) fn();
+		this.dndCleanupFns = [];
 	}
 
 	private startReminderChecker(): void {
@@ -1390,17 +1474,19 @@ export class DashboardView extends ItemView implements HoverParent {
 				}
 			}
 
-			// Countdown reminder
-			if (this.plugin.settings.countdownEnabled && this.plugin.settings.countdownTargetDate && this.plugin.settings.countdownReminderDays > 0) {
-				const ckKey = 'countdown-remind';
-				if (!this.firedReminders.has(ckKey)) {
-					const raw = this.plugin.settings.countdownTargetDate;
-				const target = raw.includes('T') ? new Date(raw) : new Date(raw + 'T00:00:00');
+			// Countdown reminders (one per configured countdown)
+			if (this.plugin.settings.countdownEnabled) {
+				for (const cd of this.plugin.settings.countdowns ?? []) {
+					if (!cd.targetDate || cd.reminderDays <= 0) continue;
+					const ckKey = `countdown-remind-${cd.id}`;
+					if (this.firedReminders.has(ckKey)) continue;
+					const raw = cd.targetDate;
+					const target = raw.includes('T') ? new Date(raw) : new Date(raw + 'T00:00:00');
 					const diffMs = target.getTime() - now.getTime();
 					const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-					if (daysLeft >= 0 && daysLeft <= this.plugin.settings.countdownReminderDays) {
+					if (daysLeft >= 0 && daysLeft <= cd.reminderDays) {
 						this.firedReminders.add(ckKey);
-						const label = this.plugin.settings.countdownLabel || this.plugin.settings.countdownTargetDate;
+						const label = cd.label || cd.targetDate;
 						new Notice(t('countdown.reminderNotice', { label, days: String(daysLeft) }));
 					}
 				}

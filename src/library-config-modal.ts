@@ -163,6 +163,34 @@ export class LibraryConfigModal extends Modal {
 			this.config.kanbanGroupBy = groupSelect.value || undefined;
 		});
 
+		// Card properties (grid view)
+		const propsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		propsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.cardProperties') });
+
+		const propsRow = propsSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const showPropsBox = propsRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		showPropsBox.checked = this.config.showProperties !== false;
+		showPropsBox.addEventListener('change', () => {
+			this.config.showProperties = showPropsBox.checked ? undefined : false;
+		});
+		propsRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('library.showProperties') });
+
+		const limitRow = propsSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		limitRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('library.propertyLimit') });
+		const limitInput = limitRow.createEl('input', {
+			cls: 'dashboard-library-config-number',
+			attr: { type: 'number', min: '0', max: '20', step: '1' },
+		});
+		limitInput.value = String(this.config.propertyLimit ?? 6);
+		limitInput.addEventListener('change', () => {
+			const n = Math.max(0, Math.min(20, Math.floor(Number(limitInput.value) || 6)));
+			limitInput.value = String(n);
+			this.config.propertyLimit = n;
+		});
+
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {

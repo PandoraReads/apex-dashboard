@@ -1,9 +1,10 @@
-import { App, Platform, TFile, setIcon } from 'obsidian';
+import { App, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
 import { t, getLanguage } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { FolderSuggestModal } from './folder-config-modal';
+import { showConfirmDialog } from './confirm-dialog';
 
 // Set once per render by renderLibrarySection so the grid/list/table/kanban
 // renderers can route opens through the note popover and attach hover previews
@@ -744,6 +745,22 @@ export function renderLibrarySection(
 
 	let currentPage = 1;
 
+	async function deleteLibraryFileWithConfirm(file: TFile): Promise<void> {
+		const confirmed = await showConfirmDialog(app, {
+			title: t('common.confirmDelete'),
+			message: t('library.confirmDelete', { name: file.basename }),
+		});
+		if (!confirmed) return;
+		try {
+			await trashLibraryFile(app, file);
+			new Notice(t('library.deleted'));
+			renderContent(config);
+		} catch (err) {
+			console.error('[Dashboard] library delete failed:', err);
+			new Notice(t('library.deleteFailed'));
+		}
+	}
+
 	function renderContent(currentConfig: LibraryConfig): void {
 		contentArea.empty();
 		paginationArea.empty();
@@ -806,13 +823,13 @@ export function renderLibrarySection(
 
 		switch (currentConfig.viewMode) {
 			case 'grid':
-				renderGridView(contentArea, pageResults, app, isFolder);
+				renderGridView(contentArea, pageResults, app, isFolder, currentConfig);
 				break;
 			case 'list':
 				renderListView(contentArea, pageResults, app);
 				break;
 			case 'table':
-				renderTableView(contentArea, pageResults, app, currentConfig);
+				renderTableView(contentArea, pageResults, app, currentConfig, (f) => { void deleteLibraryFileWithConfirm(f); });
 				break;
 			case 'kanban':
 				renderKanbanView(contentArea, pageResults, app, currentConfig);
@@ -941,8 +958,16 @@ function attachItemHover(app: App, el: HTMLElement, file: TFile): void {
 	}
 }
 
-function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean): void {
+/** Move a note to the trash (recoverable) via the file manager so the user's
+ *  "delete to trash vs permanent" preference is respected. */
+async function trashLibraryFile(app: App, file: TFile): Promise<void> {
+	await app.fileManager.trashFile(file);
+}
+
+function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig): void {
 	const grid = container.createDiv({ cls: 'dashboard-library-grid' });
+	const showProperties = config.showProperties !== false;
+	const propertyLimit = Math.max(0, config.propertyLimit ?? 6);
 
 	for (const result of results) {
 		const card = grid.createDiv({ cls: 'dashboard-library-card' });
@@ -988,7 +1013,37 @@ function renderGridView(container: HTMLElement, results: LibraryFileResult[], ap
 		}).catch(() => {
 			if (previewEl.isConnected) previewEl.remove();
 		});
+
+		// Frontmatter property badges (excludes position; tags are rendered above
+		// for folder sections). Capped to keep cards a uniform, bounded size.
+		if (showProperties && propertyLimit > 0) {
+			const badges = card.createDiv({ cls: 'dashboard-library-badges' });
+			let count = 0;
+			for (const [key, rawValue] of Object.entries(result.frontmatter)) {
+				if (count >= propertyLimit) break;
+				if (key === 'position' || key === 'tags') continue;
+				const val = formatBadgeValue(rawValue);
+				if (val === null) continue;
+				const badge = badges.createDiv({ cls: 'dashboard-library-badge' });
+				badge.createDiv({ cls: 'dashboard-library-badge-key', text: key });
+				badge.createDiv({ cls: 'dashboard-library-badge-val', text: val });
+				count++;
+			}
+			if (count === 0) badges.remove();
+		}
 	}
+}
+
+/** Coerce a frontmatter value into a compact badge string, or null to hide it. */
+function formatBadgeValue(value: unknown): string | null {
+	if (value == null) return null;
+	if (Array.isArray(value)) {
+		const items = value.map(v => (v == null ? '' : String(v))).filter(v => v.length > 0);
+		return items.length > 0 ? items.join(', ') : null;
+	}
+	if (typeof value === 'object') return null;
+	const s = String(value as string | number | boolean).trim();
+	return s.length > 0 ? s : null;
 }
 
 function renderListView(container: HTMLElement, results: LibraryFileResult[], app: App): void {
@@ -1078,7 +1133,7 @@ function startCellEdit(
 	input.addEventListener('blur', () => finish(true));
 }
 
-function renderTableView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig): void {
+function renderTableView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig, onDelete: (file: TFile) => void): void {
 	// Determine which property columns to show
 	const propKeys = new Set<string>();
 	for (const filter of config.filters) {
@@ -1106,6 +1161,9 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 		});
 		th.dataset.sortKey = col;
 	}
+	// Action column (delete button) — empty label, rightmost
+	const actionTh = headerRow.createEl('th', { cls: 'dashboard-library-table-op-col' });
+	actionTh.setAttribute('aria-label', t('library.delete'));
 
 	const tbody = table.createEl('tbody');
 	for (const result of results) {
@@ -1140,6 +1198,19 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 				});
 			}
 		}
+
+		// Delete action cell (rightmost)
+		const opTd = tr.createEl('td', { cls: 'dashboard-library-table-op' });
+		const delBtn = opTd.createEl('button', {
+			cls: 'dashboard-library-table-delete',
+			attr: { 'aria-label': t('library.delete') },
+		});
+		delBtn.title = t('library.delete');
+		setIcon(delBtn, 'trash-2');
+		delBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			onDelete(result.file);
+		});
 	}
 }
 

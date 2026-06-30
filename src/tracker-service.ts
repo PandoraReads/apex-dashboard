@@ -102,6 +102,20 @@ export function getPeriodRange(
 	return { start, end };
 }
 
+/** Past N days ending today (inclusive). N = 365 or 366 depending on leap year. */
+export function pastYearRange(now: Date = new Date()): { start: Date; end: Date } {
+	const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	const start = new Date(end);
+	start.setDate(start.getDate() - 364); // 365 days including today
+	return { start, end };
+}
+
+/** Jan 1 → Dec 31 of the current year. */
+export function thisYearRange(now: Date = new Date()): { start: Date; end: Date } {
+	const y = now.getFullYear();
+	return { start: new Date(y, 0, 1), end: new Date(y, 11, 31) };
+}
+
 export function suggestTrackerKeys(app: App, journalPath?: string): string[] {
 	const keys = new Set<string>();
 
@@ -111,7 +125,7 @@ export function suggestTrackerKeys(app: App, journalPath?: string): string[] {
 		files = files.filter(f => f.path.startsWith(journalPath + '/'));
 	}
 
-	files = files.sort((a, b) => b.stat.mtime - a.stat.mtime).slice(0, 20);
+	files = files.sort((a, b) => b.stat.mtime - a.stat.mtime).slice(0, 50);
 
 	for (const file of files) {
 		const cache = app.metadataCache.getFileCache(file);

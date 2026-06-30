@@ -1,27 +1,30 @@
 import { App, Modal, FuzzySuggestModal, TFolder, setIcon } from 'obsidian';
 import { t } from './i18n';
-import { getAllTags, renderTagsSelector } from './library-section';
+import { extractFrontmatterProperties, getAllTags, renderTagsSelector } from './library-section';
 
 /**
  * Configuration modal for a folder section: the folder path plus an optional
- * tag filter. The path can be typed or picked via {@link FolderSuggestModal};
- * tags are multi-select chips (a file shows if it has any selected tag).
- * Reuses the library config modal's styles and tag-selector helper.
+ * tag filter, and a kanban "group by" selector. The path can be typed or picked
+ * via {@link FolderSuggestModal}; tags are multi-select chips (a file shows if
+ * it has any selected tag). Reuses the library config modal's styles.
  */
 export class FolderConfigModal extends Modal {
 	private folders: string[];
-	private readonly onSave: (folders: string[], tags: string[]) => void;
 	private selectedTags: string[];
+	private groupBy: string;
+	private readonly onSave: (folders: string[], tags: string[], groupBy: string | undefined) => void;
 
 	constructor(
 		app: App,
 		currentFolders: string[],
 		currentTags: string[],
-		onSave: (folders: string[], tags: string[]) => void,
+		currentGroupBy: string | undefined,
+		onSave: (folders: string[], tags: string[], groupBy: string | undefined) => void,
 	) {
 		super(app);
 		this.folders = [...currentFolders];
 		this.selectedTags = [...currentTags];
+		this.groupBy = currentGroupBy ?? '';
 		this.onSave = onSave;
 	}
 
@@ -63,7 +66,7 @@ export class FolderConfigModal extends Modal {
 		});
 		const addBtn = addRow.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('media.addFolder'),
+			text: t('common.add'),
 		});
 
 		const renderFolderChips = (): void => {
@@ -109,6 +112,19 @@ export class FolderConfigModal extends Modal {
 		};
 		renderTags();
 
+		// Kanban group-by (used by the kanban view mode)
+		const groupSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		groupSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.kanbanGroupBy') });
+		groupSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.kanbanGroupByHint') });
+		const groupSelect = groupSection.createEl('select', { cls: 'dashboard-library-filter-property' });
+		groupSelect.createEl('option', { text: t('library.noGroup'), attr: { value: '' } });
+		const propKeys = [...extractFrontmatterProperties(this.app).keys()].sort();
+		for (const key of propKeys) {
+			const opt = groupSelect.createEl('option', { text: key, attr: { value: key } });
+			if (key === this.groupBy) opt.selected = true;
+		}
+		groupSelect.addEventListener('change', () => { this.groupBy = groupSelect.value; });
+
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
@@ -120,7 +136,7 @@ export class FolderConfigModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		}).addEventListener('click', () => {
-			this.onSave(this.folders, this.selectedTags);
+			this.onSave(this.folders, this.selectedTags, this.groupBy || undefined);
 			this.close();
 		});
 	}

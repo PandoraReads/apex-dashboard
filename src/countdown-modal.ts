@@ -1,22 +1,22 @@
 import { App, Modal } from 'obsidian';
-import type { DashboardSettings } from './types';
+import type { CountdownConfig } from './types';
 import { t, getLanguage } from './i18n';
 
 export class CountdownSettingsModal extends Modal {
-	private settings: DashboardSettings;
-	private onSave: (updates: Partial<DashboardSettings>) => void;
+	private config: CountdownConfig;
+	private onSave: (config: CountdownConfig) => void;
 	private calendarPopup: HTMLElement | null = null;
 	private selectedDate: string;
 	private selectedHour: number;
 	private selectedMinute: number;
 
-	constructor(app: App, settings: DashboardSettings, onSave: (updates: Partial<DashboardSettings>) => void) {
+	constructor(app: App, config: CountdownConfig, onSave: (config: CountdownConfig) => void) {
 		super(app);
-		this.settings = settings;
+		this.config = { ...config };
 		this.onSave = onSave;
 
 		// Parse existing value: "YYYY-MM-DDTHH:mm" or "YYYY-MM-DD"
-		const raw = settings.countdownTargetDate;
+		const raw = config.targetDate;
 		if (raw.includes('T')) {
 			const parts = raw.split('T');
 			this.selectedDate = parts[0] ?? '';
@@ -87,8 +87,8 @@ export class CountdownSettingsModal extends Modal {
 		const daysOpt = modeSelect.createEl('option', { text: t('countdown.days'), attr: { value: 'days' } });
 		const hoursOpt = modeSelect.createEl('option', { text: t('countdown.hours'), attr: { value: 'hours' } });
 		const minutesOpt = modeSelect.createEl('option', { text: t('countdown.minutes'), attr: { value: 'minutes' } });
-		if (this.settings.countdownDisplayMode === 'days') daysOpt.selected = true;
-		else if (this.settings.countdownDisplayMode === 'hours') hoursOpt.selected = true;
+		if (this.config.displayMode === 'days') daysOpt.selected = true;
+		else if (this.config.displayMode === 'hours') hoursOpt.selected = true;
 		else minutesOpt.selected = true;
 
 		// Reminder days
@@ -96,7 +96,7 @@ export class CountdownSettingsModal extends Modal {
 		reminderRow.createEl('label', { text: t('countdown.reminderDays'), cls: 'dashboard-modal-countdown-label' });
 		const reminderInput = reminderRow.createEl('input', {
 			cls: 'dashboard-modal-input',
-			attr: { type: 'number', min: '0', max: '365', value: String(this.settings.countdownReminderDays), placeholder: '0' },
+			attr: { type: 'number', min: '0', max: '365', value: String(this.config.reminderDays), placeholder: '0' },
 		});
 		reminderRow.createEl('span', { text: t('countdown.reminderDaysDesc'), cls: 'dashboard-modal-countdown-hint' });
 
@@ -105,7 +105,7 @@ export class CountdownSettingsModal extends Modal {
 		labelRow.createEl('label', { text: t('countdown.label'), cls: 'dashboard-modal-countdown-label' });
 		const labelInput = labelRow.createEl('input', {
 			cls: 'dashboard-modal-input',
-			attr: { type: 'text', value: this.settings.countdownLabel, placeholder: t('countdown.labelPlaceholder') },
+			attr: { type: 'text', value: this.config.label, placeholder: t('countdown.labelPlaceholder') },
 		});
 
 		// Actions
@@ -118,10 +118,11 @@ export class CountdownSettingsModal extends Modal {
 				? `${this.selectedDate}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 				: '';
 			this.onSave({
-				countdownTargetDate: dateTime,
-				countdownDisplayMode: modeSelect.value as 'days' | 'hours' | 'minutes',
-				countdownReminderDays: parseInt(reminderInput.value, 10) || 0,
-				countdownLabel: labelInput.value.trim(),
+				...this.config,
+				targetDate: dateTime,
+				displayMode: modeSelect.value as 'days' | 'hours' | 'minutes',
+				reminderDays: parseInt(reminderInput.value, 10) || 0,
+				label: labelInput.value.trim(),
 			});
 			this.close();
 		});

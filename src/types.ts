@@ -7,14 +7,6 @@ export interface DashboardSettings {
 	language: Language;
 	stylePreset: string;
 	widgetWeatherEnabled: boolean;
-	widgetHeatmapEnabled: boolean;
-	widgetTrackerKey: string;
-	widgetTrackerDays: number;
-	widgetTrackerSummary: 'streak' | 'rate' | 'both' | 'off';
-	widgetHeatmapFolder: string;
-	widgetHeatmapTitle: string;
-	widgetHeatmapRangeMode: HeatmapRangeMode;
-	widgetHeatmapPeriod: HeatmapPeriod;
 	widgetWeatherCity: string;
 	widgetWeatherLat: number;
 	widgetWeatherLon: number;
@@ -27,11 +19,21 @@ export interface DashboardSettings {
 	pomodoroSoundEnabled: boolean;
 	widgetLunarEnabled: boolean;
 	widgetOrder: string[];
+	/** Weread (WeChat Read) official API key (wrk-...), shared account-wide. */
+	wereadApiKey: string;
+	/** Folder where weread highlights are imported as notes. */
+	wereadImportPath: string;
+	/** TickTick account region (dida365 = China, ticktick = international). */
+	ticktickRegion: 'dida365' | 'ticktick';
+	/** TickTick session token (the `t` cookie value), account-wide. */
+	ticktickCookie: string;
+	/** TickTick CSRF token (the `_csrf_token` cookie), required for writes. */
+	ticktickCsrf: string;
+	/** TickTick x-device version override (when the web client rotates, bump this). */
+	ticktickDeviceVersion?: string;
 	countdownEnabled: boolean;
-	countdownTargetDate: string;
-	countdownDisplayMode: 'days' | 'hours' | 'minutes';
-	countdownReminderDays: number;
-	countdownLabel: string;
+	/** Multiple countdowns managed in settings; rendered in the sidebar. */
+	countdowns: CountdownConfig[];
 	readingEnabled: boolean;
 	readingSoundEnabled: boolean;
 	taskTemplates: TaskTemplate[];
@@ -45,14 +47,6 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	language: 'en',
 	stylePreset: 'earth',
 	widgetWeatherEnabled: false,
-	widgetHeatmapEnabled: false,
-	widgetTrackerKey: '',
-	widgetTrackerDays: 30,
-	widgetTrackerSummary: 'streak',
-	widgetHeatmapFolder: '',
-	widgetHeatmapTitle: '',
-	widgetHeatmapRangeMode: 'rolling',
-	widgetHeatmapPeriod: 'month',
 	widgetWeatherCity: 'Shanghai',
 	widgetWeatherLat: 31.23,
 	widgetWeatherLon: 121.47,
@@ -64,12 +58,14 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	pomodoroAutoStartBreak: true,
 	pomodoroSoundEnabled: true,
 	widgetLunarEnabled: true,
-	widgetOrder: ['weather', 'lunar', 'heatmap', 'pomodoro', 'reading', 'countdown'],
+	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown'],
+	wereadApiKey: '',
+	wereadImportPath: 'Weread/划线',
+	ticktickRegion: 'dida365',
+	ticktickCookie: '',
+	ticktickCsrf: '',
 	countdownEnabled: false,
-	countdownTargetDate: '',
-	countdownDisplayMode: 'days',
-	countdownReminderDays: 0,
-	countdownLabel: '',
+	countdowns: [] as CountdownConfig[],
 	readingEnabled: false,
 	readingSoundEnabled: true,
 	taskTemplates: [],
@@ -209,6 +205,10 @@ export interface LibraryConfig {
 	sortDesc: boolean;
 	kanbanGroupBy?: string;
 	pageSize?: number;
+	/** Grid card view: show note frontmatter properties as key:value badges. Defaults to true. */
+	showProperties?: boolean;
+	/** Grid card view: max number of property badges per card. Defaults to 6. */
+	propertyLimit?: number;
 	quickDateFilter?: { property: 'created' | 'modified'; start: string; end: string };
 	/** Folder section: scan scope. A file shows if it lives under any of these folders (recursive). Legacy single `folder` is normalized into this array on parse. */
 	folders?: string[];
@@ -220,12 +220,74 @@ export interface LibraryConfig {
 	taskGroupBy?: 'date' | 'priority' | 'none';
 }
 
+/**
+ * Heatmap section config. Renders a GitHub-style year heatmap (week columns,
+ * 7 day rows, month labels on top) over one of two ranges.
+ */
+export interface HeatmapConfig {
+	folder: string;
+	trackerKey: string;
+	title?: string;
+	/** pastYear = last 365/366 days ending today; thisYear = Jan 1→Dec 31. */
+	period: 'pastYear' | 'thisYear';
+}
+
+/** One countdown entry. Multiple countdowns are managed in settings (countdowns[]). */
+export interface CountdownConfig {
+	id: string;
+	label: string;
+	targetDate: string;
+	displayMode: 'days' | 'hours' | 'minutes';
+	reminderDays: number;
+}
+
+/** One widget within a weread section (a section stacks multiple, top-to-bottom). */
+export interface WereadWidget {
+	id: string;
+	view: 'shelf' | 'stats' | 'notes';
+	/** Shelf progress filter (multi-select): 'notStarted' | 'reading' | 'finished'. Empty = all. */
+	progressFilters?: string[];
+	/** Shelf category filter (multi-select, real top-level categories). Empty = all. */
+	categoryFilters?: string[];
+	title?: string;
+}
+
+/** Weread (WeChat Read) section config. The API key is account-wide (wereadApiKey). */
+export interface WereadConfig {
+	/** Ordered widgets rendered top-to-bottom. */
+	widgets: WereadWidget[];
+}
+
+/** One widget within a TickTick section (a section stacks multiple, top-to-bottom). */
+export interface TickTickWidget {
+	id: string;
+	view: 'today' | 'projects' | 'completed' | 'habits';
+	/** projects widget: restrict to one project; undefined = all projects. */
+	projectId?: string;
+	/** completed widget: days to look back (default 1 = today). */
+	days?: number;
+	title?: string;
+}
+
+/** TickTick section config. Credentials are account-wide (DashboardSettings.ticktick*). */
+export interface TickTickConfig {
+	widgets: TickTickWidget[];
+}
+
 export interface DashboardColumn {
 	name: string;
 	color: string;
 	sectionType?: string;
 	cards: DashboardCard[];
 	libraryConfig?: LibraryConfig;
+	/** Heatmap section config (sectionType 'heatmap'). */
+	heatmapConfig?: HeatmapConfig;
+	/** Weread section config (sectionType 'weread'). */
+	wereadConfig?: WereadConfig;
+	/** TickTick section config (sectionType 'ticktick'). */
+	ticktickConfig?: TickTickConfig;
+	/** User-set max height in px (drag-resize, desktop only). */
+	height?: number;
 }
 
 export interface DashboardData {
@@ -248,6 +310,9 @@ export interface RenderCallbacks {
 	onTaskEdit(cardId: string, taskPath: number[], newText: string): void;
 	onCardAdd(columnName: string): void;
 	onColumnAdd(name: string, sectionType?: string): void;
+	onRequestAddSection(): void;
+	onColumnMove(fromIndex: number, toIndex: number): void;
+	onColumnHeightChange(name: string, height: number): void;
 	onBannerEdit(): void;
 	onQuickActionAdd(): void;
 	onQuickActionRemove(index: number): void;
@@ -273,6 +338,7 @@ export interface RenderCallbacks {
 	onColumnDelete(columnName: string): void;
 	onTaskReminderEdit(cardId: string, taskPath: number[], reminder: string | undefined): void;
 	onTaskNest(cardId: string, taskPath: number[]): void;
+	onTaskNestInto(cardId: string, srcPath: number[], destPath: number[]): void;
 	onTaskUnnest(cardId: string, taskPath: number[]): void;
 	onTaskToggleCollapse(cardId: string, taskPath: number[]): void;
 	onAddFromTemplate(columnName: string): void;

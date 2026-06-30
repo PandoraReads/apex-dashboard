@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.4.0 (2026-07-01)
+
+### Added
+- **Weread (微信读书) section** — New section type that connects to the official Weread Agent Skill API (wrk- key). Stack multiple widgets: bookshelf (with cover/progress/author), reading statistics (total time, days, daily average), and notes/highlights. Shelf supports pagination, dynamic progress + category multi-select filters, and one-click import of a book's highlights into Obsidian as a markdown note
+- **TickTick (滴答清单) section** — New section type using the unofficial V2 API (cookie auth). Stack multiple widgets: today's tasks, by-project (card layout), recently completed, and habits. Full interactivity: check/uncheck tasks, inline rename, edit due date/priority via modal, and drag-to-reorder — all synced back to TickTick in real time. Desktop popup login auto-captures the session token + CSRF; manual paste fallback for mobile
+- **Heatmap section** — The former sidebar heatmap is now a standalone, multi-instance section type. Renders a GitHub-style year matrix (week columns, 7 day rows, month labels on top) that fills the section width. Two ranges: past year (365/366 days) or this year (Jan 1 → Dec 31). Each heatmap independently configured (folder, tracker key). Cell accent color follows the Obsidian theme
+- **Section reordering** — Drag the grip handle on any section's header to reorder sections vertically (desktop only)
+- **Section height resize** — Drag the bottom edge of any section to set a custom max-height (desktop only, persists per section)
+- **Card view shows all properties** — Database and folder section grid cards now display all frontmatter properties as key:value badges (configurable: toggle on/off, cap the count). Reuses the existing badge CSS
+- **Folder section kanban group-by** — The folder config modal now includes a "Group by" dropdown for the kanban view
+- **Countdown multi-instance** — The sidebar countdown is no longer a single instance; manage multiple countdowns from settings (add / edit / remove). Each renders independently in the sidebar
+- **Add-section modal** — The inline add-section row is replaced by a modal with an icon+label type grid (mobile-friendly) and a named input. The type picker now includes heatmap and weread
+- **Popup login for TickTick** — Desktop users can log in to TickTick in an embedded Electron window; the plugin auto-captures both the `t` cookie and `_csrf_token` — no DevTools needed
+
+### Fixed
+- **Todo subtask nesting** — Dragging a task onto another to make it a subtask now correctly targets the specific task (previously always nested into the first task). Added `nestIntoTarget` with descendant-guard and path adjustment after removal
+- **Section overlap on resize** — Growing one section's height no longer squishes adjacent sections (added `flex-shrink: 0` to section rows)
+- **Library/folder/calendar lose drag-after-refresh** — Scanning sections that get re-rendered on vault changes now re-wire their DnD handlers (dedicated `dndCleanupFns`)
+- **Heatmap layout** — Fixed from a single-column strip to a proper GitHub-style matrix by moving the grid layout to a CSS class with `grid-auto-flow: column`
+
+### Changed
+- **New section creation** — Replaced the cramped inline name+type row with a modal (better mobile UX)
+- **Sidebar heatmap removed** — Promoted to a section type; the sidebar slot and its settings are deleted
+- **Collapse toggle position** — Moved from before the title to right of the title (inside the title group), keeping it out of the header actions
+- **Heatmap config simplified** — Removed rangeMode/days; period is now a simple pastYear/thisYear toggle. Removed the title field (section title suffices)
+
+### Removed
+- **Sidebar heatmap widget** — Replaced by the heatmap section type
+- **Email/password TickTick login** — Removed in favor of popup login (auto-captures cookie+CSRF) and manual paste
+
 ## 1.2.9 (2026-06-27)
 
 ### Added

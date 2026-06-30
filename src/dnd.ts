@@ -5,6 +5,8 @@ interface DnDState {
 	draggingElement: HTMLElement | null;
 	sourceColumn: string | null;
 	dropIndicator: HTMLElement | null;
+	/** Section-reorder drag (from the grip handle); mutually exclusive with card drag. */
+	sectionDragSource: { index: number; row: HTMLElement } | null;
 }
 
 export function setupDragAndDrop(
@@ -17,13 +19,40 @@ export function setupDragAndDrop(
 		draggingElement: null,
 		sourceColumn: null,
 		dropIndicator: null,
+		sectionDragSource: null,
 	};
 
-	const columns = container.querySelectorAll('.dashboard-section-row');
+	const rows = Array.from(container.querySelectorAll<HTMLElement>('.dashboard-section-row'));
 
-	columns.forEach((col) => {
-		const colEl = col as HTMLElement;
+	rows.forEach((colEl, index) => {
 		const columnName = colEl.dataset.column ?? '';
+
+		// Section reorder grip handle (desktop). Sets sectionDragSource so the row's
+		// dragover/drop handlers branch into section-reorder logic instead of card moves.
+		const grip = colEl.querySelector<HTMLElement>('.dashboard-section-grip');
+		if (grip) {
+			const onGripDragStart = (e: DragEvent) => {
+				e.stopPropagation();
+				state.sectionDragSource = { index, row: colEl };
+				colEl.addClass('dashboard-section-row--dragging');
+				if (e.dataTransfer) {
+					e.dataTransfer.effectAllowed = 'move';
+					e.dataTransfer.setData('text/plain', `section:${columnName}`);
+				}
+			};
+			const onGripDragEnd = () => {
+				colEl.removeClass('dashboard-section-row--dragging');
+				clearAllSectionDragOver();
+				removeSectionDropIndicator(state);
+				state.sectionDragSource = null;
+			};
+			grip.addEventListener('dragstart', onGripDragStart);
+			grip.addEventListener('dragend', onGripDragEnd);
+			cleanupFns.push(() => {
+				grip.removeEventListener('dragstart', onGripDragStart);
+				grip.removeEventListener('dragend', onGripDragEnd);
+			});
+		}
 
 		const cards = colEl.querySelectorAll('.dashboard-card');
 		cards.forEach((card) => {
@@ -64,6 +93,13 @@ export function setupDragAndDrop(
 		});
 
 		const onDragOver = (e: DragEvent) => {
+			if (state.sectionDragSource) {
+				e.preventDefault();
+				e.stopPropagation();
+				if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+				updateSectionDropIndicator(state, container, colEl, e.clientY);
+				return;
+			}
 			e.preventDefault();
 			if (e.dataTransfer) {
 				e.dataTransfer.dropEffect = 'move';
@@ -73,7 +109,8 @@ export function setupDragAndDrop(
 		};
 
 		const onDragLeave = (e: DragEvent) => {
-			const rect = col.getBoundingClientRect();
+			if (state.sectionDragSource) return;
+			const rect = colEl.getBoundingClientRect();
 			if (
 				e.clientX < rect.left || e.clientX > rect.right ||
 				e.clientY < rect.top || e.clientY > rect.bottom
@@ -84,6 +121,28 @@ export function setupDragAndDrop(
 		};
 
 		const onDrop = (e: DragEvent) => {
+			if (state.sectionDragSource) {
+				e.preventDefault();
+				e.stopPropagation();
+				const src = state.sectionDragSource;
+				const placeBefore = isPointInTopHalf(colEl, e.clientY);
+				if (src.index === index) {
+					removeSectionDropIndicator(state);
+					return;
+				}
+				// Compute target index in the array AFTER the source is removed.
+				let target: number;
+				if (placeBefore) {
+					target = src.index < index ? index - 1 : index;
+				} else {
+					target = src.index < index ? index : index + 1;
+				}
+				if (target !== src.index) {
+					callbacks.onColumnMove(src.index, target);
+				}
+				removeSectionDropIndicator(state);
+				return;
+			}
 			e.preventDefault();
 			colEl.removeClass('dashboard-section-row--drag-over');
 
@@ -105,13 +164,13 @@ export function setupDragAndDrop(
 			removeDropIndicator(state);
 		};
 
-		col.addEventListener('dragover', onDragOver);
-		col.addEventListener('dragleave', onDragLeave);
-		col.addEventListener('drop', onDrop);
+		colEl.addEventListener('dragover', onDragOver);
+		colEl.addEventListener('dragleave', onDragLeave);
+		colEl.addEventListener('drop', onDrop);
 		cleanupFns.push(() => {
-			col.removeEventListener('dragover', onDragOver);
-			col.removeEventListener('dragleave', onDragLeave);
-			col.removeEventListener('drop', onDrop);
+			colEl.removeEventListener('dragover', onDragOver);
+			colEl.removeEventListener('dragleave', onDragLeave);
+			colEl.removeEventListener('drop', onDrop);
 		});
 	});
 }
@@ -164,6 +223,31 @@ function removeDropIndicator(state: DnDState): void {
 function clearAllDragOver(): void {
 	activeDocument.querySelectorAll('.dashboard-section-row--drag-over').forEach((el) => {
 		(el as HTMLElement).removeClass('dashboard-section-row--drag-over');
+	});
+}
+
+function clearAllSectionDragOver(): void {
+	activeDocument.querySelectorAll('.dashboard-section-row--section-drag-over').forEach((el) => {
+		(el as HTMLElement).removeClass('dashboard-section-row--section-drag-over');
+	});
+}
+
+function isPointInTopHalf(row: HTMLElement, clientY: number): boolean {
+	const rect = row.getBoundingClientRect();
+	return clientY < rect.top + rect.height / 2;
+}
+
+/** Highlight the hovered section row edge (top/bottom) where the drag will land. */
+function updateSectionDropIndicator(state: DnDState, _container: HTMLElement, row: HTMLElement, clientY: number): void {
+	clearAllSectionDragOver();
+	if (state.sectionDragSource?.row === row) return;
+	row.addClass('dashboard-section-row--section-drag-over');
+	row.dataset.sectionDropPos = isPointInTopHalf(row, clientY) ? 'before' : 'after';
+}
+
+function removeSectionDropIndicator(_state: DnDState): void {
+	activeDocument.querySelectorAll('.dashboard-section-row--section-drag-over').forEach((el) => {
+		(el as HTMLElement).removeClass('dashboard-section-row--section-drag-over');
 	});
 }
 

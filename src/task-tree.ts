@@ -106,6 +106,58 @@ export function demoteToChild(tasks: TaskItem[], path: TaskPath): TaskItem[] {
 	return appendChild(t1, prevSiblingPath, removed);
 }
 
+/**
+ * Nest the task at `srcPath` as the last child of the task at `destPath`.
+ *
+ * Unlike {@link demoteToChild} (which always reparents to the source's previous
+ * sibling), this targets the specific task the user dropped onto. Used by the
+ * drag-and-drop "nest" zone; the mobile swipe gesture keeps using demoteToChild.
+ *
+ * Guards against dropping a task onto itself or one of its own descendants
+ * (which would create a cycle), and re-locates the destination after the source
+ * is removed, since removal can shift sibling indices.
+ */
+export function nestIntoTarget(tasks: TaskItem[], srcPath: TaskPath, destPath: TaskPath): TaskItem[] {
+	if (srcPath.length === 0 || destPath.length === 0) return tasks;
+	if (isSelfOrDescendant(srcPath, destPath)) return tasks;
+
+	const { removed, tasks: t1 } = removeTaskAt(tasks, srcPath);
+	if (!removed) return tasks;
+
+	const adjustedDest = adjustPathAfterRemoval(destPath, srcPath);
+	// Expand the destination if collapsed so the newly nested child is visible.
+	const expanded = updateTaskAt(t1, adjustedDest, (p) => (p.collapsed ? { ...p, collapsed: false } : p));
+	return appendChild(expanded, adjustedDest, removed);
+}
+
+/** True if `destPath` equals `srcPath` or lies within the subtree rooted at it. */
+function isSelfOrDescendant(srcPath: TaskPath, destPath: TaskPath): boolean {
+	if (destPath.length < srcPath.length) return false;
+	for (let i = 0; i < srcPath.length; i++) {
+		if (destPath[i] !== srcPath[i]) return false;
+	}
+	return true;
+}
+
+/**
+ * Recompute the destination path after the source was removed.
+ * `removeTaskAt` only mutates the source's immediate parent's sibling list, so
+ * the destination shifts iff it shares that parent and sat after the source.
+ */
+function adjustPathAfterRemoval(destPath: TaskPath, srcPath: TaskPath): TaskPath {
+	const parentLen = srcPath.length - 1;
+	if (destPath.length < srcPath.length) return destPath;
+	for (let i = 0; i < parentLen; i++) {
+		if (destPath[i] !== srcPath[i]) return destPath;
+	}
+	if (destPath[parentLen]! > srcPath[parentLen]!) {
+		const next = [...destPath];
+		next[parentLen] = next[parentLen]! - 1;
+		return next;
+	}
+	return destPath;
+}
+
 export function promoteToTopLevel(tasks: TaskItem[], path: TaskPath): TaskItem[] {
 	if (path.length < 2) return tasks;
 	const parentIdx = path[0]!;

@@ -9,6 +9,7 @@ import {
 	insertSibling,
 	appendChild,
 	demoteToChild,
+	nestIntoTarget,
 	promoteToTopLevel,
 	recalcChecked,
 	archiveCompleted,
@@ -256,6 +257,14 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async nestTaskInto(cardId: string, srcPath: TaskPath, destPath: TaskPath): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			nestIntoTarget(tasks, srcPath, destPath));
+		await this.writeToDisk();
+	}
+
 	async unnestTask(cardId: string, taskPath: TaskPath): Promise<void> {
 		if (!this.data) return;
 
@@ -368,6 +377,67 @@ export class SyncEngine {
 			...this.data,
 			columns: this.data.columns.map(col =>
 				col.name === columnName ? { ...col, libraryConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
+	async updateHeatmapConfig(columnName: string, config: import('./types').HeatmapConfig): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, heatmapConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
+	async updateWereadConfig(columnName: string, config: import('./types').WereadConfig): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, wereadConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
+	async updateTickTickConfig(columnName: string, config: import('./types').TickTickConfig): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, ticktickConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
+	/** Reorder sections by array index (index-based to avoid name collisions). */
+	async moveColumn(fromIndex: number, toIndex: number): Promise<void> {
+		if (!this.data) return;
+		const cols = [...this.data.columns];
+		if (fromIndex < 0 || fromIndex >= cols.length || toIndex < 0 || toIndex >= cols.length) return;
+		if (fromIndex === toIndex) return;
+		const [moved] = cols.splice(fromIndex, 1);
+		if (!moved) return;
+		cols.splice(toIndex, 0, moved);
+		this.data = { ...this.data, columns: cols };
+		await this.writeToDisk();
+	}
+
+	/** Persist a user-dragged section height (px), desktop only. */
+	async updateColumnHeight(columnName: string, height: number): Promise<void> {
+		if (!this.data) return;
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, height } : col
 			),
 		};
 		await this.writeToDisk();

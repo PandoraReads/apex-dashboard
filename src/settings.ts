@@ -1,9 +1,10 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type DashboardPlugin from './main';
-import { DEFAULT_SETTINGS, type DashboardSettings } from './types';
+import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
 import { t, setLanguage, type Language } from './i18n';
-import { suggestTrackerKeys } from './tracker-service';
 import { geocodeCity } from './weather-service';
+import { CountdownSettingsModal } from './countdown-modal';
+import { TickTickLoginModal } from './ticktick-login-modal';
 
 export type { DashboardSettings };
 
@@ -172,158 +173,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 				});
 		}
 
-		// --- Heatmap card ---
-		const heatmapCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
-		new Setting(heatmapCard)
-			.setName(t('settings.widgetHeatmapEnabled'))
-			.setDesc(t('settings.widgetHeatmapEnabledDesc'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.widgetHeatmapEnabled)
-				.onChange(async (value) => {
-					this.plugin.settings = {
-						...this.plugin.settings,
-						widgetHeatmapEnabled: value,
-					};
-					await this.plugin.saveSettings();
-					this.plugin.refreshAllDashboards();
-					this.display();
-				}));
-
-		if (this.plugin.settings.widgetHeatmapEnabled) {
-			new Setting(heatmapCard)
-				.setName(t('settings.widgetHeatmapFolder'))
-				.setDesc(t('settings.widgetHeatmapFolderPlaceholder'))
-				.addText(text => text
-					.setPlaceholder(t('settings.widgetHeatmapFolderPlaceholder'))
-					.setValue(this.plugin.settings.widgetHeatmapFolder)
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetHeatmapFolder: value.trim().replace(/^\/+|\/+$/g, ''),
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-					}));
-
-			new Setting(heatmapCard)
-				.setName(t('settings.widgetHeatmapTitle'))
-				.setDesc(t('settings.widgetHeatmapTitlePlaceholder'))
-				.addText(text => text
-					.setPlaceholder(t('settings.widgetHeatmapTitlePlaceholder'))
-					.setValue(this.plugin.settings.widgetHeatmapTitle)
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetHeatmapTitle: value,
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-					}));
-
-			new Setting(heatmapCard)
-				.setName(t('settings.widgetHeatmapRangeMode'))
-				.addDropdown(dropdown => dropdown
-					.addOptions({
-						'rolling': t('rangeMode.rolling'),
-						'period': t('rangeMode.period'),
-					})
-					.setValue(this.plugin.settings.widgetHeatmapRangeMode ?? 'rolling')
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetHeatmapRangeMode: value as 'rolling' | 'period',
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-						this.display();
-					}));
-
-			if ((this.plugin.settings.widgetHeatmapRangeMode ?? 'rolling') === 'rolling') {
-				new Setting(heatmapCard)
-					.setName(t('settings.widgetTrackerDays'))
-					.addDropdown(dropdown => dropdown
-						.addOptions({
-							'30': t('settings.days30'),
-							'90': t('settings.days90'),
-							'180': t('settings.days180'),
-							'365': t('settings.days365'),
-						})
-						.setValue(String(this.plugin.settings.widgetTrackerDays))
-						.onChange(async (value) => {
-							this.plugin.settings = {
-								...this.plugin.settings,
-								widgetTrackerDays: parseInt(value, 10),
-							};
-							await this.plugin.saveSettings();
-							this.plugin.refreshAllDashboards();
-						}));
-			} else {
-				new Setting(heatmapCard)
-					.setName(t('settings.widgetHeatmapPeriod'))
-					.addDropdown(dropdown => dropdown
-						.addOptions({
-							'month': t('period.month'),
-							'quarter': t('period.quarter'),
-							'year': t('period.year'),
-						})
-						.setValue(this.plugin.settings.widgetHeatmapPeriod ?? 'month')
-						.onChange(async (value) => {
-							this.plugin.settings = {
-								...this.plugin.settings,
-								widgetHeatmapPeriod: value as 'month' | 'quarter' | 'year',
-							};
-							await this.plugin.saveSettings();
-							this.plugin.refreshAllDashboards();
-						}));
-			}
-
-			const trackerKeySetting = new Setting(heatmapCard)
-				.setName(t('settings.widgetTrackerKey'))
-				.addText(text => text
-					.setPlaceholder(t('settings.widgetTrackerKeyPlaceholder'))
-					.setValue(this.plugin.settings.widgetTrackerKey)
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetTrackerKey: value.trim(),
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-					}));
-
-			const suggestions = suggestTrackerKeys(this.app, this.plugin.settings.widgetHeatmapFolder || undefined);
-			if (suggestions.length > 0) {
-				trackerKeySetting.descEl.empty();
-				const hintLine = trackerKeySetting.descEl.createDiv({ cls: 'tracker-key-hint' });
-				hintLine.createSpan({ text: t('settings.widgetTrackerSuggested') + ' ' });
-				for (const k of suggestions.slice(0, 6)) {
-					const tag = hintLine.createEl('button', { cls: 'tracker-key-tag', text: k });
-					tag.addEventListener('click', () => {
-						void this.applyTrackerKey(k);
-					});
-				}
-			}
-
-			new Setting(heatmapCard)
-				.setName(t('settings.widgetTrackerSummary'))
-				.addDropdown(dropdown => dropdown
-					.addOptions({
-						'streak': t('settings.summaryStreak'),
-						'rate': t('settings.summaryRate'),
-						'both': t('settings.summaryBoth'),
-						'off': t('settings.summaryOff'),
-					})
-					.setValue(this.plugin.settings.widgetTrackerSummary ?? 'streak')
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetTrackerSummary: value as 'streak' | 'rate' | 'both' | 'off',
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-					}));
-		}
-
 		// --- Pomodoro card ---
 		const pomodoroCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(pomodoroCard)
@@ -442,7 +291,12 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
+					this.display();
 				}));
+
+		if (this.plugin.settings.countdownEnabled) {
+			this.renderCountdownList(countdownCard);
+		}
 
 		// --- Reading card ---
 		const readingCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
@@ -473,12 +327,151 @@ export class DashboardSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}));
 		}
+
+		// --- Weread (WeChat Read) card ---
+		const wereadCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(wereadCard)
+			.setName(t('settings.wereadApiKey'))
+			.setDesc(t('settings.wereadApiKeyDesc'))
+			.addText(text => text
+				.setValue(this.plugin.settings.wereadApiKey)
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, wereadApiKey: value.trim() };
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}));
+		new Setting(wereadCard)
+			.setName(t('settings.wereadGetKey'))
+			.setDesc(t('settings.wereadGetKeyDesc'))
+			.addButton(btn => btn
+				.setButtonText(t('settings.wereadGetKey'))
+				.onClick(() => window.open('https://weread.qq.com/r/weread-skills', '_blank')));
+		new Setting(wereadCard)
+			.setName(t('settings.wereadImportPath'))
+			.setDesc(t('settings.wereadImportPathDesc'))
+			.addText(text => text
+				.setPlaceholder('Weread/划线')
+				.setValue(this.plugin.settings.wereadImportPath)
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, wereadImportPath: value.trim().replace(/^\/+|\/+$/g, '') };
+					await this.plugin.saveSettings();
+				}));
+
+		// --- TickTick card ---
+		const ticktickCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(ticktickCard)
+			.setName(t('settings.ticktickRegion'))
+			.setDesc(t('settings.ticktickRegionDesc'))
+			.addDropdown(d => d
+				.addOption('dida365', t('settings.ticktickRegionDida'))
+				.addOption('ticktick', t('settings.ticktickRegionTick'))
+				.setValue(this.plugin.settings.ticktickRegion)
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, ticktickRegion: value as 'dida365' | 'ticktick' };
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}));
+		new Setting(ticktickCard)
+			.setName(t('settings.ticktickCookie'))
+			.setDesc(t('settings.ticktickCookieDesc'))
+			.addButton(btn => btn
+				.setButtonText(t('settings.ticktickGetCookie'))
+				.setCta()
+				.onClick(() => {
+					new TickTickLoginModal(
+						this.app,
+						this.plugin.settings.ticktickRegion,
+						this.plugin.settings.ticktickDeviceVersion,
+						async (token, csrf) => {
+							this.plugin.settings = { ...this.plugin.settings, ticktickCookie: token, ticktickCsrf: csrf };
+							await this.plugin.saveSettings();
+							this.plugin.refreshAllDashboards();
+							this.display();
+						},
+					).open();
+				}))
+			.addButton(btn => btn
+				.setButtonText(t('settings.ticktickClearCookie'))
+				.setDisabled(!this.plugin.settings.ticktickCookie)
+				.onClick(() => {
+					void (async () => {
+						this.plugin.settings = { ...this.plugin.settings, ticktickCookie: '', ticktickCsrf: '' };
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+						this.display();
+					})();
+				}));
+		new Setting(ticktickCard)
+			.setName(t('settings.ticktickCookieStatus'))
+			.setDesc(this.plugin.settings.ticktickCookie ? t('settings.ticktickCookieSet') : t('settings.ticktickCookieEmpty'));
+		new Setting(ticktickCard)
+			.setName(t('settings.ticktickDeviceVersion'))
+			.setDesc(t('settings.ticktickDeviceVersionDesc'))
+			.addText(text => text
+				.setValue(this.plugin.settings.ticktickDeviceVersion ?? '')
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, ticktickDeviceVersion: value.trim() || undefined };
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}));
 	}
 
-	private async applyTrackerKey(key: string): Promise<void> {
+
+	private renderCountdownList(containerEl: HTMLElement): void {
+		const list = this.plugin.settings.countdowns ?? [];
+
+		for (const cd of list) {
+			const summary = cd.label || cd.targetDate || t('countdown.untitled');
+			new Setting(containerEl)
+				.setName(summary)
+				.setDesc(cd.targetDate ? `${cd.targetDate} · ${t(`countdown.${cd.displayMode}`)}` : t('countdown.setTarget'))
+				.addExtraButton(btn => btn
+					.setIcon('pencil')
+					.setTooltip(t('common.edit'))
+					.onClick(() => this.editCountdown(cd)))
+				.addExtraButton(btn => btn
+					.setIcon('trash-2')
+					.setTooltip(t('common.delete'))
+					.onClick(async () => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							countdowns: list.filter(c => c.id !== cd.id),
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+						this.display();
+					}));
+		}
+
+		new Setting(containerEl)
+			.addButton(btn => btn
+				.setButtonText(t('countdown.add'))
+				.setIcon('plus')
+				.onClick(() => this.editCountdown(null)));
+	}
+
+	private editCountdown(existing: CountdownConfig | null): void {
+		const baseline: CountdownConfig = existing ?? {
+			id: `cd-${Date.now()}`,
+			label: '',
+			targetDate: '',
+			displayMode: 'days',
+			reminderDays: 0,
+		};
+		const modal = new CountdownSettingsModal(this.app, baseline, (updated) => {
+			void this.applyCountdownUpdate(updated);
+		});
+		modal.open();
+	}
+
+	private async applyCountdownUpdate(updated: CountdownConfig): Promise<void> {
+		const current = this.plugin.settings.countdowns ?? [];
+		const exists = current.some(c => c.id === updated.id);
 		this.plugin.settings = {
 			...this.plugin.settings,
-			widgetTrackerKey: key,
+			countdowns: exists
+				? current.map(c => c.id === updated.id ? updated : c)
+				: [...current, updated],
 		};
 		await this.plugin.saveSettings();
 		this.plugin.refreshAllDashboards();

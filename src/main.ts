@@ -1,5 +1,5 @@
 import { Notice, Plugin } from 'obsidian';
-import { DEFAULT_SETTINGS, type DashboardSettings } from './types';
+import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { setLanguage, t } from './i18n';
@@ -25,6 +25,25 @@ function migrateStylePreset(preset: string): string {
 		return preset;
 	}
 	return DEPRECATED_STYLE_PRESETS[preset] ?? DEFAULT_SETTINGS.stylePreset;
+}
+
+/**
+ * Migrate the legacy single-countdown fields (countdownTargetDate etc.) into
+ * the new countdowns[] list. Existing list entries are preserved as-is.
+ */
+function migrateCountdowns(raw: Record<string, unknown>): CountdownConfig[] {
+	if (Array.isArray(raw.countdowns)) {
+		return (raw.countdowns as CountdownConfig[]).filter(c => c && typeof c.id === 'string');
+	}
+	const targetDate = typeof raw.countdownTargetDate === 'string' ? raw.countdownTargetDate : '';
+	if (!targetDate) return [];
+	return [{
+		id: 'migrated',
+		label: typeof raw.countdownLabel === 'string' ? raw.countdownLabel : '',
+		targetDate,
+		displayMode: raw.countdownDisplayMode === 'hours' || raw.countdownDisplayMode === 'minutes' ? raw.countdownDisplayMode : 'days',
+		reminderDays: typeof raw.countdownReminderDays === 'number' ? raw.countdownReminderDays : 0,
+	}];
 }
 
 export default class DashboardPlugin extends Plugin {
@@ -95,16 +114,18 @@ export default class DashboardPlugin extends Plugin {
 		if ('widgetTheme' in raw && typeof raw.widgetTheme === 'string') {
 			const theme = raw.widgetTheme;
 			raw.widgetWeatherEnabled = theme !== 'off';
-			raw.widgetHeatmapEnabled = theme === 'weather-heatmap';
 			delete raw.widgetTheme;
 		}
 		// Migrate removed/renamed style presets so saved settings stay valid
 		if (typeof raw.stylePreset === 'string') {
 			raw.stylePreset = migrateStylePreset(raw.stylePreset);
 		}
+		// Migrate single-countdown flat fields to the countdowns[] list
+		const countdowns = migrateCountdowns(raw);
 		this.settings = {
 			...DEFAULT_SETTINGS,
 			...raw,
+			countdowns,
 		};
 		setLanguage(this.settings.language);
 	}
