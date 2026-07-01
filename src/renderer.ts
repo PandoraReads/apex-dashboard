@@ -26,6 +26,7 @@ import { Chart, LineController, LineElement, PointElement, BarController, BarEle
 Chart.register(LineController, LineElement, PointElement, BarController, BarElement, LinearScale, CategoryScale, Filler, Tooltip);
 
 const chartInstances = new Map<string, Chart>();
+const countdownTimers = new Set<number>();
 
 function destroyChart(cardId: string): void {
 	const chart = chartInstances.get(cardId);
@@ -40,6 +41,10 @@ export function destroyAllCharts(): void {
 		chart.destroy();
 	}
 	chartInstances.clear();
+	for (const t of countdownTimers) {
+		window.clearInterval(t);
+	}
+	countdownTimers.clear();
 }
 
 function getCSSVar(name: string): string {
@@ -659,9 +664,15 @@ export function renderSidebarCountdown(
 	// Auto-refresh with flip animation
 	let prevVal = currentVal;
 	const timer = window.setInterval(() => {
+		if (!content.isConnected) {
+			window.clearInterval(timer);
+			countdownTimers.delete(timer);
+			return;
+		}
 		const now2 = new Date();
 		if (now2 >= target) {
 			window.clearInterval(timer);
+			countdownTimers.delete(timer);
 			content.empty();
 			content.createDiv({ cls: 'dashboard-sidebar-countdown-expired', text: t('countdown.expired') });
 			return;
@@ -675,6 +686,7 @@ export function renderSidebarCountdown(
 			window.setTimeout(() => valueEl.removeClass('dashboard-sidebar-countdown-value--flip'), 400);
 		}
 	}, 60000);
+	countdownTimers.add(timer);
 }
 
 function showPomodoroStats(doc: Document, service: PomodoroService): void {
@@ -1694,7 +1706,7 @@ function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, cal
 	});
 }
 
-function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
+export function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
 	const el = activeDocument.createElement('div');
 	el.addClass('dashboard-section-row');
 	el.dataset.column = column.name;
@@ -1900,6 +1912,40 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 			el.dispatchEvent(event);
 		});
 
+		// Stats button — click shows a floating popup with streak/total/rate.
+		let statsGetter: (() => { streak: number; total: number; rate: number }) | null = null;
+		const statsBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('heatmap.stats') },
+		});
+		setIcon(statsBtn, 'bar-chart-2');
+		let statsPopup: HTMLElement | null = null;
+		statsBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			if (statsPopup) { statsPopup.remove(); statsPopup = null; return; }
+			if (!statsGetter) return;
+			const s = statsGetter();
+			statsPopup = activeDocument.body.createDiv({ cls: 'dashboard-heatmap-stats-popup' });
+			const rect = statsBtn.getBoundingClientRect();
+			statsPopup.setCssProps({ position: 'fixed', top: `${rect.bottom + 6}px`, left: `${Math.max(8, rect.right - 160)}px`, zIndex: '9999' });
+			const mkRow = (icon: string, text: string): void => {
+				const row = statsPopup!.createDiv({ cls: 'dashboard-heatmap-stats-popup-row' });
+				const ic = row.createSpan({ cls: 'dashboard-heatmap-stats-popup-icon' });
+				setIcon(ic, icon);
+				row.createSpan({ text });
+			};
+			mkRow('flame', t('heatmap.streak', { count: s.streak }));
+			mkRow('bar-chart-2', t('heatmap.total', { count: s.total }));
+			mkRow('circle-check', t('heatmap.rate', { rate: s.rate }));
+			const close = (ev: MouseEvent): void => {
+				if (statsPopup && !statsPopup.contains(ev.target as Node) && ev.target !== statsBtn) {
+					statsPopup.remove(); statsPopup = null;
+					activeDocument.removeEventListener('mousedown', close);
+				}
+			};
+			window.setTimeout(() => activeDocument.addEventListener('mousedown', close), 0);
+		});
+
 		const deleteSectionBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
 			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
@@ -1910,7 +1956,7 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 			callbacks.onColumnDelete(column.name);
 		});
 
-		renderHeatmapSection(el, column, app);
+		renderHeatmapSection(el, column, app, (getter) => { statsGetter = getter; });
 		return el;
 	}
 
@@ -1954,15 +2000,39 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 
 	// TickTick section: tasks/habits from the unofficial V2 API (cookie auth).
 	if (sectionType === 'ticktick') {
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('ticktick.configure') },
+		const ttView = column.ticktickConfig?.view === 'lists' ? 'lists' : 'today';
+
+		// View toggle: Today
+		const todayBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn' + (ttView === 'today' ? ' active' : ''),
+			attr: { 'aria-label': t('ticktick.viewToday') },
 		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
+		setIcon(todayBtn, 'calendar-check');
+		todayBtn.addEventListener('click', () => {
+			el.dispatchEvent(new CustomEvent('dashboard-ticktick-view', { detail: { columnName: column.name, view: 'today' }, bubbles: true }));
 		});
+
+		// View toggle: Lists
+		const listsBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn' + (ttView === 'lists' ? ' active' : ''),
+			attr: { 'aria-label': t('ticktick.viewLists') },
+		});
+		setIcon(listsBtn, 'list');
+		listsBtn.addEventListener('click', () => {
+			el.dispatchEvent(new CustomEvent('dashboard-ticktick-view', { detail: { columnName: column.name, view: 'lists' }, bubbles: true }));
+		});
+
+		// Project filter (only in lists view)
+		if (ttView === 'lists') {
+			const filterBtn = headerActions.createEl('button', {
+				cls: 'dashboard-section-add-btn',
+				attr: { 'aria-label': t('ticktick.filterProjects') },
+			});
+			setIcon(filterBtn, 'filter');
+			filterBtn.addEventListener('click', () => {
+				el.dispatchEvent(new CustomEvent('dashboard-ticktick-filter', { detail: { columnName: column.name }, bubbles: true }));
+			});
+		}
 
 		const refreshBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
@@ -1986,7 +2056,14 @@ function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app:
 		const cookie = (settings?.ticktickCookie ?? '').trim();
 		const csrf = (settings?.ticktickCsrf ?? '').trim();
 		const deviceVersion = settings?.ticktickDeviceVersion;
-		renderTickTickSection(el, column, app, region, cookie, csrf, deviceVersion, (fn) => { reload = fn; });
+		renderTickTickSection(el, column, app, region, cookie, csrf, deviceVersion, (fn) => { reload = fn; },
+			(projectId, width) => {
+				const cfg = column.ticktickConfig;
+				if (cfg) {
+					const newWidths = { ...(cfg.projectWidths ?? {}), [projectId]: width };
+					el.dispatchEvent(new CustomEvent('dashboard-ticktick-resize', { detail: { columnName: column.name, projectWidths: newWidths }, bubbles: true }));
+				}
+			});
 		return el;
 	}
 

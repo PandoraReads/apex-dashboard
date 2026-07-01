@@ -1,11 +1,10 @@
-import { App, Notice, setIcon } from 'obsidian';
-import type { DashboardColumn, TickTickConfig, TickTickWidget } from './types';
+import { App, Notice, Platform, setIcon } from 'obsidian';
+import type { DashboardColumn } from './types';
 import { t } from './i18n';
 import { TickTickClient, parseTickDate } from './ticktick-service';
 import type { TickTickHabit, TickTickProject, TickTickTask } from './ticktick-service';
 import { TickTickTaskEditModal } from './ticktick-task-edit-modal';
 
-/** Actions a task row can trigger; each optimistically updates the caches. */
 interface TaskActions {
 	canWrite: boolean;
 	toggleComplete(task: TickTickTask): Promise<void>;
@@ -18,9 +17,10 @@ interface Snapshot { projects: TickTickProject[]; tasks: TickTickTask[]; inboxId
 interface HabitsCache { habits: TickTickHabit[]; doneToday: Set<string> }
 
 /**
- * TickTick section renderer. Stacks widgets (today / by-project / completed /
- * habits) and supports interaction: complete, inline rename, edit date/priority,
- * drag-to-reorder. Writes go through {@link TickTickClient} (needs CSRF).
+ * TickTick section renderer. Two views toggled from the header:
+ * - 'today': three cards (today's tasks, recently completed, habits) side by side.
+ * - 'lists': one card per project (with drag-to-reorder, project filter).
+ * Writes go through {@link TickTickClient} (needs CSRF).
  */
 export function renderTickTickSection(
 	el: HTMLElement,
@@ -31,22 +31,18 @@ export function renderTickTickSection(
 	csrf: string,
 	deviceVersion: string | undefined,
 	onReloadReady?: (reload: () => void) => void,
+	onResize?: (projectId: string, width: number) => void,
 ): void {
-	const widgets = normalizedWidgets(column.ticktickConfig);
-	// eslint-disable-next-line no-console
-	console.log('[ticktick] section widgets:', widgets.map(w => `${w.id}:${w.view}`));
+	const cfg = column.ticktickConfig ?? { view: 'today' as const };
+	const view: 'today' | 'lists' = cfg.view === 'lists' ? 'lists' : 'today';
+	const hiddenProjects = new Set(cfg.hiddenProjects ?? []);
+	const projectWidths = cfg.projectWidths ?? {};
 	const client = new TickTickClient(region, cookie, deviceVersion, csrf);
 	const host = el.createDiv({ cls: 'dashboard-ticktick-widgets' });
 
 	let snapshot: Snapshot | null = null;
 	let completedCache: TickTickTask[] | null = null;
 	let habitsCache: HabitsCache | null = null;
-	const getSnapshot = async (): Promise<Snapshot> => {
-		if (!snapshot) snapshot = await client.fetchSnapshot();
-		return snapshot;
-	};
-
-	const rerender = (): void => { renderWidgets(); };
 
 	const actions: TaskActions = {
 		canWrite: client.canWrite(),
@@ -65,20 +61,16 @@ export function renderTickTickSection(
 					task.completedTime = undefined;
 					if (completedCache) completedCache = completedCache.filter(t => t.id !== task.id);
 				}
-				rerender();
-			} catch (err) {
-				new Notice(messageForError(err));
-			}
+				renderView();
+			} catch (err) { new Notice(messageForError(err)); }
 		},
 		async rename(task, title) {
 			if (!client.canWrite() || !title) return;
 			try {
 				await client.updateTask(task.projectId ?? '', task.id, { title });
 				task.title = title;
-				rerender();
-			} catch (err) {
-				new Notice(messageForError(err));
-			}
+				renderView();
+			} catch (err) { new Notice(messageForError(err)); }
 		},
 		async editFields(task, fields) {
 			if (!client.canWrite()) { new Notice(t('ticktick.cannotWrite')); return; }
@@ -87,10 +79,8 @@ export function renderTickTickSection(
 				if (fields.title !== undefined) task.title = fields.title;
 				if (fields.priority !== undefined) task.priority = fields.priority;
 				if (fields.dueDate !== undefined) task.dueDate = fields.dueDate || undefined;
-				rerender();
-			} catch (err) {
-				new Notice(messageForError(err));
-			}
+				renderView();
+			} catch (err) { new Notice(messageForError(err)); }
 		},
 		async reorder(projectId, movedId, beforeId, siblings) {
 			if (!client.canWrite()) return;
@@ -100,41 +90,18 @@ export function renderTickTickSection(
 			try {
 				await client.reorderTasks([{ projectId, id: movedId, sortOrder: newSort }]);
 				moved.sortOrder = newSort;
-				rerender();
-			} catch (err) {
-				new Notice(messageForError(err));
-			}
+				renderView();
+			} catch (err) { new Notice(messageForError(err)); }
 		},
 	};
 
-	const renderWidgets = (): void => {
+	const renderView = (): void => {
 		host.empty();
 		if (!client.canWrite()) {
 			host.createDiv({ cls: 'dashboard-ticktick-readonly-hint', text: t('ticktick.readonlyHint') });
 		}
-		for (const w of widgets) {
-			const block = host.createDiv({ cls: 'dashboard-ticktick-widget' });
-			if (w.title) block.createDiv({ cls: 'dashboard-ticktick-widget-title', text: w.title });
-			const content = block.createDiv({ cls: 'dashboard-ticktick-content' });
-			try {
-				if (w.view === 'today') {
-					if (!snapshot) { renderHint(content, t('ticktick.loading'), ''); continue; }
-					renderToday(content, snapshot, w, app, actions);
-				} else if (w.view === 'projects') {
-					if (!snapshot) { renderHint(content, t('ticktick.loading'), ''); continue; }
-					renderProjects(content, snapshot, w, actions);
-				} else if (w.view === 'completed') {
-					if (!completedCache) { renderHint(content, t('ticktick.loading'), ''); continue; }
-					renderCompleted(content, completedCache, w, actions);
-				} else {
-					if (!habitsCache) { renderHint(content, t('ticktick.loading'), ''); continue; }
-					renderHabits(content, habitsCache.habits, habitsCache.doneToday);
-				}
-			} catch (err) {
-				content.empty();
-				renderHint(content, t('ticktick.loadFailed'), messageForError(err));
-			}
-		}
+		if (view === 'today') renderTodayView();
+		else renderListsView();
 	};
 
 	const loadAll = async (force: boolean): Promise<void> => {
@@ -145,28 +112,158 @@ export function renderTickTickSection(
 			return;
 		}
 		try {
-			if (widgets.some(w => w.view === 'today' || w.view === 'projects')) await getSnapshot();
-			if (widgets.some(w => w.view === 'completed')) completedCache = await client.fetchCompleted();
-			if (widgets.some(w => w.view === 'habits')) {
-				const habits = await client.fetchHabits();
-				const checkins = await client.fetchHabitCheckins(habits.map(h => h.id), todayStamp());
-				habitsCache = { habits, doneToday: new Set(checkins.map(c => c.habitId)) };
-			}
-			renderWidgets();
+			snapshot = await client.fetchSnapshot();
+			completedCache = await client.fetchCompleted();
+			const habits = await client.fetchHabits();
+			const checkins = await client.fetchHabitCheckins(habits.map(h => h.id), todayStamp());
+			habitsCache = { habits, doneToday: new Set(checkins.map(c => c.habitId)) };
+			renderView();
 		} catch (err) {
 			host.empty();
 			renderHint(host, t('ticktick.loadFailed'), messageForError(err));
 		}
 	};
 
+	// ---------- Today view: 3 cards ----------
+
+	function renderTodayView(): void {
+		if (!snapshot || !completedCache || !habitsCache) {
+			renderHint(host, t('ticktick.loading'), '');
+			return;
+		}
+		const projMap = new Map(snapshot.projects.map(p => [p.id, p]));
+		const grid = host.createDiv({ cls: 'dashboard-ticktick-proj-grid' });
+
+		// Card 1: Today's tasks
+		const eod = endOfDay(new Date());
+		const todayTasks = snapshot.tasks
+			.filter(task => task.status === 0 && task.dueDate ? (parseTickDate(task.dueDate)?.getTime() ?? Infinity) <= eod.getTime() : false)
+			.sort((a, b) => {
+				const da = parseTickDate(a.dueDate)?.getTime() ?? 0;
+				const db = parseTickDate(b.dueDate)?.getTime() ?? 0;
+				return da - db || b.priority - a.priority;
+			});
+		buildCard(grid, t('ticktick.viewToday'), String(todayTasks.length), '#ef4444', (list) => {
+			if (todayTasks.length === 0) { renderHint(list, t('ticktick.todayEmpty'), ''); return; }
+			for (const task of todayTasks) renderTaskRow(list, task, projMap, { showDue: true, app, actions });
+		});
+
+		// Card 2: Recently completed (3 days)
+		const since = startOfDay(addDays(new Date(), -2));
+		const recentDone = completedCache
+			.filter(task => task.completedTime ? (parseTickDate(task.completedTime)?.getTime() ?? 0) >= since.getTime() : false)
+			.sort((a, b) => (parseTickDate(b.completedTime)?.getTime() ?? 0) - (parseTickDate(a.completedTime)?.getTime() ?? 0));
+		buildCard(grid, t('ticktick.viewCompleted'), String(recentDone.length), '#10b981', (list) => {
+			if (recentDone.length === 0) { renderHint(list, t('ticktick.noCompleted'), ''); return; }
+			for (const task of recentDone) {
+				const row = list.createDiv({ cls: 'dashboard-ticktick-row dashboard-ticktick-row--done' });
+				const check = row.createDiv({ cls: 'dashboard-ticktick-check dashboard-ticktick-check--done' });
+				setIcon(check, 'check');
+				if (actions.canWrite) check.addEventListener('click', (e) => { e.stopPropagation(); void actions.toggleComplete(task); });
+				const main = row.createDiv({ cls: 'dashboard-ticktick-main' });
+				main.createDiv({ cls: 'dashboard-ticktick-title dashboard-ticktick-title--done', text: task.title });
+				const when = parseTickDate(task.completedTime);
+				if (when) main.createDiv({ cls: 'dashboard-ticktick-meta', text: formatRelative(when) });
+			}
+		});
+
+		// Card 3: Habits
+		buildCard(grid, t('ticktick.viewHabits'), String(habitsCache.habits.length), '#3b82f6', (list) => {
+			if (habitsCache!.habits.length === 0) { renderHint(list, t('ticktick.noHabits'), ''); return; }
+			for (const habit of habitsCache!.habits) {
+				const row = list.createDiv({ cls: 'dashboard-ticktick-row dashboard-ticktick-row--habit' });
+				const done = habitsCache!.doneToday.has(habit.id);
+				const check = row.createDiv({ cls: 'dashboard-ticktick-check' + (done ? ' dashboard-ticktick-check--done' : '') });
+				setIcon(check, done ? 'check' : 'circle');
+				const main = row.createDiv({ cls: 'dashboard-ticktick-main' });
+				main.createDiv({ cls: 'dashboard-ticktick-title', text: habit.name });
+				if (habit.goal) main.createDiv({ cls: 'dashboard-ticktick-meta', text: `${habit.goal}${habit.unit ?? ''}` });
+			}
+		});
+	}
+
+	// ---------- Lists view: project cards ----------
+
+	function renderListsView(): void {
+		if (!snapshot) { renderHint(host, t('ticktick.loading'), ''); return; }
+		const projMap = new Map(snapshot.projects.map(p => [p.id, p]));
+		const groups = new Map<string, TickTickTask[]>();
+		for (const task of snapshot.tasks) {
+			if (task.status !== 0) continue;
+			const pid = task.projectId ?? snapshot.inboxId ?? 'inbox';
+			if (hiddenProjects.has(pid)) continue;
+			groups.set(pid, [...(groups.get(pid) ?? []), task]);
+		}
+		if (groups.size === 0) { renderHint(host, t('ticktick.noTasks'), ''); return; }
+		const row = host.createDiv({ cls: 'dashboard-ticktick-proj-row' });
+		for (const [pid, tasks] of groups) {
+			const proj = projMap.get(pid);
+			const w = projectWidths[pid];
+			const cardEl = buildCard(row, proj?.name ?? t('ticktick.inbox'), String(tasks.length), proj?.color ?? '#6366f1', (list) => {
+				list.addClass('dashboard-ticktick-list--reorder');
+				const ordered = tasks.sort((a, b) => (b.sortOrder ?? 0) - (a.sortOrder ?? 0) || b.priority - a.priority);
+				for (const task of ordered) {
+					renderTaskRow(list, task, projMap, { showDue: true, app: null, actions, reorderable: true, projectId: pid, siblings: ordered });
+				}
+			}, proj?.color, w);
+			// Resize handle
+			if (!Platform.isMobile) {
+				const handle = cardEl.createDiv({ cls: 'dashboard-ticktick-card-resize' });
+				let sX = 0;
+				let sW = 0;
+				const onMove = (ev: MouseEvent): void => {
+					const newW = Math.max(200, Math.min(500, sW + ev.clientX - sX));
+					cardEl.style.flex = `0 0 ${newW}px`;
+					cardEl.style.minWidth = `${newW}px`;
+					cardEl.style.maxWidth = `${newW}px`;
+				};
+				handle.addEventListener('mousedown', (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					sX = e.clientX;
+					sW = cardEl.offsetWidth;
+					cardEl.addClass('dashboard-ticktick-card--resizing');
+					const up = (ev: MouseEvent): void => {
+						activeDocument.removeEventListener('mousemove', onMove);
+						activeDocument.removeEventListener('mouseup', up);
+						cardEl.removeClass('dashboard-ticktick-card--resizing');
+						const finalW = Math.max(200, Math.min(500, sW + ev.clientX - sX));
+						if (finalW !== projectWidths[pid]) {
+							projectWidths[pid] = finalW;
+							onResize?.(pid, finalW);
+						}
+					};
+					activeDocument.addEventListener('mousemove', onMove);
+					activeDocument.addEventListener('mouseup', up);
+				});
+			}
+		}
+	}
+
 	if (onReloadReady) onReloadReady(() => { void loadAll(true); });
 	void loadAll(false);
 }
 
-function normalizedWidgets(cfg?: TickTickConfig): TickTickWidget[] {
-	if (cfg?.widgets?.length) return cfg.widgets;
-	return [{ id: 'w1', view: 'today' }];
+/** Build a project-style card with a colored header and a body callback. */
+function buildCard(parent: HTMLElement, title: string, count: string, color: string, body: (list: HTMLElement) => void, headerColor?: string, width?: number): HTMLElement {
+	const card = parent.createDiv({ cls: 'dashboard-ticktick-proj-card' });
+	if (width && width > 0) {
+		card.style.flex = `0 0 ${width}px`;
+		card.style.minWidth = `${width}px`;
+		card.style.maxWidth = `${width}px`;
+	}
+	card.style.setProperty('--proj-color', headerColor ?? color);
+	const head = card.createDiv({ cls: 'dashboard-ticktick-proj-card-head' });
+	const dot = head.createDiv({ cls: 'dashboard-ticktick-proj-dot' });
+	dot.style.backgroundColor = color;
+	head.createDiv({ cls: 'dashboard-ticktick-group-name', text: title });
+	head.createDiv({ cls: 'dashboard-ticktick-group-count', text: count });
+	const list = card.createDiv({ cls: 'dashboard-ticktick-list' });
+	body(list);
+	return card;
 }
+
+// ---------- helpers ----------
 
 function renderHint(content: HTMLElement, title: string, hint: string): void {
 	const wrap = content.createDiv({ cls: 'dashboard-ticktick-hint' });
@@ -180,92 +277,6 @@ function messageForError(err: unknown): string {
 	if (code === 'RATE_LIMITED') return t('ticktick.rateLimited');
 	if (code.startsWith('NETWORK')) return t('ticktick.networkError');
 	return code || t('ticktick.loadFailed');
-}
-
-// ---------- Today ----------
-
-function renderToday(content: HTMLElement, snap: Snapshot, _w: TickTickWidget, app: App, actions: TaskActions): void {
-	const eod = endOfDay(new Date());
-	const projMap = new Map(snap.projects.map(p => [p.id, p]));
-	const items = snap.tasks
-		.filter(task => task.status === 0 && task.dueDate ? (parseTickDate(task.dueDate)?.getTime() ?? Infinity) <= eod.getTime() : false)
-		.sort((a, b) => {
-			const da = parseTickDate(a.dueDate)?.getTime() ?? 0;
-			const db = parseTickDate(b.dueDate)?.getTime() ?? 0;
-			return da - db || b.priority - a.priority;
-		});
-	if (items.length === 0) { renderHint(content, t('ticktick.todayEmpty'), ''); return; }
-	const list = content.createDiv({ cls: 'dashboard-ticktick-list' });
-	for (const task of items) renderTaskRow(list, task, projMap, { showDue: true, app, actions });
-}
-
-// ---------- By project ----------
-
-function renderProjects(content: HTMLElement, snap: Snapshot, w: TickTickWidget, actions: TaskActions): void {
-	const projMap = new Map(snap.projects.map(p => [p.id, p]));
-	const groups = new Map<string, TickTickTask[]>();
-	for (const task of snap.tasks) {
-		if (task.status !== 0) continue;
-		const pid = task.projectId ?? snap.inboxId ?? 'inbox';
-		if (w.projectId && pid !== w.projectId) continue;
-		groups.set(pid, [...(groups.get(pid) ?? []), task]);
-	}
-	if (groups.size === 0) { renderHint(content, t('ticktick.noTasks'), ''); return; }
-	const grid = content.createDiv({ cls: 'dashboard-ticktick-proj-grid' });
-	for (const [pid, tasks] of groups) {
-		const proj = projMap.get(pid);
-		const card = grid.createDiv({ cls: 'dashboard-ticktick-proj-card' });
-		card.style.setProperty('--proj-color', proj?.color || 'var(--db-accent, #6366f1)');
-		const head = card.createDiv({ cls: 'dashboard-ticktick-proj-card-head' });
-		const dot = head.createDiv({ cls: 'dashboard-ticktick-proj-dot' });
-		dot.style.backgroundColor = proj?.color || 'var(--db-accent)';
-		head.createDiv({ cls: 'dashboard-ticktick-group-name', text: proj?.name ?? t('ticktick.inbox') });
-		head.createDiv({ cls: 'dashboard-ticktick-group-count', text: String(tasks.length) });
-		const list = card.createDiv({ cls: 'dashboard-ticktick-list dashboard-ticktick-list--reorder' });
-		const ordered = tasks.sort((a, b) => (b.sortOrder ?? 0) - (a.sortOrder ?? 0) || b.priority - a.priority);
-		for (const task of ordered) {
-			renderTaskRow(list, task, projMap, { showDue: true, app: null, actions, reorderable: true, projectId: pid, siblings: ordered });
-		}
-	}
-}
-
-// ---------- Completed ----------
-
-function renderCompleted(content: HTMLElement, all: TickTickTask[], w: TickTickWidget, actions: TaskActions): void {
-	const days = Math.max(1, w.days ?? 1);
-	const since = startOfDay(addDays(new Date(), -(days - 1)));
-	const items = all
-		.filter(task => task.completedTime ? (parseTickDate(task.completedTime)?.getTime() ?? 0) >= since.getTime() : false)
-		.sort((a, b) => (parseTickDate(b.completedTime)?.getTime() ?? 0) - (parseTickDate(a.completedTime)?.getTime() ?? 0));
-	if (items.length === 0) { renderHint(content, t('ticktick.noCompleted'), ''); return; }
-	const list = content.createDiv({ cls: 'dashboard-ticktick-list' });
-	for (const task of items) {
-		const row = list.createDiv({ cls: 'dashboard-ticktick-row dashboard-ticktick-row--done' });
-		const check = row.createDiv({ cls: 'dashboard-ticktick-check dashboard-ticktick-check--done' });
-		setIcon(check, 'check');
-		if (actions.canWrite) {
-			check.addEventListener('click', (e) => { e.stopPropagation(); void actions.toggleComplete(task); });
-		}
-		const main = row.createDiv({ cls: 'dashboard-ticktick-main' });
-		main.createDiv({ cls: 'dashboard-ticktick-title dashboard-ticktick-title--done', text: task.title });
-		const when = parseTickDate(task.completedTime);
-		if (when) main.createDiv({ cls: 'dashboard-ticktick-meta', text: formatRelative(when) });
-	}
-}
-
-// ---------- Habits ----------
-
-function renderHabits(content: HTMLElement, habits: TickTickHabit[], doneToday: Set<string>): void {
-	if (habits.length === 0) { renderHint(content, t('ticktick.noHabits'), ''); return; }
-	const list = content.createDiv({ cls: 'dashboard-ticktick-list' });
-	for (const habit of habits) {
-		const row = list.createDiv({ cls: 'dashboard-ticktick-row dashboard-ticktick-row--habit' });
-		const check = row.createDiv({ cls: 'dashboard-ticktick-check' + (doneToday.has(habit.id) ? ' dashboard-ticktick-check--done' : '') });
-		setIcon(check, doneToday.has(habit.id) ? 'check' : 'circle');
-		const main = row.createDiv({ cls: 'dashboard-ticktick-main' });
-		main.createDiv({ cls: 'dashboard-ticktick-title', text: habit.name });
-		if (habit.goal) main.createDiv({ cls: 'dashboard-ticktick-meta', text: `${habit.goal}${habit.unit ?? ''}` });
-	}
 }
 
 interface RowOpts {
@@ -284,12 +295,9 @@ function renderTaskRow(list: HTMLElement, task: TickTickTask, projMap: Map<strin
 		row.dataset.taskId = task.id;
 		wireRowDnD(row, opts.projectId ?? '', opts.siblings ?? [], opts.actions);
 	}
-
 	const check = row.createDiv({ cls: 'dashboard-ticktick-check' + (task.status === 2 ? ' dashboard-ticktick-check--done' : '') });
 	setIcon(check, task.status === 2 ? 'check' : 'circle');
-	if (opts.actions.canWrite) {
-		check.addEventListener('click', (e) => { e.stopPropagation(); void opts.actions.toggleComplete(task); });
-	}
+	if (opts.actions.canWrite) check.addEventListener('click', (e) => { e.stopPropagation(); void opts.actions.toggleComplete(task); });
 
 	const main = row.createDiv({ cls: 'dashboard-ticktick-main' });
 	const titleLine = main.createDiv({ cls: 'dashboard-ticktick-title-line' });
@@ -306,7 +314,6 @@ function renderTaskRow(list: HTMLElement, task: TickTickTask, projMap: Map<strin
 			new TickTickTaskEditModal(opts.app!, task, (fields) => opts.actions.editFields(task, fields)).open();
 		});
 	}
-
 	const meta: string[] = [];
 	if (opts.showDue && task.dueDate) {
 		const due = parseTickDate(task.dueDate);
@@ -340,7 +347,6 @@ function startInlineRename(titleEl: HTMLElement, task: TickTickTask, actions: Ta
 	input.addEventListener('blur', () => finish(true));
 }
 
-/** HTML5 drag-and-drop to reorder task rows within a list. */
 function wireRowDnD(row: HTMLElement, projectId: string, siblings: TickTickTask[], actions: TaskActions): void {
 	row.addEventListener('dragstart', (e) => {
 		row.addClass('dashboard-ticktick-row--dragging');
@@ -367,7 +373,6 @@ function nextSiblingId(siblings: TickTickTask[], id: string): string | null {
 	return ordered[i + 1]!.id;
 }
 
-/** sortOrder so `movedId` lands before `beforeId` (descending order; midpoint between neighbors). */
 function computeSortOrder(movedId: string, beforeId: string | null, siblings: TickTickTask[]): number {
 	const ordered = [...siblings].sort((a, b) => (b.sortOrder ?? 0) - (a.sortOrder ?? 0));
 	let targetIdx = beforeId ? ordered.findIndex(s => s.id === beforeId) : ordered.length - 1;
@@ -382,8 +387,7 @@ function computeSortOrder(movedId: string, beforeId: string | null, siblings: Ti
 	return Date.now();
 }
 
-// ---------- date helpers ----------
-
+// date helpers
 function startOfDay(d: Date): Date { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 function endOfDay(d: Date): Date { const x = startOfDay(d); x.setDate(x.getDate() + 1); return x; }
 function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.getDate() + n); return x; }

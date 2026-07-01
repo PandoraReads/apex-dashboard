@@ -811,14 +811,15 @@ export function renderLibrarySection(
 			return;
 		}
 
-		// Paginate
-		const effectivePageSize = currentConfig.pageSize ?? DEFAULT_PAGE_SIZE;
-		const totalPages = Math.ceil(totalResults / effectivePageSize);
+		// Paginate (kanban skips pagination — it scrolls horizontally instead)
+		const isKanban = currentConfig.viewMode === 'kanban';
+		const effectivePageSize = isKanban ? totalResults : (currentConfig.pageSize ?? DEFAULT_PAGE_SIZE);
+		const totalPages = isKanban ? 1 : Math.ceil(totalResults / effectivePageSize);
 		if (currentPage > totalPages) currentPage = totalPages;
 		if (currentPage < 1) currentPage = 1;
 
-		const startIdx = (currentPage - 1) * effectivePageSize;
-		const endIdx = Math.min(startIdx + effectivePageSize, totalResults);
+		const startIdx = isKanban ? 0 : (currentPage - 1) * effectivePageSize;
+		const endIdx = isKanban ? totalResults : Math.min(startIdx + effectivePageSize, totalResults);
 		const pageResults = results.slice(startIdx, endIdx);
 
 		switch (currentConfig.viewMode) {
@@ -836,8 +837,8 @@ export function renderLibrarySection(
 				break;
 		}
 
-		// Render pagination controls
-		if (totalPages > 1) {
+		// Render pagination controls (kanban scrolls horizontally, no pagination)
+		if (!isKanban && totalPages > 1) {
 			renderPagination(paginationArea, currentPage, totalPages, totalResults, (page) => {
 				currentPage = page;
 				renderContent(currentConfig);
@@ -1037,11 +1038,21 @@ function renderGridView(container: HTMLElement, results: LibraryFileResult[], ap
 /** Coerce a frontmatter value into a compact badge string, or null to hide it. */
 function formatBadgeValue(value: unknown): string | null {
 	if (value == null) return null;
+	if (value instanceof Date) {
+		return value.toISOString().slice(0, 10);
+	}
 	if (Array.isArray(value)) {
-		const items = value.map(v => (v == null ? '' : String(v))).filter(v => v.length > 0);
+		const items = value.map(v => (v == null ? '' : v instanceof Date ? v.toISOString().slice(0, 10) : String(v))).filter(v => v.length > 0);
 		return items.length > 0 ? items.join(', ') : null;
 	}
-	if (typeof value === 'object') return null;
+	if (typeof value === 'object') {
+		try {
+			const s = JSON.stringify(value).replace(/"/g, '').trim();
+			return s.length > 0 && s.length <= 60 ? s : null;
+		} catch {
+			return null;
+		}
+	}
 	const s = String(value as string | number | boolean).trim();
 	return s.length > 0 ? s : null;
 }

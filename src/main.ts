@@ -5,7 +5,7 @@ import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { setLanguage, t } from './i18n';
 
 /** All valid style preset keys — single source of truth for migration. */
-const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'ember', 'jade', 'carbon', 'onyx', 'mono'] as const;
+const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'jade', 'carbon', 'onyx', 'mono'] as const;
 
 /** Removed or renamed presets mapped to a sensible replacement. */
 const DEPRECATED_STYLE_PRESETS: Readonly<Record<string, string>> = {
@@ -14,6 +14,7 @@ const DEPRECATED_STYLE_PRESETS: Readonly<Record<string, string>> = {
 	dusk: 'lilac',      // purple twilight -> Lilac (Morandi purple)
 	sakura: 'blossom',  // cherry blossom pink -> Blossom
 	moonlight: 'nordic',// silver blue -> Nordic (blue minimal)
+	ember: 'carbon',    // warm smoke -> Eclipse (dark warm)
 };
 
 /**
@@ -66,7 +67,7 @@ export default class DashboardPlugin extends Plugin {
 			id: 'cycle-theme',
 			name: t('main.cycleTheme'),
 			callback: async () => {
-				const themes = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'ember', 'jade', 'carbon', 'onyx', 'mono'];
+				const themes = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'jade', 'carbon', 'onyx', 'mono'];
 				const idx = themes.indexOf(this.settings.stylePreset);
 				const next = themes[(idx + 1) % themes.length] ?? 'earth';
 				this.settings = { ...this.settings, stylePreset: next };

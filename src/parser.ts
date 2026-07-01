@@ -214,13 +214,10 @@ export function serialize(data: DashboardData): string {
 		if (col.ticktickConfig) {
 			const tc = col.ticktickConfig;
 			lines.push('    ticktick:');
-			lines.push('      widgets:');
-			for (const w of tc.widgets) {
-				lines.push(`        - id: "${escapeYamlString(w.id)}"`);
-				lines.push(`          view: ${w.view}`);
-				if (w.projectId != null) lines.push(`          projectId: "${escapeYamlString(w.projectId)}"`);
-				if (w.days != null) lines.push(`          days: ${w.days}`);
-				if (w.title) lines.push(`          title: "${escapeYamlString(w.title)}"`);
+			lines.push(`      view: ${tc.view === 'lists' ? 'lists' : 'today'}`);
+			if (tc.hiddenProjects?.length) {
+				lines.push('      hiddenProjects:');
+				for (const pid of tc.hiddenProjects) lines.push(`        - "${escapeYamlString(pid)}"`);
 			}
 		}
 	}
@@ -865,21 +862,11 @@ function parseWereadConfig(raw: Record<string, unknown>): WereadConfig {
 }
 
 function parseTickTickConfig(raw: Record<string, unknown>): TickTickConfig {
-	const validView = (v: unknown): TickTickConfig['widgets'][number]['view'] =>
-		['today', 'projects', 'completed', 'habits'].includes(String((v ?? '') as string | number | boolean)) ? String(v) as TickTickConfig['widgets'][number]['view'] : 'today';
-	if (Array.isArray(raw.widgets)) {
-		const widgets = (raw.widgets as Array<Record<string, unknown>>)
-			.filter(w => w && typeof w === 'object')
-			.map((w, i) => ({
-				id: String((w.id ?? `w${i + 1}`) as string | number | boolean),
-				view: validView(w.view),
-				projectId: typeof w.projectId === 'string' && w.projectId.length > 0 ? w.projectId : undefined,
-				days: typeof w.days === 'number' ? w.days : undefined,
-				title: w.title ? String(w.title as string | number | boolean) : undefined,
-			}));
-		if (widgets.length > 0) return { widgets };
-	}
-	return { widgets: [{ id: 'w1', view: 'today' }] };
+	const view: TickTickConfig['view'] = raw['view'] === 'lists' ? 'lists' : 'today';
+	const hiddenProjects = Array.isArray(raw['hiddenProjects'])
+		? (raw['hiddenProjects'] as Array<unknown>).map(v => String(v as string | number | boolean)).filter(v => v.length > 0)
+		: undefined;
+	return { view, hiddenProjects: hiddenProjects?.length ? hiddenProjects : undefined };
 }
 
 function splitByH2(body: string): Array<{ heading: string; content: string }> {

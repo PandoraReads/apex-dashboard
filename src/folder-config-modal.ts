@@ -2,29 +2,41 @@ import { App, Modal, FuzzySuggestModal, TFolder, setIcon } from 'obsidian';
 import { t } from './i18n';
 import { extractFrontmatterProperties, getAllTags, renderTagsSelector } from './library-section';
 
+export interface FolderConfigResult {
+	folders: string[];
+	tags: string[];
+	groupBy: string | undefined;
+	showProperties: boolean;
+	propertyLimit: number;
+}
+
 /**
  * Configuration modal for a folder section: the folder path plus an optional
- * tag filter, and a kanban "group by" selector. The path can be typed or picked
- * via {@link FolderSuggestModal}; tags are multi-select chips (a file shows if
- * it has any selected tag). Reuses the library config modal's styles.
+ * tag filter, kanban "group by" selector, and card property display settings.
  */
 export class FolderConfigModal extends Modal {
 	private folders: string[];
 	private selectedTags: string[];
 	private groupBy: string;
-	private readonly onSave: (folders: string[], tags: string[], groupBy: string | undefined) => void;
+	private showProperties: boolean;
+	private propertyLimit: number;
+	private readonly onSave: (result: FolderConfigResult) => void;
 
 	constructor(
 		app: App,
 		currentFolders: string[],
 		currentTags: string[],
 		currentGroupBy: string | undefined,
-		onSave: (folders: string[], tags: string[], groupBy: string | undefined) => void,
+		currentShowProperties: boolean | undefined,
+		currentPropertyLimit: number | undefined,
+		onSave: (result: FolderConfigResult) => void,
 	) {
 		super(app);
 		this.folders = [...currentFolders];
 		this.selectedTags = [...currentTags];
 		this.groupBy = currentGroupBy ?? '';
+		this.showProperties = currentShowProperties !== false;
+		this.propertyLimit = currentPropertyLimit ?? 6;
 		this.onSave = onSave;
 	}
 
@@ -112,7 +124,7 @@ export class FolderConfigModal extends Modal {
 		};
 		renderTags();
 
-		// Kanban group-by (used by the kanban view mode)
+		// Kanban group-by
 		const groupSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		groupSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.kanbanGroupBy') });
 		groupSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.kanbanGroupByHint') });
@@ -125,6 +137,30 @@ export class FolderConfigModal extends Modal {
 		}
 		groupSelect.addEventListener('change', () => { this.groupBy = groupSelect.value; });
 
+		// Card properties (grid view)
+		const propsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		propsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.cardProperties') });
+
+		const propsRow = propsSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const showPropsBox = propsRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		showPropsBox.checked = this.showProperties;
+		showPropsBox.addEventListener('change', () => { this.showProperties = showPropsBox.checked; });
+		propsRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('library.showProperties') });
+
+		const limitRow = propsSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		limitRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('library.propertyLimit') });
+		const limitInput = limitRow.createEl('input', {
+			cls: 'dashboard-library-config-number',
+			attr: { type: 'number', min: '0', max: '20', step: '1' },
+		});
+		limitInput.value = String(this.propertyLimit);
+		limitInput.addEventListener('change', () => {
+			this.propertyLimit = Math.max(0, Math.min(20, Math.floor(Number(limitInput.value) || 6)));
+		});
+
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
@@ -136,7 +172,13 @@ export class FolderConfigModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		}).addEventListener('click', () => {
-			this.onSave(this.folders, this.selectedTags, this.groupBy || undefined);
+			this.onSave({
+				folders: this.folders,
+				tags: this.selectedTags,
+				groupBy: this.groupBy || undefined,
+				showProperties: this.showProperties,
+				propertyLimit: this.propertyLimit,
+			});
 			this.close();
 		});
 	}

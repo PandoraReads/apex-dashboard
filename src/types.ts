@@ -258,20 +258,14 @@ export interface WereadConfig {
 	widgets: WereadWidget[];
 }
 
-/** One widget within a TickTick section (a section stacks multiple, top-to-bottom). */
-export interface TickTickWidget {
-	id: string;
-	view: 'today' | 'projects' | 'completed' | 'habits';
-	/** projects widget: restrict to one project; undefined = all projects. */
-	projectId?: string;
-	/** completed widget: days to look back (default 1 = today). */
-	days?: number;
-	title?: string;
-}
-
-/** TickTick section config. Credentials are account-wide (DashboardSettings.ticktick*). */
+/** TickTick section config. View toggles between 'today' (combined dashboard)
+ * and 'lists' (project cards). Credentials are account-wide (DashboardSettings.ticktick*). */
 export interface TickTickConfig {
-	widgets: TickTickWidget[];
+	view: 'today' | 'lists';
+	/** Project IDs hidden in 'lists' view. */
+	hiddenProjects?: string[];
+	/** Per-project card width in 'lists' view (px), persisted on resize. */
+	projectWidths?: Record<string, number>;
 }
 
 export interface DashboardColumn {

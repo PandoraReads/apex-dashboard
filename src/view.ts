@@ -1,9 +1,9 @@
-import { Events, HoverParent, HoverPopover, ItemView, moment, Notice, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, Modal, moment, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
@@ -23,7 +23,7 @@ import { FolderConfigModal } from './folder-config-modal';
 import { HeatmapConfigModal } from './heatmap-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
 import { fetchWereadCategories } from './weread-service';
-import { TickTickConfigModal, fetchTickTickProjects } from './ticktick-config-modal';
+import { fetchTickTickProjects } from './ticktick-config-modal';
 import { CalendarConfigModal } from './calendar-config-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
@@ -73,6 +73,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private data: DashboardData | null = null;
 	private cleanupFns: Array<() => void> = [];
 	private dndCleanupFns: Array<() => void> = [];
+	private suppressNextRender = false;
 	private vaultEventRefs: Array<{ evt: Events; ref: unknown }> = [];
 	private recentDocsTimer: number | null = null;
 	private libraryRefreshTimer: number | null = null;
@@ -130,7 +131,14 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	async onOpen(): Promise<void> {
 		this.sync.updateSettings(this.plugin.settings);
-		this.sync.onDataUpdate((data) => this.render(data));
+		this.sync.onDataUpdate((data) => {
+			this.data = data;
+			if (this.suppressNextRender) {
+				this.suppressNextRender = false;
+				return;
+			}
+			this.render(data);
+		});
 
 		await this.sync.init();
 		this.registerVaultListeners();
@@ -262,10 +270,39 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openHeatmapConfigModal(columnName);
 			} else if (col?.sectionType === 'weread') {
 				this.openWereadConfigModal(columnName);
-			} else if (col?.sectionType === 'ticktick') {
-				void this.openTickTickConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
+			}
+		}) as EventListener);
+
+		// TickTick view toggle (today/lists) — dispatched from header buttons.
+		kanban.addEventListener('dashboard-ticktick-view', ((e: CustomEvent) => {
+			const { columnName, view } = e.detail as { columnName: string; view: 'today' | 'lists' };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (col) {
+				const config = col.ticktickConfig ?? { view: 'today' as const };
+				this.suppressNextRender = true;
+				void this.sync.updateTickTickConfig(columnName, { ...config, view }).then(() => {
+					this.refreshSectionInPlace(columnName);
+				});
+			}
+		}) as EventListener);
+
+		// TickTick project filter (lists view).
+		kanban.addEventListener('dashboard-ticktick-filter', ((e: CustomEvent) => {
+			const { columnName } = e.detail as { columnName: string };
+			void this.openTickTickFilterModal(columnName);
+		}) as EventListener);
+
+		// TickTick project card resize (lists view).
+		kanban.addEventListener('dashboard-ticktick-resize', ((e: CustomEvent) => {
+			const { columnName, projectWidths } = e.detail as { columnName: string; projectWidths: Record<string, number> };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (col?.ticktickConfig) {
+				this.suppressNextRender = true;
+				void this.sync.updateTickTickConfig(columnName, { ...col.ticktickConfig, projectWidths }).then(() => {
+					this.refreshSectionInPlace(columnName);
+				});
 			}
 		}) as EventListener);
 
@@ -791,7 +828,12 @@ export class DashboardView extends ItemView implements HoverParent {
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
-				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => this.sync.updateLibraryConfig(columnName, config),
+				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => {
+				this.suppressNextRender = true;
+				void this.sync.updateLibraryConfig(columnName, config).then(() => {
+					this.refreshSectionInPlace(columnName);
+				});
+			},
 		};
 	}
 
@@ -1011,8 +1053,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.openHeatmapConfigModal(name);
 		} else if (sectionType === 'weread') {
 			this.openWereadConfigModal(name);
-		} else if (sectionType === 'ticktick') {
-			void this.openTickTickConfigModal(name);
 		}
 	}
 
@@ -1121,17 +1161,50 @@ export class DashboardView extends ItemView implements HoverParent {
 		})();
 	}
 
-	private async openTickTickConfigModal(colName: string): Promise<void> {
+	private refreshSectionInPlace(columnName: string): void {
+		if (!this.data) return;
+		const kanban = (this.containerEl.children[1] as HTMLElement)?.querySelector<HTMLElement>('.dashboard-kanban');
+		if (!kanban) return;
+		const oldEl = kanban.querySelector(`:scope > [data-column="${CSS.escape(columnName)}"]`);
+		if (!oldEl) return;
+		const column = this.data.columns.find(c => c.name === columnName);
+		if (!column) return;
+		const callbacks = this.createCallbacks();
+		const newEl = renderSection(column, callbacks, this.app, this.data, this.plugin.settings);
+		oldEl.replaceWith(newEl);
+		for (const fn of this.dndCleanupFns) fn();
+		this.dndCleanupFns = [];
+		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns);
+	}
+
+	private async openTickTickFilterModal(colName: string): Promise<void> {
 		const column = this.data?.columns.find(col => col.name === colName);
-		const existing = column?.ticktickConfig ?? { widgets: [{ id: 'w1', view: 'today' as const }] };
+		const config = column?.ticktickConfig ?? { view: 'lists' as const };
 		const region = this.plugin.settings.ticktickRegion === 'ticktick' ? 'ticktick' : 'dida365';
 		const projects = await fetchTickTickProjects(region, this.plugin.settings.ticktickCookie, this.plugin.settings.ticktickDeviceVersion);
-		const modal = new TickTickConfigModal(
-			this.app,
-			existing,
-			projects,
-			(config) => { void this.sync.updateTickTickConfig(colName, config); },
-		);
+		const hidden = new Set(config.hiddenProjects ?? []);
+		const modal = new Modal(this.app);
+		modal.titleEl.setText(t('ticktick.filterProjects'));
+		for (const p of projects) {
+			new Setting(modal.contentEl)
+				.setName(p.name)
+				.addToggle(toggle => toggle
+					.setValue(!hidden.has(p.id))
+					.onChange(value => {
+						if (value) hidden.delete(p.id);
+						else hidden.add(p.id);
+					}));
+		}
+		new Setting(modal.contentEl).addButton(btn => btn
+			.setButtonText(t('common.save'))
+			.setCta()
+			.onClick(() => {
+				this.suppressNextRender = true;
+				void this.sync.updateTickTickConfig(colName, { ...config, hiddenProjects: hidden.size > 0 ? [...hidden] : undefined }).then(() => {
+					this.refreshSectionInPlace(colName);
+				});
+				modal.close();
+			}));
 		modal.open();
 	}
 
@@ -1163,7 +1236,9 @@ export class DashboardView extends ItemView implements HoverParent {
 			currentFolders,
 			currentTags,
 			currentGroupBy,
-			(folders, tags, groupBy) => {
+			libraryConfig?.showProperties,
+			libraryConfig?.propertyLimit,
+			(result) => {
 				const base = libraryConfig ?? {
 					filters: [],
 					viewMode: 'grid' as const,
@@ -1171,10 +1246,17 @@ export class DashboardView extends ItemView implements HoverParent {
 					sortDesc: true,
 				};
 				const filtersWithoutTags = base.filters.filter(f => f.property !== 'tags');
-				const filters = tags.length > 0
-					? [...filtersWithoutTags, { property: 'tags', values: tags }]
+				const filters = result.tags.length > 0
+					? [...filtersWithoutTags, { property: 'tags', values: result.tags }]
 					: filtersWithoutTags;
-				void this.sync.updateLibraryConfig(colName, { ...base, folders, filters, kanbanGroupBy: groupBy });
+				void this.sync.updateLibraryConfig(colName, {
+					...base,
+					folders: result.folders,
+					filters,
+					kanbanGroupBy: result.groupBy,
+					showProperties: result.showProperties ? undefined : false,
+					propertyLimit: result.propertyLimit,
+				});
 			},
 		);
 		modal.open();

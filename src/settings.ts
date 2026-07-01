@@ -54,7 +54,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 					matcha: t('settings.styleMatcha'),
 					lilac: t('settings.styleLilac'),
 					haze: t('settings.styleHaze'),
-					ember: t('settings.styleEmber'),
 					jade: t('settings.styleJade'),
 					carbon: t('settings.styleCarbon'),
 					onyx: t('settings.styleOnyx'),

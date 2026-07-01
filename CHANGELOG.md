@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.4.1 (2026-07-01)
+
+### Changed
+- **TickTick lists view redesign** — Replaced the widget-stack config with two header toggle buttons: "Today" (three cards: today's tasks + completed + habits) and "Lists" (project cards with horizontal scroll + drag-to-resize width). Project filter to show/hide specific lists. Old widget config auto-migrates
+- **Heatmap stats button** — Statistics (streak / total / rate) moved from inline to a header button popup, keeping the grid visually clean. Cell colors now follow the theme accent with `brightness` + `saturate` for vivid, non-glowing cells
+- **Folder section property settings** — Folder config modal now has card property display controls (show/hide toggle + property limit), matching the library section
+- **Library kanban view** — Kanban view mode no longer paginates; all items show with horizontal scroll instead
+- **Reduced GPU load** — Backdrop blur radius halved (24px → 12px); all 31 `transition: all` replaced with explicit property lists
+
+### Fixed
+- **Todo subtask nesting** — Dragging a task onto another to nest now targets the correct task (was always nesting into the first)
+- **Section drag-after-refresh** — Library/folder/calendar sections that get re-rendered on vault changes now re-wire their DnD handlers (dedicated `dndCleanupFns`)
+- **Section overlap on resize** — `flex-shrink: 0` on section rows prevents growing one section from squishing others
+- **Heatmap layout** — Single-column strip fixed to a proper GitHub-style matrix via CSS class `grid-auto-flow: column`
+- **Heatmap accent color** — Now correctly reads `--db-accent` from `.apex-dashboard-root` instead of `body`
+- **Card property display** — `formatBadgeValue` now handles `Date` objects (previously all date-type frontmatter was silently dropped)
+- **TickTick view/filter persistence** — `suppressNextRender` now updates `this.data` before skipping, so in-place refresh sees the new config
+- **Countdown setInterval leak** — Timer registered in a module-level `Set` and cleared on every render cycle; self-cleans when DOM detaches
+- **Database/folder view switch** — No longer jumps to other sections (uses `suppressNextRender` + `refreshSectionInPlace`)
+- **New-section name input** — Visible border via higher-specificity CSS override (`.dashboard-task-input`'s `!important border:none` was winning)
+- **Library config view switch** — Same scroll-jump fix as TickTick
+
+### Removed
+- **Ember theme** — Migrated to Eclipse (`carbon`) for existing users
+
 ## 1.4.0 (2026-07-01)
 
 ### Added

@@ -51,7 +51,7 @@
 
 	--db-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
 		--db-shadow-card-hover: 0 6px 24px rgba(139, 92, 246, 0.15), 0 0 16px rgba(99, 102, 241, 0.08);
-	--db-backdrop-blur: blur(24px);
+	--db-backdrop-blur: blur(12px);
 
 	--db-radius-sm: 8px;
 	--db-radius-md: 14px;
@@ -762,115 +762,11 @@
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="lilac"] .dashboard-section-cards,
-.apex-dashboard-root[data-theme="ember"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="jade"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="carbon"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="mono"] .dashboard-section-cards {
 	overflow: visible;
-}
-
-/* ----- 10. EMBER (余烬) — Warm smoke, cloned from Haze ----- */
-.apex-dashboard-root[data-theme="ember"] {
-	--db-bg: #f5f0ea;
-	--db-bg-section: transparent;
-	--db-bg-card: transparent;
-	--db-bg-card-hover: rgba(224, 122, 74, 0.06);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(224, 122, 74, 0.05);
-	--db-bg-btn: rgba(224, 122, 74, 0.08);
-	--db-bg-btn-hover: rgba(224, 122, 74, 0.14);
-	--db-bg-banner: rgba(224, 122, 74, 0.06);
-	--db-bg-overlay: linear-gradient(135deg, rgba(60,30,10,0.5) 0%, rgba(60,30,10,0.2) 100%);
-	--db-bg-hover: rgba(224, 122, 74, 0.05);
-	--db-bg-hover-strong: rgba(224, 122, 74, 0.09);
-	--db-bg-add-section: rgba(224, 122, 74, 0.04);
-	--db-bg-drop-indicator: rgba(224, 122, 74, 0.08);
-
-	--db-border: rgba(224, 122, 74, 0.10);
-	--db-border-card: rgba(224, 122, 74, 0.20);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(224, 122, 74, 0.10);
-	--db-border-input-focus: #e07a4a;
-	--db-border-btn: rgba(224, 122, 74, 0.12);
-	--db-border-add-section: rgba(224, 122, 74, 0.15);
-
-	--db-text: #2a1a0e;
-	--db-text-muted: #f0e8e0;
-	--db-text-faint: #c8b8a8;
-	--db-text-inverse: rgba(255, 255, 255, 0.95);
-	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
-
-	--db-accent: #e07a4a;
-	--db-accent-light: #f5c16c;
-	--db-danger: #dc2626;
-
-	--db-shadow-card: 0 2px 8px rgba(60, 30, 10, 0.08);
-	--db-shadow-card-hover: 0 6px 20px rgba(224, 122, 74, 0.12);
-	--db-backdrop-blur: none;
-
-	--db-radius-sm: 10px;
-	--db-radius-md: 12px;
-	--db-radius-lg: 14px;
-
-	--db-font: 'Merriweather', 'Noto Serif SC', var(--font-interface);
-	--db-progress-from: #e07a4a;
-	--db-progress-to: #f5c16c;
-	--db-checkbox: #e07a4a;
-	--db-quote-border: #f5c16c;
-	--db-link: #e07a4a;
-}
-.theme-dark .apex-dashboard-root[data-theme="ember"] {
-	--db-bg: #18120e;
-	--db-bg-section: transparent;
-	--db-bg-card: transparent;
-	--db-bg-card-hover: rgba(224, 122, 74, 0.08);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(224, 122, 74, 0.05);
-	--db-bg-btn: rgba(224, 122, 74, 0.08);
-	--db-bg-btn-hover: rgba(224, 122, 74, 0.14);
-	--db-bg-banner: rgba(224, 122, 74, 0.06);
-	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
-	--db-bg-hover: rgba(224, 122, 74, 0.04);
-	--db-bg-hover-strong: rgba(224, 122, 74, 0.08);
-	--db-bg-add-section: rgba(224, 122, 74, 0.04);
-	--db-border: rgba(224, 122, 74, 0.10);
-	--db-border-card: rgba(224, 122, 74, 0.18);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(224, 122, 74, 0.10);
-	--db-border-input-focus: #e07a4a;
-	--db-text: #f0e0d0;
-	--db-text-muted: #c0a890;
-	--db-text-faint: #887060;
-	--db-accent: #e07a4a;
-	--db-accent-light: #f5c16c;
-	--db-danger: #ef4444;
-	--db-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
-	--db-shadow-card-hover: 0 6px 20px rgba(224, 122, 74, 0.15);
-	--db-progress-from: #e07a4a;
-	--db-progress-to: #f5c16c;
-	--db-checkbox: #e07a4a;
-	--db-quote-border: #f5c16c;
-	--db-link: #e07a4a;
-}
-/* Ember: warm smoke gradient */
-.apex-dashboard-root[data-theme="ember"] {
-	background:
-		radial-gradient(ellipse at 20% 10%, rgba(245, 193, 108, 0.3) 0%, transparent 50%),
-		radial-gradient(ellipse at 75% 5%, rgba(224, 160, 100, 0.2) 0%, transparent 45%),
-		radial-gradient(ellipse at 40% 85%, rgba(20, 14, 10, 0.9) 0%, transparent 50%),
-		radial-gradient(ellipse at 85% 75%, rgba(30, 18, 10, 0.7) 0%, transparent 45%),
-		linear-gradient(180deg, #f5f0ea 0%, #e8d4c0 30%, #8a4a28 70%, #18120e 100%);
-	transition: color 0.3s ease;
-}
-.theme-dark .apex-dashboard-root[data-theme="ember"] {
-	background:
-		radial-gradient(ellipse at 30% 15%, rgba(180, 100, 50, 0.12) 0%, transparent 50%),
-		radial-gradient(ellipse at 70% 10%, rgba(150, 80, 40, 0.08) 0%, transparent 45%),
-		radial-gradient(ellipse at 50% 80%, rgba(10, 6, 4, 0.6) 0%, transparent 50%),
-		linear-gradient(180deg, #201810 0%, #18120e 40%, #0e0a08 100%);
 }
 
 /* ----- 12. JADE (翡翠) — Green bamboo mist, cloned from Haze ----- */
@@ -1473,8 +1369,7 @@
 		transition: color 0.3s ease;
 	}
 
-	/* ===== Shared: transparent sections for ember, jade, carbon, onyx, mono ===== */
-.apex-dashboard-root[data-theme="ember"] .dashboard-section-row,
+	/* ===== Shared: transparent sections for jade, carbon, onyx, mono ===== */
 .apex-dashboard-root[data-theme="jade"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="carbon"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-section-row,
@@ -1486,7 +1381,6 @@
 	padding: 6px;
 }
 
-.apex-dashboard-root[data-theme="ember"] .dashboard-section,
 .apex-dashboard-root[data-theme="jade"] .dashboard-section,
 .apex-dashboard-root[data-theme="carbon"] .dashboard-section,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-section,
@@ -1497,8 +1391,7 @@
 	-webkit-backdrop-filter: none;
 }
 
-/* Tighter kanban gap for ember, jade, carbon */
-.apex-dashboard-root[data-theme="ember"] .dashboard-kanban,
+/* Tighter kanban gap for jade, carbon */
 .apex-dashboard-root[data-theme="jade"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="carbon"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-kanban,
@@ -2837,7 +2730,7 @@
 	border-radius: 10px;
 	background: var(--db-bg-hover, rgba(0,0,0,0.03));
 	border: 1px solid var(--db-border, rgba(0,0,0,0.06));
-	transition: all 0.2s;
+	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s, transform 0.2s;
 }
 
 .dashboard-reading-book-card--active {
@@ -2940,7 +2833,7 @@
 	height: 26px;
 	border-radius: 50%;
 	cursor: pointer;
-	transition: all 0.15s;
+	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.15s;
 	flex-shrink: 0;
 }
 
@@ -3395,7 +3288,7 @@
 	font-size: 0.7em;
 	color: var(--db-text-muted);
 	cursor: pointer;
-	transition: all 0.15s;
+	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.15s;
 }
 
 .dashboard-reading-end-mode-btn--active {
@@ -3512,7 +3405,7 @@
 	font-size: 0.8em;
 	font-weight: 500;
 	cursor: pointer;
-	transition: all 0.15s;
+	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.15s;
 }
 
 .dashboard-reading-end-btn--cancel {
@@ -3622,7 +3515,7 @@
 	font-size: 0.68em;
 	color: var(--db-text-muted);
 	cursor: pointer;
-	transition: all 0.15s;
+	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.15s;
 }
 
 .dashboard-reading-stats-range-btn--active {
@@ -3902,7 +3795,7 @@
 	background: rgba(255, 252, 245, 0.7);
 	border: 1.5px solid #c9a96e;
 	cursor: pointer;
-	transition: all 0.2s;
+	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s, transform 0.2s;
 	color: #2c1810;
 }
 
@@ -4079,7 +3972,7 @@
 	background: transparent;
 	color: #B22222;
 	letter-spacing: 0.1em;
-	transition: all 0.2s;
+	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s, transform 0.2s;
 	transform: rotate(-2deg);
 }
 
@@ -4396,7 +4289,7 @@
 	-webkit-backdrop-filter: var(--db-backdrop-blur);
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 	cursor: pointer;
-	transition: all 0.2s ease;
+	transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
 	position: relative;
 }
 
@@ -4898,7 +4791,7 @@
 	color: var(--db-text-faint);
 	border: 1px solid var(--db-border) !important;
 	box-shadow: none !important;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 	outline: none;
 	white-space: nowrap;
 }
@@ -4926,7 +4819,7 @@
 	color: var(--db-text-faint);
 	border: 1px solid var(--db-border) !important;
 	box-shadow: none !important;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 	outline: none;
 	padding: 0;
 }
@@ -6899,7 +6792,7 @@
 .apex-dashboard-root[data-theme="island"] .dashboard-card {
 	border: 2px solid var(--db-border-card);
 	box-shadow: 0 4px 0 0 #a8c8a5;
-	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .apex-dashboard-root[data-theme="island"] .dashboard-card:hover {
@@ -7008,7 +6901,7 @@
 	border-radius: 50px;
 	font-weight: 600;
 	box-shadow: 0 4px 0 0 #a8c8a5;
-	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 [data-theme="island"] .dashboard-modal-actions button:hover {
 	transform: translateY(-1px);
@@ -7570,73 +7463,6 @@
 	box-shadow: 0 0 12px rgba(184, 160, 200, 0.12);
 }
 
-/* -- Ember: warm rounded, smoky modal -- */
-[data-theme="ember"] .dashboard-modal {
-	border-radius: 14px;
-	border: 1px solid rgba(224, 122, 74, 0.15);
-	background: rgba(30, 22, 16, 0.90) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-.theme-light [data-theme="ember"] .dashboard-modal {
-	background: rgba(245, 240, 234, 0.90) !important;
-	border-color: rgba(224, 122, 74, 0.12);
-}
-[data-theme="ember"] .dashboard-modal h2 {
-	color: #e07a4a;
-	border-bottom-color: rgba(224, 122, 74, 0.12);
-	font-weight: 700;
-}
-.theme-light [data-theme="ember"] .dashboard-modal h2 {
-	color: #c0603a;
-}
-[data-theme="ember"] .dashboard-modal-form label {
-	color: #c0a890;
-}
-.theme-light [data-theme="ember"] .dashboard-modal-form label {
-	color: #6a4a30;
-}
-[data-theme="ember"] .dashboard-modal-input {
-	background: rgba(224, 122, 74, 0.05);
-	border-color: rgba(224, 122, 74, 0.10);
-	color: #f0e0d0;
-	border-radius: 10px;
-}
-.theme-light [data-theme="ember"] .dashboard-modal-input {
-	background: rgba(224, 122, 74, 0.04);
-	border-color: rgba(224, 122, 74, 0.10);
-	color: #2a1a0e;
-}
-[data-theme="ember"] .dashboard-modal-input:focus {
-	border-color: rgba(224, 122, 74, 0.45);
-	box-shadow: 0 0 12px rgba(224, 122, 74, 0.08);
-}
-[data-theme="ember"] .dashboard-modal-actions button {
-	border-radius: 10px;
-}
-[data-theme="ember"] .dashboard-modal-actions .mod-cta {
-	background: rgba(224, 122, 74, 0.15);
-	color: #e07a4a;
-	border: 1px solid rgba(224, 122, 74, 0.28);
-}
-.theme-light [data-theme="ember"] .dashboard-modal-actions .mod-cta {
-	background: rgba(192, 96, 58, 0.10);
-	color: #c0603a;
-	border-color: rgba(192, 96, 58, 0.25);
-}
-[data-theme="ember"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(224, 122, 74, 0.25);
-	box-shadow: 0 0 12px rgba(224, 122, 74, 0.10);
-}
-[data-theme="ember"] .dashboard-add-section {
-	border-radius: 12px;
-	border-color: rgba(224, 122, 74, 0.12);
-}
-[data-theme="ember"] .dashboard-add-section:hover {
-	border-color: rgba(224, 122, 74, 0.30);
-	box-shadow: 0 0 8px rgba(224, 122, 74, 0.06);
-}
-
 /* -- Dusk: dreamy cloud-soft modal -- */
 
 /* -- Jade: crisp sharp modal -- */
@@ -8128,7 +7954,7 @@
 			padding: 0;
 			color: var(--db-text-faint);
 			cursor: pointer;
-			transition: all 0.2s ease;
+			transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
 			outline: none;
 			box-shadow: none;
 			line-height: 1;
@@ -8851,7 +8677,7 @@
 	border-radius: 8px;
 	font-size: 0.9em;
 	cursor: pointer;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-confirm-cancel {
@@ -8892,7 +8718,7 @@
 	background: var(--db-bg-hover);
 	border: 2px solid transparent;
 	cursor: pointer;
-	transition: all 0.2s ease;
+	transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .widget-type-btn:hover {
@@ -9193,7 +9019,7 @@
 	cursor: pointer;
 	border: none;
 	line-height: 1.6;
-	transition: all 0.15s;
+	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.15s;
 }
 
 .tracker-key-tag:hover {
@@ -9593,7 +9419,7 @@
 	display: flex;
 	align-items: center;
 	font-size: 12px;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-library-view-btn:hover {
@@ -9654,7 +9480,7 @@
 	color: var(--db-text-muted, var(--text-muted));
 	display: flex;
 	align-items: center;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-library-filter-btn:hover {
@@ -9768,7 +9594,7 @@
 	color: #888;
 	font-size: 12px;
 	font-family: var(--db-font, var(--font-interface));
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-library-filter-date-btn:hover {
@@ -9814,7 +9640,7 @@
 	color: var(--db-text-muted, var(--text-muted));
 	font-size: 12px;
 	font-family: var(--db-font, var(--font-interface));
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-library-filter-popup-add:hover {
@@ -9843,7 +9669,7 @@
 	border-radius: var(--db-radius-md, 10px);
 	padding: 10px 12px;
 	cursor: pointer;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
@@ -10196,7 +10022,7 @@
 	border-radius: var(--db-radius-sm, 6px);
 	padding: 8px 10px;
 	cursor: pointer;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-library-kanban-card:hover {
@@ -10369,7 +10195,7 @@
 	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
 	color: var(--db-text-muted, var(--text-muted));
 	cursor: pointer;
-	transition: all 0.1s ease;
+	transition: background 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease, color 0.1s ease, transform 0.1s ease;
 	border: 1px solid transparent;
 }
 
@@ -10416,7 +10242,7 @@
 	cursor: pointer;
 	font-size: 12px;
 	font-family: var(--db-font, var(--font-interface));
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-library-add-filter-btn:hover {
@@ -10445,7 +10271,7 @@
 	font-weight: 500;
 	color: var(--db-text, var(--text-normal));
 	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
-	transition: all 0.1s ease;
+	transition: background 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease, color 0.1s ease, transform 0.1s ease;
 	user-select: none;
 }
 
@@ -10466,7 +10292,7 @@
 	font-size: 12px;
 	color: var(--db-text-muted, var(--text-muted));
 	background: transparent;
-	transition: all 0.1s ease;
+	transition: background 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease, color 0.1s ease, transform 0.1s ease;
 	min-width: 28px;
 	text-align: center;
 	user-select: none;
@@ -10511,7 +10337,7 @@
 	color: var(--db-text-muted, var(--text-muted));
 	display: flex;
 	align-items: center;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-modal-close:hover {
@@ -10547,7 +10373,7 @@
 	color: var(--db-text, var(--text-normal));
 	font-size: 13px;
 	cursor: pointer;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-reminder-actions button:hover {
@@ -11514,7 +11340,7 @@
 	background: var(--interactive-accent);
 	border: 1px solid transparent;
 	color: var(--text-on-accent);
-	transition: all 0.15s ease;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 .dashboard-confirm-confirm:hover {
 	opacity: 0.85;
@@ -12099,7 +11925,7 @@
 	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
 	color: var(--db-text-muted, var(--text-muted));
 	border: 1px solid transparent;
-	transition: all 0.12s ease;
+	transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease, transform 0.12s ease;
 }
 
 .dashboard-weread-cfg-chip:hover {
@@ -12269,14 +12095,136 @@
 	line-height: 1.4;
 }
 
-/* Heatmap stats: centered with generous spacing */
+/* Heatmap stats: above the grid, left-aligned */
 .dashboard-heatmap-section-body .dashboard-sidebar-heatmap-stats {
-	justify-content: center;
-	margin-top: 16px;
+	justify-content: flex-start;
+	margin-top: 4px;
 	margin-bottom: 10px;
 }
 
 /* Add-section modal: extra gap between name input and footer buttons */
 .dashboard-add-section-name-row {
 	margin-bottom: 18px;
+}
+
+/* Section header view-toggle active state (TickTick today/lists) */
+.dashboard-section-header-actions .dashboard-section-add-btn.active {
+	color: var(--db-accent, var(--interactive-accent));
+	background: rgba(139, 92, 246, 0.12);
+}
+
+/* TickTick lists view: horizontal scroll row (like todo section cards) */
+.dashboard-ticktick-proj-row {
+	display: flex;
+	gap: 10px;
+	flex: 1;
+	min-height: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-ticktick-proj-row:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent) 18%, transparent) transparent;
+}
+
+.dashboard-ticktick-proj-row .dashboard-ticktick-proj-card {
+	flex: 0 0 280px;
+	min-width: 280px;
+	max-width: 400px;
+	position: relative;
+}
+
+.dashboard-ticktick-card-resize {
+	position: absolute;
+	top: 4px;
+	right: 0;
+	bottom: 4px;
+	width: 6px;
+	cursor: ew-resize;
+	z-index: 10;
+	border-right: 2px solid transparent;
+	transition: border-color 0.2s ease;
+}
+
+.dashboard-ticktick-proj-card:hover .dashboard-ticktick-card-resize,
+.dashboard-ticktick-card--resizing .dashboard-ticktick-card-resize {
+	border-right-color: var(--db-border-card, rgba(255, 255, 255, 0.12));
+}
+
+.dashboard-ticktick-card-resize:hover {
+	border-right-color: var(--db-text-muted, var(--text-muted)) !important;
+}
+
+.dashboard-ticktick-card--resizing {
+	user-select: none;
+}
+
+/* Heatmap: grid left + stats right, horizontal layout */
+.dashboard-heatmap-layout {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	width: 100%;
+}
+
+.dashboard-heatmap-layout > .dashboard-heatmap-year {
+	flex: 1 1 0;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.dashboard-heatmap-stats-side {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.dashboard-heatmap-stat-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 0.75em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-heatmap-stat-icon svg {
+	width: 14px;
+	height: 14px;
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+/* Heatmap stats popup (floating, from header button) */
+.dashboard-heatmap-stats-popup {
+	width: 160px;
+	padding: 10px 12px;
+	border-radius: var(--db-radius-md, 10px);
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.08));
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.12));
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-heatmap-stats-popup-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 0;
+	font-size: 0.82em;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-heatmap-stats-popup-row + .dashboard-heatmap-stats-popup-row {
+	border-top: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.06));
+}
+
+.dashboard-heatmap-stats-popup-icon svg {
+	width: 15px;
+	height: 15px;
+	color: var(--db-accent, var(--interactive-accent));
 }

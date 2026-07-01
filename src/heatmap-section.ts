@@ -14,7 +14,12 @@ const MAX_CELL = 20;
  * Range is pastYear (last 365/366 days) or thisYear (Jan 1→Dec 31). Cells size
  * to fill the section width.
  */
-export function renderHeatmapSection(el: HTMLElement, column: DashboardColumn, app: App): void {
+export function renderHeatmapSection(
+	el: HTMLElement,
+	column: DashboardColumn,
+	app: App,
+	onStatsReady?: (getter: () => { streak: number; total: number; rate: number }) => void,
+): void {
 	const cfg = column.heatmapConfig;
 	if (!cfg || !cfg.trackerKey) {
 		el.createDiv({ cls: 'dashboard-library-empty', text: t('heatmap.empty') });
@@ -44,23 +49,22 @@ export function renderHeatmapSection(el: HTMLElement, column: DashboardColumn, a
 	const valueRange = maxVal - minVal || 1;
 	const accent = cssVar('--db-accent') || cssVar('--interactive-accent') || '#6366f1';
 
-	renderYearGrid(body, weekCols, minVal, valueRange, accent);
-
+	// Layout: just the heatmap grid (stats shown via header button popup).
 	const totalDays = data.length;
 	const streak = computeStreak(data);
 	const rate = totalDays > 0 ? Math.round((validPoints.length / totalDays) * 100) : 0;
 
-	const stats = body.createDiv({ cls: 'dashboard-sidebar-heatmap-stats' });
-	const streakEl = stats.createSpan({ cls: 'dashboard-sidebar-heatmap-summary' });
-	streakEl.createSpan({ cls: 'dashboard-sidebar-heatmap-icon', text: '⚡' });
-	streakEl.createSpan({ text: t('heatmap.streak', { count: streak }) });
-	const rateEl = stats.createSpan({ cls: 'dashboard-sidebar-heatmap-summary' });
-	rateEl.createSpan({ cls: 'dashboard-sidebar-heatmap-icon', text: '✅' });
-	rateEl.createSpan({ text: t('heatmap.rate', { rate }) });
+	if (onStatsReady) {
+		onStatsReady(() => ({ streak, total: validPoints.length, rate }));
+	}
+
+	renderYearGrid(body, weekCols, minVal, valueRange, accent);
 }
 
 function cssVar(name: string): string {
-	return getComputedStyle(activeDocument.body).getPropertyValue(name).trim();
+	const root = activeDocument.querySelector('.apex-dashboard-root');
+	const el = root instanceof HTMLElement ? root : activeDocument.body;
+	return getComputedStyle(el).getPropertyValue(name).trim();
 }
 
 /** Group daily points into week columns (Mon-first), aligning the first week to Monday. */
@@ -132,8 +136,10 @@ function renderYearGrid(
 				cellEl.addClass('dashboard-sidebar-heatmap-cell--empty');
 			} else {
 				const intensity = valueRange > 0 ? (point.value - minVal) / valueRange : 1;
+				const clamped = Math.max(0, Math.min(1, intensity));
 				cellEl.style.backgroundColor = accent;
-				cellEl.style.opacity = String(0.15 + Math.max(0, Math.min(1, intensity)) * 0.85);
+				cellEl.style.opacity = String(0.35 + clamped * 0.65);
+				cellEl.style.filter = `brightness(${1 + clamped * 0.5}) saturate(1.4)`;
 				cellEl.title = `${point.date}: ${point.value}`;
 			}
 		}
