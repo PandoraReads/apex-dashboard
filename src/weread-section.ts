@@ -1,4 +1,4 @@
-import { App, Notice, setIcon } from 'obsidian';
+import { App, Notice, setIcon, TFile } from 'obsidian';
 import type { DashboardColumn, WereadConfig, WereadWidget } from './types';
 import { t } from './i18n';
 import { WereadClient, formatReadTime } from './weread-service';
@@ -137,7 +137,12 @@ function renderHint(content: HTMLElement, title: string, hint: string): void {
 function messageForError(err: unknown): string {
 	const code = err instanceof Error ? err.message : '';
 	if (code === 'WRONG_KEY') return t('weread.wrongKey');
-	if (code === 'UPGRADE_REQUIRED') return t('weread.upgradeRequired');
+	if (code === 'UPGRADE_REQUIRED' || code.startsWith('UPGRADE_REQUIRED:')) {
+		// Surface the official upgrade hint from `upgrade_info.message` (if any)
+		// so the user sees what version / step the gateway asked for.
+		const detail = code.startsWith('UPGRADE_REQUIRED:') ? code.slice('UPGRADE_REQUIRED:'.length) : '';
+		return detail ? `${t('weread.upgradeRequired')} ${detail}` : t('weread.upgradeRequired');
+	}
 	if (code.startsWith('NETWORK')) return t('weread.networkError');
 	return code || t('weread.loadFailed');
 }
@@ -290,7 +295,9 @@ async function doImportHighlights(client: WereadClient, app: App, importPath: st
 		}
 		const path = await importHighlightsToObsidian(app, importPath, nb, marks);
 		new Notice(t('weread.importDone', { n: String(marks.length), name: nb.title, path }));
-	} catch {
+	} catch (err) {
+		// eslint-disable-next-line no-console
+		console.error('[weread] import failed:', err);
 		new Notice(t('weread.importFailed'));
 	} finally {
 		btn.removeAttribute('disabled');
@@ -304,10 +311,7 @@ async function importHighlightsToObsidian(app: App, importPath: string, nb: Were
 	const path = folder ? `${folder}/${safeTitle}.md` : `${safeTitle}.md`;
 
 	if (folder) {
-		const existing = app.vault.getAbstractFileByPath(folder);
-		if (!existing) {
-			try { await app.vault.createFolder(folder); } catch { /* may exist */ }
-		}
+		await ensureFolder(app, folder);
 	}
 
 	const lines: string[] = [];
@@ -325,10 +329,9 @@ async function importHighlightsToObsidian(app: App, importPath: string, nb: Were
 	marks.forEach((m, i) => { lines.push(`${i + 1}. ${m.markText}`); lines.push(''); });
 	const content = lines.join('\n');
 
-	const file = app.vault.getAbstractFileByPath(path);
-	const { TFile } = await import('obsidian');
-	if (file && file instanceof TFile) {
-		await app.vault.modify(file, content);
+	const existing = app.vault.getAbstractFileByPath(path);
+	if (existing && existing instanceof TFile) {
+		await app.vault.modify(existing, content);
 	} else {
 		await app.vault.create(path, content);
 	}
@@ -337,6 +340,23 @@ async function importHighlightsToObsidian(app: App, importPath: string, nb: Were
 
 function sanitizeFileName(name: string): string {
 	return (name || 'untitled').replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || 'untitled';
+}
+
+/**
+ * Recursively ensure a folder exists. Obsidian's `vault.createFolder` only
+ * creates a single level, so a nested default like "Weread/划线" must be built
+ * one segment at a time — otherwise highlight import fails on fresh vaults.
+ */
+async function ensureFolder(app: App, folder: string): Promise<void> {
+	const trimmed = folder.replace(/^\/+|\/+$/g, '');
+	if (!trimmed) return;
+	let current = '';
+	for (const part of trimmed.split('/').filter(Boolean)) {
+		current = current ? `${current}/${part}` : part;
+		if (!app.vault.getAbstractFileByPath(current)) {
+			try { await app.vault.createFolder(current); } catch { /* race or already exists */ }
+		}
+	}
 }
 
 function yamlScalar(v: string): string {

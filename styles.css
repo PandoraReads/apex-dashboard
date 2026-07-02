@@ -11615,7 +11615,6 @@
 .dashboard-weread-notebook-head {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: 8px;
 	padding: 8px 10px;
 	cursor: pointer;
@@ -11626,6 +11625,8 @@
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
+	flex: 1;
+	margin-right: auto;
 }
 
 .dashboard-weread-notebook-count {
@@ -11889,6 +11890,8 @@
 	padding: 0;
 	border-radius: var(--db-radius-sm, 6px);
 	background: transparent;
+	background-image: none;
+	box-shadow: none;
 	border: none;
 	color: var(--db-text-muted, var(--text-muted));
 	cursor: pointer;

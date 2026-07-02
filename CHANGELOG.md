@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.2 (2026-07-02)
+
+### Fixed
+- **Weread "upgrade required" load failure** — Pinned `skill_version` raised from `1.0.3` to `1.0.4` to match the official Weread Agent Skill; the gateway was returning `upgrade_info` for the old version, surfacing as a "skill needs upgrade" / load-failed state. The official `upgrade_info.message` is now forwarded to the UI, and a non-zero gateway `errcode` is now treated as an error (previously only mentioned in a comment)
+- **Weread highlight import failure** — Highlight import no longer fails on fresh vaults: the import folder is now created recursively. Obsidian's `vault.createFolder` only creates a single level, so the default two-level `Weread/划线` path silently failed when neither level existed. Import errors are now logged to the console instead of being swallowed
+
+### Changed
+- **Weread notebook import button** — Moved the per-book import button out of the centered slot to the top-right of the row (immediately left of the collapse chevron), and stripped its background/shadow so it reads as a bare icon like the chevron
+
 ## 1.4.1 (2026-07-01)
 
 ### Changed

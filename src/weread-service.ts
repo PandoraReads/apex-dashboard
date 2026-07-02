@@ -9,7 +9,7 @@ import { requestUrl } from 'obsidian';
  *
  *   POST https://i.weread.qq.com/api/agent/gateway
  *   Authorization: Bearer wrk-...
- *   { "api_name": "/shelf/sync", "skill_version": "1.0.3", ...params }
+ *   { "api_name": "/shelf/sync", "skill_version": "1.0.4", ...params }
  *
  * Responses are wrapped as { ok, api_name, data }. We surface `data` and throw
  * on `data.errcode` / `data.upgrade_info` / non-ok. requestUrl bypasses CORS, so
@@ -17,7 +17,7 @@ import { requestUrl } from 'obsidian';
  */
 
 const GATEWAY_URL = 'https://i.weread.qq.com/api/agent/gateway';
-const SKILL_VERSION = '1.0.3';
+const SKILL_VERSION = '1.0.4';
 const MAX_RETRIES = 3;
 
 export interface WereadBook {
@@ -128,7 +128,19 @@ export class WereadClient {
 			const data = (obj && obj['data'] && typeof obj['data'] === 'object')
 				? obj['data'] as Record<string, unknown>
 				: (obj ?? {});
-			if (data && data['upgrade_info']) throw new Error('UPGRADE_REQUIRED');
+			// The gateway may signal errors via a non-zero `errcode` even on HTTP 200.
+			if (data && typeof data['errcode'] === 'number' && data['errcode'] !== 0) {
+				throw new Error(`API:${String(data['errmsg'] ?? data['errcode'])}`);
+			}
+			// Skill version too old: carry the official upgrade hint forward so the
+			// UI can show it instead of a bare "upgrade required".
+			const upgrade = data ? data['upgrade_info'] : undefined;
+			if (upgrade) {
+				const msg = typeof upgrade === 'object' && upgrade !== null
+					? (upgrade as Record<string, unknown>)['message']
+					: upgrade;
+				throw new Error(typeof msg === 'string' && msg ? `UPGRADE_REQUIRED:${msg}` : 'UPGRADE_REQUIRED');
+			}
 
 			this.cache.set(cacheKey, { ts: Date.now(), data });
 			return data as unknown as T;
