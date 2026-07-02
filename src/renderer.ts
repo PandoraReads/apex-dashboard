@@ -1707,7 +1707,7 @@ function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, cal
 }
 
 export function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
-	const el = activeDocument.createElement('div');
+	const el = createDiv();
 	el.addClass('dashboard-section-row');
 	el.dataset.column = column.name;
 	const sectionType = getSectionType(column);
@@ -2099,7 +2099,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 }
 
 function renderCard(card: DashboardCard, columnName: string, sectionType: string, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
-	const el = activeDocument.createElement('div');
+	const el = createDiv();
 	el.addClass('dashboard-card', `dashboard-card--${card.type}`);
 	el.dataset.cardId = card.id;
 	el.dataset.cardType = card.type;
@@ -2234,7 +2234,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		}
 		colorBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			const input = activeDocument.createElement('input');
+			const input = createEl('input');
 			input.type = 'color';
 			input.value = card.color || '#f59e0b';
 			input.setCssProps({
@@ -3152,7 +3152,7 @@ function createReminderButton(
 	task: TaskItem,
 	callbacks: RenderCallbacks,
 ): HTMLElement {
-	const btn = activeDocument.createElement('button');
+	const btn = createEl('button');
 	btn.setAttribute('draggable', 'false');
 	btn.addClass('dashboard-task-reminder-btn');
 
@@ -3272,7 +3272,7 @@ function showReminderPopup(
 	// Calendar nav
 	const calNav = popup.createDiv({ cls: 'dashboard-task-reminder-calendar-nav' });
 	const prevBtn = calNav.createEl('button', { text: '<' });
-	const monthLabel = calNav.createEl('span');
+	const monthLabel = calNav.createSpan();
 	const nextBtn = calNav.createEl('button', { text: '>' });
 
 	// Calendar grid

@@ -196,7 +196,7 @@ function updateDropIndicator(state: DnDState, column: HTMLElement, clientX: numb
 	if (!cardsContainer) return;
 
 	const cards = Array.from(cardsContainer.querySelectorAll<HTMLElement>('.dashboard-card:not(.dashboard-card--dragging)'));
-	const indicator = activeDocument.createElement('div');
+	const indicator = createDiv();
 	indicator.addClass('dashboard-drop-indicator');
 	state.dropIndicator = indicator;
 

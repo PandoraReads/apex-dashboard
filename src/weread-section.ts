@@ -295,9 +295,7 @@ async function doImportHighlights(client: WereadClient, app: App, importPath: st
 		}
 		const path = await importHighlightsToObsidian(app, importPath, nb, marks);
 		new Notice(t('weread.importDone', { n: String(marks.length), name: nb.title, path }));
-	} catch (err) {
-		// eslint-disable-next-line no-console
-		console.error('[weread] import failed:', err);
+	} catch {
 		new Notice(t('weread.importFailed'));
 	} finally {
 		btn.removeAttribute('disabled');

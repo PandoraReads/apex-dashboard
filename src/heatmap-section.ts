@@ -112,8 +112,6 @@ function renderYearGrid(
 	const width = wrap.parentElement?.clientWidth ?? 800;
 	const cell = chooseCellSize(width, weekCols.length);
 	wrap.style.setProperty('--hm-cell', `${cell}px`);
-	// eslint-disable-next-line no-console
-	console.log('[heatmap] weeks=', weekCols.length, 'cell=', cell, 'width=', width);
 
 	const monthRow = wrap.createDiv({ cls: 'dashboard-heatmap-months-top' });
 	const grid = wrap.createDiv({ cls: 'dashboard-heatmap-grid' });

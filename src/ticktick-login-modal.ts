@@ -1,7 +1,35 @@
 import { App, Modal, Platform, setIcon } from 'obsidian';
 import { t } from './i18n';
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, no-undef, @typescript-eslint/no-require-imports */
+/* eslint-disable no-undef, @typescript-eslint/no-require-imports -- Electron's BrowserWindow and session.cookie APIs are loaded via require() without bundled typings, so require/no-undef can't be avoided in this desktop-only login interop */
+
+/** Minimal Electron typings — only the surface this login helper touches (Electron's own types aren't bundled with Obsidian). */
+interface ElectronCookie {
+	name: string;
+	value?: string;
+}
+interface ElectronCookieStore {
+	get(filter: { domain?: string }): Promise<ElectronCookie[]>;
+}
+interface ElectronWebContents {
+	session: { cookies: ElectronCookieStore };
+}
+interface BrowserWindowLike {
+	webContents: ElectronWebContents;
+	loadURL(url: string): Promise<unknown>;
+	isDestroyed(): boolean;
+	close(): void;
+	on(event: 'closed', listener: () => void): void;
+}
+type BrowserWindowConstructor = new (opts: {
+	width: number;
+	height: number;
+	webPreferences: Record<string, unknown>;
+}) => BrowserWindowLike;
+interface ElectronModule {
+	BrowserWindow?: BrowserWindowConstructor;
+	remote?: { BrowserWindow?: BrowserWindowConstructor };
+}
 /**
  * Open TickTick's sign-in page in an embedded Electron window and grab the `t`
  * session cookie + `_csrf_token` (needed for writes) automatically once the user
@@ -18,13 +46,13 @@ export function loginViaBrowser(region: 'dida365' | 'ticktick'): Promise<{ token
 		const domain = region === 'ticktick' ? 'ticktick.com' : 'dida365.com';
 
 		// Resolve a BrowserWindow constructor across Obsidian/Electron variants.
-		let BrowserWindowCtor: any;
+		let BrowserWindowCtor: BrowserWindowConstructor | undefined;
 		try {
-			const electron: any = require('electron');
+			const electron = require('electron') as ElectronModule | undefined;
 			BrowserWindowCtor = electron?.BrowserWindow ?? electron?.remote?.BrowserWindow;
 			if (!BrowserWindowCtor) {
 				try {
-					const remote: any = require('@electron/remote');
+					const remote = require('@electron/remote') as { BrowserWindow?: BrowserWindowConstructor } | undefined;
 					BrowserWindowCtor = remote?.BrowserWindow;
 				} catch { /* not available */ }
 			}
@@ -37,7 +65,7 @@ export function loginViaBrowser(region: 'dida365' | 'ticktick'): Promise<{ token
 			return;
 		}
 
-		let win: any;
+		let win: BrowserWindowLike;
 		try {
 			win = new BrowserWindowCtor({
 				width: 960,
@@ -54,10 +82,10 @@ export function loginViaBrowser(region: 'dida365' | 'ticktick'): Promise<{ token
 		const poll = async (): Promise<void> => {
 			if (done || win.isDestroyed()) return;
 			try {
-				const cookies: any[] = await win.webContents.session.cookies.get({ domain });
-				const token = cookies.find((c: any) => c.name === 't' && typeof c.value === 'string' && c.value.length > 0);
-				if (token) {
-					const csrf = cookies.find((c: any) => c.name === '_csrf_token' && typeof c.value === 'string');
+				const cookies = await win.webContents.session.cookies.get({ domain });
+				const token = cookies.find(c => c.name === 't' && typeof c.value === 'string' && c.value.length > 0);
+				if (token && token.value) {
+					const csrf = cookies.find(c => c.name === '_csrf_token' && typeof c.value === 'string');
 					done = true;
 					if (!win.isDestroyed()) win.close();
 					resolve({ token: token.value, csrf: csrf?.value ?? '' });
@@ -72,7 +100,7 @@ export function loginViaBrowser(region: 'dida365' | 'ticktick'): Promise<{ token
 		win.on('closed', () => { if (!done) reject(new Error('WINDOW_CLOSED')); });
 	});
 }
-/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, no-undef, @typescript-eslint/no-require-imports */
+/* eslint-enable no-undef, @typescript-eslint/no-require-imports -- end of the Electron login interop block */
 
 /**
  * Guided authorization modal for TickTick. Primary flow: email + password login

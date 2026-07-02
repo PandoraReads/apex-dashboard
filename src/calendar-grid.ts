@@ -327,7 +327,7 @@ export function renderWeekTimeGrid(
 
 /** Render one task inside a calendar day cell. */
 function renderDayTask(task: VaultTask, opts: MonthGridOptions): HTMLElement {
-	const row = activeDocument.createElement('div');
+	const row = createDiv();
 	const multi = Boolean(task.start && task.end);
 	row.className = 'dashboard-calendar-event'
 		+ (task.checked ? ' is-done' : '')

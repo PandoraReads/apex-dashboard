@@ -408,10 +408,10 @@ export class AddActionModal extends Modal {
 
 		for (const file of files) {
 			const item = container.createDiv({ cls: 'dashboard-docsearch-item' });
-			item.createEl('span', { cls: 'dashboard-docsearch-icon', text: '\u{1F4C4}' });
+			item.createSpan({ cls: 'dashboard-docsearch-icon', text: '\u{1F4C4}' });
 			const info = item.createDiv({ cls: 'dashboard-docsearch-info' });
-			info.createEl('div', { cls: 'dashboard-docsearch-name', text: file.basename });
-			info.createEl('div', { cls: 'dashboard-docsearch-path', text: file.path });
+			info.createDiv({ cls: 'dashboard-docsearch-name', text: file.basename });
+			info.createDiv({ cls: 'dashboard-docsearch-path', text: file.path });
 
 			item.addEventListener('click', () => {
 				this.pendingAction = { name: file.basename, icon: 'file-text', type: 'file', target: file.path };
@@ -449,10 +449,10 @@ export class AddActionModal extends Modal {
 
 		for (const entry of entries) {
 			const item = container.createDiv({ cls: 'dashboard-docsearch-item' });
-			item.createEl('span', { cls: 'dashboard-docsearch-icon', text: '⚙️' });
+			item.createSpan({ cls: 'dashboard-docsearch-icon', text: '⚙️' });
 			const info = item.createDiv({ cls: 'dashboard-docsearch-info' });
-			info.createEl('div', { cls: 'dashboard-docsearch-name', text: entry.name });
-			info.createEl('div', { cls: 'dashboard-docsearch-path', text: entry.id });
+			info.createDiv({ cls: 'dashboard-docsearch-name', text: entry.name });
+			info.createDiv({ cls: 'dashboard-docsearch-path', text: entry.id });
 
 			item.addEventListener('click', () => {
 				this.pendingAction = { name: entry.name, icon: 'terminal', type: 'command', target: entry.id };
@@ -501,10 +501,10 @@ export class DocSearchModal extends Modal {
 
 			for (const file of files) {
 				const item = resultsList.createDiv({ cls: 'dashboard-docsearch-item' });
-				item.createEl('span', { cls: 'dashboard-docsearch-icon', text: '\u{1F4C4}' });
+				item.createSpan({ cls: 'dashboard-docsearch-icon', text: '\u{1F4C4}' });
 				const info = item.createDiv({ cls: 'dashboard-docsearch-info' });
-				info.createEl('div', { cls: 'dashboard-docsearch-name', text: file.basename });
-				info.createEl('div', { cls: 'dashboard-docsearch-path', text: file.path });
+				info.createDiv({ cls: 'dashboard-docsearch-name', text: file.basename });
+				info.createDiv({ cls: 'dashboard-docsearch-path', text: file.path });
 				item.addEventListener('click', () => {
 					this.onSelect({ name: file.basename, path: file.path });
 					this.close();

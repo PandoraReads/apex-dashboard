@@ -109,6 +109,32 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.4.3
+- **Marketplace review compliance** — Type-safety and code-quality fixes so the plugin passes the Obsidian community-plugin review: removed debug `console` logging, replaced `any` types with proper Electron typings in the TickTick browser login, added safe string-coercion helpers, and fixed section rendering to build detached DOM nodes (a regression that hid all sidebar sections). No user-facing feature changes.
+
+### 1.4.2
+- **Weread skill v1.0.4** — Bundled Weread skill updated to `skill_version` 1.0.4
+- **Highlight import fix** — Importing a book's highlights into a note works again
+- **Import button UI** — Refreshed the import button in the Weread section
+
+### 1.4.1
+- **TickTick view toggle** — List/kanban view switch for the TickTick section
+- **Heatmap polish** — Visual refinements to the Heatmap section
+- **Performance fixes** — General rendering and performance improvements
+- **Ember removal** — Removed leftover "ember" UI artifacts
+
+### 1.4.0
+- **New sections** — Weread, TickTick, and Heatmap section types
+- **Section reorder & resize** — Reorder sections and adjust their heights
+- **Card properties** — Per-card size, grid span, color, and cover image
+
+### 1.3.1
+- **Multi-folder support** — Media, folder, and library sections can target multiple folders
+- **UI fixes** — Removed duplicate config buttons on folder/library sections; restored the library section's delete button
+
+### 1.3.0
+- **Plugin review fixes** — Resolved Obsidian community-plugin review feedback: popout-window support via `activeDocument`, CSS partial-support warnings, ESLint globals, and CI lint-config tracking
+
 ### 1.2.9
 - **Calendar week view** — New Month | Week toggle on the Calendar section. In-column week view is a compact vertical list (sorted by time, with time labels); the full-screen modal's week view is a Google-Calendar-style time grid (hour axis + 7 day columns, tasks positioned/sized by time, all-day strip, "now" line). Times come from `⏰` reminders and `[due::]`/`[start::]`/`[end::]` with `HH:MM`
 - **Add tasks from the calendar** — Click a day → its agenda lets you add a task (optional time) that writes to that day's daily note (auto-created from the Daily Notes template/path); timed with `⏰`, date-only with `📅`

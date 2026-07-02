@@ -127,8 +127,6 @@ export class TickTickClient {
 		const text = typeof res.text === 'string' ? res.text : '';
 		let parsed: unknown = null;
 		try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
-		// eslint-disable-next-line no-console
-		console.log('[ticktick]', method, path, 'status=', status, 'body=', text.slice(0, 400));
 
 		if (status === 401 || status === 403) throw new Error('BAD_COOKIE');
 		if (status === 429) throw new Error('RATE_LIMITED');
@@ -210,8 +208,6 @@ export class TickTickClient {
 		}
 		const status = res.status;
 		const text = typeof res.text === 'string' ? res.text : '';
-		// eslint-disable-next-line no-console
-		console.log('[ticktick] WRITE', path, 'status=', status, 'body=', text.slice(0, 300));
 		if (status === 401 || status === 403) throw new Error('BAD_COOKIE');
 		if (status === 429) throw new Error('RATE_LIMITED');
 		if (status >= 400) throw new Error(`HTTP_${status}:${text.slice(0, 120)}`);

@@ -162,7 +162,7 @@ function evaluateFilter(
 			if (Array.isArray(fm.tags)) {
 				fileTags.push(...fm.tags.map(String));
 			} else {
-				fileTags.push(String(fm.tags as string | number | boolean));
+				fileTags.push(str(fm.tags));
 			}
 		}
 		if (cache?.tags) {
@@ -194,7 +194,12 @@ function evaluateFilter(
 		return value.some(item => filter.values.includes(String(item)));
 	}
 
-	return filter.values.includes(String(value as string | number | boolean));
+	return filter.values.includes(str(value));
+}
+
+function str(v: unknown): string {
+	if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+	return '';
 }
 
 async function loadPreview(app: App, file: TFile): Promise<string> {
@@ -234,8 +239,8 @@ function comparePropertyValues(a: unknown, b: unknown): number {
 	if (a == null && b == null) return 0;
 	if (a == null) return 1;
 	if (b == null) return -1;
-	const sa = String(a as string | number | boolean);
-	const sb = String(b as string | number | boolean);
+	const sa = str(a);
+	const sb = str(b);
 	const na = Number(sa);
 	const nb = Number(sb);
 	if (!isNaN(na) && !isNaN(nb)) return na - nb;
@@ -330,7 +335,7 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 
 	const calNav = popup.createDiv({ cls: 'dashboard-task-reminder-calendar-nav' });
 	const prevBtn = calNav.createEl('button', { text: '<' });
-	const monthLabel = calNav.createEl('span');
+	const monthLabel = calNav.createSpan();
 	const nextBtn = calNav.createEl('button', { text: '>' });
 
 	const calGrid = popup.createDiv({ cls: 'dashboard-task-reminder-calendar' });
@@ -703,7 +708,7 @@ export function renderLibrarySection(
 			if (!filterPopup) return;
 			const target = e.target as Node;
 			if (filterPopup.contains(target) || filterBtn.contains(target)) return;
-			if (target instanceof Element && target.closest('.modal-container')) return;
+			if (target.instanceOf(Element) && target.closest('.modal-container')) return;
 			closePopup();
 		});
 
@@ -1053,7 +1058,7 @@ function formatBadgeValue(value: unknown): string | null {
 			return null;
 		}
 	}
-	const s = String(value as string | number | boolean).trim();
+	const s = str(value).trim();
 	return s.length > 0 ? s : null;
 }
 
@@ -1083,7 +1088,7 @@ function startCellEdit(
 	const isArr = Array.isArray(originalValue);
 	const displayValue = originalValue == null ? '' : isArr
 		? (originalValue as unknown[]).map(String).join(', ')
-		: String(originalValue as string | number | boolean);
+		: str(originalValue);
 
 	td.empty();
 	td.removeClass('dashboard-library-table-empty');
@@ -1133,7 +1138,7 @@ function startCellEdit(
 		} else if (Array.isArray(newValue)) {
 			td.textContent = newValue.join(', ');
 		} else {
-			td.textContent = String(newValue as string | number | boolean);
+			td.textContent = str(newValue);
 		}
 	};
 
@@ -1200,7 +1205,7 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 				} else if (Array.isArray(value)) {
 					td.textContent = value.map(String).join(', ');
 				} else {
-					td.textContent = String(value as string | number | boolean);
+					td.textContent = str(value);
 				}
 				td.addClass('dashboard-library-table-editable');
 				td.addEventListener('dblclick', (e) => {
@@ -1246,7 +1251,7 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 				groups.get(key)!.push(result);
 			}
 		} else {
-			const key = String(value as string | number | boolean);
+			const key = str(value);
 			if (!groups.has(key)) groups.set(key, []);
 			groups.get(key)!.push(result);
 		}

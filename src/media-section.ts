@@ -470,7 +470,7 @@ export function renderMediaSection(
 			if (!filterPopup) return;
 			const target = e.target as Node;
 			if (filterPopup.contains(target) || filterBtn.contains(target)) return;
-			if (target instanceof Element && target.closest('.modal-container')) return;
+			if (target.instanceOf(Element) && target.closest('.modal-container')) return;
 			closeMediaPopup();
 		};
 		window.setTimeout(() => activeDocument.addEventListener('click', outsideClickHandler!), 0);

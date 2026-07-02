@@ -113,8 +113,6 @@ export class WereadClient {
 			const text = typeof res.text === 'string' ? res.text : '';
 			let parsed: unknown = null;
 			try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
-			// eslint-disable-next-line no-console
-			console.log('[weread]', apiName, 'status=', status, 'body=', text.slice(0, 500));
 
 			if (status === 401 || status === 403) throw new Error('WRONG_KEY');
 			if (status >= 400) throw new Error(`HTTP_${status}:${text.slice(0, 120)}`);
@@ -123,14 +121,16 @@ export class WereadClient {
 			// tolerate both so a shape mismatch doesn't mask the real data.
 			const obj = parsed as Record<string, unknown> | null;
 			if (obj && obj['ok'] === false) {
-				throw new Error(`API:${String((obj['errmsg'] ?? obj['errcode'] ?? 'rejected') as string | number | boolean)}`);
+				const okErr = obj['errmsg'] ?? obj['errcode'];
+			throw new Error(`API:${typeof okErr === 'string' || typeof okErr === 'number' ? okErr : 'rejected'}`);
 			}
 			const data = (obj && obj['data'] && typeof obj['data'] === 'object')
 				? obj['data'] as Record<string, unknown>
 				: (obj ?? {});
 			// The gateway may signal errors via a non-zero `errcode` even on HTTP 200.
 			if (data && typeof data['errcode'] === 'number' && data['errcode'] !== 0) {
-				throw new Error(`API:${String(data['errmsg'] ?? data['errcode'])}`);
+				const errPart = data['errmsg'] ?? data['errcode'];
+			throw new Error(`API:${typeof errPart === 'string' || typeof errPart === 'number' ? errPart : 'rejected'}`);
 			}
 			// Skill version too old: carry the official upgrade hint forward so the
 			// UI can show it instead of a bare "upgrade required".
@@ -223,12 +223,6 @@ interface BookmarkRaw {
 
 function parseShelf(data: { books?: ShelfBookRaw[]; albums?: Array<Record<string, unknown>>; mp?: Record<string, unknown> }): WereadBook[] {
 	const rawBooks = data.books ?? [];
-	if (rawBooks.length > 0) {
-		// eslint-disable-next-line no-console
-		console.log('[weread] sample shelf book keys:', Object.keys(rawBooks[0] ?? {}).join(', '));
-		// eslint-disable-next-line no-console
-		console.log('[weread] sample shelf book value:', JSON.stringify(rawBooks[0]));
-	}
 	const out: WereadBook[] = [];
 
 	for (const b of rawBooks) {

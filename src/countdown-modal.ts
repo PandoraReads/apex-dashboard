@@ -98,7 +98,7 @@ export class CountdownSettingsModal extends Modal {
 			cls: 'dashboard-modal-input',
 			attr: { type: 'number', min: '0', max: '365', value: String(this.config.reminderDays), placeholder: '0' },
 		});
-		reminderRow.createEl('span', { text: t('countdown.reminderDaysDesc'), cls: 'dashboard-modal-countdown-hint' });
+		reminderRow.createSpan({ text: t('countdown.reminderDaysDesc'), cls: 'dashboard-modal-countdown-hint' });
 
 		// Label
 		const labelRow = form.createDiv({ cls: 'dashboard-modal-countdown-row' });
@@ -184,7 +184,7 @@ export class CountdownSettingsModal extends Modal {
 
 		const calNav = popup.createDiv({ cls: 'dashboard-task-reminder-calendar-nav' });
 		const prevBtn = calNav.createEl('button', { text: '<' });
-		const monthLabel = calNav.createEl('span');
+		const monthLabel = calNav.createSpan();
 		const nextBtn = calNav.createEl('button', { text: '>' });
 
 		const calGrid = popup.createDiv({ cls: 'dashboard-task-reminder-calendar' });

@@ -37,8 +37,8 @@ export function renderRecentDocs(
 	const list = section.createDiv({ cls: 'dashboard-recent-list' });
 	for (const doc of docs) {
 		const item = list.createDiv({ cls: 'dashboard-recent-item' });
-		item.createEl('span', { text: doc.name, cls: 'dashboard-recent-name' });
-		item.createEl('span', { text: doc.relativeTime, cls: 'dashboard-recent-time' });
+		item.createSpan({ text: doc.name, cls: 'dashboard-recent-name' });
+		item.createSpan({ text: doc.relativeTime, cls: 'dashboard-recent-time' });
 		item.addEventListener('click', () => onClick(doc.path));
 		item.setAttribute('role', 'button');
 		item.setAttribute('aria-label', t('common.open', { name: doc.name }));
