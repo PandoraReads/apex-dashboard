@@ -89,6 +89,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.dashboard': 'Dashboard',
 		'main.cycleTheme': 'Cycle to next theme',
 		'main.addSection': 'Add new section',
+		'main.toggleNotePopover': 'Toggle: open notes directly in a tab',
+		'main.notePopoverOff': 'Notes open directly in a tab (popover off)',
+		'main.notePopoverOn': 'Notes open in the dashboard popover',
 
 		// Renderer
 		// Default dashboard content
@@ -576,6 +579,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.ticktickCookieDesc': 'From the web app DevTools > Application > Cookies > t',
 		'settings.ticktickDeviceVersion': 'TickTick device version (advanced)',
 		'settings.ticktickDeviceVersionDesc': 'Override the x-device version if the web client rotates and requests fail',
+		'settings.ticktickTimezone': 'TickTick timezone',
+		'settings.ticktickTimezoneDesc': 'IANA timezone for rendering dates (e.g. Asia/Shanghai). Defaults to Asia/Shanghai.',
+		'settings.ticktickTimezoneInvalid': 'Invalid timezone. Falling back to Asia/Shanghai.',
+		'settings.disableNotePopover': 'Open notes directly in a tab',
+		'settings.disableNotePopoverDesc': 'Skip the in-dashboard editor: clicking a document card opens the note in a tab. Off keeps the click-then-open popover.',
 		'settings.ticktickGetCookie': 'Get cookie',
 		'settings.ticktickClearCookie': 'Clear',
 		'settings.ticktickCookieStatus': 'Session token status',
@@ -850,6 +858,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.dashboard': '工作台',
 		'main.cycleTheme': '切换到下一个主题',
 		'main.addSection': '添加新分区',
+		'main.toggleNotePopover': '切换：直接在标签页打开笔记',
+		'main.notePopoverOff': '笔记直接在标签页打开（已关闭弹窗）',
+		'main.notePopoverOn': '笔记在仪表盘弹窗中打开',
 
 		// Renderer
 		// Default dashboard content
@@ -1332,6 +1343,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.ticktickCookieDesc': '网页端 DevTools > Application > Cookies > t 的值',
 		'settings.ticktickDeviceVersion': '滴答清单设备版本（高级）',
 		'settings.ticktickDeviceVersionDesc': '当网页端轮换导致请求失败时，覆盖 x-device 版本',
+		'settings.ticktickTimezone': '滴答清单时区',
+		'settings.ticktickTimezoneDesc': '渲染日期所用的 IANA 时区（如 Asia/Shanghai），默认北京时区。',
+		'settings.ticktickTimezoneInvalid': '时区无效，将回退为 Asia/Shanghai。',
+		'settings.disableNotePopover': '直接在标签页打开笔记',
+		'settings.disableNotePopoverDesc': '跳过仪表盘内编辑器：点击文档卡片直接在标签页打开笔记。关闭则保留先弹窗再打开的行为。',
 		'settings.ticktickGetCookie': '获取 cookie',
 		'settings.ticktickClearCookie': '清除',
 		'settings.ticktickCookieStatus': '会话令牌状态',

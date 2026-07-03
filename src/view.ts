@@ -748,7 +748,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private createCallbacks() {
 		return {
 			onCardEdit: (card: DashboardCard) => this.openCardEditModal(card),
-			onOpenNoteInPopover: (file: TFile) => this.openNotePopover(file),
+			onOpenNoteInPopover: (file: TFile) => this.openNote(file),
 			onCardDelete: async (cardId: string) => {
 				const confirmed = await showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
@@ -1041,6 +1041,16 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new NotePopoverModal(this.app, file, this.plugin.settings.stylePreset);
 		this.popoverModal = modal;
 		modal.open();
+	}
+
+	/** Opens a note on card click. Honors the "disable popover" setting: when
+	 *  on, the note opens directly in a tab (no in-dashboard editor). */
+	private openNote(file: TFile): void {
+		if (this.plugin.settings.disableNotePopover) {
+			void this.app.workspace.getLeaf(false).openFile(file);
+			return;
+		}
+		this.openNotePopover(file);
 	}
 
 	private async addColumnWithType(name: string, sectionType?: string): Promise<void> {

@@ -77,6 +77,17 @@ export default class DashboardPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'toggle-note-popover',
+			name: t('main.toggleNotePopover'),
+			callback: async () => {
+				const value = !this.settings.disableNotePopover;
+				this.settings = { ...this.settings, disableNotePopover: value };
+				await this.saveSettings();
+				new Notice(value ? t('main.notePopoverOff') : t('main.notePopoverOn'));
+			},
+		});
+
+		this.addCommand({
 			id: 'add-section',
 			name: t('main.addSection'),
 			callback: () => {

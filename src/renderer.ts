@@ -2056,7 +2056,8 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		const cookie = (settings?.ticktickCookie ?? '').trim();
 		const csrf = (settings?.ticktickCsrf ?? '').trim();
 		const deviceVersion = settings?.ticktickDeviceVersion;
-		renderTickTickSection(el, column, app, region, cookie, csrf, deviceVersion, (fn) => { reload = fn; },
+		const tz = (settings?.ticktickTimezone ?? '').trim() || 'Asia/Shanghai';
+		renderTickTickSection(el, column, app, region, cookie, csrf, deviceVersion, tz, (fn) => { reload = fn; },
 			(projectId, width) => {
 				const cfg = column.ticktickConfig;
 				if (cfg) {

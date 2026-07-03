@@ -1,10 +1,11 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type DashboardPlugin from './main';
 import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
 import { t, setLanguage, type Language } from './i18n';
 import { geocodeCity } from './weather-service';
 import { CountdownSettingsModal } from './countdown-modal';
 import { TickTickLoginModal } from './ticktick-login-modal';
+import { DEFAULT_TICKTICK_TZ, isValidTz } from './ticktick-tz';
 
 export type { DashboardSettings };
 
@@ -126,6 +127,17 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName(t('settings.disableNotePopover'))
+			.setDesc(t('settings.disableNotePopoverDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.disableNotePopover)
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, disableNotePopover: value };
+					await this.plugin.saveSettings();
+				}));
+
 		this.renderWidgetSettings(containerEl);
 
 		this.renderLunarSettings(containerEl);
@@ -410,6 +422,23 @@ export class DashboardSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.ticktickDeviceVersion ?? '')
 				.onChange(async (value) => {
 					this.plugin.settings = { ...this.plugin.settings, ticktickDeviceVersion: value.trim() || undefined };
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}));
+		new Setting(ticktickCard)
+			.setName(t('settings.ticktickTimezone'))
+			.setDesc(t('settings.ticktickTimezoneDesc'))
+			.addText(text => text
+				.setPlaceholder(DEFAULT_TICKTICK_TZ)
+				.setValue(this.plugin.settings.ticktickTimezone)
+				.onChange(async (value) => {
+					const tz = value.trim() || DEFAULT_TICKTICK_TZ;
+					if (!isValidTz(tz)) {
+						new Notice(t('settings.ticktickTimezoneInvalid'));
+						this.display();
+						return;
+					}
+					this.plugin.settings = { ...this.plugin.settings, ticktickTimezone: tz };
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
 				}));

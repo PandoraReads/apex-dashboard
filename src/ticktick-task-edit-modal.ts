@@ -2,6 +2,7 @@ import { App, Modal, setIcon } from 'obsidian';
 import type { TickTickTask } from './ticktick-service';
 import { t } from './i18n';
 import { parseTickDate } from './ticktick-service';
+import { DEFAULT_TICKTICK_TZ, fromTzInputs, isValidTz, tzParts } from './ticktick-tz';
 
 const PRIORITIES: Array<{ value: number; labelKey: string }> = [
 	{ value: 0, labelKey: 'ticktick.prioNone' },
@@ -14,11 +15,13 @@ const PRIORITIES: Array<{ value: number; labelKey: string }> = [
 export class TickTickTaskEditModal extends Modal {
 	private readonly task: TickTickTask;
 	private readonly onSave: (fields: { dueDate?: string; priority?: number }) => void | Promise<void>;
+	private readonly tz: string;
 
-	constructor(app: App, task: TickTickTask, onSave: (fields: { dueDate?: string; priority?: number }) => void | Promise<void>) {
+	constructor(app: App, task: TickTickTask, onSave: (fields: { dueDate?: string; priority?: number }) => void | Promise<void>, timezone: string) {
 		super(app);
 		this.task = task;
 		this.onSave = onSave;
+		this.tz = isValidTz(timezone) ? timezone : DEFAULT_TICKTICK_TZ;
 	}
 
 	onOpen(): void {
@@ -43,11 +46,11 @@ export class TickTickTaskEditModal extends Modal {
 		dueRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('ticktick.dueDate') });
 		const dateInput = dueRow.createEl('input', {
 			cls: 'dashboard-task-input dashboard-section-name-input',
-			attr: { type: 'date', value: due ? toDateInput(due) : '' },
+			attr: { type: 'date', value: due ? toDateInput(due, this.tz) : '' },
 		});
 		const timeInput = dueRow.createEl('input', {
 			cls: 'dashboard-library-config-number',
-			attr: { type: 'time', value: due ? toTimeInput(due) : '09:00' },
+			attr: { type: 'time', value: due ? toTimeInput(due, this.tz) : '09:00' },
 		});
 
 		// Priority
@@ -74,8 +77,7 @@ export class TickTickTaskEditModal extends Modal {
 						priority: parseInt(prioSelect.value, 10),
 					};
 					if (dateInput.value) {
-						const d = new Date(`${dateInput.value}T${timeInput.value || '09:00'}`);
-						if (!isNaN(d.getTime())) fields.dueDate = toTickDateLocal(d);
+						fields.dueDate = fromTzInputs(dateInput.value, timeInput.value || '09:00', this.tz);
 					} else {
 						fields.dueDate = ''; // clear
 					}
@@ -90,21 +92,14 @@ export class TickTickTaskEditModal extends Modal {
 	}
 }
 
-function toDateInput(d: Date): string {
-	const pad = (n: number) => String(n).padStart(2, '0');
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function toDateInput(d: Date, tz: string): string {
+	const p = tzParts(d, tz);
+	return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
-function toTimeInput(d: Date): string {
-	const pad = (n: number) => String(n).padStart(2, '0');
-	return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function toTimeInput(d: Date, tz: string): string {
+	const p = tzParts(d, tz);
+	return `${pad(p.hour)}:${pad(p.minute)}`;
 }
 
-/** TickTick format: yyyy-MM-dd'T'HH:mm:ss+HHMM (offset without colon). */
-function toTickDateLocal(d: Date): string {
-	const pad = (n: number) => String(n).padStart(2, '0');
-	const off = -d.getTimezoneOffset();
-	const sign = off >= 0 ? '+' : '-';
-	const abs = Math.abs(off);
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${pad(Math.floor(abs / 60))}${pad(abs % 60)}`;
-}
+const pad = (n: number): string => String(n).padStart(2, '0');

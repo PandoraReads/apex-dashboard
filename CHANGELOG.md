@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.4 (2026-07-04)
+
+### Added
+- **TickTick timezone setting** — Configurable IANA timezone (default `Asia/Shanghai`) used to render TickTick dates. Fixes today's todos, recently-completed window, and habit checkin stamp being computed in the runtime's local timezone, which was wrong whenever the device timezone differed from the user's TickTick account. All wall-clock derivations — today filter, day-diff, time display, and the edit-modal date/time inputs plus save output — now go through the configured zone via `Intl.DateTimeFormat` (no new dependency). Invalid input falls back to `Asia/Shanghai` with a notice. New shared helper module `ticktick-tz.ts`
+- **Open notes directly in a tab** — New `disableNotePopover` setting (defaults off) and a command-palette command `Toggle: open notes directly in a tab` that skips the in-dashboard note popover: clicking a document card opens the note in a tab immediately. The popover remains the default behavior
+
 ## 1.4.2 (2026-07-02)
 
 ### Fixed

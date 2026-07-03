@@ -4,6 +4,7 @@ import { t } from './i18n';
 import { TickTickClient, parseTickDate } from './ticktick-service';
 import type { TickTickHabit, TickTickProject, TickTickTask } from './ticktick-service';
 import { TickTickTaskEditModal } from './ticktick-task-edit-modal';
+import { DEFAULT_TICKTICK_TZ, isValidTz, tzDayNum, tzParts, tzStamp } from './ticktick-tz';
 
 interface TaskActions {
 	canWrite: boolean;
@@ -30,11 +31,13 @@ export function renderTickTickSection(
 	cookie: string,
 	csrf: string,
 	deviceVersion: string | undefined,
+	timezone: string,
 	onReloadReady?: (reload: () => void) => void,
 	onResize?: (projectId: string, width: number) => void,
 ): void {
 	const cfg = column.ticktickConfig ?? { view: 'today' as const };
 	const view: 'today' | 'lists' = cfg.view === 'lists' ? 'lists' : 'today';
+	const tz = isValidTz(timezone) ? timezone : DEFAULT_TICKTICK_TZ;
 	const hiddenProjects = new Set(cfg.hiddenProjects ?? []);
 	const projectWidths = cfg.projectWidths ?? {};
 	const client = new TickTickClient(region, cookie, deviceVersion, csrf);
@@ -115,7 +118,7 @@ export function renderTickTickSection(
 			snapshot = await client.fetchSnapshot();
 			completedCache = await client.fetchCompleted();
 			const habits = await client.fetchHabits();
-			const checkins = await client.fetchHabitCheckins(habits.map(h => h.id), todayStamp());
+			const checkins = await client.fetchHabitCheckins(habits.map(h => h.id), tzStamp(new Date(), tz));
 			habitsCache = { habits, doneToday: new Set(checkins.map(c => c.habitId)) };
 			renderView();
 		} catch (err) {
@@ -134,10 +137,14 @@ export function renderTickTickSection(
 		const projMap = new Map(snapshot.projects.map(p => [p.id, p]));
 		const grid = host.createDiv({ cls: 'dashboard-ticktick-proj-grid' });
 
-		// Card 1: Today's tasks
-		const eod = endOfDay(new Date());
+		// Card 1: Today's tasks (due on or before end of today in the chosen tz)
+		const todayNum = tzDayNum(new Date(), tz);
 		const todayTasks = snapshot.tasks
-			.filter(task => task.status === 0 && task.dueDate ? (parseTickDate(task.dueDate)?.getTime() ?? Infinity) <= eod.getTime() : false)
+			.filter((task) => {
+				if (task.status !== 0 || !task.dueDate) return false;
+				const due = parseTickDate(task.dueDate);
+				return due ? tzDayNum(due, tz) <= todayNum : false;
+			})
 			.sort((a, b) => {
 				const da = parseTickDate(a.dueDate)?.getTime() ?? 0;
 				const db = parseTickDate(b.dueDate)?.getTime() ?? 0;
@@ -145,13 +152,17 @@ export function renderTickTickSection(
 			});
 		buildCard(grid, t('ticktick.viewToday'), String(todayTasks.length), '#ef4444', (list) => {
 			if (todayTasks.length === 0) { renderHint(list, t('ticktick.todayEmpty'), ''); return; }
-			for (const task of todayTasks) renderTaskRow(list, task, projMap, { showDue: true, app, actions });
+			for (const task of todayTasks) renderTaskRow(list, task, projMap, { showDue: true, app, actions, tz });
 		});
 
-		// Card 2: Recently completed (3 days)
-		const since = startOfDay(addDays(new Date(), -2));
+		// Card 2: Recently completed (3 days in the chosen tz)
+		const sinceNum = tzDayNum(new Date(), tz) - 2;
 		const recentDone = completedCache
-			.filter(task => task.completedTime ? (parseTickDate(task.completedTime)?.getTime() ?? 0) >= since.getTime() : false)
+			.filter((task) => {
+				if (!task.completedTime) return false;
+				const c = parseTickDate(task.completedTime);
+				return c ? tzDayNum(c, tz) >= sinceNum : false;
+			})
 			.sort((a, b) => (parseTickDate(b.completedTime)?.getTime() ?? 0) - (parseTickDate(a.completedTime)?.getTime() ?? 0));
 		buildCard(grid, t('ticktick.viewCompleted'), String(recentDone.length), '#10b981', (list) => {
 			if (recentDone.length === 0) { renderHint(list, t('ticktick.noCompleted'), ''); return; }
@@ -163,7 +174,7 @@ export function renderTickTickSection(
 				const main = row.createDiv({ cls: 'dashboard-ticktick-main' });
 				main.createDiv({ cls: 'dashboard-ticktick-title dashboard-ticktick-title--done', text: task.title });
 				const when = parseTickDate(task.completedTime);
-				if (when) main.createDiv({ cls: 'dashboard-ticktick-meta', text: formatRelative(when) });
+				if (when) main.createDiv({ cls: 'dashboard-ticktick-meta', text: formatRelative(when, tz) });
 			}
 		});
 
@@ -203,7 +214,7 @@ export function renderTickTickSection(
 				list.addClass('dashboard-ticktick-list--reorder');
 				const ordered = tasks.sort((a, b) => (b.sortOrder ?? 0) - (a.sortOrder ?? 0) || b.priority - a.priority);
 				for (const task of ordered) {
-					renderTaskRow(list, task, projMap, { showDue: true, app: null, actions, reorderable: true, projectId: pid, siblings: ordered });
+					renderTaskRow(list, task, projMap, { showDue: true, app: null, actions, reorderable: true, projectId: pid, siblings: ordered, tz });
 				}
 			}, proj?.color, w);
 			// Resize handle
@@ -286,6 +297,7 @@ interface RowOpts {
 	reorderable?: boolean;
 	projectId?: string;
 	siblings?: TickTickTask[];
+	tz: string;
 }
 
 function renderTaskRow(list: HTMLElement, task: TickTickTask, projMap: Map<string, TickTickProject>, opts: RowOpts): void {
@@ -311,13 +323,13 @@ function renderTaskRow(list: HTMLElement, task: TickTickTask, projMap: Map<strin
 		setIcon(editBtn, 'pencil');
 		editBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			new TickTickTaskEditModal(opts.app!, task, (fields) => opts.actions.editFields(task, fields)).open();
+			new TickTickTaskEditModal(opts.app!, task, (fields) => opts.actions.editFields(task, fields), opts.tz).open();
 		});
 	}
 	const meta: string[] = [];
 	if (opts.showDue && task.dueDate) {
 		const due = parseTickDate(task.dueDate);
-		if (due) meta.push(formatDue(due));
+		if (due) meta.push(formatDue(due, opts.tz));
 	}
 	const proj = task.projectId ? projMap.get(task.projectId) : undefined;
 	if (proj && proj.name) meta.push(proj.name);
@@ -387,27 +399,19 @@ function computeSortOrder(movedId: string, beforeId: string | null, siblings: Ti
 	return Date.now();
 }
 
-// date helpers
-function startOfDay(d: Date): Date { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
-function endOfDay(d: Date): Date { const x = startOfDay(d); x.setDate(x.getDate() + 1); return x; }
-function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function todayStamp(): string {
-	const d = new Date();
-	return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-}
-function formatDue(due: Date): string {
-	const now = new Date();
-	const todayStart = startOfDay(now);
-	const dueStart = startOfDay(due);
-	const diffDays = Math.round((dueStart.getTime() - todayStart.getTime()) / 86400000);
+// date helpers (wall-clock in the configured TickTick timezone)
+function formatDue(due: Date, tz: string): string {
+	const diffDays = tzDayNum(due, tz) - tzDayNum(new Date(), tz);
 	if (diffDays < 0) return t('ticktick.overdue', { n: String(-diffDays) });
 	if (diffDays === 0) return t('ticktick.dueToday');
-	return `${due.getMonth() + 1}/${due.getDate()}`;
+	const { month, day } = tzParts(due, tz);
+	return `${month}/${day}`;
 }
-function formatRelative(d: Date): string {
-	const now = new Date();
-	const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-	const hh = String(d.getHours()).padStart(2, '0');
-	const mm = String(d.getMinutes()).padStart(2, '0');
-	return sameDay ? `${hh}:${mm}` : `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
+function formatRelative(d: Date, tz: string): string {
+	const p = tzParts(d, tz);
+	const nowP = tzParts(new Date(), tz);
+	const sameDay = p.year === nowP.year && p.month === nowP.month && p.day === nowP.day;
+	const hh = String(p.hour).padStart(2, '0');
+	const mm = String(p.minute).padStart(2, '0');
+	return sameDay ? `${hh}:${mm}` : `${p.month}/${p.day} ${hh}:${mm}`;
 }

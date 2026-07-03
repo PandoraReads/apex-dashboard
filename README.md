@@ -109,6 +109,10 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.4.4
+- **TickTick timezone setting** — New configurable timezone (default `Asia/Shanghai`) fixes today's todos showing the wrong time/date when your system timezone differs from your TickTick account. Configure under Settings → TickTick → Timezone
+- **Open notes directly in a tab** — New setting (plus a command-palette toggle) to skip the in-dashboard editor popover: clicking a document card opens the note in a tab immediately. Defaults off so the existing popover behavior is preserved
+
 ### 1.4.3
 - **Marketplace review compliance** — Type-safety and code-quality fixes so the plugin passes the Obsidian community-plugin review: removed debug `console` logging, replaced `any` types with proper Electron typings in the TickTick browser login, added safe string-coercion helpers, and fixed section rendering to build detached DOM nodes (a regression that hid all sidebar sections). No user-facing feature changes.
 

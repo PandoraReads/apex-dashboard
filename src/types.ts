@@ -31,6 +31,10 @@ export interface DashboardSettings {
 	ticktickCsrf: string;
 	/** TickTick x-device version override (when the web client rotates, bump this). */
 	ticktickDeviceVersion?: string;
+	/** IANA timezone used to render TickTick dates (defaults to Asia/Shanghai). */
+	ticktickTimezone: string;
+	/** Skip the note popover: open notes directly in a tab on card click. */
+	disableNotePopover: boolean;
 	countdownEnabled: boolean;
 	/** Multiple countdowns managed in settings; rendered in the sidebar. */
 	countdowns: CountdownConfig[];
@@ -64,6 +68,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	ticktickRegion: 'dida365',
 	ticktickCookie: '',
 	ticktickCsrf: '',
+	ticktickTimezone: 'Asia/Shanghai',
+	disableNotePopover: false,
 	countdownEnabled: false,
 	countdowns: [] as CountdownConfig[],
 	readingEnabled: false,
