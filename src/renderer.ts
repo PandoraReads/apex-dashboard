@@ -14,10 +14,15 @@ import { showConfirmDialog } from './confirm-dialog';
 import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, computeStreak } from './tracker-service';
-import type { PomodoroService } from './pomodoro-service';
+import {
+	type PomodoroService,
+	POMODORO_WORK_MINUTES_MIN,
+	POMODORO_WORK_MINUTES_MAX,
+	POMODORO_WORK_MINUTES_STEP,
+	activityColor,
+} from './pomodoro-service';
 import type { ReadingService } from './reading-service';
 import { searchBooks, downloadCoverAsBlobUrl } from './book-service';
-import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
 import type { HolidayInfo } from './holiday-service';
 import { CountdownSettingsModal } from './countdown-modal';
@@ -426,6 +431,13 @@ export function renderSidebarPomodoro(
 		cls: 'dashboard-sidebar-pomodoro-time',
 		text: formatTime(state.remainingSeconds),
 	});
+	const durationKnob = ringWrap.createDiv({ cls: 'dashboard-sidebar-pomodoro-duration-knob' });
+	ringWrap.setAttribute('role', 'slider');
+	ringWrap.setAttribute('tabindex', '0');
+	ringWrap.setAttribute('aria-label', t('pomodoro.adjustDuration'));
+	ringWrap.setAttribute('aria-valuemin', String(POMODORO_WORK_MINUTES_MIN));
+	ringWrap.setAttribute('aria-valuemax', String(POMODORO_WORK_MINUTES_MAX));
+	const durationHint = widget.createDiv({ cls: 'dashboard-sidebar-pomodoro-duration-hint' });
 
 	// Dots inside ring, below time
 	const dotsWrap = ringWrap.createDiv({ cls: 'dashboard-sidebar-pomodoro-dots' });
@@ -451,11 +463,107 @@ export function renderSidebarPomodoro(
 		progressCircle.setAttribute('stroke-dashoffset', String(circumference * (1 - progress)));
 		timeText.textContent = formatTime(remaining);
 	}
+
+	function updateDurationControl(minutes: number): void {
+		const ratio = (minutes - POMODORO_WORK_MINUTES_MIN) /
+			(POMODORO_WORK_MINUTES_MAX - POMODORO_WORK_MINUTES_MIN);
+		const startAngle = Math.PI * 0.75;
+		const sweepAngle = Math.PI * 1.5;
+		const angle = startAngle + ratio * sweepAngle;
+		const orbitRadius = 36;
+		durationKnob.style.left = `${40 + Math.cos(angle) * orbitRadius}px`;
+		durationKnob.style.top = `${40 + Math.sin(angle) * orbitRadius}px`;
+		ringWrap.setAttribute('aria-valuenow', String(minutes));
+		ringWrap.setAttribute('aria-valuetext', t('pomodoro.minutes', { count: minutes }));
+		durationHint.textContent = t('pomodoro.durationHint', { count: minutes });
+	}
+
+	function canAdjustDuration(): boolean {
+		const current = service.getState();
+		return current.status === 'idle' && current.phase === 'work';
+	}
+
+	function updateDurationAvailability(): void {
+		const adjustable = canAdjustDuration();
+		ringWrap.toggleClass('dashboard-sidebar-pomodoro-ring-wrap--adjustable', adjustable);
+		ringWrap.setAttribute('aria-disabled', String(!adjustable));
+	}
+
+	function minutesFromPointer(e: PointerEvent): number {
+		const rect = ringWrap.getBoundingClientRect();
+		const x = e.clientX - (rect.left + rect.width / 2);
+		const y = e.clientY - (rect.top + rect.height / 2);
+		const startAngle = Math.PI * 0.75;
+		const sweepAngle = Math.PI * 1.5;
+		let angle = Math.atan2(y, x);
+		if (angle < startAngle) angle += Math.PI * 2;
+		angle = Math.max(startAngle, Math.min(startAngle + sweepAngle, angle));
+		const raw = POMODORO_WORK_MINUTES_MIN +
+			((angle - startAngle) / sweepAngle) * (POMODORO_WORK_MINUTES_MAX - POMODORO_WORK_MINUTES_MIN);
+		return Math.max(
+			POMODORO_WORK_MINUTES_MIN,
+			Math.min(
+				POMODORO_WORK_MINUTES_MAX,
+				Math.round(raw / POMODORO_WORK_MINUTES_STEP) * POMODORO_WORK_MINUTES_STEP,
+			),
+		);
+	}
+
+	let adjustingDuration = false;
+	let previewMinutes = service.getWorkMinutes();
+	const previewPointer = (e: PointerEvent) => {
+		previewMinutes = minutesFromPointer(e);
+		updateDurationControl(previewMinutes);
+		updateRing(previewMinutes * 60, previewMinutes * 60);
+	};
+	ringWrap.addEventListener('pointerdown', (e) => {
+		if (!canAdjustDuration()) return;
+		e.preventDefault();
+		e.stopPropagation();
+		adjustingDuration = true;
+		ringWrap.addClass('dashboard-sidebar-pomodoro-ring-wrap--adjusting');
+		ringWrap.setPointerCapture(e.pointerId);
+		previewPointer(e);
+	});
+	ringWrap.addEventListener('pointermove', (e) => {
+		if (adjustingDuration) previewPointer(e);
+	});
+	ringWrap.addEventListener('pointerup', (e) => {
+		if (!adjustingDuration) return;
+		adjustingDuration = false;
+		ringWrap.removeClass('dashboard-sidebar-pomodoro-ring-wrap--adjusting');
+		if (ringWrap.hasPointerCapture(e.pointerId)) ringWrap.releasePointerCapture(e.pointerId);
+		void service.setWorkMinutes(previewMinutes).then(() => updateUI());
+	});
+	ringWrap.addEventListener('pointercancel', () => {
+		adjustingDuration = false;
+		ringWrap.removeClass('dashboard-sidebar-pomodoro-ring-wrap--adjusting');
+		previewMinutes = service.getWorkMinutes();
+		updateDurationControl(previewMinutes);
+		updateUI();
+	});
+	ringWrap.addEventListener('keydown', (e) => {
+		if (!canAdjustDuration()) return;
+		let next = service.getWorkMinutes();
+		if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next += POMODORO_WORK_MINUTES_STEP;
+		else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next -= POMODORO_WORK_MINUTES_STEP;
+		else if (e.key === 'Home') next = POMODORO_WORK_MINUTES_MIN;
+		else if (e.key === 'End') next = POMODORO_WORK_MINUTES_MAX;
+		else return;
+		e.preventDefault();
+		void service.setWorkMinutes(next).then(() => updateUI());
+	});
+
 	updateRing(state.remainingSeconds, state.totalSeconds);
+	updateDurationControl(previewMinutes);
+	updateDurationAvailability();
 
 	function updateUI(): void {
 		const s = service.getState();
 		updateRing(s.remainingSeconds, s.totalSeconds);
+		previewMinutes = service.getWorkMinutes();
+		updateDurationControl(previewMinutes);
+		updateDurationAvailability();
 		const running = s.status === 'running';
 		mainBtn.textContent = running ? t('pomodoro.stop') : t('pomodoro.startFocus');
 		mainBtn.toggleClass('dashboard-sidebar-pomodoro-main-btn--running', running);
@@ -2691,21 +2799,24 @@ function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: 
 		if (!taskDragSource) return;
 		if (taskDragSource.cardId === card.id) return;
 		e.preventDefault();
+		e.stopPropagation();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
 		list.addClass('dashboard-task-list--drop-target');
 	});
 
 	list.addEventListener('dragleave', (e) => {
+		if (!taskDragSource || taskDragSource.cardId === card.id) return;
+		e.stopPropagation();
 		if (!list.contains(e.relatedTarget as Node)) {
 			list.removeClass('dashboard-task-list--drop-target');
 		}
 	});
 
 	list.addEventListener('drop', (e) => {
+		if (!taskDragSource || taskDragSource.cardId === card.id) return;
 		e.preventDefault();
+		e.stopPropagation();
 		list.removeClass('dashboard-task-list--drop-target');
-		if (!taskDragSource) return;
-		if (taskDragSource.cardId === card.id) return;
 		callbacks.onTaskMoveToCard(taskDragSource.cardId, taskDragSource.taskPath, card.id, [card.tasks.length], 'before');
 	});
 

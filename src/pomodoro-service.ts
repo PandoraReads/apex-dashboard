@@ -28,6 +28,9 @@ export interface PomodoroRecord {
 
 const DATA_FILE = 'pomodoro.json';
 const MAX_SESSION_DAYS = 365;
+export const POMODORO_WORK_MINUTES_MIN = 15;
+export const POMODORO_WORK_MINUTES_MAX = 60;
+export const POMODORO_WORK_MINUTES_STEP = 5;
 
 export class PomodoroService {
 	private phase: PomodoroPhase = 'work';
@@ -96,9 +99,30 @@ export class PomodoroService {
 	}
 
 	private getRemainingSeconds(): number {
-		if (this.status !== 'running') return Math.ceil(this.pausedRemaining / 1000);
+		if (this.status === 'idle') return Math.ceil(this.getPhaseDurationMs(this.phase) / 1000);
+		if (this.status === 'paused') return Math.ceil(this.pausedRemaining / 1000);
 		const elapsed = Date.now() - this.startedAt;
 		return Math.max(0, Math.ceil((this.durationMs - elapsed) / 1000));
+	}
+
+	getWorkMinutes(): number {
+		return this.getSettings().pomodoroWorkMinutes;
+	}
+
+	async setWorkMinutes(minutes: number): Promise<void> {
+		if (this.status !== 'idle' || this.phase !== 'work') return;
+		const stepped = Math.round(minutes / POMODORO_WORK_MINUTES_STEP) * POMODORO_WORK_MINUTES_STEP;
+		const value = Math.max(POMODORO_WORK_MINUTES_MIN, Math.min(POMODORO_WORK_MINUTES_MAX, stepped));
+		if (value === this.getSettings().pomodoroWorkMinutes) return;
+
+		this.plugin.settings = {
+			...this.plugin.settings,
+			pomodoroWorkMinutes: value,
+		};
+		this.durationMs = value * 60 * 1000;
+		this.pausedRemaining = 0;
+		this.notifyTick();
+		await this.plugin.saveSettings();
 	}
 
 	getState(): PomodoroState {

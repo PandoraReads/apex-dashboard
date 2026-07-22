@@ -202,21 +202,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 				}));
 
 		if (this.plugin.settings.pomodoroEnabled) {
-			const workSetting = new Setting(pomodoroCard)
-				.setName(t('settings.pomodoroWork') + '  ' + this.plugin.settings.pomodoroWorkMinutes + ' min')
-				.addSlider(slider => slider
-					.setLimits(15, 60, 5)
-					.setValue(this.plugin.settings.pomodoroWorkMinutes)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							pomodoroWorkMinutes: value,
-						};
-						await this.plugin.saveSettings();
-						workSetting.nameEl.setText(t('settings.pomodoroWork') + '  ' + value + ' min');
-					}));
-
 			const shortSetting = new Setting(pomodoroCard)
 				.setName(t('settings.pomodoroShortBreak') + '  ' + this.plugin.settings.pomodoroShortBreakMinutes + ' min')
 				.addSlider(slider => slider

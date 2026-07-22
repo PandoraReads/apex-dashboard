@@ -7,15 +7,39 @@ interface ConfirmOptions {
 
 export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promise<boolean> {
 	return new Promise((resolve) => {
+		const doc = activeDocument;
+		const overlay = doc.body.createDiv({ cls: 'dashboard-confirm-overlay' });
 		let resolved = false;
-		const done = (value: boolean) => {
+		function done(value: boolean): void {
 			if (resolved) return;
 			resolved = true;
+			doc.removeEventListener('keydown', onKeydown);
+			overlay.remove();
 			resolve(value);
-		};
+		}
+		function onKeydown(e: KeyboardEvent): void {
+			if (e.key === 'Escape') done(false);
+		}
 
 		// Full-screen overlay
-		const overlay = activeDocument.body.createDiv({ cls: 'dashboard-confirm-overlay' });
+		const dashboardRoot = doc.querySelector<HTMLElement>('.apex-dashboard-root');
+		if (dashboardRoot) {
+			const themeStyles = dashboardRoot.ownerDocument.defaultView?.getComputedStyle(dashboardRoot) ?? getComputedStyle(dashboardRoot);
+			for (const property of [
+				'--db-bg-card',
+				'--db-bg-btn',
+				'--db-bg-btn-hover',
+				'--db-border-card',
+				'--db-border-btn',
+				'--db-text',
+				'--db-text-muted',
+				'--db-danger',
+				'--db-shadow-card',
+			]) {
+				overlay.style.setProperty(property, themeStyles.getPropertyValue(property));
+			}
+			overlay.dataset.theme = dashboardRoot.dataset.theme ?? '';
+		}
 
 		// Dialog card
 		const dialog = overlay.createDiv({ cls: 'dashboard-confirm-card' });
@@ -30,7 +54,6 @@ export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promi
 			cls: 'dashboard-confirm-cancel',
 		});
 		cancelBtn.addEventListener('click', () => {
-			overlay.remove();
 			done(false);
 		});
 
@@ -39,26 +62,17 @@ export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promi
 			cls: 'dashboard-confirm-delete',
 		});
 		deleteBtn.addEventListener('click', () => {
-			overlay.remove();
 			done(true);
 		});
 
 		// Close on overlay click
 		overlay.addEventListener('click', (e) => {
 			if (e.target === overlay) {
-				overlay.remove();
 				done(false);
 			}
 		});
 
 		// Close on Escape
-		const onKeydown = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				activeDocument.removeEventListener('keydown', onKeydown);
-				overlay.remove();
-				done(false);
-			}
-		};
-		activeDocument.addEventListener('keydown', onKeydown);
+		doc.addEventListener('keydown', onKeydown);
 	});
 }
