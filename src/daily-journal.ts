@@ -433,8 +433,8 @@ export function renderDailyJournalSection(
 			renderDailyJournalSection(el, context);
 		};
 
-		const renderGroup = (title: string, tasks: DailyTask[]): void => {
-			const group = host.createDiv({ cls: 'dashboard-daily-group' });
+		const renderGroup = (parent: HTMLElement, title: string, tasks: DailyTask[]): void => {
+			const group = parent.createDiv({ cls: 'dashboard-daily-group' });
 			group.createDiv({ cls: 'dashboard-daily-group-title', text: title });
 			const list = group.createDiv({ cls: 'dashboard-daily-task-list' });
 			if (tasks.length === 0) list.createDiv({ cls: 'dashboard-daily-empty', text: t('daily.noTasks') });
@@ -450,29 +450,30 @@ export function renderDailyJournalSection(
 						attr: { 'aria-label': task.mode === 'continuous' ? t('daily.stopContinuous') : t('common.delete') },
 					});
 					setIcon(remove, task.mode === 'continuous' ? 'circle-stop' : 'x');
-				remove.addEventListener('click', () => {
-					void (async () => {
-						await flushNote();
-						await context.service.removeTask(journal.date, task);
-						refreshAfterMutation();
-					})();
-				});
+					remove.addEventListener('click', () => {
+						void (async () => {
+							await flushNote();
+							await context.service.removeTask(journal.date, task);
+							refreshAfterMutation();
+						})();
+					});
 				}
 				checkbox.addEventListener('change', () => {
 					void (async () => {
-					checkbox.disabled = true;
-					await flushNote();
-					await context.service.setChecked(journal.date, task.id, checkbox.checked);
-					refreshAfterMutation();
-				})();
+						checkbox.disabled = true;
+						await flushNote();
+						await context.service.setChecked(journal.date, task.id, checkbox.checked);
+						refreshAfterMutation();
+					})();
 				});
 			}
 		};
 
-		renderGroup(t('daily.routines'), journal.tasks.filter(task => task.mode === 'routine'));
-		renderGroup(t('daily.schedule'), journal.tasks.filter(task => task.mode !== 'routine'));
+		const leftColumn = host.createDiv({ cls: 'dashboard-daily-left-column' });
+		renderGroup(leftColumn, t('daily.routines'), journal.tasks.filter(task => task.mode !== 'day'));
+		renderGroup(leftColumn, t('daily.schedule'), journal.tasks.filter(task => task.mode === 'day'));
 
-		const add = host.createDiv({ cls: 'dashboard-daily-add-row' });
+		const add = leftColumn.createDiv({ cls: 'dashboard-daily-add-row' });
 		const input = add.createEl('input', { cls: 'dashboard-daily-add-input', attr: { type: 'text', placeholder: t('daily.addPlaceholder') } });
 		const mode = add.createEl('select', { cls: 'dashboard-daily-add-mode' });
 		mode.createEl('option', { text: t('daily.onlyThisDay'), value: 'day' });

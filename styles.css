@@ -4299,11 +4299,22 @@
 }
 
 .dashboard-daily-date-header,
-.dashboard-daily-add-row,
-.dashboard-daily-note-wrap,
 .dashboard-daily-loading,
 .dashboard-daily-error {
 	grid-column: 1 / -1;
+}
+
+.dashboard-daily-left-column {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+.dashboard-daily-note-wrap {
+	display: flex;
+	flex-direction: column;
+	min-height: 300px;
 }
 
 .dashboard-daily-date-header {
@@ -4461,8 +4472,9 @@
 
 .dashboard-daily-note {
 	display: block;
+	flex: 1;
 	width: 100%;
-	min-height: 90px;
+	min-height: 0;
 	resize: vertical;
 	padding: 9px 10px;
 	border-radius: var(--db-radius-sm);
@@ -4477,11 +4489,13 @@
 	}
 
 	.dashboard-daily-date-header,
-	.dashboard-daily-add-row,
-	.dashboard-daily-note-wrap,
 	.dashboard-daily-loading,
 	.dashboard-daily-error {
 		grid-column: 1;
+	}
+
+	.dashboard-daily-note-wrap {
+		min-height: 220px;
 	}
 }
 
