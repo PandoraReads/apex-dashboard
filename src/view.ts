@@ -261,7 +261,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			sidebar.addClass('dashboard-sidebar--collapsed');
 		}
 		this.renderSidebar(sidebar, container);
-		this.setupSidebarBehavior(sidebar, container);
+		this.setupSidebarBehavior(sidebar);
 
 		const kanban = mainLayout.createDiv({ cls: 'dashboard-kanban-wrapper' });
 		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this, this.createDailyJournalContext());
@@ -778,7 +778,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		);
 	}
 
-	private setupSidebarBehavior(sidebar: HTMLElement, root: HTMLElement): void {
+	private setupSidebarBehavior(sidebar: HTMLElement): void {
 		// Create slim indicator (visible only when collapsed)
 		sidebar.createDiv({ cls: 'dashboard-sidebar-slim-indicator' });
 
@@ -794,18 +794,6 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.sidebarHiddenByBanner = false;
 			}
 		}, true);
-
-		// Click outside to collapse
-		const outsideHandler = (e: MouseEvent) => {
-			if (this.sidebarPinned) return;
-			if (!this.sidebarExpanded) return;
-			if (sidebar.contains(e.target as Node)) return;
-			sidebar.removeClass('dashboard-sidebar--expanded');
-			sidebar.addClass('dashboard-sidebar--collapsed');
-			this.sidebarExpanded = false;
-		};
-		root.addEventListener('click', outsideHandler);
-		this.cleanupFns.push(() => root.removeEventListener('click', outsideHandler));
 	}
 
 	private createCallbacks() {
