@@ -43,6 +43,8 @@ export interface DashboardSettings {
 	taskTemplates: TaskTemplate[];
 	memoSavePath: string;
 	taskArchivePath: string;
+	/** Folder containing one Markdown file per date for the minimal daily journal. */
+	dailyJournalFolder: string;
 }
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
@@ -77,6 +79,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	taskTemplates: [],
 	memoSavePath: '',
 	taskArchivePath: '归档/已完成.md',
+	dailyJournalFolder: '02 Daily',
 };
 
 export interface QuoteItem {

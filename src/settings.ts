@@ -129,6 +129,21 @@ export class DashboardSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName(t('settings.dailyJournalFolder'))
+			.setDesc(t('settings.dailyJournalFolderDesc'))
+			.addText(text => text
+				.setPlaceholder('02 Daily')
+				.setValue(this.plugin.settings.dailyJournalFolder)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						dailyJournalFolder: value.trim().replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.dailyJournalFolder,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}));
+
+		new Setting(containerEl)
 			.setName(t('settings.disableNotePopover'))
 			.setDesc(t('settings.disableNotePopoverDesc'))
 			.addToggle(toggle => toggle

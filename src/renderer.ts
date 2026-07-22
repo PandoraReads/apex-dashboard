@@ -5,6 +5,7 @@ import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
 import { renderCalendarSection } from './calendar-section';
+import { renderDailyJournalSection, type DailyJournalRenderContext } from './daily-journal';
 import { renderHeatmapSection } from './heatmap-section';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
@@ -103,6 +104,7 @@ let docDragSource: { cardId: string; docPath: number[] } | null = null;
 // through every function signature. Mirrors the docDragSource module-level idiom.
 let activeHoverParent: HoverParent | null = null;
 let activeNoteOpener: ((file: TFile) => void) | null = null;
+let activeDailyJournalContext: DailyJournalRenderContext | null = null;
 
 const VAULT_FILE_EXTS = new Set(['md', 'pdf', 'canvas', 'base', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'mp3', 'mp4', 'm4a', 'm4b', 'mov', 'mkv', 'avi']);
 
@@ -427,6 +429,22 @@ export function renderSidebarPomodoro(
 			transform: `rotate(-90 ${svgSize / 2} ${svgSize / 2})`,
 		},
 	});
+	for (let minutes = POMODORO_WORK_MINUTES_STEP; minutes <= POMODORO_WORK_MINUTES_MAX; minutes += POMODORO_WORK_MINUTES_STEP) {
+		const angle = (minutes / POMODORO_WORK_MINUTES_MAX) * Math.PI * 2 - Math.PI / 2;
+		const isQuarter = minutes % 15 === 0;
+		const innerRadius = isQuarter ? radius - 8 : radius - 5;
+		const outerRadius = radius - 1;
+		const tick = svg.createSvg('line', {
+			cls: 'dashboard-sidebar-pomodoro-tick',
+			attr: {
+				x1: String(svgSize / 2 + Math.cos(angle) * innerRadius),
+				y1: String(svgSize / 2 + Math.sin(angle) * innerRadius),
+				x2: String(svgSize / 2 + Math.cos(angle) * outerRadius),
+				y2: String(svgSize / 2 + Math.sin(angle) * outerRadius),
+			},
+		});
+		if (isQuarter) tick.addClass('dashboard-sidebar-pomodoro-tick--quarter');
+	}
 	const timeText = ringWrap.createDiv({
 		cls: 'dashboard-sidebar-pomodoro-time',
 		text: formatTime(state.remainingSeconds),
@@ -465,11 +483,8 @@ export function renderSidebarPomodoro(
 	}
 
 	function updateDurationControl(minutes: number): void {
-		const ratio = (minutes - POMODORO_WORK_MINUTES_MIN) /
-			(POMODORO_WORK_MINUTES_MAX - POMODORO_WORK_MINUTES_MIN);
-		const startAngle = Math.PI * 0.75;
-		const sweepAngle = Math.PI * 1.5;
-		const angle = startAngle + ratio * sweepAngle;
+		// Match a clock face: 15 → 3 o'clock, 30 → 6, 45 → 9, 60 → 12.
+		const angle = (minutes / POMODORO_WORK_MINUTES_MAX) * Math.PI * 2 - Math.PI / 2;
 		const orbitRadius = 36;
 		durationKnob.style.left = `${40 + Math.cos(angle) * orbitRadius}px`;
 		durationKnob.style.top = `${40 + Math.sin(angle) * orbitRadius}px`;
@@ -493,20 +508,24 @@ export function renderSidebarPomodoro(
 		const rect = ringWrap.getBoundingClientRect();
 		const x = e.clientX - (rect.left + rect.width / 2);
 		const y = e.clientY - (rect.top + rect.height / 2);
-		const startAngle = Math.PI * 0.75;
-		const sweepAngle = Math.PI * 1.5;
-		let angle = Math.atan2(y, x);
-		if (angle < startAngle) angle += Math.PI * 2;
-		angle = Math.max(startAngle, Math.min(startAngle + sweepAngle, angle));
-		const raw = POMODORO_WORK_MINUTES_MIN +
-			((angle - startAngle) / sweepAngle) * (POMODORO_WORK_MINUTES_MAX - POMODORO_WORK_MINUTES_MIN);
-		return Math.max(
-			POMODORO_WORK_MINUTES_MIN,
-			Math.min(
-				POMODORO_WORK_MINUTES_MAX,
-				Math.round(raw / POMODORO_WORK_MINUTES_STEP) * POMODORO_WORK_MINUTES_STEP,
-			),
-		);
+		let clockAngle = Math.atan2(y, x) + Math.PI / 2;
+		if (clockAngle < 0) clockAngle += Math.PI * 2;
+		const rawMinutes = (clockAngle / (Math.PI * 2)) * POMODORO_WORK_MINUTES_MAX;
+
+		// Pick the nearest valid five-minute mark on the circular dial. Treat 60
+		// as the same angular position as 0 so the top of the clock selects 1 hour.
+		let nearest = POMODORO_WORK_MINUTES_MIN;
+		let nearestDistance = Number.POSITIVE_INFINITY;
+		for (let minutes = POMODORO_WORK_MINUTES_MIN; minutes <= POMODORO_WORK_MINUTES_MAX; minutes += POMODORO_WORK_MINUTES_STEP) {
+			const dialMinutes = minutes === POMODORO_WORK_MINUTES_MAX ? 0 : minutes;
+			const directDistance = Math.abs(rawMinutes - dialMinutes);
+			const circularDistance = Math.min(directDistance, POMODORO_WORK_MINUTES_MAX - directDistance);
+			if (circularDistance < nearestDistance) {
+				nearest = minutes;
+				nearestDistance = circularDistance;
+			}
+		}
+		return nearest;
 	}
 
 	let adjustingDuration = false;
@@ -1697,9 +1716,11 @@ export function renderDashboard(
 	app: App,
 	settings?: DashboardSettings,
 	hoverParent: HoverParent | null = null,
+	dailyJournalContext: DailyJournalRenderContext | null = null,
 ): void {
 	activeHoverParent = hoverParent;
 	activeNoteOpener = callbacks.onOpenNoteInPopover ?? null;
+	activeDailyJournalContext = dailyJournalContext;
 
 	container.empty();
 	container.addClass('dashboard-kanban');
@@ -2005,6 +2026,26 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		});
 
 		void renderCalendarSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
+		return el;
+	}
+
+	// Minimal daily journal: selected-date routines, scheduled tasks and note.
+	if (sectionType === 'daily') {
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name);
+		});
+
+		if (activeDailyJournalContext) {
+			renderDailyJournalSection(el, activeDailyJournalContext);
+		} else {
+			el.createDiv({ cls: 'dashboard-daily-error', text: t('daily.loadFailed') });
+		}
 		return el;
 	}
 
@@ -3155,6 +3196,7 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'videos') return 'videos';
 	if (lower === 'alltasks') return 'alltasks';
 	if (lower === 'calendar') return 'calendar';
+	if (lower === 'daily') return 'daily';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);

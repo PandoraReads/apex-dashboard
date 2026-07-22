@@ -3,7 +3,7 @@ import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
@@ -25,6 +25,7 @@ import { WereadConfigModal } from './weread-config-modal';
 import { fetchWereadCategories } from './weread-service';
 import { fetchTickTickProjects } from './ticktick-config-modal';
 import { CalendarConfigModal } from './calendar-config-modal';
+import { DailyJournalService, renderSidebarMonthCalendar, toLocalIsoDate, type DailyJournalRenderContext } from './daily-journal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
 import { PomodoroService } from './pomodoro-service';
@@ -88,6 +89,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private firedReminders = new Set<string>();
 	private sidebarPinned = this.app.loadLocalStorage('apex-dashboard-sidebar-pinned') === 'true';
 	private sidebarExpanded = false;
+	private sidebarHiddenByBanner = false;
 	private bannerCollapsed = this.app.loadLocalStorage('apex-dashboard-banner-collapsed') === 'true';
 	private pendingScrollCardId: string | null = null;
 	private pendingScrollToLastCardOfColumn: string | null = null;
@@ -101,6 +103,8 @@ export class DashboardView extends ItemView implements HoverParent {
 	private static readonly DAY_ROLLOVER_CHECK_MS = 60 * 1000; // 1 minute
 	private dayRolloverTimer: number | null = null;
 	private lastRenderedDay = new Date().toDateString();
+	private selectedDailyDate = toLocalIsoDate(new Date());
+	private dailyJournalService: DailyJournalService;
 
 	// HoverParent contract: Obsidian assigns/clears this when showing a Page
 	// Preview popover over a dashboard link. Declared so the dashboard can act as
@@ -115,6 +119,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		super(leaf);
 		this.plugin = plugin;
 		this.sync = new SyncEngine(this.app, this.plugin.settings);
+		this.dailyJournalService = new DailyJournalService(this.app, this.plugin.settings.dailyJournalFolder);
 	}
 
 	getViewType(): string {
@@ -173,6 +178,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	async refresh(): Promise<void> {
 		this.sync.updateSettings(this.plugin.settings);
+		this.dailyJournalService.updateFolder(this.plugin.settings.dailyJournalFolder);
 		const data = this.sync.getData();
 		if (data) {
 			this.render(data);
@@ -245,7 +251,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		const mainLayout = container.createDiv({ cls: 'dashboard-main' });
 
 		const sidebar = mainLayout.createDiv({ cls: 'dashboard-sidebar' });
-		if (this.sidebarPinned) {
+		if (this.sidebarHiddenByBanner) {
+			sidebar.addClass('dashboard-sidebar--collapsed');
+		} else if (this.sidebarPinned) {
 			sidebar.addClass('dashboard-sidebar--pinned');
 		} else if (this.sidebarExpanded) {
 			sidebar.addClass('dashboard-sidebar--expanded');
@@ -256,7 +264,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.setupSidebarBehavior(sidebar, container);
 
 		const kanban = mainLayout.createDiv({ cls: 'dashboard-kanban-wrapper' });
-		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this);
+		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this, this.createDailyJournalContext());
 		setupDragAndDrop(kanban, this.createCallbacks(), this.dndCleanupFns);
 		// Library config event delegation
 		kanban.addEventListener('dashboard-library-config', ((e: CustomEvent) => {
@@ -483,6 +491,57 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private setupBannerBehavior(bannerEl: HTMLElement): void {
+		bannerEl.addClass('dashboard-banner--sidebar-toggle');
+		bannerEl.setAttribute('aria-label', t('banner.toggleSidebar'));
+		bannerEl.setAttribute('title', t('banner.toggleSidebar'));
+		bannerEl.setAttribute('tabindex', '0');
+		bannerEl.setAttribute('aria-expanded', String(!this.sidebarHiddenByBanner && (this.sidebarPinned || this.sidebarExpanded)));
+
+		const toggleSidebar = () => {
+			if (window.innerWidth <= 640) return;
+			const root = bannerEl.closest('.apex-dashboard-root');
+			const sidebar = root?.querySelector<HTMLElement>('.dashboard-sidebar');
+			if (!sidebar) return;
+
+			const expand = sidebar.hasClass('dashboard-sidebar--collapsed');
+			if (expand) {
+				this.sidebarHiddenByBanner = false;
+				sidebar.removeClass('dashboard-sidebar--collapsed');
+				if (this.sidebarPinned) {
+					sidebar.addClass('dashboard-sidebar--pinned');
+					sidebar.removeClass('dashboard-sidebar--expanded');
+					this.sidebarExpanded = false;
+				} else {
+					sidebar.removeClass('dashboard-sidebar--pinned');
+					sidebar.addClass('dashboard-sidebar--expanded');
+					this.sidebarExpanded = true;
+				}
+			} else {
+				// Keep the user's pin preference; the banner is a temporary visibility
+				// toggle, so reopening restores the pinned state when applicable.
+				this.sidebarHiddenByBanner = true;
+				sidebar.removeClass('dashboard-sidebar--pinned');
+				sidebar.removeClass('dashboard-sidebar--expanded');
+				sidebar.addClass('dashboard-sidebar--collapsed');
+				this.sidebarExpanded = false;
+			}
+			bannerEl.setAttribute('aria-expanded', String(expand));
+		};
+
+		bannerEl.addEventListener('click', (e) => {
+			const target = e.target as HTMLElement;
+			if (target.closest('button, a, input, textarea, select')) return;
+			e.stopPropagation();
+			toggleSidebar();
+		});
+		bannerEl.addEventListener('keydown', (e) => {
+			if (e.key !== 'Enter' && e.key !== ' ') return;
+			if ((e.target as HTMLElement).closest('button')) return;
+			e.preventDefault();
+			e.stopPropagation();
+			toggleSidebar();
+		});
+
 		const pinBtn = bannerEl.createEl('button', {
 			cls: 'dashboard-banner-pin-btn',
 			attr: { 'aria-label': 'Toggle banner' },
@@ -653,7 +712,10 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		const scroll = sidebar.createDiv({ cls: 'dashboard-sidebar-scroll' });
 
-		renderSidebarWeekCalendar(scroll);
+		renderSidebarMonthCalendar(scroll, this.selectedDailyDate, this.dailyJournalService, (date) => {
+			this.selectedDailyDate = date;
+			if (this.data) this.render(this.data);
+		});
 
 		renderSidebarWidgets(scroll, this.plugin.settings, this.app, this.pomodoroService ?? undefined, this.readingService ?? undefined, this.holidayData, (order) => {
 			void (async () => {
@@ -729,6 +791,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				sidebar.removeClass('dashboard-sidebar--collapsed');
 				sidebar.addClass('dashboard-sidebar--expanded');
 				this.sidebarExpanded = true;
+				this.sidebarHiddenByBanner = false;
 			}
 		}, true);
 
@@ -835,6 +898,25 @@ export class DashboardView extends ItemView implements HoverParent {
 				});
 			},
 		};
+	}
+
+	private createDailyJournalContext(): DailyJournalRenderContext {
+		return {
+			service: this.dailyJournalService,
+			selectedDate: this.selectedDailyDate,
+			onDataChanged: () => this.refreshDailyCalendar(),
+			onStatusChanged: () => this.refreshDailyCalendar(),
+		};
+	}
+
+	private refreshDailyCalendar(): void {
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		const scroll = root?.querySelector<HTMLElement>('.dashboard-sidebar-scroll');
+		if (!scroll) return;
+		renderSidebarMonthCalendar(scroll, this.selectedDailyDate, this.dailyJournalService, (date) => {
+			this.selectedDailyDate = date;
+			if (this.data) this.render(this.data);
+		});
 	}
 
 	private handleFileDrop(cardId: string, filePath: string): void {
@@ -1527,10 +1609,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (todayKey === this.lastRenderedDay) return;
 
 		this.lastRenderedDay = todayKey;
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		if (root && refreshSidebarWeekCalendar(root)) {
-			return;
-		}
+		this.selectedDailyDate = toLocalIsoDate(new Date());
 		this.render(this.data);
 	}
 
