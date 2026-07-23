@@ -15,6 +15,7 @@ export interface SectionTypeOption {
 export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
 	{ value: 'projects', icon: 'layout-grid', labelKey: 'renderer.typeNotes' },
 	{ value: 'todo', icon: 'check-square', labelKey: 'renderer.typeTodo' },
+	{ value: 'daily', icon: 'calendar-check-2', labelKey: 'renderer.typeDailyJournal' },
 	{ value: 'memo', icon: 'sticky-note', labelKey: 'renderer.typeMemo' },
 	{ value: 'notes', icon: 'file-text', labelKey: 'renderer.typeNotesPlain' },
 	{ value: 'library', icon: 'database', labelKey: 'renderer.typeLibrary' },

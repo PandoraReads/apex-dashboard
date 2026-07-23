@@ -6,6 +6,7 @@ import {
 	type TaskPath,
 	updateTaskAt,
 	removeTaskAt,
+	insertAt,
 	insertSibling,
 	appendChild,
 	demoteToChild,
@@ -182,6 +183,9 @@ export class SyncEngine {
 		mode: TaskDropMode,
 	): Promise<void> {
 		if (!this.data) return;
+		if (srcCardId === destCardId) return;
+		const destinationExists = this.data.columns.some(col => col.cards.some(card => card.id === destCardId));
+		if (!destinationExists) return;
 
 		let movedTask: TaskItem | undefined;
 
@@ -197,11 +201,8 @@ export class SyncEngine {
 
 		if (!movedTask) return;
 
-		const node: TaskItem = mode === 'nest' ? { ...movedTask } : (() => {
-			const clean: TaskItem = { ...movedTask };
-			delete clean.children;
-			return clean;
-		})();
+		// Moving a parent task must keep its subtree intact regardless of drop mode.
+		const node: TaskItem = { ...movedTask };
 
 		this.data = {
 			...this.data,
@@ -212,6 +213,10 @@ export class SyncEngine {
 					let tasks: TaskItem[];
 					if (mode === 'nest') {
 						tasks = appendChild(card.tasks, destPath, node);
+					} else if (destPath.length === 1 && destPath[0]! >= card.tasks.length) {
+						// The list's blank area uses an end-of-list sentinel rather than an
+						// existing sibling path. Insert directly so empty-card drops work too.
+						tasks = insertAt(card.tasks, [], card.tasks.length, node);
 					} else {
 						tasks = insertSibling(card.tasks, destPath, node, mode === 'before');
 					}

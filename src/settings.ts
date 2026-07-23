@@ -129,6 +129,21 @@ export class DashboardSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName(t('settings.dailyJournalFolder'))
+			.setDesc(t('settings.dailyJournalFolderDesc'))
+			.addText(text => text
+				.setPlaceholder('02 Daily')
+				.setValue(this.plugin.settings.dailyJournalFolder)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						dailyJournalFolder: value.trim().replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.dailyJournalFolder,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}));
+
+		new Setting(containerEl)
 			.setName(t('settings.disableNotePopover'))
 			.setDesc(t('settings.disableNotePopoverDesc'))
 			.addToggle(toggle => toggle
@@ -202,21 +217,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 				}));
 
 		if (this.plugin.settings.pomodoroEnabled) {
-			const workSetting = new Setting(pomodoroCard)
-				.setName(t('settings.pomodoroWork') + '  ' + this.plugin.settings.pomodoroWorkMinutes + ' min')
-				.addSlider(slider => slider
-					.setLimits(15, 60, 5)
-					.setValue(this.plugin.settings.pomodoroWorkMinutes)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							pomodoroWorkMinutes: value,
-						};
-						await this.plugin.saveSettings();
-						workSetting.nameEl.setText(t('settings.pomodoroWork') + '  ' + value + ' min');
-					}));
-
 			const shortSetting = new Setting(pomodoroCard)
 				.setName(t('settings.pomodoroShortBreak') + '  ' + this.plugin.settings.pomodoroShortBreakMinutes + ' min')
 				.addSlider(slider => slider

@@ -5,6 +5,7 @@ import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
 import { renderCalendarSection } from './calendar-section';
+import { renderDailyJournalSection, type DailyJournalRenderContext } from './daily-journal';
 import { renderHeatmapSection } from './heatmap-section';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
@@ -14,10 +15,15 @@ import { showConfirmDialog } from './confirm-dialog';
 import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, computeStreak } from './tracker-service';
-import type { PomodoroService } from './pomodoro-service';
+import {
+	type PomodoroService,
+	POMODORO_WORK_MINUTES_MIN,
+	POMODORO_WORK_MINUTES_MAX,
+	POMODORO_WORK_MINUTES_STEP,
+	activityColor,
+} from './pomodoro-service';
 import type { ReadingService } from './reading-service';
 import { searchBooks, downloadCoverAsBlobUrl } from './book-service';
-import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
 import type { HolidayInfo } from './holiday-service';
 import { CountdownSettingsModal } from './countdown-modal';
@@ -98,6 +104,7 @@ let docDragSource: { cardId: string; docPath: number[] } | null = null;
 // through every function signature. Mirrors the docDragSource module-level idiom.
 let activeHoverParent: HoverParent | null = null;
 let activeNoteOpener: ((file: TFile) => void) | null = null;
+let activeDailyJournalContext: DailyJournalRenderContext | null = null;
 
 const VAULT_FILE_EXTS = new Set(['md', 'pdf', 'canvas', 'base', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'mp3', 'mp4', 'm4a', 'm4b', 'mov', 'mkv', 'avi']);
 
@@ -422,10 +429,33 @@ export function renderSidebarPomodoro(
 			transform: `rotate(-90 ${svgSize / 2} ${svgSize / 2})`,
 		},
 	});
+	for (let minutes = POMODORO_WORK_MINUTES_STEP; minutes <= POMODORO_WORK_MINUTES_MAX; minutes += POMODORO_WORK_MINUTES_STEP) {
+		const angle = (minutes / POMODORO_WORK_MINUTES_MAX) * Math.PI * 2 - Math.PI / 2;
+		const isQuarter = minutes % 15 === 0;
+		const innerRadius = isQuarter ? radius - 8 : radius - 5;
+		const outerRadius = radius - 1;
+		const tick = svg.createSvg('line', {
+			cls: 'dashboard-sidebar-pomodoro-tick',
+			attr: {
+				x1: String(svgSize / 2 + Math.cos(angle) * innerRadius),
+				y1: String(svgSize / 2 + Math.sin(angle) * innerRadius),
+				x2: String(svgSize / 2 + Math.cos(angle) * outerRadius),
+				y2: String(svgSize / 2 + Math.sin(angle) * outerRadius),
+			},
+		});
+		if (isQuarter) tick.addClass('dashboard-sidebar-pomodoro-tick--quarter');
+	}
 	const timeText = ringWrap.createDiv({
 		cls: 'dashboard-sidebar-pomodoro-time',
 		text: formatTime(state.remainingSeconds),
 	});
+	const durationKnob = ringWrap.createDiv({ cls: 'dashboard-sidebar-pomodoro-duration-knob' });
+	ringWrap.setAttribute('role', 'slider');
+	ringWrap.setAttribute('tabindex', '0');
+	ringWrap.setAttribute('aria-label', t('pomodoro.adjustDuration'));
+	ringWrap.setAttribute('aria-valuemin', String(POMODORO_WORK_MINUTES_MIN));
+	ringWrap.setAttribute('aria-valuemax', String(POMODORO_WORK_MINUTES_MAX));
+	const durationHint = widget.createDiv({ cls: 'dashboard-sidebar-pomodoro-duration-hint' });
 
 	// Dots inside ring, below time
 	const dotsWrap = ringWrap.createDiv({ cls: 'dashboard-sidebar-pomodoro-dots' });
@@ -451,11 +481,108 @@ export function renderSidebarPomodoro(
 		progressCircle.setAttribute('stroke-dashoffset', String(circumference * (1 - progress)));
 		timeText.textContent = formatTime(remaining);
 	}
+
+	function updateDurationControl(minutes: number): void {
+		// Match a clock face: 15 → 3 o'clock, 30 → 6, 45 → 9, 60 → 12.
+		const angle = (minutes / POMODORO_WORK_MINUTES_MAX) * Math.PI * 2 - Math.PI / 2;
+		const orbitRadius = 36;
+		durationKnob.style.left = `${40 + Math.cos(angle) * orbitRadius}px`;
+		durationKnob.style.top = `${40 + Math.sin(angle) * orbitRadius}px`;
+		ringWrap.setAttribute('aria-valuenow', String(minutes));
+		ringWrap.setAttribute('aria-valuetext', t('pomodoro.minutes', { count: minutes }));
+		durationHint.textContent = t('pomodoro.durationHint', { count: minutes });
+	}
+
+	function canAdjustDuration(): boolean {
+		const current = service.getState();
+		return current.status === 'idle' && current.phase === 'work';
+	}
+
+	function updateDurationAvailability(): void {
+		const adjustable = canAdjustDuration();
+		ringWrap.toggleClass('dashboard-sidebar-pomodoro-ring-wrap--adjustable', adjustable);
+		ringWrap.setAttribute('aria-disabled', String(!adjustable));
+	}
+
+	function minutesFromPointer(e: PointerEvent): number {
+		const rect = ringWrap.getBoundingClientRect();
+		const x = e.clientX - (rect.left + rect.width / 2);
+		const y = e.clientY - (rect.top + rect.height / 2);
+		let clockAngle = Math.atan2(y, x) + Math.PI / 2;
+		if (clockAngle < 0) clockAngle += Math.PI * 2;
+		const rawMinutes = (clockAngle / (Math.PI * 2)) * POMODORO_WORK_MINUTES_MAX;
+
+		// Pick the nearest valid five-minute mark on the circular dial. Treat 60
+		// as the same angular position as 0 so the top of the clock selects 1 hour.
+		let nearest = POMODORO_WORK_MINUTES_MIN;
+		let nearestDistance = Number.POSITIVE_INFINITY;
+		for (let minutes = POMODORO_WORK_MINUTES_MIN; minutes <= POMODORO_WORK_MINUTES_MAX; minutes += POMODORO_WORK_MINUTES_STEP) {
+			const dialMinutes = minutes === POMODORO_WORK_MINUTES_MAX ? 0 : minutes;
+			const directDistance = Math.abs(rawMinutes - dialMinutes);
+			const circularDistance = Math.min(directDistance, POMODORO_WORK_MINUTES_MAX - directDistance);
+			if (circularDistance < nearestDistance) {
+				nearest = minutes;
+				nearestDistance = circularDistance;
+			}
+		}
+		return nearest;
+	}
+
+	let adjustingDuration = false;
+	let previewMinutes = service.getWorkMinutes();
+	const previewPointer = (e: PointerEvent) => {
+		previewMinutes = minutesFromPointer(e);
+		updateDurationControl(previewMinutes);
+		updateRing(previewMinutes * 60, previewMinutes * 60);
+	};
+	ringWrap.addEventListener('pointerdown', (e) => {
+		if (!canAdjustDuration()) return;
+		e.preventDefault();
+		e.stopPropagation();
+		adjustingDuration = true;
+		ringWrap.addClass('dashboard-sidebar-pomodoro-ring-wrap--adjusting');
+		ringWrap.setPointerCapture(e.pointerId);
+		previewPointer(e);
+	});
+	ringWrap.addEventListener('pointermove', (e) => {
+		if (adjustingDuration) previewPointer(e);
+	});
+	ringWrap.addEventListener('pointerup', (e) => {
+		if (!adjustingDuration) return;
+		adjustingDuration = false;
+		ringWrap.removeClass('dashboard-sidebar-pomodoro-ring-wrap--adjusting');
+		if (ringWrap.hasPointerCapture(e.pointerId)) ringWrap.releasePointerCapture(e.pointerId);
+		void service.setWorkMinutes(previewMinutes).then(() => updateUI());
+	});
+	ringWrap.addEventListener('pointercancel', () => {
+		adjustingDuration = false;
+		ringWrap.removeClass('dashboard-sidebar-pomodoro-ring-wrap--adjusting');
+		previewMinutes = service.getWorkMinutes();
+		updateDurationControl(previewMinutes);
+		updateUI();
+	});
+	ringWrap.addEventListener('keydown', (e) => {
+		if (!canAdjustDuration()) return;
+		let next = service.getWorkMinutes();
+		if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next += POMODORO_WORK_MINUTES_STEP;
+		else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next -= POMODORO_WORK_MINUTES_STEP;
+		else if (e.key === 'Home') next = POMODORO_WORK_MINUTES_MIN;
+		else if (e.key === 'End') next = POMODORO_WORK_MINUTES_MAX;
+		else return;
+		e.preventDefault();
+		void service.setWorkMinutes(next).then(() => updateUI());
+	});
+
 	updateRing(state.remainingSeconds, state.totalSeconds);
+	updateDurationControl(previewMinutes);
+	updateDurationAvailability();
 
 	function updateUI(): void {
 		const s = service.getState();
 		updateRing(s.remainingSeconds, s.totalSeconds);
+		previewMinutes = service.getWorkMinutes();
+		updateDurationControl(previewMinutes);
+		updateDurationAvailability();
 		const running = s.status === 'running';
 		mainBtn.textContent = running ? t('pomodoro.stop') : t('pomodoro.startFocus');
 		mainBtn.toggleClass('dashboard-sidebar-pomodoro-main-btn--running', running);
@@ -1589,9 +1716,11 @@ export function renderDashboard(
 	app: App,
 	settings?: DashboardSettings,
 	hoverParent: HoverParent | null = null,
+	dailyJournalContext: DailyJournalRenderContext | null = null,
 ): void {
 	activeHoverParent = hoverParent;
 	activeNoteOpener = callbacks.onOpenNoteInPopover ?? null;
+	activeDailyJournalContext = dailyJournalContext;
 
 	container.empty();
 	container.addClass('dashboard-kanban');
@@ -1897,6 +2026,26 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		});
 
 		void renderCalendarSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
+		return el;
+	}
+
+	// Minimal daily journal: selected-date routines, scheduled tasks and note.
+	if (sectionType === 'daily') {
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name);
+		});
+
+		if (activeDailyJournalContext) {
+			renderDailyJournalSection(el, activeDailyJournalContext);
+		} else {
+			el.createDiv({ cls: 'dashboard-daily-error', text: t('daily.loadFailed') });
+		}
 		return el;
 	}
 
@@ -2691,21 +2840,24 @@ function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: 
 		if (!taskDragSource) return;
 		if (taskDragSource.cardId === card.id) return;
 		e.preventDefault();
+		e.stopPropagation();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
 		list.addClass('dashboard-task-list--drop-target');
 	});
 
 	list.addEventListener('dragleave', (e) => {
+		if (!taskDragSource || taskDragSource.cardId === card.id) return;
+		e.stopPropagation();
 		if (!list.contains(e.relatedTarget as Node)) {
 			list.removeClass('dashboard-task-list--drop-target');
 		}
 	});
 
 	list.addEventListener('drop', (e) => {
+		if (!taskDragSource || taskDragSource.cardId === card.id) return;
 		e.preventDefault();
+		e.stopPropagation();
 		list.removeClass('dashboard-task-list--drop-target');
-		if (!taskDragSource) return;
-		if (taskDragSource.cardId === card.id) return;
 		callbacks.onTaskMoveToCard(taskDragSource.cardId, taskDragSource.taskPath, card.id, [card.tasks.length], 'before');
 	});
 
@@ -3044,6 +3196,7 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'videos') return 'videos';
 	if (lower === 'alltasks') return 'alltasks';
 	if (lower === 'calendar') return 'calendar';
+	if (lower === 'daily') return 'daily';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);
