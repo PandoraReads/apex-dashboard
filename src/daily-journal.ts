@@ -370,11 +370,13 @@ export function renderSidebarMonthCalendar(
 		next.addEventListener('click', () => { cursor = new Date(year, month + 1, 1); void render(); });
 
 		const weekdays = host.createDiv({ cls: 'dashboard-sidebar-month-weekdays' });
-		for (const label of t('calendar.weekdays').split(',')) weekdays.createSpan({ text: label.trim() });
+		for (const label of t('daily.weekdays').split(',')) weekdays.createSpan({ text: label.trim() });
 
 		const grid = host.createDiv({ cls: 'dashboard-sidebar-month-grid' });
 		const first = new Date(year, month, 1);
-		const leading = (first.getDay() + 6) % 7;
+		// JS getDay() already uses Sunday=0, so it maps directly to a
+		// Sunday-first calendar grid.
+		const leading = first.getDay();
 		const start = new Date(year, month, 1 - leading);
 		const today = toLocalIsoDate(new Date());
 		for (let i = 0; i < 42; i++) {
