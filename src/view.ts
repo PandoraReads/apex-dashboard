@@ -135,6 +135,10 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	async onOpen(): Promise<void> {
+		// Obsidian may keep a dashboard view instance alive across tab switches or
+		// workspace restores. Always start a newly opened dashboard on local today.
+		this.lastRenderedDay = new Date().toDateString();
+		this.selectedDailyDate = toLocalIsoDate(new Date());
 		this.sync.updateSettings(this.plugin.settings);
 		this.sync.onDataUpdate((data) => {
 			this.data = data;
@@ -150,6 +154,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.startReminderChecker();
 		this.startWeatherRefresh();
 		this.startDayRolloverChecker();
+		this.registerEvent(this.app.workspace.on('active-leaf-change', leaf => {
+			if (leaf === this.leaf) this.returnDailyJournalToToday();
+		}));
+		this.registerDomEvent(window, 'focus', () => this.checkDayRollover());
 		this.pomodoroService = new PomodoroService(this.plugin);
 		await this.pomodoroService.loadSessions();
 		this.readingService = new ReadingService(this.plugin);
@@ -1581,6 +1589,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private startDayRolloverChecker(): void {
+		this.checkDayRollover();
 		this.dayRolloverTimer = window.setInterval(() => this.checkDayRollover(), DashboardView.DAY_ROLLOVER_CHECK_MS);
 	}
 
@@ -1592,13 +1601,21 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private checkDayRollover(): void {
-		if (!this.data) return;
 		const todayKey = new Date().toDateString();
 		if (todayKey === this.lastRenderedDay) return;
 
 		this.lastRenderedDay = todayKey;
 		this.selectedDailyDate = toLocalIsoDate(new Date());
-		this.render(this.data);
+		if (this.data) this.render(this.data);
+	}
+
+	private returnDailyJournalToToday(): void {
+		const now = new Date();
+		const today = toLocalIsoDate(now);
+		const selectionChanged = this.selectedDailyDate !== today;
+		this.lastRenderedDay = now.toDateString();
+		this.selectedDailyDate = today;
+		if (selectionChanged && this.data) this.render(this.data);
 	}
 
 	private checkReminders(): void {
