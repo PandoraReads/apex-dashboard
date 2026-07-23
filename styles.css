@@ -4326,7 +4326,7 @@
 }
 
 .dashboard-daily-date-label {
-	font-size: 0.92em;
+	font-size: 1em;
 	font-weight: 700;
 	color: var(--db-text);
 }
@@ -4336,7 +4336,7 @@
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--db-accent) 12%, transparent);
 	color: var(--db-text-muted);
-	font-size: 0.68em;
+	font-size: 0.76em;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -4351,7 +4351,7 @@
 
 .dashboard-daily-group-title {
 	margin-bottom: 8px;
-	font-size: 0.75em;
+	font-size: 0.86em;
 	font-weight: 700;
 	color: var(--db-text-muted);
 	letter-spacing: 0.03em;
@@ -4387,7 +4387,7 @@
 .dashboard-daily-task-text {
 	min-width: 0;
 	flex: 1;
-	font-size: 0.78em;
+	font-size: 0.9em;
 	color: var(--db-text);
 	overflow-wrap: anywhere;
 }
@@ -4398,7 +4398,7 @@
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--db-accent) 10%, transparent);
 	color: var(--db-text-faint);
-	font-size: 0.58em;
+	font-size: 0.66em;
 }
 
 .dashboard-daily-remove-btn,
@@ -4431,7 +4431,7 @@
 .dashboard-daily-error {
 	padding: 12px;
 	text-align: center;
-	font-size: 0.75em;
+	font-size: 0.84em;
 	color: var(--db-text-faint);
 }
 
@@ -4454,7 +4454,7 @@
 .dashboard-daily-add-input,
 .dashboard-daily-add-mode {
 	height: 34px;
-	font-size: 0.75em;
+	font-size: 0.86em;
 }
 
 .dashboard-daily-add-btn {
@@ -4476,11 +4476,11 @@
 	width: 100%;
 	min-height: 0;
 	resize: vertical;
-	padding: 9px 10px;
+	padding: 11px 12px;
 	border-radius: var(--db-radius-sm);
 	font-family: inherit;
-	font-size: 0.78em;
-	line-height: 1.6;
+	font-size: 1em;
+	line-height: 1.7;
 }
 
 @media (max-width: 800px) {
