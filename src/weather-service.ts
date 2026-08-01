@@ -264,10 +264,20 @@ const METNO_TO_WMO: Record<string, number> = {
 	lightssnowshowers: 85, lightssnowshowers_night: 85,
 	snowshowers: 86, snowshowers_night: 86,
 	thunderstorm: 95, thunderstorm_night: 95,
+	// 雷暴伴降水家族（Met.no 返回的常见合法状态，原表缺失会回退成「阴」）
+	lightrainandthunder: 95, rainandthunder: 95, heavyrainandthunder: 96,
+	lightsnowandthunder: 95, snowandthunder: 96, heavysnowandthunder: 99,
+	lightrainshowersandthunder: 95, rainshowersandthunder: 95, heavyrainshowersandthunder: 96,
+	lightssleetshowersandthunder: 95, sleetshowersandthunder: 95,
+	lightssnowshowersandthunder: 95, snowshowersandthunder: 96, heavysnowshowersandthunder: 99,
 };
 
 function mapMetNoCode(symbol: string): number {
-	return METNO_TO_WMO[symbol] ?? 3;
+	// 剥离 _day / _night / _polarnight 时段后缀，避免穷举每个时段变体而漏网
+	// （Met.no 在 next_1_hours / next_6_hours 会返回带时段后缀的 symbol_code，
+	//  如 clearsky_day、partlycloudy_night，若不归一化会全部回退成「阴」）
+	const base = symbol.replace(/_(day|night|polarnight)$/, '');
+	return METNO_TO_WMO[base] ?? METNO_TO_WMO[symbol] ?? 3;
 }
 
 function metNoDaytimeCode(codes: string[]): string {
