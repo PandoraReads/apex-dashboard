@@ -15,9 +15,16 @@ export function readTrackerDataForRange(
 
 	while (d.getTime() <= end.getTime()) {
 		const dateStr = formatDateString(d);
-		const filePath = cleanFolder ? `${cleanFolder}/${dateStr}.md` : `${dateStr}.md`;
-
-		const file = app.vault.getFileByPath(filePath);
+		// 支持嵌套式日记目录（如 1_Daily_Notes/2026/07/2026-07-16.md）
+		const [year, month] = dateStr.split('-');
+		const nestedPath = `${year}/${month}/${dateStr}.md`;
+		const flatPath = `${dateStr}.md`;
+		// 优先匹配嵌套式目录（folder/year/month/date.md），
+		// 找不到时回退到扁平目录（folder/date.md），保持向后兼容
+		const candidate = cleanFolder ? `${cleanFolder}/${nestedPath}` : nestedPath;
+		const file =
+			app.vault.getFileByPath(candidate) ??
+			(cleanFolder ? app.vault.getFileByPath(`${cleanFolder}/${flatPath}`) : null);
 		if (!file) {
 			points.push({ date: dateStr, value: null });
 			d.setDate(d.getDate() + 1);
