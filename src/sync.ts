@@ -22,6 +22,7 @@ import {
 	appendDocChild,
 	demoteDocToChild,
 } from './doc-tree';
+import { todayStr } from './task-markers';
 
 type DataCallback = (data: DashboardData) => void;
 
@@ -138,13 +139,19 @@ export class SyncEngine {
 	async toggleTask(cardId: string, taskPath: TaskPath, checked: boolean): Promise<void> {
 		if (!this.data) return;
 
+		const today = todayStr();
+		const stamp = (t: TaskItem, done: boolean): TaskItem => ({
+			...t,
+			checked: done,
+			completedAt: done ? (t.completedAt ?? today) : undefined,
+		});
+		const stampDeep = (t: TaskItem, done: boolean): TaskItem => ({
+			...stamp(t, done),
+			children: t.children ? t.children.map(c => stampDeep(c, done)) : t.children,
+		});
+
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) => {
-			let next = updateTaskAt(tasks, taskPath, (t) => {
-				if (t.children && t.children.length > 0) {
-					return { ...t, checked, children: t.children.map(c => ({ ...c, checked })) };
-				}
-				return { ...t, checked };
-			});
+			let next = updateTaskAt(tasks, taskPath, (t) => stampDeep(t, checked));
 
 			for (let depth = taskPath.length - 1; depth > 0; depth--) {
 				next = updateTaskAt(next, taskPath.slice(0, depth), recalcChecked);
@@ -230,10 +237,18 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async setTaskPriority(cardId: string, taskPath: TaskPath, priority: TaskItem['priority']): Promise<void> {
+		if (!this.data) return;
+
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			updateTaskAt(tasks, taskPath, (t) => ({ ...t, priority })));
+		await this.writeToDisk();
+	}
+
 	async addTask(cardId: string, text: string, parentPath?: TaskPath): Promise<void> {
 		if (!this.data || !text.trim()) return;
 
-		const node: TaskItem = { text: text.trim(), checked: false };
+		const node: TaskItem = { text: text.trim(), checked: false, createdAt: todayStr() };
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			parentPath && parentPath.length > 0
 				? appendChild(tasks, parentPath, node)
@@ -281,7 +296,7 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'tasks' | 'dueDate' | 'color' | 'coverImage' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {

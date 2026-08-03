@@ -17,6 +17,7 @@ import type {
 } from './types';
 import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
+import { extractTaskMarkers } from './task-markers';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
 
@@ -309,17 +310,20 @@ export function serialize(data: DashboardData): string {
 				lines.push(`> ${card.blockquote}`);
 			}
 
-			if (card.tasks.length > 0) {
-				const writeTask = (task: TaskItem, indent: number) => {
-					const prefix = indent > 0 ? '    '.repeat(indent) : '';
-					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
-					if (task.reminder) taskLine += ` ⏰ ${task.reminder}`;
-					if (task.collapsed) taskLine += ` <!--collapsed-->`;
-					lines.push(taskLine);
-					for (const child of task.children ?? []) writeTask(child, indent + 1);
-				};
-				for (const task of card.tasks) writeTask(task, 0);
-			}
+		if (card.tasks.length > 0) {
+			const writeTask = (task: TaskItem, indent: number) => {
+				const prefix = indent > 0 ? '    '.repeat(indent) : '';
+				let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
+				
+				if (task.createdAt) taskLine += ` ➕ ${task.createdAt}`;
+				if (task.completedAt) taskLine += ` ✅ ${task.completedAt}`;
+				if (task.reminder) taskLine += ` ⏰ ${task.reminder}`;
+				if (task.collapsed) taskLine += ` <!--collapsed-->`;
+				lines.push(taskLine);
+				for (const child of task.children ?? []) writeTask(child, indent + 1);
+			};
+			for (const task of card.tasks) writeTask(task, 0);
+		}
 
 			if (card.docs.length > 0) {
 				for (const docLine of serializeDocTree(card.docs)) lines.push(docLine);
@@ -994,12 +998,20 @@ function extractCardParts(body: string): {
 				taskText = taskText.replace(COLLAPSED_REGEX, '');
 				taskCollapsed = true;
 			}
-			const reminderMatch = taskText.match(REMINDER_REGEX);
-			if (reminderMatch) {
-				taskText = taskText.replace(REMINDER_REGEX, '');
-				taskReminder = reminderMatch[1];
-			}
-			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder, collapsed: taskCollapsed };
+		const reminderMatch = taskText.match(REMINDER_REGEX);
+		if (reminderMatch) {
+			taskText = taskText.replace(REMINDER_REGEX, '');
+			taskReminder = reminderMatch[1];
+		}
+		const { text: cleanText, markers } = extractTaskMarkers(taskText);
+		const node: TaskItem = {
+			checked: taskMatch[1] !== ' ',
+			text: cleanText,
+			reminder: taskReminder,
+			collapsed: taskCollapsed,
+			createdAt: markers.createdAt,
+			completedAt: markers.completedAt,
+		};
 			if (isIndented && currentParent) {
 				currentParent.children = [...(currentParent.children ?? []), node];
 			} else {

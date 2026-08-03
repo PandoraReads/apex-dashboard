@@ -12231,3 +12231,184 @@
 	height: 15px;
 	color: var(--db-accent, var(--interactive-accent));
 }
+
+/* === Custom fork: priority button, inline edit affordance, save-location settings === */
+
+.dashboard-task-priority-btn {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text-muted);
+	cursor: pointer;
+	padding: 0 3px;
+	min-height: 0;
+	line-height: 1;
+	opacity: 0;
+	transition: opacity 0.15s ease, color 0.15s ease;
+	display: flex;
+	align-items: center;
+}
+
+.dashboard-task-item:hover .dashboard-task-priority-btn,
+.dashboard-task-item--touched .dashboard-task-priority-btn {
+	opacity: 1;
+}
+
+.dashboard-task-priority-btn:hover {
+	color: var(--db-text) !important;
+}
+
+.dashboard-task-priority-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-task-priority {
+	margin-right: 4px;
+	font-size: 0.9em;
+}
+
+/* Inline-edit affordance: dashed underline on hover */
+.dashboard-task-text {
+	cursor: text;
+}
+
+.dashboard-task-text:hover {
+	border-bottom: 1px dashed var(--db-text-muted);
+}
+
+.dashboard-card-title:hover {
+	border-bottom: 1px dashed var(--db-text-muted);
+}
+
+/* Save-location settings */
+.dashboard-settings-hint {
+	font-size: 0.85em;
+	color: var(--db-text-muted, var(--text-muted));
+	margin-bottom: 8px;
+}
+
+.dashboard-save-loc-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.06));
+}
+
+.dashboard-save-loc-name {
+	font-weight: 600;
+	min-width: 100px;
+}
+
+.dashboard-save-loc-target {
+	flex: 1;
+	font-size: 0.82em;
+	color: var(--db-text-muted, var(--text-muted));
+	font-family: var(--font-monospace);
+}
+
+.dashboard-save-loc-btn {
+	padding: 2px 8px;
+	font-size: 0.82em;
+	cursor: pointer;
+}
+
+.dashboard-save-loc-add {
+	margin-top: 8px;
+}
+
+.dashboard-save-loc-form {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 8px 0;
+}
+
+.dashboard-save-loc-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-save-loc-field label {
+	min-width: 60px;
+	font-size: 0.88em;
+}
+
+.dashboard-save-loc-field input {
+	flex: 1;
+}
+
+.dashboard-save-loc-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+/* Save-location picker items */
+.dashboard-save-target-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+}
+
+.dashboard-save-target-icon {
+	display: flex;
+	align-items: center;
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-save-target-icon svg {
+	width: 18px;
+	height: 18px;
+}
+
+/* Template library search & rows */
+.template-modal-search {
+	width: 100%;
+	margin-bottom: 8px;
+}
+
+.template-modal-section-label {
+	font-size: 0.8em;
+	color: var(--db-text-muted, var(--text-muted));
+	margin: 10px 0 4px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+/* Compact template picker: name+count header, per-item preview scroll (3 lines) */
+.template-modal-item--compact {
+	padding: 8px 10px;
+}
+
+.template-modal-item-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.template-modal-item-info--inline {
+	flex: 1;
+	min-width: 0;
+}
+
+.template-modal-item-remove {
+	flex-shrink: 0;
+	margin-left: 8px;
+}
+
+.template-modal-item-preview-scroll {
+	max-height: calc(3 * 1.4em + 6px);
+	overflow-y: auto;
+	margin-top: 4px;
+	padding-right: 4px;
+}
+
+.template-modal-item-preview-task {
+	font-size: 0.82em;
+	color: var(--db-text-muted, var(--text-muted));
+	padding: 1px 0;
+}

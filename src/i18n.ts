@@ -46,6 +46,48 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.languageEn': 'English',
 		'settings.languageZh': '中文',
 
+		// Todo save locations
+		'settings.todoSaveLocations': 'Todo card save locations',
+		'settings.todoSaveLocationsDesc': 'Named save targets for todo cards. Folder and file support {{date:FORMAT}} templates, e.g. journal/{{date:YYYY}}/{{date:YYYY-MM-DD}}.',
+		'settings.saveLocUnnamed': '(unnamed)',
+		'settings.saveLocFileTop': 'top of file',
+		'settings.saveLocAdd': '+ Add save location',
+		'settings.saveLocName': 'Name',
+		'settings.saveLocNamePlaceholder': 'e.g. Weekly report todos',
+		'settings.saveLocFolder': 'Folder',
+		'settings.saveLocFolderPlaceholder': 'e.g. work/weekly or journal/{{date:YYYY-MM}}',
+		'settings.saveLocFile': 'File',
+		'settings.saveLocFilePlaceholder': 'e.g. 2026-weekly or {{date:YYYY-MM-DD}}',
+		'settings.saveLocHeading': 'Heading',
+		'settings.saveLocHeadingPlaceholder': 'e.g. This week (empty = top of file)',
+		'settings.saveLocFileRequired': 'File name is required',
+		'settings.openFileAfterSave': 'Open note after save',
+		'settings.openFileAfterSaveDesc': 'Open the target note in a new tab after saving a todo card.',
+
+		// Template library
+		'settings.templateLibrary': 'Template library',
+		'settings.templateLibraryPath': 'Template library path',
+		'settings.templateLibraryPathDesc': 'Vault folder holding template files (one .md per template, file name = template name).',
+
+		// Save location picker
+		'saveLoc.pickTitle': 'Choose save location',
+		'saveLoc.daily': 'Save to daily note',
+		'saveLoc.noLocations': 'No save locations yet — add one in plugin settings first',
+		'saveLoc.saved': 'Tasks saved: {path}',
+		'saveLoc.noChanges': 'No changes — note already up to date',
+		'saveLoc.merged': 'Merged into existing block: {path}',
+		'saveLoc.updated': 'Updated in place: {path}',
+		'saveLoc.saveError': 'Failed to save tasks',
+
+		// Priority menu
+		'priority.set': 'Set priority',
+		'priority.highest': 'Highest',
+		'priority.high': 'High',
+		'priority.medium': 'Medium',
+		'priority.normal': 'Normal',
+		'priority.low': 'Low',
+		'priority.lowest': 'Lowest',
+
 		// Style Presets
 		'settings.stylePreset': 'Style',
 		'settings.stylePresetDesc': 'Dashboard visual style preset',
@@ -232,7 +274,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'renderer.removeDoc': 'Remove doc',
 		'renderer.setMemoColor': 'Set memo color (hex)',
 		'renderer.saveMemoAsNote': 'Save as note',
-		'renderer.saveTasksToDaily': 'Save tasks to daily note',
+		'renderer.saveTasksToDaily': 'Save tasks',
 		'renderer.archiveTasks': 'Archive completed tasks',
 		'renderer.setCoverImage': 'Set cover image',
 		'renderer.coverImagePath': 'Cover image path (vault relative)',
@@ -486,6 +528,13 @@ const translations: Record<Language, Record<string, string>> = {
 		'template.save': 'Save',
 		'template.back': 'Back',
 		'template.confirm': 'Use Template',
+		'template.searchPlaceholder': 'Search template library…',
+		'template.librarySection': 'In library',
+		'template.collectedSection': 'Collected',
+		'template.addToPanel': 'Add',
+		'template.removeFromPanel': 'Remove',
+		'template.deleteFileConfirm': 'This deletes the template file from the library folder. Continue?',
+		'template.libraryError': 'Template library access failed',
 
 		// Pomodoro
 		'pomodoro.work': 'Focus',
@@ -815,6 +864,48 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.languageEn': 'English',
 		'settings.languageZh': '中文',
 
+		// Todo save locations
+		'settings.todoSaveLocations': '待办卡片保存位置',
+		'settings.todoSaveLocationsDesc': '待办卡片的命名保存目标。文件夹和文件支持 {{date:格式}} 模板语法，如 日记/{{date:YYYY}}/{{date:YYYY-MM-DD}}。',
+		'settings.saveLocUnnamed': '（未命名）',
+		'settings.saveLocFileTop': '文件开头',
+		'settings.saveLocAdd': '+ 添加保存位置',
+		'settings.saveLocName': '名称',
+		'settings.saveLocNamePlaceholder': '如：周报待办',
+		'settings.saveLocFolder': '文件夹',
+		'settings.saveLocFolderPlaceholder': '如：工作/周报 或 日记/{{date:YYYY-MM}}',
+		'settings.saveLocFile': '文件',
+		'settings.saveLocFilePlaceholder': '如：2026周报 或 {{date:YYYY-MM-DD}}',
+		'settings.saveLocHeading': '标题',
+		'settings.saveLocHeadingPlaceholder': '如：本周待办（留空 = 文件开头）',
+		'settings.saveLocFileRequired': '文件名不能为空',
+		'settings.openFileAfterSave': '保存后打开文件',
+		'settings.openFileAfterSaveDesc': '保存待办卡片后，在新标签页中打开目标笔记。',
+
+		// Template library
+		'settings.templateLibrary': '管理模板',
+		'settings.templateLibraryPath': '模板库路径',
+		'settings.templateLibraryPathDesc': '存放模板文件的库内文件夹（每个模板一个 .md，文件名即模板名）。',
+
+		// Save location picker
+		'saveLoc.pickTitle': '选择保存位置',
+		'saveLoc.daily': '保存到日记',
+		'saveLoc.noLocations': '暂无保存位置 — 请先在插件设置中添加',
+		'saveLoc.saved': '已保存任务：{path}',
+		'saveLoc.noChanges': '无变更 — 笔记内容已是最新',
+		'saveLoc.merged': '已合并到现有待办块：{path}',
+		'saveLoc.updated': '已在原位置更新：{path}',
+		'saveLoc.saveError': '任务保存失败',
+
+		// Priority menu
+		'priority.set': '设置优先级',
+		'priority.highest': '最高',
+		'priority.high': '高',
+		'priority.medium': '中',
+		'priority.normal': '普通',
+		'priority.low': '低',
+		'priority.lowest': '最低',
+
 		// Style Presets
 		'settings.stylePreset': '样式',
 		'settings.stylePresetDesc': '仪表盘视觉样式',
@@ -1001,7 +1092,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'renderer.removeDoc': '移除文档',
 		'renderer.setMemoColor': '设置备忘录颜色（十六进制，如 #f59e0b）',
 		'renderer.saveMemoAsNote': '保存为笔记',
-		'renderer.saveTasksToDaily': '保存待办到日记',
+		'renderer.saveTasksToDaily': '保存',
 		'renderer.archiveTasks': '归档已完成事项',
 		'renderer.setCoverImage': '设置封面图片',
 		'renderer.coverImagePath': '封面图片路径（相对于仓库）',
@@ -1250,6 +1341,13 @@ const translations: Record<Language, Record<string, string>> = {
 		'template.save': '保存',
 		'template.back': '返回',
 		'template.confirm': '使用模板',
+		'template.searchPlaceholder': '搜索模板库…',
+		'template.librarySection': '模板库',
+		'template.collectedSection': '面板已收录',
+		'template.addToPanel': '添加',
+		'template.removeFromPanel': '移除',
+		'template.deleteFileConfirm': '将从模板库文件夹中删除该模板文件，是否继续？',
+		'template.libraryError': '模板库访问失败',
 
 		// Pomodoro
 		'pomodoro.work': '专注',
