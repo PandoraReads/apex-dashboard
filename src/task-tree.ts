@@ -1,4 +1,5 @@
 import type { TaskItem } from './types';
+import { appendTaskMarkers } from './task-markers';
 
 export type TaskPath = number[];
 
@@ -224,6 +225,7 @@ export function serializeTasksForNote(tasks: TaskItem[]): string {
 	const write = (task: TaskItem, indent: number) => {
 		const prefix = indent > 0 ? '    '.repeat(indent) : '';
 		let line = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
+		line = appendTaskMarkers(line, task);
 		if (task.reminder) line += ` ⏰ ${task.reminder}`;
 		lines.push(line);
 		for (const child of task.children ?? []) write(child, indent + 1);

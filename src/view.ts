@@ -1,7 +1,7 @@
 import { Events, HoverParent, HoverPopover, ItemView, Modal, moment, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig } from './types';
+import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, TodoSaveLocation, TaskItem } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
@@ -32,6 +32,9 @@ import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
+import { SaveLocationPickerModal } from './save-location-modal';
+import { saveCardToLocation } from './todo-save-service';
+import { backfillCreatedAt } from './task-markers';
 import type { App } from 'obsidian';
 
 interface DailyNotesOptions {
@@ -777,7 +780,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTask(cardId, taskPath),
 			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
-			onTaskSaveToDaily: (card: DashboardCard) => this.saveTasksToDaily(card),
+			onTaskSaveToDaily: (card: DashboardCard) => this.openSaveLocationPicker(card),
 			onDocAdd: (cardId: string, path: string) => this.sync.addDocToCard(cardId, path),
 			onDocDelete: (cardId: string, docPath: number[]) => this.sync.deleteDoc(cardId, docPath),
 			onDocReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderDocs(cardId, fromPath, toPath, before),
@@ -826,6 +829,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				onColumnMove: (fromIndex: number, toIndex: number) => { void this.sync.moveColumn(fromIndex, toIndex); },
 				onColumnHeightChange: (name: string, height: number) => { void this.sync.updateColumnHeight(name, height); },
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
+			onTaskPriority: (cardId: string, taskPath: number[], priority: TaskItem['priority']) => this.sync.setTaskPriority(cardId, taskPath, priority),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
 				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => {
@@ -917,6 +921,60 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (!(await adapter.exists(current))) {
 				await adapter.mkdir(current);
 			}
+		}
+	}
+
+	private openSaveLocationPicker(card: DashboardCard): void {
+		if (!card.tasks || card.tasks.length === 0) {
+			new Notice(t('notice.noTasksToSave'));
+			return;
+		}
+		const locations = this.plugin.settings.todoSaveLocations ?? [];
+		if (locations.length === 0) {
+			new Notice(t('saveLoc.noLocations'), 4000);
+			return;
+		}
+		const modal = new SaveLocationPickerModal(
+			this.app,
+			locations,
+			(target) => {
+				void this.saveTasksToLocation(card, target.location);
+			},
+			this.plugin.settings.stylePreset,
+		);
+		modal.open();
+	}
+
+	private async saveTasksToLocation(card: DashboardCard, loc: TodoSaveLocation): Promise<void> {
+		try {
+			// Backfill missing createdAt so every todo carries its own creation date
+			// (stays stable across re-saves once persisted to dashboard.md).
+			if (backfillCreatedAt(card.tasks)) {
+				await this.sync.updateCard(card.id, { tasks: card.tasks });
+			}
+			const result = await saveCardToLocation(this.app, card, loc);
+			switch (result.status) {
+				case 'unchanged':
+					new Notice(t('saveLoc.noChanges'), 3000);
+					break;
+				case 'updated':
+					new Notice(t('saveLoc.updated', { path: result.path }), 4000);
+					break;
+				case 'merged':
+					new Notice(t('saveLoc.merged', { path: result.path }), 4000);
+					break;
+				default:
+					new Notice(t('saveLoc.saved', { path: result.path }), 4000);
+			}
+			if (result.status !== 'unchanged' && this.plugin.settings.openFileAfterSave !== false) {
+				const saved = this.app.vault.getAbstractFileByPath(result.path);
+				if (saved instanceof TFile) {
+					await this.app.workspace.getLeaf('tab').openFile(saved);
+				}
+			}
+		} catch (err) {
+			console.error('[Dashboard] saveTasksToLocation failed:', err);
+			new Notice(t('saveLoc.saveError'), 4000);
 		}
 	}
 
@@ -1540,12 +1598,18 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		for (const col of this.data.columns) {
 			for (const card of col.cards) {
-				for (let i = 0; i < card.tasks.length; i++) {
-					const task = card.tasks[i]!;
-					if (!task.reminder || task.checked) continue;
+			for (let i = 0; i < card.tasks.length; i++) {
+				const task = card.tasks[i]!;
+				if (!task.reminder || task.checked) continue;
 
-					const key = `${card.id}-${JSON.stringify([i])}`;
-					if (this.firedReminders.has(key)) continue;
+				// The persisted key includes the reminder value so editing the
+				// reminder to a new time lets it fire (and persist) again.
+				const key = `${card.id}-${JSON.stringify([i])}-${task.reminder}`;
+				if (this.firedReminders.has(key)) continue;
+				if ((this.plugin.settings.firedReminders ?? []).includes(key)) {
+					this.firedReminders.add(key);
+					continue;
+				}
 
 					const parts = task.reminder.trim().split(/\s+/);
 					if (parts.length < 2) continue;
@@ -1561,7 +1625,7 @@ export class DashboardView extends ItemView implements HoverParent {
 							const inner = match.slice(2, -2);
 							return inner.split('|').pop()?.split('/').pop()?.replace(/\.md$/, '') ?? inner;
 						});
-						this.showReminderModal(cleanText, card.id, [i]);
+						this.showReminderModal(cleanText, card.id, [i], task.reminder);
 					}
 				}
 			}
@@ -1586,18 +1650,34 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 	}
 
-	private showReminderModal(taskText: string, cardId: string, taskPath: number[]): void {
+	private showReminderModal(taskText: string, cardId: string, taskPath: number[], reminder: string): void {
+		const persistFired = (key: string): void => {
+			const fired = new Set(this.plugin.settings.firedReminders ?? []);
+			fired.add(key);
+			this.plugin.settings = { ...this.plugin.settings, firedReminders: Array.from(fired) };
+			void this.plugin.saveSettings();
+		};
+		const firedKey = `${cardId}-${JSON.stringify(taskPath)}-${reminder}`;
 		const modal = new ReminderNoticeModal(
 			this.app,
 			taskText,
 			() => {
-				void this.sync.editTaskReminder(cardId, taskPath, undefined);
+				// Dismiss keeps the ⏰ marker: the task stays on the calendar (its bell
+				// turns red as the overdue indicator). Persist the fired key so the
+				// notice does not re-appear after a restart.
+				persistFired(firedKey);
 			},
 			() => {
 				const snoozed = new Date(Date.now() + 60 * 60 * 1000);
 				const pad = (n: number) => String(n).padStart(2, '0');
 				const newReminder = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
-				this.firedReminders.delete(`${cardId}-${JSON.stringify(taskPath)}`);
+				this.firedReminders.delete(firedKey);
+				// Snoozing sets a new reminder time; clear the persisted key so the
+				// new time can fire (and then be persisted) again.
+				const fired = new Set(this.plugin.settings.firedReminders ?? []);
+				fired.delete(firedKey);
+				this.plugin.settings = { ...this.plugin.settings, firedReminders: Array.from(fired) };
+				void this.plugin.saveSettings();
 				void this.sync.editTaskReminder(cardId, taskPath, newReminder);
 			},
 		);

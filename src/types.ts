@@ -43,6 +43,26 @@ export interface DashboardSettings {
 	taskTemplates: TaskTemplate[];
 	memoSavePath: string;
 	taskArchivePath: string;
+	/** Custom save-location templates for todo cards (folder/file/heading granularity). */
+	todoSaveLocations: TodoSaveLocation[];
+	/** Vault folder where task template library files (.md, one per template) live. */
+	templateLibraryPath: string;
+	/** Open the target note after saving a todo card (default on). */
+	openFileAfterSave: boolean;
+	/** Persisted keys of reminders already fired (survive restarts; prevents re-firing). */
+	firedReminders: string[];
+}
+
+/** One named save-location template for todo cards. Empty heading = prepend after frontmatter. */
+export interface TodoSaveLocation {
+	id: string;
+	name: string;
+	/** Vault folder path, may be empty for vault root. */
+	folder: string;
+	/** File name without .md extension. */
+	file: string;
+	/** Heading (without #'s) under which the block is appended; empty = file top. */
+	heading: string;
 }
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
@@ -77,6 +97,10 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	taskTemplates: [],
 	memoSavePath: '',
 	taskArchivePath: '归档/已完成.md',
+	todoSaveLocations: [],
+	templateLibraryPath: '模板库/apex-templates',
+	openFileAfterSave: true,
+	firedReminders: [],
 };
 
 export interface QuoteItem {
@@ -147,10 +171,19 @@ export interface TrackerDataPoint {
 	value: number | null;
 }
 
+/** Tasks-plugin compatible priority levels. 'normal' is represented by absence of the field. */
+export type TaskPriority = 'highest' | 'high' | 'medium' | 'low' | 'lowest';
+
 export interface TaskItem {
 	text: string;
 	checked: boolean;
 	reminder?: string;
+	/** Creation date `YYYY-MM-DD`, recorded on the dashboard at creation time. */
+	createdAt?: string;
+	/** Completion date `YYYY-MM-DD`, recorded when checked on the dashboard; cleared on uncheck. */
+	completedAt?: string;
+	/** Tasks-plugin priority (🔺⏫🔼 / 🔽⏬); undefined = normal (no emoji). */
+	priority?: TaskPriority;
 	children?: TaskItem[];
 	collapsed?: boolean;
 }
@@ -337,6 +370,7 @@ export interface RenderCallbacks {
 	onColumnRename(oldName: string, newName: string): void;
 	onColumnDelete(columnName: string): void;
 	onTaskReminderEdit(cardId: string, taskPath: number[], reminder: string | undefined): void;
+	onTaskPriority(cardId: string, taskPath: number[], priority: TaskPriority | undefined): void;
 	onTaskNest(cardId: string, taskPath: number[]): void;
 	onTaskNestInto(cardId: string, srcPath: number[], destPath: number[]): void;
 	onTaskUnnest(cardId: string, taskPath: number[]): void;

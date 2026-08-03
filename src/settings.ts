@@ -1,6 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type DashboardPlugin from './main';
-import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
+import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig, type TodoSaveLocation } from './types';
 import { t, setLanguage, type Language } from './i18n';
 import { geocodeCity } from './weather-service';
 import { CountdownSettingsModal } from './countdown-modal';
@@ -138,11 +138,134 @@ export class DashboardSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		this.renderTodoSaveLocations(containerEl);
+
+		this.renderTemplateLibrarySettings(containerEl);
+
 		this.renderWidgetSettings(containerEl);
 
 		this.renderLunarSettings(containerEl);
 
 		containerEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
+	}
+
+	/** 「待办卡片保存位置」— manage named folder/file/heading save-location templates. */
+	private renderTodoSaveLocations(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName(t('settings.todoSaveLocations')).setHeading();
+		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		card.createDiv({ cls: 'dashboard-settings-hint', text: t('settings.todoSaveLocationsDesc') });
+
+		const list = card.createDiv({ cls: 'dashboard-save-loc-list' });
+
+		new Setting(card)
+			.setName(t('settings.openFileAfterSave'))
+			.setDesc(t('settings.openFileAfterSaveDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.openFileAfterSave !== false)
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, openFileAfterSave: value };
+					await this.plugin.saveSettings();
+				}));
+
+		const renderList = () => {
+			list.empty();
+			const locations = this.plugin.settings.todoSaveLocations ?? [];
+			for (const loc of locations) {
+				const row = list.createDiv({ cls: 'dashboard-save-loc-row' });
+				const target = [loc.folder, loc.file].filter(Boolean).join('/') + '.md'
+					+ (loc.heading ? `  ›  ${loc.heading}` : `  ›  ${t('settings.saveLocFileTop')}`);
+				row.createDiv({ cls: 'dashboard-save-loc-name', text: loc.name || t('settings.saveLocUnnamed') });
+				row.createDiv({ cls: 'dashboard-save-loc-target', text: target });
+
+				const editBtn = row.createEl('button', { cls: 'dashboard-save-loc-btn', text: t('template.edit') });
+				editBtn.addEventListener('click', () => renderForm(loc));
+
+				const delBtn = row.createEl('button', { cls: 'dashboard-save-loc-btn', text: t('template.delete') });
+				delBtn.addEventListener('click', () => {
+					void (async () => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							todoSaveLocations: (this.plugin.settings.todoSaveLocations ?? []).filter(l => l.id !== loc.id),
+						};
+						await this.plugin.saveSettings();
+						renderList();
+					})();
+				});
+			}
+
+			const addBtn = list.createEl('button', { cls: 'dashboard-save-loc-add mod-cta', text: t('settings.saveLocAdd') });
+			addBtn.addEventListener('click', () => renderForm(null));
+		};
+
+		const renderForm = (existing: TodoSaveLocation | null) => {
+			list.empty();
+			const form = list.createDiv({ cls: 'dashboard-save-loc-form' });
+			const draft: TodoSaveLocation = existing
+				? { ...existing }
+				: { id: `loc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: '', folder: '', file: '', heading: '' };
+
+			const field = (labelKey: string, key: 'name' | 'folder' | 'file' | 'heading', placeholder: string) => {
+				const row = form.createDiv({ cls: 'dashboard-save-loc-field' });
+				row.createEl('label', { text: t(labelKey) });
+				const input = row.createEl('input', {
+					cls: 'dashboard-modal-input',
+					attr: { type: 'text', placeholder, value: draft[key] },
+				});
+				input.addEventListener('input', () => { draft[key] = input.value; });
+			};
+
+			field('settings.saveLocName', 'name', t('settings.saveLocNamePlaceholder'));
+			field('settings.saveLocFolder', 'folder', t('settings.saveLocFolderPlaceholder'));
+			field('settings.saveLocFile', 'file', t('settings.saveLocFilePlaceholder'));
+			field('settings.saveLocHeading', 'heading', t('settings.saveLocHeadingPlaceholder'));
+
+			const actions = form.createDiv({ cls: 'dashboard-save-loc-actions' });
+			const saveBtn = actions.createEl('button', { cls: 'mod-cta', text: t('template.save') });
+			saveBtn.addEventListener('click', () => {
+				void (async () => {
+					if (!draft.file.trim()) {
+						new Notice(t('settings.saveLocFileRequired'), 3000);
+						return;
+					}
+					const current = [...(this.plugin.settings.todoSaveLocations ?? [])];
+					const idx = current.findIndex(l => l.id === draft.id);
+					const cleaned: TodoSaveLocation = {
+						...draft,
+						name: draft.name.trim() || draft.file.trim(),
+						folder: draft.folder.trim().replace(/^\/+|\/+$/g, ''),
+						file: draft.file.trim().replace(/\.md$/i, ''),
+						heading: draft.heading.trim().replace(/^#+\s*/, ''),
+					};
+					if (idx >= 0) current[idx] = cleaned; else current.push(cleaned);
+					this.plugin.settings = { ...this.plugin.settings, todoSaveLocations: current };
+					await this.plugin.saveSettings();
+					renderList();
+				})();
+			});
+			const cancelBtn = actions.createEl('button', { text: t('template.back') });
+			cancelBtn.addEventListener('click', () => renderList());
+		};
+
+		renderList();
+	}
+
+	/** 「管理模板」— template library folder path. */
+	private renderTemplateLibrarySettings(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName(t('settings.templateLibrary')).setHeading();
+		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(card)
+			.setName(t('settings.templateLibraryPath'))
+			.setDesc(t('settings.templateLibraryPathDesc'))
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.templateLibraryPath)
+				.setValue(this.plugin.settings.templateLibraryPath)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						templateLibraryPath: value.trim().replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.templateLibraryPath,
+					};
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	private renderWidgetSettings(containerEl: HTMLElement): void {
