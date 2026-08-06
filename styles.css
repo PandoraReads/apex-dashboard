@@ -4130,8 +4130,10 @@
 /* Week Calendar Strip */
 .dashboard-sidebar-week-calendar {
 	display: flex;
+	align-items: center;
 	gap: 2px;
 	padding: 0 4px;
+	min-height: calc(1.6em + 16px);
 }
 
 .dashboard-sidebar-week-cell {
@@ -12642,80 +12644,99 @@
 	min-width: 64px;
 }
 
-/* ===== Quick Notes region — single-line horizontal navbar ===== */
+/* ===== Quick Notes region — single-line accent navbar (masthead strip) ===== */
 .dashboard-quicknote {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	padding: 7px 12px;
-	margin-bottom: 12px;
-	background: var(--db-bg-section);
-	border: 1px solid var(--db-border-section);
+	gap: 8px;
+	padding: 4px 8px;
+	min-height: calc(1.6em + 16px);
+	margin-bottom: -6px;
+	background: color-mix(in srgb, var(--db-accent) 14%, var(--db-bg-section));
+	border: 1px solid color-mix(in srgb, var(--db-accent) 26%, var(--db-border-section));
 	border-radius: var(--db-radius-md);
 	backdrop-filter: var(--db-backdrop-blur);
 	-webkit-backdrop-filter: var(--db-backdrop-blur);
-}
-.dashboard-quicknote-brand {
-	flex-shrink: 0;
-	font-size: 0.72em;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	color: var(--db-text-muted);
-	white-space: nowrap;
 }
 .dashboard-quicknote-nav {
 	flex: 1;
 	min-width: 0;
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 4px;
 	flex-wrap: nowrap;
 	overflow-x: auto;
 	scrollbar-width: thin;
 }
 .dashboard-quicknote-nav::-webkit-scrollbar { height: 4px; }
-.dashboard-quicknote-cog { flex-shrink: 0; color: var(--db-text-muted); opacity: 0.6; cursor: pointer; }
-.dashboard-quicknote-cog:hover { opacity: 1; color: var(--db-accent); }
 .dashboard-quicknote-empty {
 	display: flex;
 	align-items: center;
 	gap: 10px;
+	padding: 1px 4px;
 	font-size: 0.85em;
 	color: var(--db-text-muted);
 	white-space: nowrap;
 }
-.dashboard-quicknote-empty-btn { font-size: 0.82em; flex-shrink: 0; }
-.dashboard-quicknote-capture-input {
-	flex: 0 0 150px;
-	height: 30px;
-	padding: 4px 10px;
-	font-size: 0.85em;
+.dashboard-quicknote-empty-btn {
+	font-size: 0.82em;
+	flex-shrink: 0;
+	background: color-mix(in srgb, var(--db-accent) 14%, transparent) !important;
+	border-color: color-mix(in srgb, var(--db-accent) 30%, transparent) !important;
+	color: var(--db-text);
 }
+.dashboard-quicknote-empty-btn:hover { background: color-mix(in srgb, var(--db-accent) 24%, transparent) !important; }
 .dashboard-quicknote-chip {
 	flex-shrink: 0;
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 4px 11px;
+	padding: 3px 10px;
 	font-size: 0.85em;
 	white-space: nowrap;
-	border-radius: 999px;
-	border: 1px solid var(--db-border-card);
-	background: var(--db-bg-card);
+	border-radius: var(--db-radius-sm);
+	border: 1px solid color-mix(in srgb, var(--db-accent) 26%, transparent) !important;
+	background: color-mix(in srgb, var(--db-accent) 18%, var(--db-bg-section)) !important;
+	box-shadow: none !important;
 	color: var(--db-text);
 	cursor: pointer;
-	transition: background 0.15s ease, transform 0.1s ease;
+	transition: background 0.15s ease, border-color 0.15s ease;
 }
-.dashboard-quicknote-chip:hover { background: var(--db-bg-hover); transform: translateY(-1px); }
-.dashboard-quicknote-chip:active { transform: translateY(0); }
+.dashboard-quicknote-chip:hover {
+	background: color-mix(in srgb, var(--db-accent) 30%, var(--db-bg-section)) !important;
+	border-color: color-mix(in srgb, var(--db-accent) 40%, transparent) !important;
+}
 .dashboard-quicknote-icon { display: inline-flex; flex-shrink: 0; }
 .dashboard-quicknote-icon svg { width: 14px; height: 14px; }
-.dashboard-quicknote-today {
-	color: var(--db-accent);
-	border-color: color-mix(in srgb, var(--db-accent) 45%, var(--db-border-card));
-}
+.dashboard-quicknote-today { color: var(--db-accent); font-weight: 600; }
 .dashboard-quicknote-pin .dashboard-quicknote-icon svg { color: var(--db-text-muted); }
+.dashboard-quicknote-capture-input {
+	flex-shrink: 0;
+	width: 150px;
+	height: 26px;
+	padding: 3px 10px;
+	font-size: 0.82em;
+	background: color-mix(in srgb, var(--db-accent) 10%, transparent);
+	border-color: color-mix(in srgb, var(--db-accent) 28%, transparent);
+}
+.dashboard-quicknote-cog {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none;
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-muted);
+	opacity: 0.35;
+	cursor: pointer;
+	transition: opacity 0.15s ease, color 0.15s ease;
+}
+.dashboard-quicknote-cog:hover { opacity: 1; color: var(--db-accent); }
+.dashboard-quicknote-cog svg { width: 14px; height: 14px; }
 
 /* Quick Notes config modal */
 .dashboard-quicknote-config { max-width: 540px; }

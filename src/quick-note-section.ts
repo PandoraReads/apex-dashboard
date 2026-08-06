@@ -17,43 +17,20 @@ export function renderQuickNoteRegion(
 ): void {
 	const region = container.createDiv({ cls: 'dashboard-quicknote' });
 
-	// Brand label — fixed at the left, never scrolls away.
-	region.createSpan({ cls: 'dashboard-quicknote-brand', text: t('quickNote.title') });
-
-	// Scrollable nav — holds every item in a single horizontal line.
-	const nav = region.createDiv({ cls: 'dashboard-quicknote-nav' });
-
 	const presets = settings.quickNotePresets ?? [];
 	const pinned = settings.pinnedNotes ?? [];
 	const captureOn = !!settings.quickCaptureEnabled;
 	const dailyOn = !!settings.quickDailyEnabled;
+	const hasChips = presets.length > 0 || pinned.length > 0 || dailyOn;
 
-	if (presets.length === 0 && pinned.length === 0 && !captureOn && !dailyOn) {
+	// Scrollable nav of chips — sits on the left.
+	const nav = region.createDiv({ cls: 'dashboard-quicknote-nav' });
+	if (!hasChips && !captureOn) {
 		const empty = nav.createDiv({ cls: 'dashboard-quicknote-empty' });
 		empty.createSpan({ cls: 'dashboard-quicknote-empty-text', text: t('quickNote.empty') });
 		const cfg = empty.createEl('button', { cls: 'dashboard-quicknote-empty-btn', text: t('quickNote.configure') });
 		cfg.addEventListener('click', () => callbacks.onQuickNoteConfig());
 	} else {
-		if (captureOn) {
-			const input = nav.createEl('input', {
-				cls: 'dashboard-modal-input dashboard-quicknote-capture-input',
-				attr: {
-					type: 'text',
-					placeholder: t('quickNote.capturePlaceholder'),
-					'aria-label': t('quickNote.capture'),
-				},
-			});
-			input.addEventListener('keydown', (e) => {
-				if (e.key === 'Enter') {
-					e.preventDefault();
-					const text = input.value.trim();
-					if (text) {
-						callbacks.onQuickNoteCapture(text);
-						input.value = '';
-					}
-				}
-			});
-		}
 		for (const preset of presets) {
 			chip(nav, 'dashboard-quicknote-chip', preset.icon || 'file-plus', preset.label, () => callbacks.onQuickNoteCreate(preset));
 		}
@@ -65,9 +42,31 @@ export function renderQuickNoteRegion(
 		}
 	}
 
-	// Config cog — fixed at the right, never scrolls away.
+	// Capture input — fixed, just left of the config cog.
+	if (captureOn) {
+		const input = region.createEl('input', {
+			cls: 'dashboard-modal-input dashboard-quicknote-capture-input',
+			attr: {
+				type: 'text',
+				placeholder: t('quickNote.capturePlaceholder'),
+				'aria-label': t('quickNote.capture'),
+			},
+		});
+		input.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				const text = input.value.trim();
+				if (text) {
+					callbacks.onQuickNoteCapture(text);
+					input.value = '';
+				}
+			}
+		});
+	}
+
+	// Config cog — fixed at the right; small + faint until hovered.
 	const cog = region.createEl('button', {
-		cls: 'dashboard-clickable-icon dashboard-quicknote-cog',
+		cls: 'dashboard-quicknote-cog',
 		attr: { 'aria-label': t('quickNote.config') },
 	});
 	setIcon(cog, 'settings-2');
