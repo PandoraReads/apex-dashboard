@@ -1,10 +1,13 @@
 import { Events, HoverParent, HoverPopover, ItemView, Modal, moment, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig } from './types';
+import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
+import { applyAppearance } from './appearance';
+import { createNoteFromPreset, captureThought, openPinnedNote, openTodayNote } from './quick-note-section';
+import { QuickNoteConfigModal } from './quick-note-config-modal';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
 import { setupDragAndDrop } from './dnd';
@@ -179,6 +182,12 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 	}
 
+	/** Reload the dashboard file from disk (e.g. after a backup restore) and
+	 *  re-render. The sync engine re-reads and notifies, which triggers render. */
+	async reloadFromDisk(): Promise<void> {
+		await this.sync.reloadFromDisk();
+	}
+
 	async addSection(): Promise<void> {
 		const name = await showPromptDialog(this.app, { title: t('renderer.sectionName') });
 		if (name) {
@@ -222,6 +231,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		container.empty();
 		container.addClass('apex-dashboard-root');
 		container.setAttribute('data-theme', this.plugin.settings.stylePreset);
+
+		// Apply user appearance overrides (background image layer + custom colors).
+		// Must run after data-theme so inline `--db-*` overrides win by specificity,
+		// and before banner/main are created so the bg layer sits behind content.
+		applyAppearance(container, this.app, this.plugin.settings);
 
 		const bannerEl = renderBanner(
 			container,
@@ -812,6 +826,11 @@ export class DashboardView extends ItemView implements HoverParent {
 					if (confirmed) void this.sync.removeQuickAction(index);
 				});
 			},
+			onQuickNoteCreate: (preset: QuickNotePreset) => void createNoteFromPreset(this.app, preset),
+			onQuickNoteCapture: (text: string) => void captureThought(this.app, this.plugin.settings, text),
+			onOpenPinnedNote: (note: PinnedNote) => openPinnedNote(this.app, note),
+			onQuickNoteDaily: () => void openTodayNote(this.app),
+			onQuickNoteConfig: () => new QuickNoteConfigModal(this.app, this.plugin).open(),
 			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.sync.moveCard(cardId, targetCol, targetIdx),
 			onMemoColorChange: (card: DashboardCard, color: string) => this.sync.updateMemoColor(card.id, color),
 			onProjectCoverChange: (card: DashboardCard, imagePath: string) => this.sync.updateProjectCover(card.id, imagePath),
@@ -1044,9 +1063,13 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	/** Opens a note on card click. Honors the "disable popover" setting: when
-	 *  on, the note opens directly in a tab (no in-dashboard editor). */
+	 *  on, the note opens directly in a tab (no in-dashboard editor).
+	 *
+	 *  Non-markdown files (canvas whiteboards, base databases, pdf, media) are
+	 *  always opened in a real tab — the in-dashboard popover only hosts a
+	 *  MarkdownView and would render them broken. */
 	private openNote(file: TFile): void {
-		if (this.plugin.settings.disableNotePopover) {
+		if (this.plugin.settings.disableNotePopover || file.extension !== 'md') {
 			void this.app.workspace.getLeaf(false).openFile(file);
 			return;
 		}

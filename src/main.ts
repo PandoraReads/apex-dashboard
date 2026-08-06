@@ -2,6 +2,7 @@ import { Notice, Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
+import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
 
 /** All valid style preset keys — single source of truth for migration. */
@@ -49,11 +50,16 @@ function migrateCountdowns(raw: Record<string, unknown>): CountdownConfig[] {
 
 export default class DashboardPlugin extends Plugin {
 	settings!: DashboardSettings;
+	backupService!: BackupService;
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
 
 			this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
+
+		this.backupService = new BackupService(this);
+		// The 60s tick is registered so Obsidian clears it on unload automatically.
+		this.registerInterval(window.setInterval(() => { void this.backupService.tick(); }, 60_000));
 
 		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
 
@@ -151,6 +157,16 @@ export default class DashboardPlugin extends Plugin {
 		for (const leaf of leaves) {
 			if (leaf.view instanceof DashboardView) {
 				void leaf.view.refresh();
+			}
+		}
+	}
+
+	/** Reload every open dashboard view from disk (used after a backup restore). */
+	async reloadAllDashboards(): Promise<void> {
+		const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
+		for (const leaf of leaves) {
+			if (leaf.view instanceof DashboardView) {
+				await leaf.view.reloadFromDisk();
 			}
 		}
 	}

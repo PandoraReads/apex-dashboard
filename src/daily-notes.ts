@@ -23,7 +23,7 @@ function getDailyNotesOptions(app: App): DailyNotesOptions | null {
 }
 
 /** Ensure a vault folder path exists, creating intermediate folders as needed. */
-async function ensureFolder(app: App, folderPath: string): Promise<void> {
+export async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	const adapter = app.vault.adapter;
 	const parts = folderPath.split('/').map(p => p.trim()).filter(Boolean);
 	let current = '';
@@ -33,6 +33,30 @@ async function ensureFolder(app: App, folderPath: string): Promise<void> {
 			await adapter.mkdir(current);
 		}
 	}
+}
+
+/**
+ * Substitute a basic subset of Obsidian's template variables in `content`,
+ * using `now` (defaults to the current time). Supported: `{{date}}`,
+ * `{{date:FORMAT}}`, `{{time}}`, `{{time:FORMAT}}`, and `{{title}}` (only when
+ * a title is provided — otherwise left in place). Used by note creation from
+ * user templates and by daily-note seeding.
+ */
+export function substituteTemplateVars(
+	content: string,
+	opts: { title?: string; now?: moment.Moment } = {},
+): string {
+	const now = opts.now ?? moment();
+	let out = content;
+	// Specific-format variants first so the bare regex doesn't shadow them.
+	out = out.replace(/\{\{date:([^}]+)\}\}/g, (_m, fmt: string) => now.format(fmt));
+	out = out.replace(/\{\{time:([^}]+)\}\}/g, (_m, fmt: string) => now.format(fmt));
+	out = out.replace(/\{\{date\}\}/g, now.format('YYYY-MM-DD'));
+	out = out.replace(/\{\{time\}\}/g, now.format('HH:mm'));
+	if (opts.title != null) {
+		out = out.replace(/\{\{title\}\}/g, opts.title);
+	}
+	return out;
 }
 
 /** Vault path of the daily note for the given `YYYY-MM-DD` iso date, computed
@@ -85,5 +109,38 @@ export async function appendTaskToDailyNote(app: App, iso: string, taskLine: str
 	}
 	if (content && !content.endsWith('\n')) content += '\n';
 	content += `${taskLine}\n`;
+	return await app.vault.create(path, content);
+}
+
+/**
+ * Get today's (or `iso`'s) daily note, creating it from the core Daily Notes
+ * plugin's template (with `{{date}}`/`{{time}}` substituted) if it doesn't
+ * exist yet. Returns null if the core Daily Notes plugin is disabled — callers
+ * should surface a "enable Daily Notes" hint in that case.
+ */
+export async function getOrCreateDailyNote(app: App, iso: string): Promise<TFile | null> {
+	const opts = getDailyNotesOptions(app);
+	if (!opts) return null;
+	const path = dailyNotePathFor(app, iso);
+	if (!path) return null;
+
+	const existing = app.vault.getAbstractFileByPath(path);
+	if (existing instanceof TFile) return existing;
+
+	const folder = (opts.folder || '').trim().replace(/^\/+|\/+$/g, '');
+	if (folder) await ensureFolder(app, folder);
+
+	let content = '';
+	const tplPath = (opts.template || '').trim();
+	if (tplPath) {
+		let tplFile = app.vault.getAbstractFileByPath(tplPath);
+		if (!(tplFile instanceof TFile) && !tplPath.endsWith('.md')) {
+			tplFile = app.vault.getAbstractFileByPath(`${tplPath}.md`);
+		}
+		if (tplFile instanceof TFile) {
+			try { content = await app.vault.read(tplFile); } catch { /* ignore */ }
+		}
+	}
+	content = substituteTemplateVars(content, { now: moment(iso) });
 	return await app.vault.create(path, content);
 }

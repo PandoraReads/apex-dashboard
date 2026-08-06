@@ -769,6 +769,9 @@ export function renderLibrarySection(
 	function renderContent(currentConfig: LibraryConfig): void {
 		contentArea.empty();
 		paginationArea.empty();
+		// Tag the current view so CSS can give the kanban its own (Trello-style)
+		// scrolling layout without affecting grid/list/table.
+		contentArea.dataset.viewMode = currentConfig.viewMode;
 
 		let results = queryVaultFiles(app, currentConfig);
 

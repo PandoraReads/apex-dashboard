@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import { isSupportedExtension } from './file-types';
 
 export interface FileSuggestHandle {
 	isActive(): boolean;
@@ -11,8 +12,6 @@ interface SuggestItem {
 	indent?: number;
 	select: () => void;
 }
-
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'pdf']);
 
 export function attachFileSuggest(
 	inputEl: HTMLTextAreaElement | HTMLInputElement,
@@ -107,7 +106,7 @@ export function attachFileSuggest(
 		const q = query.toLowerCase();
 		const files = app.vault.getFiles()
 			.filter(f => !f.path.startsWith('.'))
-			.filter(f => f.extension === 'md' || IMAGE_EXTENSIONS.has(f.extension))
+			.filter(f => isSupportedExtension(f.extension))
 			.filter(f => f.basename.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
 			.slice(0, 10);
 

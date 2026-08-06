@@ -84,6 +84,17 @@ export class SyncEngine {
 		await this.load();
 	}
 
+	/**
+	 * Re-acquire the dashboard file reference and reload its contents from disk,
+	 * then notify listeners (which re-renders the view). Used by the backup
+	 * restore flow: the file may have been deleted/recreated, so the cached
+	 * `this.file` can be stale and must be resolved again before reading.
+	 */
+	async reloadFromDisk(): Promise<void> {
+		await this.findOrCreateFile();
+		await this.load();
+	}
+
 	private mapCardTasks(
 		data: DashboardData,
 		cardId: string,
@@ -197,11 +208,10 @@ export class SyncEngine {
 
 		if (!movedTask) return;
 
-		const node: TaskItem = mode === 'nest' ? { ...movedTask } : (() => {
-			const clean: TaskItem = { ...movedTask };
-			delete clean.children;
-			return clean;
-		})();
+		// Preserve the moved task's entire subtree. Previously the children were
+		// stripped for 'before'/'after' drops, which silently deleted all sub-items
+		// when a parent task was moved to another card.
+		const node: TaskItem = { ...movedTask };
 
 		this.data = {
 			...this.data,
@@ -612,11 +622,8 @@ export class SyncEngine {
 
 		if (!movedDoc) return;
 
-		const node: DocNode = mode === 'nest' ? { ...movedDoc } : (() => {
-			const clean: DocNode = { ...movedDoc };
-			delete clean.children;
-			return clean;
-		})();
+		// Preserve the moved doc's entire subtree (same rationale as moveTaskToCard).
+		const node: DocNode = { ...movedDoc };
 
 		this.data = {
 			...this.data,

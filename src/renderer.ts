@@ -8,6 +8,7 @@ import { renderCalendarSection } from './calendar-section';
 import { renderHeatmapSection } from './heatmap-section';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
+import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
@@ -19,6 +20,8 @@ import type { ReadingService } from './reading-service';
 import { searchBooks, downloadCoverAsBlobUrl } from './book-service';
 import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
+import { renderSidebarYearProgress } from './year-progress-widget';
+import { SUPPORTED_FILE_EXTS, iconForExtension } from './file-types';
 import type { HolidayInfo } from './holiday-service';
 import { CountdownSettingsModal } from './countdown-modal';
 import { Chart, LineController, LineElement, PointElement, BarController, BarElement, LinearScale, CategoryScale, Filler, Tooltip } from 'chart.js';
@@ -99,7 +102,7 @@ let docDragSource: { cardId: string; docPath: number[] } | null = null;
 let activeHoverParent: HoverParent | null = null;
 let activeNoteOpener: ((file: TFile) => void) | null = null;
 
-const VAULT_FILE_EXTS = new Set(['md', 'pdf', 'canvas', 'base', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'mp3', 'mp4', 'm4a', 'm4b', 'mov', 'mkv', 'avi']);
+const VAULT_FILE_EXTS = SUPPORTED_FILE_EXTS;
 
 function getSearchableFiles(app: App) {
 	return app.vault.getFiles()
@@ -182,18 +185,21 @@ export function renderSidebarWidgets(
 	holidayData?: Record<string, HolidayInfo>,
 	onWidgetReorder?: (order: string[]) => void,
 ): void {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
 	if (!anyEnabled) return;
 
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
 
-	const DEFAULT_ORDER = ['lunar', 'weather', 'pomodoro', 'reading', 'countdown'];
+	const DEFAULT_ORDER = ['lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress'];
 	const order = settings.widgetOrder?.length ? settings.widgetOrder : DEFAULT_ORDER;
 
 	type WidgetEntry = { key: string; render: () => void };
 	const enabled: WidgetEntry[] = [];
 	if (settings.widgetLunarEnabled) {
 		enabled.push({ key: 'lunar', render: () => renderSidebarLunarWidget(widgetArea, holidayData ?? {}, app) });
+	}
+	if (settings.widgetYearProgressEnabled) {
+		enabled.push({ key: 'yearProgress', render: () => renderSidebarYearProgress(widgetArea) });
 	}
 	if (settings.widgetWeatherEnabled) {
 		enabled.push({ key: 'weather', render: () => renderSidebarWeather(widgetArea, settings, app) });
@@ -1596,6 +1602,11 @@ export function renderDashboard(
 	container.empty();
 	container.addClass('dashboard-kanban');
 
+	// Quick Notes region: pinned at the top, above all sections (non-reorderable).
+	if (settings?.quickNotesEnabled) {
+		renderQuickNoteRegion(container, settings, callbacks);
+	}
+
 	for (const column of data.columns) {
 		const section = renderSection(column, callbacks, app, data, settings);
 		container.appendChild(section);
@@ -2899,6 +2910,8 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 			}
 
 			const resolved = resolveNoteFile(app, doc.path);
+			const docIcon = docItem.createSpan({ cls: 'dashboard-project-doc-icon' });
+			setIcon(docIcon, iconForExtension(resolved?.extension ?? ''));
 			docItem.createSpan({ text: resolved?.basename ?? doc.path.split('/').pop() ?? doc.path, cls: 'dashboard-project-doc-name' });
 
 			if (resolved && !Platform.isMobile && activeHoverParent) {

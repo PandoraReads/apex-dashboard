@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.5.0 (2026-08-07)
+
+### Added
+- **Appearance Studio** — New "Customize appearance" entry in settings opens a modal to override the active theme's colors, set a global dashboard background image (dim / blur / fill controls), and fine-tune card opacity, glass blur, and corner radius. Changes apply live to all open dashboards. New `appearance.ts` + `theme-studio-modal.ts`
+- **Quick Notes** — Sidebar capture-thought input, note presets, pinned notes, and an "open today's note" action, with a config modal. New `quick-note-section.ts` + `quick-note-config-modal.ts`
+- **Reusable icon picker** — New `icon-picker-modal.ts`
+- **Dashboard backup & restore** — Periodic snapshots of the dashboard file into the plugin folder (`<vault>/.obsidian/plugins/apex-dashboard/backups/`): enable toggle + hourly/daily/weekly/monthly cadence + retention count, plus one-click "Back up now" and "Restore latest backup" (handles both overwrite and deleted-file cases, live reloads open dashboards). New `backup-service.ts`
+- **Year-progress sidebar widget** — Shows how much % of the current year has elapsed, with a themed progress bar and day-of-year count; toggle in settings, reorderable like other widgets
+- **More file formats** — Canvas whiteboards, Base databases, PDF, and audio now open in their native Obsidian view (no longer forced into the markdown popover) and show per-type icons in doc lists and search results. New central `file-types.ts` helper
+
+### Changed
+- **Folder section kanban: Trello-style scrolling** — Each group column now scrolls its own cards internally (sticky column header) and the board row is bounded to the section height, so the horizontal scrollbar always stays in view instead of being pushed to the very bottom by long lists. Layout refactor scopes the change to kanban view only (`data-view-mode`); grid/list/table keep their scroll, with the toolbar now staying pinned
+- **Kanban scrollbars** — Folder/library and all-tasks kanban horizontal scrollbar is now thin (3px), always-visible, theme-accented; per-column vertical scrollbar hidden (wheel/trackpad still scroll)
+- **Sidebar collapse indicator** — The expand grip bar is always visible now (was hover-only)
+- **Confirm dialog** — Opaque theme-aware background so text is readable in every theme; the dialog now also supports a non-destructive accent confirm button (used by Restore)
+
+### Fixed
+- **Moving a parent todo/doc with sub-items to another card** — Sub-items are no longer deleted; the whole subtree is preserved on before/after drops (`moveTaskToCard` / `moveDocToCard`)
+- **Mobile todo row** — Task text gets priority width (`min-width:0` + wrapping) and the action buttons are compacted so they no longer dominate the row
+- **Tablet quick-action edit/delete buttons** — Render as proper circular icon buttons (sized up, always shown on touch via `.is-mobile`) instead of deformed blobs
+- **Table view scrollbar** — Themed to match the dashboard
+
 ## 1.4.4 (2026-07-04)
 
 ### Added

@@ -1414,10 +1414,40 @@
 	flex-direction: column;
 	height: 100%;
 	overflow: hidden;
+	position: relative;
+	isolation: isolate;
 	background: var(--db-bg);
 	color: var(--db-text);
 	font-family: var(--db-font);
 	transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ===== User background-image layer (Appearance Studio) =====
+   Painted directly on the root, behind all content. Glass surfaces
+   (backdrop-filter: var(--db-backdrop-blur)) auto-frost over it. */
+.apex-dashboard-bg {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+.apex-dashboard-bg-scrim {
+	position: absolute;
+	inset: 0;
+}
+/* Lift dashboard content above the background layer.
+   Banner sits one level above main so its collapsed bookmark tab — which pokes
+   downward past the 4px collapsed banner into main's area — stays clickable. */
+.apex-dashboard-root > .dashboard-banner {
+	position: relative;
+	z-index: 2;
+}
+.apex-dashboard-root > .dashboard-main,
+.apex-dashboard-root > .dashboard-mobile-widget-bar {
+	position: relative;
+	z-index: 1;
 }
 
 /* ===== Settings Footer ===== */
@@ -3600,6 +3630,58 @@
 	gap: 6px;
 }
 
+/* ===== Year Progress widget ===== */
+.dashboard-sidebar-year-progress {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.dashboard-sidebar-year-progress-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.dashboard-sidebar-year-progress-year {
+	font-size: 1.15em;
+	font-weight: 600;
+	color: var(--db-text-primary);
+}
+
+.dashboard-sidebar-year-progress-percent {
+	font-size: 0.95em;
+	font-weight: 600;
+	color: var(--db-accent);
+	font-variant-numeric: tabular-nums;
+}
+
+/* "Days left" label sits in the header (top-right); keep it a quiet secondary
+   label so it doesn't compete with the year. */
+.dashboard-sidebar-year-progress-left {
+	font-size: 0.8em;
+	color: var(--db-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-sidebar-year-progress-bar {
+	margin-bottom: 0;
+}
+
+.dashboard-sidebar-year-progress-bar .dashboard-progress-bar {
+	height: 8px;
+}
+
+.dashboard-sidebar-year-progress-sub {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 0.78em;
+	color: var(--db-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
 .dashboard-sidebar-lunar-header {
 	display: flex;
 	flex-direction: column;
@@ -4147,15 +4229,16 @@
 	width: 4px;
 	height: 40px;
 	border-radius: 2px;
-	background: var(--db-border-sidebar);
-	opacity: 0.4;
+	/* Always-visible resting state: use the readable text color at full strength
+	   so the grip is obvious even without hovering. */
+	background: var(--db-text-faint);
+	opacity: 0.65;
 	transition: opacity 0.2s ease, background 0.2s ease;
 	pointer-events: none;
 }
 
 .dashboard-sidebar--collapsed:hover .dashboard-sidebar-slim-indicator {
-	opacity: 0.7;
-	background: var(--db-text-faint);
+	opacity: 0.95;
 }
 
 /* --- Expanded --- */
@@ -4322,7 +4405,7 @@
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
 	color: var(--db-text-muted);
 	cursor: pointer;
-	padding: 2px;
+	padding: 0;
 	min-height: 0;
 	line-height: 1;
 	opacity: 0;
@@ -4330,12 +4413,13 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	box-sizing: border-box;
 	position: absolute;
-	top: -3px;
-	right: -3px;
+	top: -5px;
+	right: -5px;
 	border-radius: 50%;
-	width: 14px;
-	height: 14px;
+	width: 18px;
+	height: 18px;
 }
 
 .dashboard-qa-remove:hover {
@@ -4343,8 +4427,9 @@
 }
 
 .dashboard-qa-remove svg {
-	width: 8px;
-	height: 8px;
+	width: 11px;
+	height: 11px;
+	display: block;
 }
 
 .dashboard-qa-item:hover .dashboard-qa-remove {
@@ -4357,7 +4442,7 @@
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
 	color: var(--db-text-muted);
 	cursor: pointer;
-	padding: 2px;
+	padding: 0;
 	min-height: 0;
 	line-height: 1;
 	opacity: 0;
@@ -4365,12 +4450,13 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	box-sizing: border-box;
 	position: absolute;
-	top: -3px;
-	left: -3px;
+	top: -5px;
+	left: -5px;
 	border-radius: 50%;
-	width: 14px;
-	height: 14px;
+	width: 18px;
+	height: 18px;
 }
 
 .dashboard-qa-edit:hover {
@@ -4378,11 +4464,20 @@
 }
 
 .dashboard-qa-edit svg {
-	width: 8px;
-	height: 8px;
+	width: 11px;
+	height: 11px;
+	display: block;
 }
 
 .dashboard-qa-item:hover .dashboard-qa-edit {
+	opacity: 1;
+}
+
+/* Touch devices (Obsidian adds .is-mobile on phones AND tablets): there is no
+   reliable hover, so keep the edit/remove affordances visible instead of
+   stranding them at opacity:0 (which read as empty deformed blobs). */
+.is-mobile .dashboard-qa-edit,
+.is-mobile .dashboard-qa-remove {
 	opacity: 1;
 }
 
@@ -5353,7 +5448,10 @@
 .dashboard-task-text {
 	font-size: 0.95em;
 	flex: 1;
+	min-width: 0;
 	line-height: 1.2;
+	/* Long task text wraps instead of pushing action buttons off-screen. */
+	overflow-wrap: anywhere;
 }
 
 .dashboard-task-text--done {
@@ -5390,6 +5488,7 @@
 	transition: opacity 0.15s ease, color 0.15s ease;
 	display: flex;
 	align-items: center;
+	flex-shrink: 0;
 }
 
 .dashboard-task-delete:hover {
@@ -5399,6 +5498,26 @@
 .dashboard-task-delete svg {
 	width: 14px;
 	height: 14px;
+}
+
+/* Mobile: shrink the action buttons so the task text keeps usable width.
+   The reminder button is always rendered (even without a reminder), so both
+   action glyphs compete with the text — tighten their footprint on phones. */
+@media (max-width: 640px) {
+	.dashboard-task-delete,
+	.dashboard-task-reminder-btn {
+		padding: 0 1px;
+	}
+
+	.dashboard-task-delete svg,
+	.dashboard-task-reminder-btn svg {
+		width: 12px;
+		height: 12px;
+	}
+
+	.dashboard-task-text {
+		font-size: 0.9em;
+	}
 }
 
 .dashboard-task-add {
@@ -5558,10 +5677,25 @@
 .dashboard-project-doc-name {
 	font-size: 0.95em;
 	flex: 1;
+	min-width: 0;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	line-height: 1.2;
+}
+
+.dashboard-project-doc-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--db-accent);
+	opacity: 0.75;
+	margin-right: 4px;
+}
+
+.dashboard-project-doc-icon svg {
+	width: 13px;
+	height: 13px;
 }
 
 .dashboard-project-doc-remove {
@@ -8642,12 +8776,14 @@
 	width: 90%;
 	padding: 24px 28px 20px;
 	text-align: center;
-	background: rgba(255, 255, 255, 0.06);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	/* Opaque theme-aware background guarantees readable text. The previous
+	   rgba(255,255,255,0.06) glass relied entirely on backdrop-filter and became
+	   an unreadable transparent card wherever blur is unavailable/disabled. */
+	background: var(--background-secondary, #1e1e1e);
+	border: 1px solid var(--background-modifier-border, rgba(255, 255, 255, 0.1));
 	border-radius: 12px;
 	color: var(--text-normal);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
 .dashboard-confirm-title {
@@ -8660,8 +8796,7 @@
 .dashboard-confirm-message {
 	margin: 0 0 20px;
 	font-size: 0.9em;
-	color: var(--text-normal);
-	opacity: 0.7;
+	color: var(--text-muted, var(--text-normal));
 	line-height: 1.5;
 }
 
@@ -8681,13 +8816,13 @@
 }
 
 .dashboard-confirm-cancel {
-	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.10);
+	background: var(--background-modifier-hover, rgba(255, 255, 255, 0.06));
+	border: 1px solid var(--background-modifier-border, rgba(255, 255, 255, 0.10));
 	color: var(--text-normal);
 }
 
 .dashboard-confirm-cancel:hover {
-	background: rgba(255, 255, 255, 0.10);
+	background: var(--background-modifier-border-hover, var(--background-modifier-hover));
 }
 
 .dashboard-confirm-delete {
@@ -8698,6 +8833,16 @@
 
 .dashboard-confirm-delete:hover {
 	opacity: 0.85;
+}
+
+.dashboard-confirm-primary {
+	background: var(--db-accent);
+	border: 1px solid transparent;
+	color: #fff;
+}
+
+.dashboard-confirm-primary:hover {
+	opacity: 0.88;
 }
 
 /* Widget Type Selector Modal */
@@ -9334,8 +9479,57 @@
 	padding: 0 0 8px 0;
 	flex: 1;
 	min-height: 0;
+	/* min-width:0 lets this flex item shrink so the kanban child can overflow and
+	   scroll horizontally instead of the whole section stretching wide. */
+	min-width: 0;
+	/* Flex column: toolbar/pagination stay pinned while the files area receives a
+	   bounded height and scrolls. */
+	display: flex;
+	flex-direction: column;
+}
+
+/* Toolbar and pagination stay fixed; only the files area scrolls. */
+.dashboard-library-toolbar,
+.dashboard-library-pagination {
+	flex-shrink: 0;
+}
+
+/* Files area: vertical scroll container for grid/list/table, and a bounded-
+   height host for the kanban (Trello-style columns that scroll internally). */
+.dashboard-library-files {
+	min-width: 0;
+	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
 	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent) 25%, transparent) transparent;
+}
+
+/* Themed vertical scrollbar (grid/list/table), matching the rest of the dashboard. */
+.dashboard-library-files::-webkit-scrollbar {
+	width: 8px;
+}
+.dashboard-library-files::-webkit-scrollbar-track {
+	background: transparent;
+}
+.dashboard-library-files::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent) 20%, transparent);
+	border-radius: 4px;
+	transition: background 0.2s ease;
+}
+.dashboard-library-files::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--db-accent) 38%, transparent);
+}
+
+/* Kanban view: the wrapper stops scrolling vertically; the kanban fills the
+   bounded height and each column scrolls its own cards, so the board row — and
+   its horizontal scrollbar — always stays inside the viewport. */
+.dashboard-library-files[data-view-mode="kanban"] {
+	overflow: hidden;
+}
+.dashboard-library-files[data-view-mode="kanban"] .dashboard-library-kanban {
+	height: 100%;
+	overflow-y: hidden;
 }
 
 /* Toolbar */
@@ -9992,7 +10186,33 @@
 	display: flex;
 	gap: 10px;
 	overflow-x: auto;
+	/* Lets the row shrink inside its parent so the columns actually overflow and
+	   the horizontal scrollbar engages. */
+	min-width: 0;
 	padding-bottom: 8px;
+	/* Thin, ALWAYS-visible themed bar — the kanban's horizontal scroll is a
+	   primary affordance, so it stays visible (unlike the hover-reveal bars used
+	   by the todo section and other views). */
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent) 24%, transparent) transparent;
+}
+
+.dashboard-library-kanban::-webkit-scrollbar {
+	height: 3px;
+}
+
+.dashboard-library-kanban::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.dashboard-library-kanban::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent) 24%, transparent);
+	border-radius: 2px;
+	transition: background 0.2s ease;
+}
+
+.dashboard-library-kanban::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--db-accent) 38%, transparent);
 }
 
 .dashboard-library-kanban-col {
@@ -10005,6 +10225,21 @@
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	/* Trello-style: each column is capped to the board's height and scrolls its
+	   own cards, so a long list no longer pushes the board's horizontal
+	   scrollbar off-screen. min-height:0 lets the column shrink below its
+	   content so overflow engages. */
+	min-height: 0;
+	overflow-y: auto;
+	/* Hide the per-column vertical scrollbar (wheel/trackpad still scroll) so a
+	   row of many groups doesn't show a clutter of gutters. */
+	scrollbar-width: none;
+}
+
+.dashboard-library-kanban-col::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
 }
 
 .dashboard-library-kanban-col-title {
@@ -10014,6 +10249,13 @@
 	padding: 4px 6px;
 	border-bottom: 2px solid var(--db-accent, var(--interactive-accent));
 	margin-bottom: 4px;
+	/* Stay pinned at the top of the column while its cards scroll. The opaque
+	   background matches the column so cards slide cleanly underneath. */
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var(--db-bg-section, rgba(255, 255, 255, 0.02));
+	flex-shrink: 0;
 }
 
 .dashboard-library-kanban-card {
@@ -11090,7 +11332,26 @@
 	display: flex;
 	gap: 10px;
 	overflow-x: auto;
+	min-width: 0;
 	padding-bottom: 4px;
+	/* Thin, ALWAYS-visible themed bar (see .dashboard-library-kanban). */
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent) 24%, transparent) transparent;
+}
+
+.dashboard-alltasks-kanban::-webkit-scrollbar {
+	height: 3px;
+}
+.dashboard-alltasks-kanban::-webkit-scrollbar-track {
+	background: transparent;
+}
+.dashboard-alltasks-kanban::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent) 24%, transparent);
+	border-radius: 2px;
+	transition: background 0.2s ease;
+}
+.dashboard-alltasks-kanban::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--db-accent) 38%, transparent);
 }
 .dashboard-alltasks-kanban .dashboard-library-kanban-col { min-width: 200px; flex: 1; max-width: 280px; }
 .dashboard-alltasks-kanban-empty {
@@ -12231,3 +12492,294 @@
 	height: 15px;
 	color: var(--db-accent, var(--interactive-accent));
 }
+
+/* ===== Appearance Studio (Theme Studio modal) ===== */
+.dashboard-theme-studio {
+	max-width: 520px;
+}
+.dashboard-theme-studio-hint {
+	margin: 4px 0 12px;
+	font-size: 0.82em;
+	color: var(--db-text-muted, var(--text-muted));
+	opacity: 0.85;
+}
+.dashboard-theme-studio-section {
+	margin-bottom: 18px;
+	padding-bottom: 14px;
+	border-bottom: 1px solid var(--db-border, var(--background-modifier-border));
+}
+.dashboard-theme-studio-section:last-child {
+	border-bottom: none;
+}
+.dashboard-theme-studio-section h3 {
+	margin: 0 0 4px;
+	font-size: 1em;
+}
+.dashboard-theme-studio-desc {
+	margin: 0 0 10px;
+	font-size: 0.8em;
+	color: var(--db-text-muted, var(--text-muted));
+	opacity: 0.85;
+}
+.dashboard-theme-studio-swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+.dashboard-theme-studio-swatch {
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	cursor: pointer;
+	border: 2px solid var(--db-border, var(--background-modifier-border));
+	transition: transform 0.12s ease;
+}
+.dashboard-theme-studio-swatch:hover {
+	transform: scale(1.12);
+}
+.dashboard-theme-studio-color-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+.dashboard-theme-studio-color-row,
+.dashboard-theme-studio-slider-row,
+.dashboard-theme-studio-size-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.dashboard-theme-studio-color-label {
+	flex: 1;
+	font-size: 0.88em;
+}
+.dashboard-modal-color-input {
+	width: 38px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--db-border, var(--background-modifier-border));
+	border-radius: 6px;
+	background: transparent;
+	cursor: pointer;
+}
+.dashboard-theme-studio-color-clear {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--db-border, var(--background-modifier-border));
+	border-radius: 6px;
+	background: transparent;
+	cursor: pointer;
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-theme-studio-color-clear svg {
+	width: 14px;
+	height: 14px;
+}
+.dashboard-theme-studio-reset {
+	font-size: 0.82em;
+}
+.dashboard-theme-studio-image-row {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+.dashboard-theme-studio-image-input {
+	flex: 1;
+}
+.dashboard-theme-studio-browse,
+.dashboard-theme-studio-image-clear {
+	white-space: nowrap;
+}
+.dashboard-theme-studio-slider {
+	flex: 2;
+}
+.dashboard-theme-studio-size {
+	/* Auto-size to the widest option so closed-state text isn't clipped
+	   (overrides .dashboard-modal-input width:100%). Explicit height +
+	   line-height + appearance:menulist keep the selected value fully
+	   visible (raw <select> under Obsidian/Electron clips vertically without them). */
+	flex: 0 0 auto;
+	width: auto;
+	min-width: 150px;
+	height: 36px;
+	padding: 0 10px;
+	line-height: 36px;
+	box-sizing: border-box;
+	-webkit-appearance: menulist;
+	appearance: menulist;
+}
+.dashboard-theme-studio-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 4px;
+}
+.dashboard-theme-studio-header h2 {
+	margin: 0;
+}
+.dashboard-theme-studio-resetall {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.82em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-theme-studio-resetall-icon svg {
+	width: 13px;
+	height: 13px;
+}
+.dashboard-theme-studio-slider-hint {
+	font-size: 0.72em;
+	color: var(--db-text-faint, var(--text-faint));
+	font-style: italic;
+	min-width: 64px;
+}
+
+/* ===== Quick Notes region — single-line horizontal navbar ===== */
+.dashboard-quicknote {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 7px 12px;
+	margin-bottom: 12px;
+	background: var(--db-bg-section);
+	border: 1px solid var(--db-border-section);
+	border-radius: var(--db-radius-md);
+	backdrop-filter: var(--db-backdrop-blur);
+	-webkit-backdrop-filter: var(--db-backdrop-blur);
+}
+.dashboard-quicknote-brand {
+	flex-shrink: 0;
+	font-size: 0.72em;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--db-text-muted);
+	white-space: nowrap;
+}
+.dashboard-quicknote-nav {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: nowrap;
+	overflow-x: auto;
+	scrollbar-width: thin;
+}
+.dashboard-quicknote-nav::-webkit-scrollbar { height: 4px; }
+.dashboard-quicknote-cog { flex-shrink: 0; color: var(--db-text-muted); opacity: 0.6; cursor: pointer; }
+.dashboard-quicknote-cog:hover { opacity: 1; color: var(--db-accent); }
+.dashboard-quicknote-empty {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 0.85em;
+	color: var(--db-text-muted);
+	white-space: nowrap;
+}
+.dashboard-quicknote-empty-btn { font-size: 0.82em; flex-shrink: 0; }
+.dashboard-quicknote-capture-input {
+	flex: 0 0 150px;
+	height: 30px;
+	padding: 4px 10px;
+	font-size: 0.85em;
+}
+.dashboard-quicknote-chip {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 11px;
+	font-size: 0.85em;
+	white-space: nowrap;
+	border-radius: 999px;
+	border: 1px solid var(--db-border-card);
+	background: var(--db-bg-card);
+	color: var(--db-text);
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.1s ease;
+}
+.dashboard-quicknote-chip:hover { background: var(--db-bg-hover); transform: translateY(-1px); }
+.dashboard-quicknote-chip:active { transform: translateY(0); }
+.dashboard-quicknote-icon { display: inline-flex; flex-shrink: 0; }
+.dashboard-quicknote-icon svg { width: 14px; height: 14px; }
+.dashboard-quicknote-today {
+	color: var(--db-accent);
+	border-color: color-mix(in srgb, var(--db-accent) 45%, var(--db-border-card));
+}
+.dashboard-quicknote-pin .dashboard-quicknote-icon svg { color: var(--db-text-muted); }
+
+/* Quick Notes config modal */
+.dashboard-quicknote-config { max-width: 540px; }
+.dashboard-quicknote-cfg-section {
+	margin-bottom: 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--db-border, var(--background-modifier-border));
+}
+.dashboard-quicknote-cfg-section:last-child { border-bottom: none; }
+.dashboard-quicknote-cfg-section h3 { margin: 0 0 4px; font-size: 1em; }
+.dashboard-quicknote-cfg-desc { margin: 0 0 10px; font-size: 0.8em; color: var(--db-text-muted); opacity: 0.85; }
+.dashboard-quicknote-cfg-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.dashboard-quicknote-cfg-item {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+	border: 1px solid var(--db-border-input);
+	border-radius: var(--db-radius-sm);
+	background: var(--db-bg-input);
+}
+.dashboard-quicknote-cfg-top { display: flex; gap: 6px; align-items: center; }
+.dashboard-quicknote-cfg-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 30px;
+	padding: 0;
+	flex: 0 0 36px;
+	border: 1px solid var(--db-border-input);
+	border-radius: var(--db-radius-sm);
+	background: var(--db-bg-input);
+	color: var(--db-text);
+	cursor: pointer;
+}
+.dashboard-quicknote-cfg-icon-btn:hover { color: var(--db-accent); border-color: var(--db-accent); }
+.dashboard-quicknote-cfg-icon-btn svg { width: 16px; height: 16px; }
+
+/* Icon picker (FuzzySuggestModal suggestions) */
+.dashboard-icon-picker-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.dashboard-icon-picker-glyph {
+	display: inline-flex;
+	color: var(--db-text);
+}
+.dashboard-icon-picker-glyph svg { width: 18px; height: 18px; }
+.dashboard-icon-picker-name { font-family: var(--db-font, monospace); font-size: 0.9em; }
+.dashboard-quicknote-cfg-label { flex: 1; }
+.dashboard-quicknote-cfg-del {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	flex: 0 0 30px;
+	border-radius: var(--db-radius-sm);
+	color: var(--db-danger, var(--db-text-muted));
+}
+.dashboard-quicknote-cfg-del svg { width: 15px; height: 15px; }
+.dashboard-quicknote-cfg-add { font-size: 0.85em; }
+.dashboard-quicknote-cfg-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.dashboard-quicknote-cfg-toggle label { font-size: 0.88em; cursor: pointer; }

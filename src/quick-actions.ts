@@ -3,6 +3,7 @@ import type { QuickAction } from './types';
 import { PRESET_ACTIONS } from './types';
 import { t } from './i18n';
 import type { AppWithCommands } from './obsidian-internal';
+import { iconForExtension } from './file-types';
 
 function actionKey(action: QuickAction, isPreset: boolean): string {
 	return isPreset ? `p:${action.target}` : `c:${action.target}`;
@@ -408,13 +409,14 @@ export class AddActionModal extends Modal {
 
 		for (const file of files) {
 			const item = container.createDiv({ cls: 'dashboard-docsearch-item' });
-			item.createSpan({ cls: 'dashboard-docsearch-icon', text: '\u{1F4C4}' });
+			const iconSpan = item.createSpan({ cls: 'dashboard-docsearch-icon' });
+			setIcon(iconSpan, iconForExtension(file.extension));
 			const info = item.createDiv({ cls: 'dashboard-docsearch-info' });
 			info.createDiv({ cls: 'dashboard-docsearch-name', text: file.basename });
 			info.createDiv({ cls: 'dashboard-docsearch-path', text: file.path });
 
 			item.addEventListener('click', () => {
-				this.pendingAction = { name: file.basename, icon: 'file-text', type: 'file', target: file.path };
+				this.pendingAction = { name: file.basename, icon: iconForExtension(file.extension), type: 'file', target: file.path };
 				this.render();
 			});
 		}
@@ -501,7 +503,8 @@ export class DocSearchModal extends Modal {
 
 			for (const file of files) {
 				const item = resultsList.createDiv({ cls: 'dashboard-docsearch-item' });
-				item.createSpan({ cls: 'dashboard-docsearch-icon', text: '\u{1F4C4}' });
+				const iconSpan = item.createSpan({ cls: 'dashboard-docsearch-icon' });
+				setIcon(iconSpan, iconForExtension(file.extension));
 				const info = item.createDiv({ cls: 'dashboard-docsearch-info' });
 				info.createDiv({ cls: 'dashboard-docsearch-name', text: file.basename });
 				info.createDiv({ cls: 'dashboard-docsearch-path', text: file.path });

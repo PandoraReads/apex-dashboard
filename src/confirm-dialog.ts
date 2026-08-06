@@ -3,6 +3,11 @@ import { t } from './i18n';
 interface ConfirmOptions {
 	title: string;
 	message: string;
+	/** Override the confirm button label (defaults to the localized "Delete"). */
+	confirmLabel?: string;
+	/** When false the confirm button uses the accent color instead of the
+	 *  destructive red. Defaults to true (destructive) for back-compat. */
+	destructive?: boolean;
 }
 
 export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promise<boolean> {
@@ -13,6 +18,8 @@ export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promi
 			resolved = true;
 			resolve(value);
 		};
+
+		const destructive = options.destructive !== false;
 
 		// Full-screen overlay
 		const overlay = activeDocument.body.createDiv({ cls: 'dashboard-confirm-overlay' });
@@ -34,11 +41,11 @@ export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promi
 			done(false);
 		});
 
-		const deleteBtn = actions.createEl('button', {
-			text: t('common.delete'),
-			cls: 'dashboard-confirm-delete',
+		const confirmBtn = actions.createEl('button', {
+			text: options.confirmLabel ?? t('common.delete'),
+			cls: destructive ? 'dashboard-confirm-delete' : 'dashboard-confirm-primary',
 		});
-		deleteBtn.addEventListener('click', () => {
+		confirmBtn.addEventListener('click', () => {
 			overlay.remove();
 			done(true);
 		});

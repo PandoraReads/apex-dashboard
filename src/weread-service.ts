@@ -73,7 +73,15 @@ export class WereadClient {
 	}
 
 	isConfigured(): boolean {
-		return this.apiKey.length > 0 && this.apiKey.startsWith('wrk-');
+		return this.configError() === null;
+	}
+
+	/** null when the key is usable; otherwise the local reason it is not, so the
+	 * UI can distinguish "not set" from "set but wrong format". */
+	configError(): 'EMPTY_KEY' | 'BAD_KEY_FORMAT' | null {
+		if (this.apiKey.length === 0) return 'EMPTY_KEY';
+		if (!this.apiKey.startsWith('wrk-')) return 'BAD_KEY_FORMAT';
+		return null;
 	}
 
 	/** Raw gateway call. Throws on API error, upgrade required, or network failure. */
@@ -182,8 +190,12 @@ export class WereadClient {
 
 	/** Per-book reading progress (0-100). Shelf data lacks this, so it is fetched per book. */
 	async fetchProgress(bookId: string): Promise<number> {
-		const data = await this.request<{ progress?: number; readPercent?: number } & Record<string, unknown>>('/book/getprogress', { bookId });
-		const raw = data.progress ?? data.readPercent;
+		const data = await this.request<Record<string, unknown>>('/book/getprogress', { bookId });
+		// Official weread-cli nests progress under `data.book`; tolerate a flat
+		// top-level value, and tolerate numeric-string progress (web-API legacy).
+		const bookRaw = data['book'];
+		const book = bookRaw && typeof bookRaw === 'object' ? bookRaw as Record<string, unknown> : data;
+		const raw = book['progress'] ?? book['readPercent'] ?? data['progress'] ?? data['readPercent'];
 		return clampPct(numOr(raw, 0));
 	}
 
@@ -304,7 +316,12 @@ function parseNotebook(raw: NotebookRaw): WereadNotebook | null {
 }
 
 function numOr(v: unknown, d: number): number {
-	return typeof v === 'number' && !isNaN(v) ? v : d;
+	if (typeof v === 'number') return isNaN(v) ? d : v;
+	if (typeof v === 'string') {
+		const s = v.trim();
+		return s !== '' && !isNaN(Number(s)) ? Number(s) : d;
+	}
+	return d;
 }
 
 function str(v: unknown): string {

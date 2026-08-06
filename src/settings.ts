@@ -1,10 +1,13 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type DashboardPlugin from './main';
-import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
+import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig, type BackupPeriod } from './types';
 import { t, setLanguage, type Language } from './i18n';
 import { geocodeCity } from './weather-service';
 import { CountdownSettingsModal } from './countdown-modal';
 import { TickTickLoginModal } from './ticktick-login-modal';
+import { ThemeStudioModal } from './theme-studio-modal';
+import { QuickNoteConfigModal } from './quick-note-config-modal';
+import { showConfirmDialog } from './confirm-dialog';
 import { DEFAULT_TICKTICK_TZ, isValidTz } from './ticktick-tz';
 
 export type { DashboardSettings };
@@ -68,6 +71,32 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
+				}));
+
+		new Setting(containerEl)
+			.setName(t('themeStudio.title'))
+			.setDesc(t('themeStudio.settingsDesc'))
+			.addButton(btn => btn
+				.setButtonText(t('themeStudio.open'))
+				.setCta()
+				.onClick(() => {
+					new ThemeStudioModal(this.app, this.plugin).open();
+				}));
+
+		new Setting(containerEl)
+			.setName(t('quickNote.title'))
+			.setDesc(t('quickNote.settingsDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.quickNotesEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, quickNotesEnabled: value };
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}))
+			.addButton(btn => btn
+				.setButtonText(t('quickNote.config'))
+				.onClick(() => {
+					new QuickNoteConfigModal(this.app, this.plugin).open();
 				}));
 
 		const recentSetting = new Setting(containerEl)
@@ -141,6 +170,10 @@ export class DashboardSettingTab extends PluginSettingTab {
 		this.renderWidgetSettings(containerEl);
 
 		this.renderLunarSettings(containerEl);
+
+		this.renderYearProgressSettings(containerEl);
+
+		this.renderBackupSettings(containerEl);
 
 		containerEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
 	}
@@ -523,6 +556,110 @@ export class DashboardSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
 					this.display();
+				}));
+	}
+
+	private renderYearProgressSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName(t('settings.widgetYearProgress')).setHeading();
+
+		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(card)
+			.setName(t('settings.widgetYearProgressEnabled'))
+			.setDesc(t('settings.widgetYearProgressEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetYearProgressEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetYearProgressEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.display();
+				}));
+	}
+
+	private renderBackupSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName(t('settings.backup')).setHeading();
+
+		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+
+		const backupDir = `${this.app.vault.configDir}/plugins/${this.plugin.manifest.id}/backups`;
+
+		new Setting(card)
+			.setName(t('settings.backupEnabled'))
+			.setDesc(t('settings.backupEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.backupEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						backupEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
+		new Setting(card)
+			.setName(t('settings.backupPeriod'))
+			.setDesc(t('settings.backupPeriodDesc'))
+			.addDropdown(d => d
+				.addOption('hourly', t('settings.backupPeriodHourly'))
+				.addOption('daily', t('settings.backupPeriodDaily'))
+				.addOption('weekly', t('settings.backupPeriodWeekly'))
+				.addOption('monthly', t('settings.backupPeriodMonthly'))
+				.setValue(this.plugin.settings.backupPeriod)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						backupPeriod: value as BackupPeriod,
+					};
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(card)
+			.setName(t('settings.backupMaxCount'))
+			.setDesc(t('settings.backupMaxCountDesc'))
+			.addDropdown(d => d
+				.addOption('5', '5')
+				.addOption('10', '10')
+				.addOption('20', '20')
+				.addOption('30', '30')
+				.addOption('50', '50')
+				.setValue(String(this.plugin.settings.backupMaxCount))
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						backupMaxCount: Number(value),
+					};
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(card)
+			.setName(t('settings.backupNow'))
+			.setDesc(t('settings.backupLocationDesc', { path: backupDir }))
+			.addButton(btn => btn
+				.setButtonText(t('settings.backupNow'))
+				.onClick(() => {
+					void this.plugin.backupService?.runBackupNow();
+				}));
+
+		new Setting(card)
+			.setName(t('settings.restoreLatest'))
+			.setDesc(t('settings.restoreLatestDesc'))
+			.addButton(btn => btn
+				.setButtonText(t('settings.restoreLatest'))
+				.onClick(() => {
+					void (async () => {
+						const confirmed = await showConfirmDialog(this.app, {
+							title: t('settings.restoreConfirmTitle'),
+							message: t('settings.restoreConfirmMessage'),
+							confirmLabel: t('settings.restoreLatest'),
+							destructive: false,
+						});
+						if (!confirmed) return;
+						await this.plugin.backupService?.restoreLatestNow();
+					})();
 				}));
 	}
 

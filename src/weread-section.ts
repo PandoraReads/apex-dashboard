@@ -34,8 +34,13 @@ export function renderWereadSection(
 		if (force) client.clearCache();
 		host.empty();
 
-		if (!client.isConfigured()) {
-			renderHint(host, t('weread.noKey'), t('weread.noKeyHint'));
+		const cfgErr = client.configError();
+		if (cfgErr) {
+			// Distinguish "not set" from "set but wrong format" so the user knows
+			// whether to enter a key or fix the one they entered.
+			const title = cfgErr === 'EMPTY_KEY' ? t('weread.noKey') : t('weread.badKeyFormat');
+			const hint = cfgErr === 'EMPTY_KEY' ? t('weread.noKeyHint') : t('weread.badKeyFormatHint');
+			renderHint(host, title, hint);
 			return;
 		}
 
@@ -62,7 +67,7 @@ export function renderWereadSection(
 						content.empty();
 					}
 					const books = filterBooks(allBooks, w.progressFilters, w.categoryFilters);
-					drawShelf(content, w, books, pageState);
+					drawShelf(content, client, w, books, pageState);
 				}
 			} catch (err) {
 				content.empty();
@@ -80,7 +85,7 @@ function normalizedWidgets(cfg?: WereadConfig): WereadWidget[] {
 	return [{ id: 'w1', view: 'shelf' }];
 }
 
-function drawShelf(content: HTMLElement, w: WereadWidget, books: WereadBookLike[], pageState: Record<string, number>): void {
+function drawShelf(content: HTMLElement, client: WereadClient, w: WereadWidget, books: WereadBookLike[], pageState: Record<string, number>): void {
 	content.empty();
 	if (books.length === 0) {
 		renderHint(content, t('weread.empty'), t('weread.emptyHint'));
@@ -94,7 +99,14 @@ function drawShelf(content: HTMLElement, w: WereadWidget, books: WereadBookLike[
 	const totalPages = Math.max(1, Math.ceil(books.length / pageSize));
 	const page = Math.min(pageState[w.id] ?? 1, totalPages);
 
-	renderShelf(content, books.slice((page - 1) * pageSize, page * pageSize));
+	const pageBooks = books.slice((page - 1) * pageSize, page * pageSize);
+	const refs = renderShelf(content, pageBooks);
+	// The shelf payload carries no progress; lazily fetch real per-book progress
+	// for the visible page and patch the DOM. Skipped when progressFilters are
+	// set — that path already enriched the whole list to classify reading state.
+	if (!w.progressFilters?.length) {
+		void enrichPageProgress(client, refs, pageBooks);
+	}
 
 	if (totalPages > 1) {
 		const pager = content.createDiv({ cls: 'dashboard-weread-pager' });
@@ -105,8 +117,8 @@ function drawShelf(content: HTMLElement, w: WereadWidget, books: WereadBookLike[
 		next.createSpan({ text: '›' });
 		prev.disabled = page <= 1;
 		next.disabled = page >= totalPages;
-		prev.addEventListener('click', () => { pageState[w.id] = Math.max(1, page - 1); drawShelf(content, w, books, pageState); });
-		next.addEventListener('click', () => { pageState[w.id] = Math.min(totalPages, page + 1); drawShelf(content, w, books, pageState); });
+		prev.addEventListener('click', () => { pageState[w.id] = Math.max(1, page - 1); drawShelf(content, client, w, books, pageState); });
+		next.addEventListener('click', () => { pageState[w.id] = Math.min(totalPages, page + 1); drawShelf(content, client, w, books, pageState); });
 	}
 }
 
@@ -172,8 +184,41 @@ async function enrichProgress(client: WereadClient, books: WereadBookLike[]): Pr
 	}
 }
 
-function renderShelf(content: HTMLElement, books: WereadBookLike[]): void {
+/**
+ * Lazily fetch real progress for the visible page and patch the DOM in place.
+ * The shelf payload carries no progress, so this is the only source for a plain
+ * (unfiltered) shelf view. Does NOT write back to book objects: progress is
+ * cached 60s in the client, so paging back re-fills from cache, and nothing
+ * post-render reads `book.progress`. DOM writes are guarded by `isConnected`
+ * so rapid paging / reload (which detach old elements) cannot stomp live UI.
+ */
+async function enrichPageProgress(client: WereadClient, refs: ShelfProgressRef[], books: WereadBookLike[]): Promise<void> {
+	if (refs.length === 0) return;
+	const limit = 8;
+	for (let i = 0; i < refs.length; i += limit) {
+		if (!refs[i]!.fill.isConnected) return; // paged / reloaded away — abandon
+		const batchRefs = refs.slice(i, i + limit);
+		const batchBooks = books.slice(i, i + limit);
+		await Promise.all(batchRefs.map(async (ref, j) => {
+			const b = batchBooks[j]!;
+			// Audiobooks / article collections have no /book/getprogress endpoint;
+			// skip to avoid guaranteed errors (gateway rate-limit hygiene).
+			if (b.category === 'Audiobook' || b.category === 'Articles') return;
+			try {
+				const p = await client.fetchProgress(b.bookId);
+				if (!ref.fill.isConnected) return; // re-check after await
+				ref.fill.style.width = `${p}%`;
+				ref.pct.setText(`${p}%`);
+			} catch {
+				// leave the 0% placeholder
+			}
+		}));
+	}
+}
+
+function renderShelf(content: HTMLElement, books: WereadBookLike[]): ShelfProgressRef[] {
 	const grid = content.createDiv({ cls: 'dashboard-weread-grid' });
+	const refs: ShelfProgressRef[] = [];
 	for (const book of books) {
 		const card = grid.createDiv({ cls: 'dashboard-weread-book' });
 		if (book.cover) {
@@ -186,9 +231,12 @@ function renderShelf(content: HTMLElement, books: WereadBookLike[]): void {
 		info.createDiv({ cls: 'dashboard-weread-book-author', text: book.author });
 		if (book.category) info.createDiv({ cls: 'dashboard-weread-book-cat', text: book.category });
 		const bar = info.createDiv({ cls: 'dashboard-weread-progress' });
-		bar.createDiv({ cls: 'dashboard-weread-progress-fill' }).style.width = `${book.progress}%`;
-		info.createDiv({ cls: 'dashboard-weread-book-pct', text: `${book.progress}%` });
+		const fill = bar.createDiv({ cls: 'dashboard-weread-progress-fill' });
+		fill.style.width = `${book.progress}%`;
+		const pct = info.createDiv({ cls: 'dashboard-weread-book-pct', text: `${book.progress}%` });
+		refs.push({ fill, pct });
 	}
+	return refs;
 }
 
 function renderStats(content: HTMLElement, stats: WereadStatsLike): void {
@@ -367,3 +415,4 @@ type WereadBookLike = { bookId: string; title: string; author: string; cover?: s
 type WereadNotebookLike = { bookId: string; title: string; author: string; noteCount: number; bookmarkCount: number; reviewCount: number };
 type WereadBookmarkLike = { bookId: string; chapterUid?: number; markText: string };
 type WereadStatsLike = { totalReadTime: number; dayAverageReadTime: number; readDays: number };
+type ShelfProgressRef = { fill: HTMLElement; pct: HTMLElement };

@@ -18,6 +18,8 @@ export interface DashboardSettings {
 	pomodoroAutoStartBreak: boolean;
 	pomodoroSoundEnabled: boolean;
 	widgetLunarEnabled: boolean;
+	/** Year-progress widget: shows how much % of the current year has elapsed. */
+	widgetYearProgressEnabled: boolean;
 	widgetOrder: string[];
 	/** Weread (WeChat Read) official API key (wrk-...), shared account-wide. */
 	wereadApiKey: string;
@@ -35,6 +37,36 @@ export interface DashboardSettings {
 	ticktickTimezone: string;
 	/** Skip the note popover: open notes directly in a tab on card click. */
 	disableNotePopover: boolean;
+	/** User-defined color overrides applied on top of the active theme. */
+	customColors: CustomColors;
+	/** Global dashboard background image (vault path or URL). Empty = none. */
+	bgImage: string;
+	/** Background dimming overlay 0-100 (keeps text readable over busy images). */
+	bgDim: number;
+	/** Background blur in px 0-30 (depth-of-field over the image). */
+	bgBlur: number;
+	/** Background fill mode. */
+	bgSize: BgSize;
+	/** Surface (card/section/sidebar) opacity 0-100. null = theme default. */
+	surfaceOpacity: number | null;
+	/** Frosted-glass blur in px 0-20. null = theme default. */
+	glassBlur: number | null;
+	/** Corner-radius base in px 0-22 (drives sm/md/lg). null = theme default. */
+	radiusScale: number | null;
+	/** Quick Notes region master toggle (pinned top of the kanban). */
+	quickNotesEnabled: boolean;
+	/** Quick-create presets (template + folder + filename). Global (Layer 1). */
+	quickNotePresets: QuickNotePreset[];
+	/** Inline capture box shown in the Quick Notes region. */
+	quickCaptureEnabled: boolean;
+	/** Note path to append captures to. Empty = create a new fleeting note. */
+	quickCaptureTarget: string;
+	/** Folder for new fleeting notes when no capture target is set. */
+	quickCaptureFolder: string;
+	/** Pinned-note shortcuts rendered as one-click open buttons. */
+	pinnedNotes: PinnedNote[];
+	/** Show a "Today" button that creates/opens the core Daily Notes note. */
+	quickDailyEnabled: boolean;
 	countdownEnabled: boolean;
 	/** Multiple countdowns managed in settings; rendered in the sidebar. */
 	countdowns: CountdownConfig[];
@@ -43,6 +75,70 @@ export interface DashboardSettings {
 	taskTemplates: TaskTemplate[];
 	memoSavePath: string;
 	taskArchivePath: string;
+	/** Periodic dashboard-file backup toggle + cadence. Snapshots are written
+	 *  into the plugin folder under backups/ (see BackupService). */
+	backupEnabled: boolean;
+	backupPeriod: BackupPeriod;
+	backupMaxCount: number;
+	/** Epoch ms of the last successful periodic backup (runtime state). */
+	backupLastRun?: number;
+}
+
+/** Cadence for the periodic dashboard backup. */
+export type BackupPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
+
+/**
+ * User-defined color overrides for the active theme. Each field maps 1:1 to a
+ * `--db-*` CSS custom property (see CUSTOM_COLOR_TOKENS in appearance.ts). Only
+ * non-empty values are applied inline on the root, overriding the `[data-theme]`
+ * block via specificity; absent fields fall back to the theme.
+ */
+export interface CustomColors {
+	/** Primary accent (buttons, highlights, progress, links). `--db-accent` */
+	accent?: string;
+	/** Lighter accent variant. `--db-accent-light` */
+	accentLight?: string;
+	/** Page background base color. `--db-bg` */
+	bg?: string;
+	/** Card surface color. `--db-bg-card` */
+	bgCard?: string;
+	/** Section surface color. `--db-bg-section` */
+	bgSection?: string;
+	/** Primary text color. `--db-text` */
+	text?: string;
+	/** Muted/secondary text color. `--db-text-muted` */
+	textMuted?: string;
+	/** Card border color. `--db-border-card` */
+	borderCard?: string;
+}
+
+/** How a dashboard background image fills the background layer. */
+export type BgSize = 'cover' | 'contain';
+
+/** One "quick-create" button in the Quick Notes region: creates a note from a
+ *  template file into a folder, with `{{date}}`/`{{time}}`/`{{title}}` resolved. */
+export interface QuickNotePreset {
+	id: string;
+	/** Button label. */
+	label: string;
+	/** Lucide icon name (e.g. 'calendar-days'). */
+	icon: string;
+	/** Vault path to a template file. Empty = create a blank note. */
+	templatePath: string;
+	/** Destination folder (vault root if empty). Created if missing. */
+	folder: string;
+	/** Filename pattern, supports {{date}}, {{date:F}}, {{time}}, {{title}}. */
+	filename: string;
+}
+
+/** A pinned note shortcut in the Quick Notes region: one-click open. */
+export interface PinnedNote {
+	id: string;
+	label: string;
+	/** Lucide icon name. */
+	icon: string;
+	/** Vault path to the note. */
+	path: string;
 }
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
@@ -62,7 +158,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	pomodoroAutoStartBreak: true,
 	pomodoroSoundEnabled: true,
 	widgetLunarEnabled: true,
-	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown'],
+	widgetYearProgressEnabled: false,
+	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress'],
 	wereadApiKey: '',
 	wereadImportPath: 'Weread/划线',
 	ticktickRegion: 'dida365',
@@ -70,6 +167,21 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	ticktickCsrf: '',
 	ticktickTimezone: 'Asia/Shanghai',
 	disableNotePopover: false,
+	customColors: {},
+	bgImage: '',
+	bgDim: 40,
+	bgBlur: 0,
+	bgSize: 'cover',
+	surfaceOpacity: null,
+	glassBlur: null,
+	radiusScale: null,
+	quickNotesEnabled: false,
+	quickNotePresets: [] as QuickNotePreset[],
+	quickCaptureEnabled: false,
+	quickCaptureTarget: '',
+	quickCaptureFolder: '',
+	pinnedNotes: [] as PinnedNote[],
+	quickDailyEnabled: false,
 	countdownEnabled: false,
 	countdowns: [] as CountdownConfig[],
 	readingEnabled: false,
@@ -77,6 +189,9 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	taskTemplates: [],
 	memoSavePath: '',
 	taskArchivePath: '归档/已完成.md',
+	backupEnabled: false,
+	backupPeriod: 'daily',
+	backupMaxCount: 10,
 };
 
 export interface QuoteItem {
@@ -344,4 +459,9 @@ export interface RenderCallbacks {
 	onAddFromTemplate(columnName: string): void;
 	onArchiveTasks(columnName: string): void;
 	onLibraryConfigChange(columnName: string, config: LibraryConfig): void;
+	onQuickNoteCreate(preset: QuickNotePreset): void;
+	onQuickNoteCapture(text: string): void;
+	onOpenPinnedNote(note: PinnedNote): void;
+	onQuickNoteDaily(): void;
+	onQuickNoteConfig(): void;
 }
