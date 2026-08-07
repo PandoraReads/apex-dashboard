@@ -31,21 +31,27 @@ export function renderQuickNoteRegion(
 		const cfg = empty.createEl('button', { cls: 'dashboard-quicknote-empty-btn', text: t('quickNote.configure') });
 		cfg.addEventListener('click', () => callbacks.onQuickNoteConfig());
 	} else {
-		for (const preset of presets) {
-			chip(nav, 'dashboard-quicknote-chip', preset.icon || 'file-plus', preset.label, () => callbacks.onQuickNoteCreate(preset));
-		}
+		// "Today" leads the strip (leftmost) when enabled; presets and pinned follow.
 		if (dailyOn) {
 			chip(nav, 'dashboard-quicknote-chip dashboard-quicknote-today', 'sun', t('quickNote.today'), () => callbacks.onQuickNoteDaily());
+		}
+		for (const preset of presets) {
+			chip(nav, 'dashboard-quicknote-chip', preset.icon || 'file-plus', preset.label, () => callbacks.onQuickNoteCreate(preset));
 		}
 		for (const note of pinned) {
 			chip(nav, 'dashboard-quicknote-chip dashboard-quicknote-pin', note.icon || 'pin', note.label, () => callbacks.onOpenPinnedNote(note));
 		}
 	}
 
-	// Capture input — fixed, just left of the config cog.
+	// ── Right zone: capture pill + config cog, grouped so the controls read
+	// as one cohesive unit instead of a box "floating" apart from the chips.
+	const actions = region.createDiv({ cls: 'dashboard-quicknote-actions' });
+
 	if (captureOn) {
-		const input = region.createEl('input', {
-			cls: 'dashboard-modal-input dashboard-quicknote-capture-input',
+		const capture = actions.createDiv({ cls: 'dashboard-quicknote-capture' });
+		setIcon(capture.createSpan({ cls: 'dashboard-quicknote-capture-icon' }), 'pencil');
+		const input = capture.createEl('input', {
+			cls: 'dashboard-quicknote-capture-input',
 			attr: {
 				type: 'text',
 				placeholder: t('quickNote.capturePlaceholder'),
@@ -64,8 +70,8 @@ export function renderQuickNoteRegion(
 		});
 	}
 
-	// Config cog — fixed at the right; small + faint until hovered.
-	const cog = region.createEl('button', {
+	// Config cog — the persistent operation icon at the far right.
+	const cog = actions.createEl('button', {
 		cls: 'dashboard-quicknote-cog',
 		attr: { 'aria-label': t('quickNote.config') },
 	});
@@ -160,7 +166,10 @@ export function openPinnedNote(app: App, note: PinnedNote): void {
 	}
 }
 
-/** Create (from the core Daily Notes template) / open today's daily note. */
+/** Create (seeded with the core Daily Notes template) / open today's daily note,
+ *  in the folder + format the core "Daily notes" plugin is configured for. A
+ *  stale blank note (e.g. from earlier, before the template was wired up) is
+ *  auto-seeded with the template. Shows a hint when the core plugin is disabled. */
 export async function openTodayNote(app: App): Promise<void> {
 	const iso = moment().format('YYYY-MM-DD');
 	const file = await getOrCreateDailyNote(app, iso);

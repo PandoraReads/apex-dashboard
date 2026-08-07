@@ -109,6 +109,18 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.6.0
+- **First-run guide for the Common Actions bar** — A centered welcome popup on startup walks you through the new toolbar and can turn it on in one click. Shows once per version
+- **Drag to reorder Quick Notes buttons** — Rearrange create/pinned buttons by dragging in the config modal; the toolbar layout is refined (Today leads the strip, action zone grouped)
+- **Daily Notes template fix** — `{{date}}` and other template variables are now substituted when the Today button creates a note, and the Daily Notes lookup is more resilient across Obsidian versions
+- **Weread shelf & key validation** — Shelf pagination and progress-bar rendering refined; the API key is validated upfront (must start with `wrk-`)
+
+### 1.5.0
+- **Appearance Studio** — Dedicated panel for live color, background image, surface opacity, glass blur, and corner-radius customization
+- **Common Actions toolbar** — Pinned bar for one-click note creation, pinned notes, and inline capture
+- **Dashboard backup & restore** — Periodic snapshots of the dashboard file with one-click restore
+- **Trello-style kanban** — Kanban view for project sections, plus various fixes and polish
+
 ### 1.4.4
 - **TickTick timezone setting** — New configurable timezone (default `Asia/Shanghai`) fixes today's todos showing the wrong time/date when your system timezone differs from your TickTick account. Configure under Settings → TickTick → Timezone
 - **Open notes directly in a tab** — New setting (plus a command-palette toggle) to skip the in-dashboard editor popover: clicking a document card opens the note in a tab immediately. Defaults off so the existing popover behavior is preserved

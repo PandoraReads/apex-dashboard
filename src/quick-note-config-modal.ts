@@ -18,6 +18,9 @@ export class QuickNoteConfigModal extends Modal {
 	private captureTarget: string;
 	private captureFolder: string;
 	private dailyEnabled: boolean;
+	/** Index + list of the row currently being dragged (null when idle). */
+	private dragIndex: number | null = null;
+	private dragKind: 'preset' | 'pinned' | null = null;
 
 	constructor(app: App, plugin: DashboardPlugin) {
 		super(app);
@@ -77,6 +80,10 @@ export class QuickNoteConfigModal extends Modal {
 		const card = list.createDiv({ cls: 'dashboard-quicknote-cfg-item' });
 
 		const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
+		this.wireDrag(top, card, i, 'preset', (from, to) => {
+			this.presets = this.reorderArray(this.presets, from, to);
+			this.renderBody();
+		});
 		this.iconPickBtn(top, preset.icon || 'file-plus', (name) => this.updatePreset(i, { icon: name }));
 		this.textInput(top, preset.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updatePreset(i, { label: v }));
 		this.delBtn(top, () => { this.presets = this.presets.filter((_, idx) => idx !== i); this.renderBody(); });
@@ -107,6 +114,10 @@ export class QuickNoteConfigModal extends Modal {
 		const note = this.pinned[i]!;
 		const card = list.createDiv({ cls: 'dashboard-quicknote-cfg-item' });
 		const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
+		this.wireDrag(top, card, i, 'pinned', (from, to) => {
+			this.pinned = this.reorderArray(this.pinned, from, to);
+			this.renderBody();
+		});
 		this.iconPickBtn(top, note.icon || 'pin', (name) => this.updatePinned(i, { icon: name }));
 		this.textInput(top, note.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updatePinned(i, { label: v }));
 		this.delBtn(top, () => { this.pinned = this.pinned.filter((_, idx) => idx !== i); this.renderBody(); });
@@ -222,6 +233,96 @@ export class QuickNoteConfigModal extends Modal {
 		const btn = parent.createEl('button', { cls: 'dashboard-quicknote-cfg-add', text: label });
 		btn.addEventListener('click', onClick);
 		return btn;
+	}
+
+	// ── Drag-to-reorder (per list) ─────────────────────────────────────────
+
+	/**
+	 * Make a cfg row reorderable via a leading grip handle. Dragging is gated on
+	 * the grip (pointerdown flips the card to `draggable`) so the inner text
+	 * inputs stay selectable. Drop position is derived from the pointer's half
+	 * over the target row; the closure commits the reordered array + re-renders.
+	 */
+	private wireDrag(
+		topBar: HTMLElement,
+		card: HTMLElement,
+		index: number,
+		kind: 'preset' | 'pinned',
+		onReorder: (from: number, to: number) => void,
+	): void {
+		card.draggable = false;
+		const grip = topBar.createSpan({
+			cls: 'dashboard-quicknote-cfg-grip',
+			attr: { 'aria-hidden': 'true', title: t('common.drag') },
+		});
+		setIcon(grip, 'grip-vertical');
+		// Only the grip arms dragging; releasing without a drag disarms it again.
+		grip.addEventListener('pointerdown', () => { card.draggable = true; });
+		grip.addEventListener('pointerup', () => { card.draggable = false; });
+
+		card.addEventListener('dragstart', (e: DragEvent) => {
+			if (!card.draggable) return;
+			this.dragIndex = index;
+			this.dragKind = kind;
+			card.addClass('dashboard-quicknote-cfg-item--dragging');
+			if (e.dataTransfer) {
+				e.dataTransfer.effectAllowed = 'move';
+				e.dataTransfer.setData('text/plain', 'qn-row');
+			}
+		});
+		card.addEventListener('dragend', () => {
+			card.removeClass('dashboard-quicknote-cfg-item--dragging');
+			card.draggable = false;
+			this.clearDragIndicators();
+			this.dragIndex = null;
+			this.dragKind = null;
+		});
+		card.addEventListener('dragover', (e: DragEvent) => {
+			if (this.dragKind !== kind || this.dragIndex == null) return;
+			e.preventDefault();
+			if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+			this.indicateDrop(card, this.dropHalf(e, card));
+		});
+		card.addEventListener('drop', (e: DragEvent) => {
+			if (this.dragKind !== kind || this.dragIndex == null) return;
+			e.preventDefault();
+			const from = this.dragIndex;
+			const to = this.dropHalf(e, card) === 'top' ? index : index + 1;
+			this.clearDragIndicators();
+			// Reset before onReorder: a successful drop re-renders, detaching the
+			// source card before its dragend can fire.
+			this.dragIndex = null;
+			this.dragKind = null;
+			if (from !== to) onReorder(from, to);
+		});
+	}
+
+	/** Which half of `card` the pointer sits in — decides insert-before vs -after. */
+	private dropHalf(e: DragEvent, card: HTMLElement): 'top' | 'bottom' {
+		const rect = card.getBoundingClientRect();
+		return e.clientY < rect.top + rect.height / 2 ? 'top' : 'bottom';
+	}
+
+	private indicateDrop(card: HTMLElement, half: 'top' | 'bottom'): void {
+		this.clearDragIndicators();
+		card.addClass(half === 'top' ? 'dashboard-quicknote-cfg-item--drop-before' : 'dashboard-quicknote-cfg-item--drop-after');
+	}
+
+	private clearDragIndicators(): void {
+		this.contentEl
+			.querySelectorAll('.dashboard-quicknote-cfg-item--drop-before, .dashboard-quicknote-cfg-item--drop-after')
+			.forEach(el => el.classList.remove('dashboard-quicknote-cfg-item--drop-before', 'dashboard-quicknote-cfg-item--drop-after'));
+	}
+
+	/** Return a new array with the item at `from` moved to slot `to` (pre-removal index). */
+	private reorderArray<T>(arr: T[], from: number, to: number): T[] {
+		if (from < 0 || from >= arr.length || from === to) return arr;
+		const next = [...arr];
+		const moved = next.splice(from, 1)[0];
+		if (!moved) return arr;
+		const insertAt = to > from ? to - 1 : to;
+		next.splice(insertAt, 0, moved);
+		return next;
 	}
 }
 

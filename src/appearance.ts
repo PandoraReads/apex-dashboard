@@ -90,6 +90,10 @@ function applyBackground(container: HTMLElement, app: App, settings: DashboardSe
 
 function applyCustomColors(root: HTMLElement, custom: CustomColors | undefined): void {
 	if (!custom) return;
+	// Apply only the user's explicit overrides — we deliberately do NOT rewrite
+	// the text tokens to force contrast; that would alter the theme's own color
+	// scheme. (Per-element readability, e.g. the quick-notes bar, is handled
+	// locally where it renders, not by mutating theme tokens here.)
 	(Object.keys(custom) as (keyof CustomColors)[]).forEach(key => {
 		const value = custom[key];
 		if (value && value.trim()) {
@@ -150,7 +154,7 @@ export function clearAdvanced(root: HTMLElement): void {
 }
 
 /** Parse a CSS color (hex or rgb/rgba) into an {r,g,b} triple, else null. */
-function parseRgb(raw: string): { r: number; g: number; b: number } | null {
+function parseRgb(raw: string): Rgb | null {
 	const s = raw.trim();
 	let hex: string | null = null;
 	if (/^#[0-9a-fA-F]{6}$/.test(s)) hex = s.slice(1);
@@ -169,6 +173,8 @@ function parseRgb(raw: string): { r: number; g: number; b: number } | null {
 	}
 	return null;
 }
+
+type Rgb = { r: number; g: number; b: number };
 
 function clampByte(n: number): number {
 	if (Number.isNaN(n)) return 0;

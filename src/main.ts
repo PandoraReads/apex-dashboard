@@ -4,6 +4,7 @@ import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
+import { QuickNoteGuideModal } from './quick-note-guide-modal';
 
 /** All valid style preset keys — single source of truth for migration. */
 const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'jade', 'carbon', 'onyx', 'mono'] as const;
@@ -110,6 +111,39 @@ export default class DashboardPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new DashboardSettingTab(this.app, this));
+
+		this.maybeShowQuickNoteGuide();
+	}
+
+	/**
+	 * Show the Quick Notes toolbar first-run guide once per plugin version.
+	 * Fires on startup; closing the modal records the current version so it
+	 * won't reappear until the next version bump.
+	 */
+	private maybeShowQuickNoteGuide(): void {
+		if (this.settings.quickNoteGuideShownVersion === this.manifest.version) {
+			return;
+		}
+		this.app.workspace.onLayoutReady(() => {
+			new QuickNoteGuideModal(
+				this.app,
+				() => { void this.enableQuickNotes(); },
+				() => { void this.markQuickNoteGuideSeen(); },
+			).open();
+		});
+	}
+
+	/** Enable the Quick Notes toolbar and refresh any open dashboards. */
+	private async enableQuickNotes(): Promise<void> {
+		this.settings = { ...this.settings, quickNotesEnabled: true };
+		await this.saveSettings();
+		this.refreshAllDashboards();
+	}
+
+	/** Record the current version as having shown the guide. */
+	private async markQuickNoteGuideSeen(): Promise<void> {
+		this.settings = { ...this.settings, quickNoteGuideShownVersion: this.manifest.version };
+		await this.saveSettings();
 	}
 
 	onunload(): void {

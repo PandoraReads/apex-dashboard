@@ -67,6 +67,8 @@ export interface DashboardSettings {
 	pinnedNotes: PinnedNote[];
 	/** Show a "Today" button that creates/opens the core Daily Notes note. */
 	quickDailyEnabled: boolean;
+	/** Last plugin version that showed the Quick Notes first-run guide. Empty = never shown. */
+	quickNoteGuideShownVersion: string;
 	countdownEnabled: boolean;
 	/** Multiple countdowns managed in settings; rendered in the sidebar. */
 	countdowns: CountdownConfig[];
@@ -182,6 +184,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickCaptureFolder: '',
 	pinnedNotes: [] as PinnedNote[],
 	quickDailyEnabled: false,
+	quickNoteGuideShownVersion: '',
 	countdownEnabled: false,
 	countdowns: [] as CountdownConfig[],
 	readingEnabled: false,

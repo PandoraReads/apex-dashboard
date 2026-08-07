@@ -12,12 +12,17 @@ interface DailyNotesPlugin {
 }
 
 /** Read the core "Daily notes" plugin's options (folder / format / template).
- *  Returns null when the core plugin is disabled. */
+ *  Returns null when the core plugin is disabled. Tries both access patterns
+ *  (`getPluginById` and the `plugins` map) for resilience across versions. */
 function getDailyNotesOptions(app: App): DailyNotesOptions | null {
 	const internalPlugins = (app as unknown as {
-		internalPlugins?: { getPluginById?: (id: string) => DailyNotesPlugin | undefined };
+		internalPlugins?: {
+			getPluginById?: (id: string) => DailyNotesPlugin | undefined;
+			plugins?: Record<string, DailyNotesPlugin>;
+		};
 	}).internalPlugins;
-	const plugin = internalPlugins?.getPluginById?.('daily-notes');
+	if (!internalPlugins) return null;
+	const plugin = internalPlugins.getPluginById?.('daily-notes') ?? internalPlugins.plugins?.['daily-notes'];
 	if (!plugin?.enabled) return null;
 	return plugin.instance?.options ?? null;
 }
@@ -70,6 +75,24 @@ export function dailyNotePathFor(app: App, iso: string): string | null {
 	return folder ? `${folder}/${base}.md` : `${base}.md`;
 }
 
+/** Read & var-substitute the Daily Notes template file (`opts.template`) for the
+ *  given moment. Returns '' when no template is configured or the file can't be
+ *  resolved/read — callers then create a blank note, matching Obsidian's behavior. */
+async function readDailyTemplateContent(app: App, opts: DailyNotesOptions, now: moment.Moment): Promise<string> {
+	const tplPath = (opts.template || '').trim();
+	if (!tplPath) return '';
+	let tplFile = app.vault.getAbstractFileByPath(tplPath);
+	if (!(tplFile instanceof TFile) && !tplPath.endsWith('.md')) {
+		tplFile = app.vault.getAbstractFileByPath(`${tplPath}.md`);
+	}
+	if (!(tplFile instanceof TFile)) return '';
+	try {
+		return substituteTemplateVars(await app.vault.read(tplFile), { now });
+	} catch {
+		return '';
+	}
+}
+
 /**
  * Append a task line (e.g. `- [ ] Buy milk ⏰ 2026-06-27 14:00`) to the daily
  * note for `iso`. If the note does not exist yet, it is created in the core
@@ -96,17 +119,7 @@ export async function appendTaskToDailyNote(app: App, iso: string, taskLine: str
 	}
 
 	// Create with the Daily Notes template content (if configured), else empty.
-	let content = '';
-	const tplPath = (opts.template || '').trim();
-	if (tplPath) {
-		let tplFile = app.vault.getAbstractFileByPath(tplPath);
-		if (!(tplFile instanceof TFile) && !tplPath.endsWith('.md')) {
-			tplFile = app.vault.getAbstractFileByPath(`${tplPath}.md`);
-		}
-		if (tplFile instanceof TFile) {
-			try { content = await app.vault.read(tplFile); } catch { /* ignore */ }
-		}
-	}
+	let content = await readDailyTemplateContent(app, opts, moment(iso));
 	if (content && !content.endsWith('\n')) content += '\n';
 	content += `${taskLine}\n`;
 	return await app.vault.create(path, content);
@@ -124,23 +137,23 @@ export async function getOrCreateDailyNote(app: App, iso: string): Promise<TFile
 	const path = dailyNotePathFor(app, iso);
 	if (!path) return null;
 
-	const existing = app.vault.getAbstractFileByPath(path);
-	if (existing instanceof TFile) return existing;
-
 	const folder = (opts.folder || '').trim().replace(/^\/+|\/+$/g, '');
 	if (folder) await ensureFolder(app, folder);
 
-	let content = '';
-	const tplPath = (opts.template || '').trim();
-	if (tplPath) {
-		let tplFile = app.vault.getAbstractFileByPath(tplPath);
-		if (!(tplFile instanceof TFile) && !tplPath.endsWith('.md')) {
-			tplFile = app.vault.getAbstractFileByPath(`${tplPath}.md`);
+	const now = moment(iso);
+	const existing = app.vault.getAbstractFileByPath(path);
+	if (existing instanceof TFile) {
+		// Rescue a stale blank daily note (e.g. one created before a template was
+		// configured): seed the configured template into an empty file. No-op for
+		// notes that already have content — user edits are never overwritten.
+		const raw = await app.vault.read(existing);
+		if (raw.trim() === '') {
+			const seeded = await readDailyTemplateContent(app, opts, now);
+			if (seeded.trim() !== '') await app.vault.modify(existing, seeded);
 		}
-		if (tplFile instanceof TFile) {
-			try { content = await app.vault.read(tplFile); } catch { /* ignore */ }
-		}
+		return existing;
 	}
-	content = substituteTemplateVars(content, { now: moment(iso) });
+
+	const content = await readDailyTemplateContent(app, opts, now);
 	return await app.vault.create(path, content);
 }
