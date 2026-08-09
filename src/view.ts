@@ -3,7 +3,7 @@ import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { applyAppearance } from './appearance';
 import { createNoteFromPreset, captureThought, openPinnedNote, openTodayNote } from './quick-note-section';
@@ -1520,7 +1520,12 @@ export class DashboardView extends ItemView implements HoverParent {
 				col.cards.some(c => c.type === 'weather')
 			);
 			if (hasWeather) {
-				this.render(this.data);
+				// Refresh weather cards in place instead of rebuilding the whole
+				// dashboard. Full render() here was the main source of periodic
+				// jank on mobile — it emptied and rebuilt every card/section.
+				clearWeatherCache();
+				const root = this.containerEl.children[1] as HTMLElement | undefined;
+				if (root) refreshWeatherCards(root, this.data);
 			}
 		}, DashboardView.WEATHER_REFRESH_MS);
 	}

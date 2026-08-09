@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.6.1 (2026-08-09)
+
+### Added
+- **Capture template** — Fleeting notes created via the capture box's folder flow can now be seeded from a template. New `quickCaptureTemplate` setting (vault path to a template file) in the Common Actions config modal; the template's `{{date}}`/`{{time}}` vars are substituted and the captured line is appended below. Shared `readTemplateContent` helper extracted so preset creation and capture share one template-loading path
+
+### Changed
+- **Capture timestamp** — Captured lines are now stamped `[[YYYY-MM-DD]] HH:mm` (a wiki-link to the daily note plus time) instead of time-only `HH:mm`, enabling cross-vault date filtering and daily-note backlink integration
+- **Capture section label** — The "Capture" section in the Common Actions config modal is now "Fleeting Capture" / "收集闪念"
+- **Weather cards refresh in place** — The periodic weather refresh now updates only weather cards (`refreshWeatherCards`) instead of rebuilding the whole dashboard, removing the main source of periodic jank on mobile
+- **Lighter mobile blur** — Removed `backdrop-filter` blur from buttons/cards and capped modal blur to 6px on mobile, cutting GPU load when opening modals
+
+### Fixed
+- **Capture-to-file created a stray file** — When the capture target was a note path without a `.md` suffix (the natural Obsidian way to reference a note), capture failed to find the existing note and created an extensionless file instead of appending. `getOrCreateNote` now resolves the `.md` fallback via `resolveFile` and normalizes the extension when creating
+
+## 1.6.0 (2026-08-07)
+
+### Added
+- **Quick Notes first-run guide** — A centered welcome popup on startup walks you through the new Common Actions toolbar and can turn it on in one click. Shows once per plugin version (`quick-note-guide-modal.ts`)
+- **Drag-to-reorder Quick Notes buttons** — Rearrange create/pinned buttons by dragging in the config modal; the toolbar layout is refined (Today leads the strip, action zone grouped)
+
+### Changed
+- **Weread shelf & key validation** — Shelf pagination and progress-bar rendering refined; the API key is validated upfront (must start with `wrk-`)
+
+### Fixed
+- **Daily Notes template** — `{{date}}` and other template variables are now substituted when the Today button creates a note, and the Daily Notes lookup is more resilient across Obsidian versions
+
 ## 1.5.0 (2026-08-07)
 
 ### Added

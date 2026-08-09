@@ -109,6 +109,12 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.6.1
+- **Quick Notes capture fixes & template support** — Capturing to a target note now appends to the existing file instead of creating a stray extensionless file when the path omits `.md`; new notes created in the capture folder can be seeded from a template (new "Template for new notes" setting)
+- **Richer capture timestamp** — Captured lines are stamped with a wiki-link date + time (`[[2026-08-09]] 14:30`) instead of time-only, so you can filter across the vault and the date links back to the daily note
+- **"Capture" section renamed** — Now "Fleeting Capture" in the Common Actions config
+- **Faster weather refresh & lighter mobile blur** — Weather refresh now updates cards in place instead of rebuilding the dashboard; on mobile, button/card backdrop blur is removed and modal blur capped to 6px for less GPU load
+
 ### 1.6.0
 - **First-run guide for the Common Actions bar** — A centered welcome popup on startup walks you through the new toolbar and can turn it on in one click. Shows once per version
 - **Drag to reorder Quick Notes buttons** — Rearrange create/pinned buttons by dragging in the config modal; the toolbar layout is refined (Today leads the strip, action zone grouped)

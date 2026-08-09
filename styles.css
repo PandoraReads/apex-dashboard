@@ -4370,8 +4370,6 @@
 	border-radius: 50px;
 	background: var(--db-bg-btn);
 	border: 1px solid var(--db-border-btn);
-	backdrop-filter: var(--db-backdrop-blur);
-	-webkit-backdrop-filter: var(--db-backdrop-blur);
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 	cursor: pointer;
 	transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
@@ -5351,8 +5349,6 @@
 	border-radius: var(--db-radius-sm);
 	border: 1px solid var(--db-border-card);
 	background: var(--db-bg-card);
-	backdrop-filter: var(--db-backdrop-blur);
-	-webkit-backdrop-filter: var(--db-backdrop-blur);
 	cursor: grab;
 	transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
@@ -5657,8 +5653,6 @@
 	border-radius: var(--db-radius-sm);
 	border: 1px solid var(--db-border-card);
 	background: var(--db-bg-card);
-	backdrop-filter: var(--db-backdrop-blur);
-	-webkit-backdrop-filter: var(--db-backdrop-blur);
 	cursor: pointer;
 	transition: background 0.15s ease, border-color 0.15s ease;
 	position: relative;
@@ -7944,6 +7938,17 @@
 	   variable cascades to all .dashboard-card / .dashboard-section / etc. */
 	.apex-dashboard-root[data-theme] {
 		--db-backdrop-blur: none;
+	}
+
+	/* Modal blur: theme rules hardcode blur(20~24px) and ignore the variable
+	   above (modals mount at body level). Drop to 6px so opening a modal no
+	   longer spikes the GPU on phones. */
+	.dashboard-modal,
+	[data-theme] .dashboard-modal,
+	.theme-light [data-theme] .dashboard-modal,
+	.theme-dark [data-theme] .dashboard-modal {
+		backdrop-filter: blur(6px) !important;
+		-webkit-backdrop-filter: blur(6px) !important;
 	}
 
 	/* Hide sidebar widgets on mobile */

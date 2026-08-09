@@ -63,6 +63,8 @@ export interface DashboardSettings {
 	quickCaptureTarget: string;
 	/** Folder for new fleeting notes when no capture target is set. */
 	quickCaptureFolder: string;
+	/** Template path applied to new fleeting notes created in the capture folder. Empty = none. */
+	quickCaptureTemplate: string;
 	/** Pinned-note shortcuts rendered as one-click open buttons. */
 	pinnedNotes: PinnedNote[];
 	/** Show a "Today" button that creates/opens the core Daily Notes note. */
@@ -182,6 +184,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickCaptureEnabled: false,
 	quickCaptureTarget: '',
 	quickCaptureFolder: '',
+	quickCaptureTemplate: '',
 	pinnedNotes: [] as PinnedNote[],
 	quickDailyEnabled: false,
 	quickNoteGuideShownVersion: '',

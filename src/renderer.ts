@@ -3406,10 +3406,8 @@ function closeAllReminderPopups(): void {
 }
 
 
-function renderWeatherBody(container: HTMLElement, card: DashboardCard, app: App): void {
+function renderWeatherInto(el: HTMLElement, card: DashboardCard): void {
 	if (!card.weatherConfig) return;
-
-	const el = container.createDiv({ cls: 'dashboard-weather' });
 
 	const cached = getCachedWeather(card.weatherConfig);
 	if (cached) {
@@ -3423,6 +3421,29 @@ function renderWeatherBody(container: HTMLElement, card: DashboardCard, app: App
 			el.empty();
 			el.createDiv({ cls: 'dashboard-weather-error', text: t('weather.fetchError') });
 		});
+	}
+}
+
+function renderWeatherBody(container: HTMLElement, card: DashboardCard, app: App): void {
+	if (!card.weatherConfig) return;
+
+	const el = container.createDiv({ cls: 'dashboard-weather' });
+	renderWeatherInto(el, card);
+}
+
+// Locally refresh every weather card in place, without rebuilding the whole
+// dashboard. Caller must clearWeatherCache() first so cached data is refetched.
+export function refreshWeatherCards(root: HTMLElement, data: DashboardData): void {
+	for (const column of data.columns) {
+		for (const card of column.cards) {
+			if (card.type !== 'weather' || !card.weatherConfig) continue;
+			const cardEl = root.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`);
+			if (!(cardEl instanceof HTMLElement)) continue;
+			const weatherEl = cardEl.querySelector('.dashboard-weather');
+			if (!(weatherEl instanceof HTMLElement)) continue;
+			weatherEl.empty();
+			renderWeatherInto(weatherEl, card);
+		}
 	}
 }
 

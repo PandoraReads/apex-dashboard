@@ -116,14 +116,12 @@ export async function createNoteFromPreset(app: App, preset: QuickNotePreset): P
 	let content = '';
 	const tplPath = (preset.templatePath || '').trim();
 	if (tplPath) {
-		const tpl = resolveFile(app, tplPath);
-		if (tpl) {
-			try { content = await app.vault.read(tpl); } catch { /* ignore read errors */ }
-		} else {
+		const tpl = await readTemplateContent(app, tplPath, { title, now });
+		if (!tpl.found) {
 			new Notice(t('quickNote.templateNotFound'));
 		}
+		content = tpl.content;
 	}
-	content = substituteTemplateVars(content, { title, now });
 
 	const file = await app.vault.create(path, content);
 	await app.workspace.getLeaf('tab').openFile(file);
@@ -133,7 +131,9 @@ export async function createNoteFromPreset(app: App, preset: QuickNotePreset): P
 /** Capture a fleeting thought: append to the target note, or create a new note. */
 export async function captureThought(app: App, settings: DashboardSettings, text: string): Promise<void> {
 	const now = moment();
-	const line = `- ${text} *(${now.format('HH:mm')})*`;
+	// Wiki-link date (jumps to the daily note + shows up in its backlinks) plus
+	// time-of-day; the plain date text is also globally searchable for filtering.
+	const line = `- ${text} *([[${now.format('YYYY-MM-DD')}]] ${now.format('HH:mm')})*`;
 	const target = (settings.quickCaptureTarget || '').trim();
 
 	if (target) {
@@ -152,7 +152,10 @@ export async function captureThought(app: App, settings: DashboardSettings, text
 	const filename = now.format('YYYY-MM-DD-HHmm');
 	let path = folder ? `${folder}/${filename}.md` : `${filename}.md`;
 	path = await uniquePath(app, path);
-	await app.vault.create(path, `${line}\n`);
+	// Seed new notes with the configured template (if any), then the captured line.
+	const { content: tplContent } = await readTemplateContent(app, settings.quickCaptureTemplate, { now });
+	const body = tplContent ? `${tplContent}${tplContent.endsWith('\n') ? '' : '\n'}${line}\n` : `${line}\n`;
+	await app.vault.create(path, body);
 	new Notice(t('quickNote.captured'));
 }
 
@@ -194,6 +197,27 @@ function resolveFile(app: App, path: string): TFile | null {
 	return null;
 }
 
+/** Read a template file (vault path, `.md` fallback) and substitute
+ *  {{date}}/{{time}}/{{title}} vars. An empty path returns { '', true }
+ *  (no template configured — not an error); a missing or unreadable file
+ *  returns { '', false } so callers can warn the user. */
+async function readTemplateContent(
+	app: App,
+	tplPath: string,
+	opts: { title?: string; now?: moment.Moment },
+): Promise<{ content: string; found: boolean }> {
+	const p = (tplPath || '').trim();
+	if (!p) return { content: '', found: true };
+	const tpl = resolveFile(app, p);
+	if (!tpl) return { content: '', found: false };
+	try {
+		const raw = await app.vault.read(tpl);
+		return { content: substituteTemplateVars(raw, opts), found: true };
+	} catch {
+		return { content: '', found: false };
+	}
+}
+
 /** Strip characters that are illegal in filenames across OSes. */
 function sanitizeFilename(name: string): string {
 	return name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
@@ -213,14 +237,16 @@ async function uniquePath(app: App, path: string): Promise<string> {
 	return `${base}-${Date.now()}${ext}`;
 }
 
-/** Get an existing note, or create it (empty) so capture can append to it. */
+/** Get an existing note (resolving a `.md` suffix if the path omits it), or
+ *  create it (empty, as a proper `.md` note) so capture can append to it. */
 async function getOrCreateNote(app: App, path: string): Promise<TFile | null> {
-	const existing = app.vault.getAbstractFileByPath(path);
-	if (existing instanceof TFile) return existing;
+	const existing = resolveFile(app, path);
+	if (existing) return existing;
 	const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
 	if (folder) await ensureFolder(app, folder);
+	const ext = path.toLowerCase().endsWith('.md') ? '' : '.md';
 	try {
-		return await app.vault.create(path, '');
+		return await app.vault.create(`${path}${ext}`, '');
 	} catch {
 		return null;
 	}

@@ -17,6 +17,7 @@ export class QuickNoteConfigModal extends Modal {
 	private captureEnabled: boolean;
 	private captureTarget: string;
 	private captureFolder: string;
+	private captureTemplate: string;
 	private dailyEnabled: boolean;
 	/** Index + list of the row currently being dragged (null when idle). */
 	private dragIndex: number | null = null;
@@ -31,6 +32,7 @@ export class QuickNoteConfigModal extends Modal {
 		this.captureEnabled = s.quickCaptureEnabled;
 		this.captureTarget = s.quickCaptureTarget;
 		this.captureFolder = s.quickCaptureFolder;
+		this.captureTemplate = s.quickCaptureTemplate;
 		this.dailyEnabled = s.quickDailyEnabled;
 	}
 
@@ -140,6 +142,7 @@ export class QuickNoteConfigModal extends Modal {
 
 		this.textInput(section, this.captureTarget, '', { placeholder: t('quickNote.fieldCaptureTargetPh') }, (v) => { this.captureTarget = v; });
 		this.textInput(section, this.captureFolder, '', { placeholder: t('quickNote.fieldCaptureFolderPh') }, (v) => { this.captureFolder = v; });
+		this.textInput(section, this.captureTemplate, '', { placeholder: t('quickNote.fieldCaptureTemplatePh') }, (v) => { this.captureTemplate = v; });
 	}
 
 	// ── Daily ──────────────────────────────────────────────────────────────
@@ -171,6 +174,7 @@ export class QuickNoteConfigModal extends Modal {
 			quickCaptureEnabled: this.captureEnabled,
 			quickCaptureTarget: this.captureTarget.trim(),
 			quickCaptureFolder: this.captureFolder.trim(),
+			quickCaptureTemplate: this.captureTemplate.trim(),
 			quickDailyEnabled: this.dailyEnabled,
 		};
 		await this.plugin.saveSettings();
