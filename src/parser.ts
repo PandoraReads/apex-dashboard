@@ -1,5 +1,9 @@
 import type {
 	BannerData,
+	BannerLeftStat,
+	BannerCenterStat,
+	BannerRightStat,
+	BannerStatsConfig,
 	CardType,
 	CardSize,
 	DashboardCard,
@@ -87,6 +91,28 @@ export function serialize(data: DashboardData): string {
 		lines.push('  images:');
 		for (const img of data.banner.images) {
 			lines.push(`    - "${escapeYamlString(img)}"`);
+		}
+	}
+	if (data.banner.mode === 'stats') {
+		lines.push('  mode: stats');
+	}
+	if (data.banner.statsConfig) {
+		lines.push('  statsConfig:');
+		const sc = data.banner.statsConfig;
+		if (sc.dailyFolder) lines.push(`    dailyFolder: "${escapeYamlString(sc.dailyFolder)}"`);
+		if (sc.dailyFormat) lines.push(`    dailyFormat: "${escapeYamlString(sc.dailyFormat)}"`);
+		if (sc.accent) lines.push(`    accent: "${sc.accent}"`); // quoted: '#' starts a YAML comment
+		if (sc.blur !== undefined) lines.push(`    blur: ${sc.blur}`);
+		if (sc.darkness !== undefined) lines.push(`    darkness: ${sc.darkness}`);
+		if (sc.showDetails !== undefined) lines.push(`    showDetails: ${sc.showDetails}`);
+		if (sc.showLeft !== undefined) lines.push(`    showLeft: ${sc.showLeft}`);
+		if (sc.showCenter !== undefined) lines.push(`    showCenter: ${sc.showCenter}`);
+		if (sc.showRight !== undefined) lines.push(`    showRight: ${sc.showRight}`);
+		if (sc.leftStat) lines.push(`    leftStat: ${sc.leftStat}`);
+		if (sc.centerStat) lines.push(`    centerStat: ${sc.centerStat}`);
+		if (sc.rightStats && sc.rightStats.length > 0) {
+			lines.push('    rightStats:');
+			for (const rs of sc.rightStats) lines.push(`      - ${rs}`);
 		}
 	}
 
@@ -640,7 +666,33 @@ function parseBanner(fm: Record<string, unknown>): BannerData {
 		quoteColor: (raw.quoteColor as string) || undefined,
 		quotes,
 		images,
+		mode: raw.mode === 'stats' ? 'stats' : 'quote',
+		statsConfig: parseStatsConfig(raw.statsConfig),
 	};
+}
+
+/** Reconstruct the stats-banner config from frontmatter; undefined when absent
+ *  (so resolveStatsConfig supplies defaults at render time). */
+function parseStatsConfig(raw: unknown): BannerStatsConfig | undefined {
+	if (!raw || typeof raw !== 'object') return undefined;
+	const r = raw as Record<string, unknown>;
+	const cfg: BannerStatsConfig = {};
+	if (typeof r.dailyFolder === 'string' && r.dailyFolder) cfg.dailyFolder = r.dailyFolder;
+	if (typeof r.dailyFormat === 'string' && r.dailyFormat) cfg.dailyFormat = r.dailyFormat;
+	if (typeof r.accent === 'string' && r.accent) cfg.accent = r.accent;
+	if (typeof r.blur === 'number') cfg.blur = r.blur;
+	if (typeof r.darkness === 'number') cfg.darkness = r.darkness;
+	if (typeof r.showDetails === 'boolean') cfg.showDetails = r.showDetails;
+	if (typeof r.showLeft === 'boolean') cfg.showLeft = r.showLeft;
+	if (typeof r.showCenter === 'boolean') cfg.showCenter = r.showCenter;
+	if (typeof r.showRight === 'boolean') cfg.showRight = r.showRight;
+	if (typeof r.leftStat === 'string') cfg.leftStat = r.leftStat as BannerLeftStat;
+	if (typeof r.centerStat === 'string') cfg.centerStat = r.centerStat as BannerCenterStat;
+	if (Array.isArray(r.rightStats)) {
+		const stats = r.rightStats.filter((s): s is BannerRightStat => typeof s === 'string');
+		if (stats.length > 0) cfg.rightStats = stats;
+	}
+	return Object.keys(cfg).length > 0 ? cfg : undefined;
 }
 
 function parseQuickActions(fm: Record<string, unknown>): QuickAction[] {

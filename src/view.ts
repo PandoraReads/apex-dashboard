@@ -5,6 +5,7 @@ import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConf
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
+import { refreshBannerStats } from './banner-stats';
 import { applyAppearance } from './appearance';
 import { createNoteFromPreset, captureThought, openPinnedNote, openTodayNote } from './quick-note-section';
 import { QuickNoteConfigModal } from './quick-note-config-modal';
@@ -80,7 +81,10 @@ export class DashboardView extends ItemView implements HoverParent {
 	private vaultEventRefs: Array<{ evt: Events; ref: unknown }> = [];
 	private recentDocsTimer: number | null = null;
 	private libraryRefreshTimer: number | null = null;
+	private bannerStatsTimer: number | null = null;
+	private bannerStatsEl: HTMLElement | null = null;
 	private readonly RECENT_DOCS_DEBOUNCE = 500;
+	private readonly BANNER_STATS_DEBOUNCE = 800;
 	private bannerQuoteIndex = 0;
 	private bannerImageIndex = 0;
 	private static readonly BANNER_QUOTE_ROTATION_MS = 60 * 60 * 1000; // 1 hour (on the hour)
@@ -243,6 +247,9 @@ export class DashboardView extends ItemView implements HoverParent {
 			() => this.openBannerEditModal(data),
 			this.app,
 		);
+		// Capture the stats panel (only present in stats mode) so vault changes
+		// can refresh it in place without a full re-render.
+		this.bannerStatsEl = bannerEl.querySelector('.dashboard-banner-stats');
 
 		this.renderMobileActions(bannerEl);
 
@@ -523,6 +530,8 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private setupBannerRotation(container: HTMLElement, banner: BannerData): void {
+		// Stats mode has no quotes/images to rotate.
+		if (banner.mode === 'stats') return;
 		// Quote rotation
 		const quotes = banner.quotes;
 		if (quotes && quotes.length > 1) {
@@ -1393,6 +1402,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const handler = (structure: boolean): void => {
 			this.debouncedRefreshRecentDocs();
 			this.debouncedRefreshSections(structure);
+			this.debouncedRefreshBannerStats();
 		};
 
 		const createRef = events.on('create', () => handler(true));
@@ -1421,6 +1431,26 @@ export class DashboardView extends ItemView implements HoverParent {
 			window.clearTimeout(this.recentDocsTimer);
 			this.recentDocsTimer = null;
 		}
+		if (this.bannerStatsTimer) {
+			window.clearTimeout(this.bannerStatsTimer);
+			this.bannerStatsTimer = null;
+		}
+	}
+
+	/** Recompute the stats banner in place (only when in stats mode). Vault
+	 *  changes are the trigger; debounced so a burst of edits costs one pass.
+	 *  Refresh regardless of whether a statsConfig is saved — defaults resolve
+	 *  at render time, so an absent config must not skip the refresh (that would
+	 *  freeze the stats after first paint). */
+	private debouncedRefreshBannerStats(): void {
+		if (!this.data || this.data.banner.mode !== 'stats') return;
+		if (this.bannerStatsTimer) window.clearTimeout(this.bannerStatsTimer);
+		this.bannerStatsTimer = window.setTimeout(() => {
+			const el = this.bannerStatsEl;
+			if (el && el.isConnected) {
+				refreshBannerStats(el, this.data!.banner.statsConfig, this.app);
+			}
+		}, this.BANNER_STATS_DEBOUNCE);
 	}
 
 	private debouncedRefreshRecentDocs(): void {

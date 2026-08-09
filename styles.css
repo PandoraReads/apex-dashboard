@@ -13012,3 +13012,380 @@
 .dashboard-quicknote-cfg-add { font-size: 0.85em; }
 .dashboard-quicknote-cfg-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .dashboard-quicknote-cfg-toggle label { font-size: 0.88em; cursor: pointer; }
+
+/* ==========================================================================
+   Banner — Statistics mode (three-column data panel)
+   ========================================================================== */
+.dashboard-banner--stats {
+	/* Dark fallback base when no poster image is set. With an image, the inline
+	   background-image shows through the blur scrim below. */
+	background-color: #16161d;
+	background-size: cover;
+	background-position: center;
+}
+.dashboard-banner--stats .dashboard-banner-overlay { display: none; }
+
+/* Blur + darken scrim over the poster image so white text reads clearly while
+   the photo stays visible (blurred). Falls back to a plain dark gradient where
+   backdrop-filter is unavailable. */
+.dashboard-banner--stats::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: rgba(10, 10, 18, var(--banner-scrim, 0.55));
+	backdrop-filter: blur(var(--banner-blur, 6px)) brightness(var(--banner-bright, 0.6));
+	-webkit-backdrop-filter: blur(var(--banner-blur, 6px)) brightness(var(--banner-bright, 0.6));
+	pointer-events: none;
+	z-index: 0;
+}
+/* Accent tint on top of the scrim. */
+.dashboard-banner--stats::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(120deg, var(--banner-stat-accent, var(--db-accent, #a78bfa)), transparent 62%);
+	opacity: 0.22;
+	pointer-events: none;
+	z-index: 0;
+}
+
+.dashboard-banner-stats {
+	position: absolute;
+	inset: 0;
+	z-index: 1; /* above the ::before/::after scrim pseudos (z-index:0) */
+	display: flex;
+	align-items: stretch;
+	justify-content: center;
+	/* Outer gutters = the visible left/right margins (20px / 35px). The outer
+	   columns zero their outer-side padding so this is exact; the right gutter
+	   also houses the hover edit/pin buttons. */
+	padding: 10px 35px 10px 20px;
+	color: var(--db-text-inverse);
+	pointer-events: none; /* let clicks fall through to the corner buttons */
+}
+/* Keep the corner buttons above the stats content. */
+.dashboard-banner--stats .dashboard-banner-edit-btn,
+.dashboard-banner--stats .dashboard-banner-pin-btn { z-index: 2; }
+
+/* ---- Column shell (shared) ---- */
+.dashboard-banner-stat-col {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	padding: 8px 10px;
+	pointer-events: auto;
+}
+.dashboard-banner-stat-col--left   { flex: 1 1 0; align-items: flex-start; justify-content: flex-start; text-align: left; padding-left: 0; }
+.dashboard-banner-stat-col--center { flex: 3 1 0; align-items: center;     justify-content: flex-start; text-align: center; }
+.dashboard-banner-stat-col--right  { flex: 1 1 0; align-items: stretch;    justify-content: center;     text-align: left; gap: 5px; padding-right: 0; }
+
+/* Vertical gradient divider between columns. */
+.dashboard-banner-stat-col + .dashboard-banner-stat-col::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 18%;
+	bottom: 18%;
+	width: 1px;
+	background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.22), transparent);
+}
+
+/* ---- Numbers / labels (shared) ---- */
+.dashboard-banner-stat-num {
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	color: #ffffff;
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+	line-height: 1;
+}
+.dashboard-banner-stat-label {
+	font-size: 0.7em;
+	margin-top: 4px;
+	color: rgba(255, 255, 255, 0.82);
+	letter-spacing: 0.02em;
+}
+.dashboard-banner-stat-col:hover .dashboard-banner-stat-num { transform: translateY(-1px); transition: transform 0.2s ease; }
+
+/* ---- Left column: big number + bottom strip ---- */
+.dashboard-banner-stat-col--left .dashboard-banner-stat-num { font-size: 1.7em; }
+.dashboard-banner-stat-label--inline { margin-top: 0; } /* label inline next to the number */
+.dashboard-banner-stat-strip {
+	margin-top: auto; /* push to the bottom, mirroring the center heatmap */
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	font-size: 0.62em;
+	color: rgba(255, 255, 255, 0.62);
+	line-height: 1.2;
+}
+.dashboard-banner-stat-strip-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+.dashboard-banner-stat-strip-icon {
+	color: var(--banner-stat-accent, var(--db-accent, #a78bfa));
+	display: flex;
+	align-items: center;
+	opacity: 0.85;
+}
+.dashboard-banner-stat-strip-icon svg { width: 12px; height: 12px; }
+
+/* ---- Center column: streak hero + 14-day chart ---- */
+.dashboard-banner-stat-hero {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	line-height: 1;
+}
+.dashboard-banner-stat-col--center .dashboard-banner-stat-num { font-size: 1.7em; }
+.dashboard-banner-stat-icon {
+	color: var(--banner-stat-accent, var(--db-accent, #a78bfa));
+	display: flex;
+	align-items: center;
+	filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+}
+.dashboard-banner-stat-icon svg { width: 20px; height: 20px; }
+.dashboard-banner-stat-sub {
+	margin-top: 4px;
+	font-size: 0.62em;
+	color: rgba(255, 255, 255, 0.62);
+}
+.dashboard-banner-stat-chart {
+	margin-top: auto; /* pin heatmap to the bottom, aligning with the left strip */
+	width: 100%;
+	display: flex;
+	justify-content: center;
+}
+/* Horizontal contribution strip: cells flow left→right and wrap, filling the
+   center column width so the heatmap is wide and short. */
+.dashboard-banner-heatmap {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, 9px);
+	grid-auto-rows: 9px;
+	gap: 2px;
+	justify-content: center;
+	width: 100%;
+}
+.dashboard-banner-heatmap-cell {
+	width: 9px;
+	height: 9px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.1);
+}
+.dashboard-banner-heatmap-cell--l1 { background: var(--banner-stat-accent, var(--db-accent, #a78bfa)); opacity: 0.35; }
+.dashboard-banner-heatmap-cell--l2 { background: var(--banner-stat-accent, var(--db-accent, #a78bfa)); opacity: 0.55; }
+.dashboard-banner-heatmap-cell--l3 { background: var(--banner-stat-accent, var(--db-accent, #a78bfa)); opacity: 0.78; }
+.dashboard-banner-heatmap-cell--l4 { background: var(--banner-stat-accent, var(--db-accent, #a78bfa)); opacity: 1; }
+.dashboard-banner-heatmap-cell--today { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75); }
+
+/* ---- Right column: progress rows ---- */
+.dashboard-banner-stat-prog {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.dashboard-banner-stat-prog-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+.dashboard-banner-stat-prog-title {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 0.64em;
+	color: rgba(255, 255, 255, 0.78);
+}
+.dashboard-banner-stat-prog-icon {
+	color: var(--banner-stat-accent, var(--db-accent, #a78bfa));
+	display: flex;
+	align-items: center;
+}
+.dashboard-banner-stat-prog-icon svg { width: 14px; height: 14px; }
+.dashboard-banner-stat-prog-val {
+	font-size: 0.82em;
+	font-weight: 700;
+	color: #ffffff;
+	font-variant-numeric: tabular-nums;
+}
+.dashboard-banner-stat-prog-label {
+	font-size: 0.6em;
+	color: rgba(255, 255, 255, 0.65);
+}
+.dashboard-banner-stat-prog-track {
+	height: 4px;
+	margin-top: 2px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.18);
+	overflow: hidden;
+}
+.dashboard-banner-stat-prog-fill {
+	height: 100%;
+	border-radius: 2px;
+	background: var(--banner-stat-accent, var(--db-accent, #a78bfa));
+	transition: width 0.6s ease;
+}
+
+@media (max-width: 640px) {
+	.dashboard-banner-stats {
+		padding: 8px 12px;
+		justify-content: flex-start;
+		gap: 4px;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.dashboard-banner-stats::-webkit-scrollbar { display: none; }
+	.dashboard-banner-stat-col--left   { flex: 0 0 116px; }
+	.dashboard-banner-stat-col--center { flex: 0 0 230px; }
+	.dashboard-banner-stat-col--right  { flex: 0 0 128px; }
+	/* Drop the dividers on narrow screens. */
+	.dashboard-banner-stat-col + .dashboard-banner-stat-col::before { display: none; }
+	.dashboard-banner-stat-col--left .dashboard-banner-stat-num,
+	.dashboard-banner-stat-col--center .dashboard-banner-stat-num { font-size: 1.5em; }
+	/* Denser heatmap cells on narrow screens so it wraps to fewer rows. */
+	.dashboard-banner-heatmap { grid-template-columns: repeat(auto-fill, 7px); grid-auto-rows: 7px; gap: 1px; }
+	.dashboard-banner-heatmap-cell { width: 7px; height: 7px; }
+	/* Stats mode has no overlay, so the tap-to-reveal path is gone; keep the
+	   edit button discoverable on touch. */
+	.dashboard-banner--stats .dashboard-banner-edit-btn { opacity: 0.55; }
+}
+
+/* Collapsed banner (stats) — hide the scrim pseudos too (the rest is hidden by
+   the shared collapsed rule). */
+@media (min-width: 641px) {
+	.dashboard-banner--collapsed.dashboard-banner--stats::before,
+	.dashboard-banner--collapsed.dashboard-banner--stats::after { opacity: 0; }
+}
+
+/* ==========================================================================
+   Banner edit modal — mode toggle + statistics config
+   ========================================================================== */
+/* Mode header — explains the toggle below it. */
+.dashboard-modal-mode-header { margin-bottom: 8px; }
+.dashboard-modal-mode-title { font-weight: 600; font-size: 0.95em; color: var(--text-normal); }
+.dashboard-modal-mode-hint { font-size: 0.8em; color: var(--text-faint); margin-top: 2px; }
+
+.dashboard-modal-mode-toggle {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 16px;
+	padding: 4px;
+	background: var(--db-bg-hover, rgba(0, 0, 0, 0.05));
+	border-radius: 10px;
+}
+.dashboard-modal-mode-btn {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 8px 10px;
+	border: none;
+	border-radius: 7px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 0.92em;
+	transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.dashboard-modal-mode-btn svg { width: 16px; height: 16px; }
+.dashboard-modal-mode-btn.active {
+	background: var(--db-bg-card, var(--background-primary));
+	color: var(--db-accent, var(--text-normal));
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+	font-weight: 600;
+}
+
+.dashboard-modal-stats-cols,
+.dashboard-modal-stats-appear,
+.dashboard-modal-stats-daily,
+.dashboard-modal-stats-sub {
+	margin-bottom: 16px;
+}
+.dashboard-modal-stats-label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 8px;
+	color: var(--text-normal);
+}
+.dashboard-modal-stats-inline-label {
+	flex: 0 0 auto;
+	font-size: 0.88em;
+	color: var(--text-muted);
+	min-width: 48px;
+}
+
+/* Column visibility + per-column stat picker. */
+.dashboard-modal-stats-col-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 8px;
+}
+.dashboard-modal-stats-col-row--top { align-items: flex-start; }
+.dashboard-modal-stats-vis {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	font-size: 0.9em;
+	color: var(--text-normal);
+	flex: 0 0 auto;
+	min-width: 56px;
+}
+.dashboard-modal-stats-vis input { margin: 0; }
+.dashboard-modal-stats-select { flex: 1; width: 100%; min-width: 0; }
+.dashboard-modal-stats-right-metrics {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.dashboard-modal-stats-right-title {
+	font-size: 0.8em;
+	color: var(--text-faint);
+	margin-bottom: 2px;
+}
+
+/* Appearance: sliders + accent. */
+.dashboard-modal-stats-slider {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+.dashboard-modal-stats-range {
+	flex: 1;
+	margin: 0;
+	accent-color: var(--db-accent, #a78bfa);
+}
+.dashboard-modal-stats-slider-val {
+	flex: 0 0 auto;
+	min-width: 34px;
+	text-align: right;
+	font-size: 0.82em;
+	font-variant-numeric: tabular-nums;
+	color: var(--text-muted);
+}
+.dashboard-modal-stats-accent-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.dashboard-modal-stats-hint {
+	margin-top: 6px;
+	font-size: 0.8em;
+	color: var(--text-faint);
+}
+.dashboard-modal-stats-checkbox {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	font-size: 0.92em;
+	color: var(--text-normal);
+}
+.dashboard-modal-stats-checkbox input { margin: 0; }

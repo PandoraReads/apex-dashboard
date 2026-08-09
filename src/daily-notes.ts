@@ -27,6 +27,19 @@ function getDailyNotesOptions(app: App): DailyNotesOptions | null {
 	return plugin.instance?.options ?? null;
 }
 
+/** Folder + date format of the core Daily notes plugin, with leading/trailing
+ *  slashes trimmed from the folder. Returns null when the core plugin is off. */
+export interface DailyNotesConfig {
+	folder: string;
+	format: string;
+}
+export function getDailyNotesConfig(app: App): DailyNotesConfig | null {
+	const opts = getDailyNotesOptions(app);
+	if (!opts) return null;
+	const folder = (opts.folder || '').trim().replace(/^\/+|\/+$/g, '');
+	return { folder, format: opts.format || 'YYYY-MM-DD' };
+}
+
 /** Ensure a vault folder path exists, creating intermediate folders as needed. */
 export async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	const adapter = app.vault.adapter;

@@ -1,6 +1,8 @@
 import { App, Modal, setIcon } from 'obsidian';
-import type { BannerData, QuoteItem } from './types';
+import type { BannerData, BannerStatsConfig, QuoteItem } from './types';
 import { t } from './i18n';
+import { renderBannerStats, resolveStatsConfig, LEFT_STAT_OPTIONS, CENTER_STAT_OPTIONS, RIGHT_STAT_OPTIONS } from './banner-stats';
+import { getDailyNotesConfig } from './daily-notes';
 
 export function getActiveQuote(banner: BannerData): QuoteItem {
 	if (banner.quotes && banner.quotes.length > 0) {
@@ -23,6 +25,19 @@ export function renderBanner(
 	app: App,
 ): HTMLElement {
 	const el = container.createDiv({ cls: 'dashboard-banner' });
+
+	// Stats mode: three-column data panel over the (blurred, darkened) poster image.
+	if (banner.mode === 'stats') {
+		el.addClass('dashboard-banner--stats');
+		const activeImage = getActiveImage(banner);
+		if (activeImage) {
+			const resolved = resolveVaultImage(app, activeImage);
+			if (resolved) el.style.backgroundImage = `url("${resolved}")`;
+		}
+		renderBannerStats(el, banner.statsConfig, app);
+		createBannerEditButton(el, onEdit);
+		return el;
+	}
 
 	const activeImage = getActiveImage(banner);
 	if (activeImage) {
@@ -57,17 +72,24 @@ export function renderBanner(
 		}
 	}
 
-	const editBtn = overlay.createEl('button', {
+	createBannerEditButton(overlay, onEdit);
+
+	return el;
+}
+
+/** The wand button that opens the banner editor. Shared by both banner modes;
+ *  positioned absolutely so it works whether it hangs off the banner or its overlay. */
+function createBannerEditButton(parent: HTMLElement, onEdit: () => void): HTMLButtonElement {
+	const btn = parent.createEl('button', {
 		cls: 'dashboard-banner-edit-btn',
 		attr: { 'aria-label': t('banner.editLabel') },
 	});
-	setIcon(editBtn, 'wand');
-	editBtn.addEventListener('click', (e) => {
+	setIcon(btn, 'wand');
+	btn.addEventListener('click', (e) => {
 		e.stopPropagation();
 		onEdit();
 	});
-
-	return el;
+	return btn;
 }
 
 export function resolveVaultImage(app: App, relativePath: string): string | null {
@@ -94,12 +116,19 @@ export class BannerEditModal extends Modal {
 	private theme: string;
 	private quotes: QuoteItem[];
 	private images: string[];
+	private mode: 'quote' | 'stats';
+	private statsDraft: BannerStatsConfig;
+	private quoteColorDraft: string;
+	private form!: HTMLDivElement;
 
 	constructor(app: App, banner: BannerData, onSave: (updates: Partial<BannerData>) => void, theme?: string) {
 		super(app);
 		this.banner = banner;
 		this.onSave = onSave;
 		this.theme = theme ?? 'earth';
+		this.mode = banner.mode === 'stats' ? 'stats' : 'quote';
+		this.statsDraft = resolveStatsConfig(banner.statsConfig);
+		this.quoteColorDraft = banner.quoteColor || '#ffffff';
 		this.quotes = banner.quotes && banner.quotes.length > 0
 			? banner.quotes.map(q => ({ ...q }))
 			: [{ quote: banner.quote, author: banner.author }];
@@ -116,10 +145,54 @@ export class BannerEditModal extends Modal {
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
 		contentEl.createEl('h2', { text: t('banner.editTitle') });
 
-		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		this.renderModeHeader(contentEl);
+		this.renderModeToggle(contentEl);
+		this.form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		this.renderBody();
+		this.renderActions(contentEl);
+	}
 
+	/** One-line heading above the mode toggle explaining it switches the view. */
+	private renderModeHeader(host: HTMLElement): void {
+		const header = host.createDiv({ cls: 'dashboard-modal-mode-header' });
+		header.createDiv({ cls: 'dashboard-modal-mode-title', text: t('banner.mode.header') });
+		header.createDiv({ cls: 'dashboard-modal-mode-hint', text: t('banner.mode.hint') });
+	}
+
+	/** Segmented Poster/Quotes ↔ Statistics control at the top of the modal. */
+	private renderModeToggle(host: HTMLElement): void {
+		const bar = host.createDiv({ cls: 'dashboard-modal-mode-toggle' });
+		const make = (key: 'quote' | 'stats', icon: string, label: string): void => {
+			const btn = bar.createEl('button', {
+				cls: 'dashboard-modal-mode-btn' + (this.mode === key ? ' active' : ''),
+				attr: { type: 'button' },
+			});
+			setIcon(btn, icon);
+			btn.createSpan({ text: label });
+			btn.addEventListener('click', () => {
+				if (this.mode === key) return;
+				this.mode = key;
+				bar.querySelectorAll('.dashboard-modal-mode-btn').forEach(b => b.removeClass('active'));
+				btn.addClass('active');
+				this.renderBody();
+			});
+		};
+		make('quote', 'image', t('banner.mode.quote'));
+		make('stats', 'bar-chart-3', t('banner.mode.stats'));
+	}
+
+	private renderBody(): void {
+		this.form.empty();
+		if (this.mode === 'stats') {
+			this.renderStatsBody();
+		} else {
+			this.renderQuoteBody();
+		}
+	}
+
+	private renderQuoteBody(): void {
 		// === Quotes section ===
-		const quotesSection = form.createDiv({ cls: 'dashboard-modal-quotes' });
+		const quotesSection = this.form.createDiv({ cls: 'dashboard-modal-quotes' });
 		quotesSection.createEl('label', { text: t('banner.quotesLabel'), cls: 'dashboard-modal-quotes-label' });
 		const quotesList = quotesSection.createDiv({ cls: 'dashboard-modal-quotes-list' });
 
@@ -177,7 +250,7 @@ export class BannerEditModal extends Modal {
 		});
 
 		// === Images section ===
-		const imagesSection = form.createDiv({ cls: 'dashboard-modal-images' });
+		const imagesSection = this.form.createDiv({ cls: 'dashboard-modal-images' });
 		imagesSection.createEl('label', { text: t('banner.imagesLabel'), cls: 'dashboard-modal-images-label' });
 		const imagesList = imagesSection.createDiv({ cls: 'dashboard-modal-images-list' });
 
@@ -223,7 +296,7 @@ export class BannerEditModal extends Modal {
 		});
 
 		// === Quote Color ===
-		const colorSection = form.createDiv({ cls: 'dashboard-modal-quote-color' });
+		const colorSection = this.form.createDiv({ cls: 'dashboard-modal-quote-color' });
 		colorSection.createEl('label', { text: t('banner.quoteColor'), cls: 'dashboard-modal-quote-color-label' });
 		const colorRow = colorSection.createDiv({ cls: 'dashboard-modal-quote-color-row' });
 
@@ -231,7 +304,10 @@ export class BannerEditModal extends Modal {
 			cls: 'dashboard-modal-color-input',
 			attr: { type: 'color' },
 		});
-		colorInput.value = this.banner.quoteColor || '#ffffff';
+		colorInput.value = this.quoteColorDraft;
+		colorInput.addEventListener('input', () => {
+			this.quoteColorDraft = colorInput.value;
+		});
 
 		const colorResetBtn = colorRow.createEl('button', {
 			cls: 'dashboard-modal-color-reset',
@@ -239,17 +315,149 @@ export class BannerEditModal extends Modal {
 		});
 		colorResetBtn.addEventListener('click', () => {
 			colorInput.value = '#ffffff';
+			this.quoteColorDraft = '#ffffff';
+		});
+	}
+
+	private renderStatsBody(): void {
+		// === Columns: visibility + per-column stat ===
+		const colsSection = this.form.createDiv({ cls: 'dashboard-modal-stats-cols' });
+		colsSection.createEl('label', { text: t('banner.stats.columns'), cls: 'dashboard-modal-stats-label' });
+
+		const leftRow = colsSection.createDiv({ cls: 'dashboard-modal-stats-col-row' });
+		this.addVisibilityCheckbox(leftRow, 'showLeft', t('banner.stats.colLeft'));
+		this.addStatDropdown(leftRow, 'leftStat', LEFT_STAT_OPTIONS);
+
+		const centerRow = colsSection.createDiv({ cls: 'dashboard-modal-stats-col-row' });
+		this.addVisibilityCheckbox(centerRow, 'showCenter', t('banner.stats.colCenter'));
+		this.addStatDropdown(centerRow, 'centerStat', CENTER_STAT_OPTIONS);
+
+		const rightRow = colsSection.createDiv({ cls: 'dashboard-modal-stats-col-row dashboard-modal-stats-col-row--top' });
+		this.addVisibilityCheckbox(rightRow, 'showRight', t('banner.stats.colRight'));
+		const rightMetrics = rightRow.createDiv({ cls: 'dashboard-modal-stats-right-metrics' });
+		rightMetrics.createDiv({ cls: 'dashboard-modal-stats-right-title', text: t('banner.stats.rightMetrics') });
+		for (const key of RIGHT_STAT_OPTIONS) {
+			const lab = rightMetrics.createEl('label', { cls: 'dashboard-modal-stats-checkbox' });
+			const cb = lab.createEl('input', { attr: { type: 'checkbox' } });
+			cb.checked = (this.statsDraft.rightStats ?? []).includes(key);
+			cb.addEventListener('change', () => {
+				const set = new Set(this.statsDraft.rightStats ?? []);
+				if (cb.checked) set.add(key); else set.delete(key);
+				this.statsDraft.rightStats = RIGHT_STAT_OPTIONS.filter(k => set.has(k));
+			});
+			lab.createSpan({ text: t(`banner.stats.${key}`) });
+		}
+
+		// === Appearance: blur / darkness / accent ===
+		const appearSection = this.form.createDiv({ cls: 'dashboard-modal-stats-appear' });
+		appearSection.createEl('label', { text: t('banner.stats.appearance'), cls: 'dashboard-modal-stats-label' });
+		this.addSlider(appearSection, 'banner.stats.blur', this.statsDraft.blur ?? 2, 0, 16, v => { this.statsDraft.blur = v; });
+		this.addSlider(appearSection, 'banner.stats.darkness', this.statsDraft.darkness ?? 20, 0, 100, v => { this.statsDraft.darkness = v; });
+
+		const accentRow = appearSection.createDiv({ cls: 'dashboard-modal-stats-accent-row' });
+		accentRow.createDiv({ cls: 'dashboard-modal-stats-inline-label', text: t('banner.stats.accent') });
+		const accentInput = accentRow.createEl('input', { cls: 'dashboard-modal-color-input', attr: { type: 'color' } });
+		accentInput.value = this.statsDraft.accent || '#bff038';
+		accentInput.addEventListener('input', () => { this.statsDraft.accent = accentInput.value; });
+		const accentReset = accentRow.createEl('button', { cls: 'dashboard-modal-color-reset', text: t('banner.resetColor') });
+		accentReset.addEventListener('click', () => {
+			accentInput.value = '#bff038';
+			this.statsDraft.accent = undefined;
 		});
 
-		// === Actions ===
-		const actions = form.createDiv({ cls: 'dashboard-modal-actions' });
+		// === Streak source ===
+		const dailySection = this.form.createDiv({ cls: 'dashboard-modal-stats-daily' });
+		dailySection.createEl('label', { text: t('banner.stats.dailyFolder'), cls: 'dashboard-modal-stats-label' });
+		const detected = getDailyNotesConfig(this.app);
+		const folderInput = dailySection.createEl('input', {
+			cls: 'dashboard-modal-input',
+			attr: {
+				type: 'text',
+				placeholder: detected
+					? t('banner.stats.autoDetected', { folder: detected.folder || '/' })
+					: t('banner.stats.manualHint'),
+			},
+		});
+		folderInput.value = this.statsDraft.dailyFolder ?? '';
+		folderInput.addEventListener('input', () => {
+			this.statsDraft.dailyFolder = folderInput.value.trim() || undefined;
+		});
+		dailySection.createDiv({ cls: 'dashboard-modal-stats-hint', text: t('banner.stats.dailyFolderHint') });
 
+		// === Details ===
+		const subSection = this.form.createDiv({ cls: 'dashboard-modal-stats-sub' });
+		const subLabel = subSection.createEl('label', { cls: 'dashboard-modal-stats-checkbox' });
+		const subCheck = subLabel.createEl('input', { attr: { type: 'checkbox' } });
+		subCheck.checked = this.statsDraft.showDetails !== false;
+		subCheck.addEventListener('change', () => {
+			this.statsDraft.showDetails = subCheck.checked;
+		});
+		subLabel.createSpan({ text: t('banner.stats.showDetails') });
+	}
+
+	private addVisibilityCheckbox(host: HTMLElement, key: 'showLeft' | 'showCenter' | 'showRight', label: string): void {
+		const lab = host.createEl('label', { cls: 'dashboard-modal-stats-vis' });
+		const cb = lab.createEl('input', { attr: { type: 'checkbox' } });
+		cb.checked = this.statsDraft[key] !== false;
+		cb.addEventListener('change', () => { this.statsDraft[key] = cb.checked; });
+		lab.createSpan({ text: label });
+	}
+
+	private addStatDropdown(host: HTMLElement, key: 'leftStat' | 'centerStat', options: readonly string[]): void {
+		const select = host.createEl('select', { cls: 'dropdown dashboard-modal-stats-select' });
+		const current = this.statsDraft[key] as string | undefined;
+		for (const opt of options) {
+			const o = select.createEl('option', { value: opt, text: t(`banner.stats.${opt}`) });
+			if (opt === current) o.selected = true;
+		}
+		select.addEventListener('change', () => {
+			(this.statsDraft as unknown as Record<string, string>)[key] = select.value;
+		});
+	}
+
+	private addSlider(host: HTMLElement, labelKey: string, value: number, min: number, max: number, onChange: (v: number) => void): void {
+		const row = host.createDiv({ cls: 'dashboard-modal-stats-slider' });
+		row.createDiv({ cls: 'dashboard-modal-stats-inline-label', text: t(labelKey) });
+		const slider = row.createEl('input', {
+			cls: 'dashboard-modal-stats-range',
+			attr: { type: 'range', min: String(min), max: String(max), value: String(value) },
+		});
+		const valLabel = row.createDiv({ cls: 'dashboard-modal-stats-slider-val', text: String(value) });
+		slider.addEventListener('input', () => {
+			const v = Number(slider.value);
+			valLabel.textContent = String(v);
+			onChange(v);
+		});
+	}
+
+	private renderActions(host: HTMLElement): void {
+		const actions = host.createDiv({ cls: 'dashboard-modal-actions' });
 		const saveBtn = actions.createEl('button', { text: t('common.save'), cls: 'mod-cta' });
-		saveBtn.addEventListener('click', () => {
+		saveBtn.addEventListener('click', () => this.save());
+		const cancelBtn = actions.createEl('button', { text: t('common.cancel') });
+		cancelBtn.addEventListener('click', () => this.close());
+	}
+
+	private save(): void {
+		const updates: Partial<BannerData> = { mode: this.mode };
+		if (this.mode === 'stats') {
+			updates.statsConfig = {
+				dailyFolder: this.statsDraft.dailyFolder,
+				dailyFormat: this.statsDraft.dailyFormat,
+				accent: this.statsDraft.accent,
+				blur: this.statsDraft.blur,
+				darkness: this.statsDraft.darkness,
+				showDetails: this.statsDraft.showDetails,
+				showLeft: this.statsDraft.showLeft,
+				showCenter: this.statsDraft.showCenter,
+				showRight: this.statsDraft.showRight,
+				leftStat: this.statsDraft.leftStat,
+				centerStat: this.statsDraft.centerStat,
+				rightStats: this.statsDraft.rightStats ? [...this.statsDraft.rightStats] : undefined,
+			};
+		} else {
 			const validQuotes = this.quotes.filter(q => q.quote.trim());
 			const validImages = this.images.filter(s => s.trim());
-			const updates: Partial<BannerData> = {};
-
 			if (validQuotes.length > 0) {
 				updates.quote = validQuotes[0]!.quote;
 				updates.author = validQuotes[0]!.author;
@@ -267,16 +475,10 @@ export class BannerEditModal extends Modal {
 				updates.image = '';
 				updates.images = undefined;
 			}
-
-			const colorVal = colorInput.value;
-			updates.quoteColor = colorVal === '#ffffff' ? undefined : colorVal;
-
-			this.onSave(updates);
-			this.close();
-		});
-
-		const cancelBtn = actions.createEl('button', { text: t('common.cancel') });
-		cancelBtn.addEventListener('click', () => this.close());
+			updates.quoteColor = this.quoteColorDraft === '#ffffff' ? undefined : this.quoteColorDraft;
+		}
+		this.onSave(updates);
+		this.close();
 	}
 
 	onClose(): void {

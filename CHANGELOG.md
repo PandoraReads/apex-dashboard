@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.2 (2026-08-09)
+
+### Added
+- **Banner Statistics view** — A second banner mode alongside Poster & Quotes, switched via a new segmented control at the top of the wand (edit) modal. Renders a three-column, role-differentiated dashboard (1:3:1): **Scale** (total-notes hero + a small stat strip), **Activity** (day-streak hero + a horizontal contribution heatmap), and **Productivity** (task-completion / links-per-note / connectivity rows with progress bars). New `banner-stats.ts` module; `BannerMode`, `BannerStatsConfig`, and `mode`/`statsConfig` fields on `BannerData`
+- **Live vault statistics** — Every metric computes in a single metadata-cache + `resolvedLinks` pass with no file reads: total notes, tag count, total & average links, new this month & week, task totals (done/pending) + completion rate, day streak (core Daily-notes-aware with an any-note fallback), connectivity & orphan rate, plus a ~14-week activity series for the heatmap
+- **Configurable stats banner** — Per-column show/hide, left/center hero-stat pickers, right-column progress-metric checkboxes, background **blur** & **darkness** sliders, accent color, and a daily-notes folder override for the streak — all in the wand modal
+- **Blurred background in stats mode** — The poster image stays visible behind the stats panel through an adjustable `backdrop-filter` blur + dark scrim (defaults: blur 2, darkness 20, accent `#bff038`)
+
+### Changed
+- **Default UI language is now 中文** — `DEFAULT_SETTINGS.language` and the i18n fallback default flipped to `zh`. Users who explicitly chose English keep it
+- **Banner layout polish** — Left/center hero labels sit inline to the right of the big number; the left stat strip stacks vertically with icons; the heatmap is a wide horizontal strip that fills the center column
+
+### Fixed
+- **Banner view reset on reload** — `mode` and `statsConfig` are now serialized into the dashboard frontmatter (previously only the legacy quote/image fields were written), so the selected view and its config survive a plugin reload/update instead of snapping back to Poster
+- **Stats not refreshing** — The debounced vault-change refresh was silently skipped whenever a stats config hadn't been saved (a `config !== undefined` guard); it now always refreshes in stats mode, so totals and the heatmap update as you edit
+
 ## 1.6.1 (2026-08-09)
 
 ### Added

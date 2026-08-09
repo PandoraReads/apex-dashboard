@@ -109,6 +109,14 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.6.2
+- **Banner Statistics view** — A new banner mode (switch at the top of the wand modal) showing a three-column dashboard: **Scale** (total notes + a stat strip), **Activity** (day streak + a contribution heatmap), and **Productivity** (task completion / links-per-note / connectivity with progress bars). Every metric computes live from the vault
+- **Configurable** — Per-column show/hide & hero stat, right-column progress metrics, background blur & darkness sliders, accent color, and a daily-notes folder for the streak
+- **Blurred background** — The poster image stays visible behind the stats panel through an adjustable blur + dark scrim
+- **Persistence fix** — The banner view and its config now survive reload / plugin update (they were being reset to Poster)
+- **Live stats fix** — Stats now refresh as you edit (the refresh was being skipped under the default config)
+- **Default language is now 中文**
+
 ### 1.6.1
 - **Quick Notes capture fixes & template support** — Capturing to a target note now appends to the existing file instead of creating a stray extensionless file when the path omits `.md`; new notes created in the capture folder can be seeded from a template (new "Template for new notes" setting)
 - **Richer capture timestamp** — Captured lines are stamped with a wiki-link date + time (`[[2026-08-09]] 14:30`) instead of time-only, so you can filter across the vault and the date links back to the daily note

@@ -148,7 +148,7 @@ export interface PinnedNote {
 export const DEFAULT_SETTINGS: DashboardSettings = {
 	dashboardFile: 'dashboard',
 	recentDocCount: 5,
-	language: 'en',
+	language: 'zh',
 	stylePreset: 'earth',
 	widgetWeatherEnabled: false,
 	widgetWeatherCity: 'Shanghai',
@@ -205,13 +205,53 @@ export interface QuoteItem {
 	author: string;
 }
 
+/** Banner display mode: classic poster+quote, or the stats dashboard. */
+export type BannerMode = 'quote' | 'stats';
+
+/** Configuration for the stats banner. Columns are role-fixed (scale / activity
+ *  / productivity), so this only holds cross-cutting options. */
+export type BannerLeftStat =
+	| 'totalNotes' | 'tagsCount' | 'totalLinks'
+	| 'newThisMonth' | 'newThisWeek'
+	| 'totalTasks' | 'doneTasks' | 'pendingTasks';
+
+export type BannerCenterStat = 'streak' | 'taskCompletion' | 'connectivity' | 'newThisWeek';
+
+export type BannerRightStat = 'taskCompletion' | 'connectivity' | 'orphanRate' | 'avgLinksPerNote';
+
+export interface BannerStatsConfig {
+	/** Daily-notes folder for the streak metric. Empty/undefined = auto-detect
+	 *  the core Daily notes plugin. */
+	dailyFolder?: string;
+	dailyFormat?: string;
+	/** Accent color override; undefined = follow theme. */
+	accent?: string;
+	/** Background blur in px (0–16). */
+	blur?: number;
+	/** Background darkness 0–100 (higher = darker). */
+	darkness?: number;
+	/** Show secondary content (left strip, center heatmap, right bars). */
+	showDetails?: boolean;
+	/** Per-column visibility (default all true). */
+	showLeft?: boolean;
+	showCenter?: boolean;
+	showRight?: boolean;
+	/** Stat featured in each column. */
+	leftStat?: BannerLeftStat;
+	centerStat?: BannerCenterStat;
+	/** Progress metrics shown in the right column, in order. */
+	rightStats?: BannerRightStat[];
+}
+
 export interface BannerData {
+	mode?: BannerMode;
 	quote: string;
 	author: string;
 	image: string;
 	quoteColor?: string;
 	quotes?: QuoteItem[];
 	images?: string[];
+	statsConfig?: BannerStatsConfig;
 }
 
 export interface QuickAction {
