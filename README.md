@@ -109,6 +109,10 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.6.3
+- **iOS tap crash fix** — On iOS, tapping the dashboard right after it loaded could crash Obsidian (the app would restart). Mobile now fully disables backdrop blur — several blur layers were still active and, combined with iOS's tap behavior, exceeded the WebView's render limit
+- **Banner statistics on phones** — The statistics banner now shows only the center column on phone widths; the side columns were clipped before
+
 ### 1.6.2
 - **Banner Statistics view** — A new banner mode (switch at the top of the wand modal) showing a three-column dashboard: **Scale** (total notes + a stat strip), **Activity** (day streak + a contribution heatmap), and **Productivity** (task completion / links-per-note / connectivity with progress bars). Every metric computes live from the vault
 - **Configurable** — Per-column show/hide & hero stat, right-column progress metrics, background blur & darkness sliders, accent color, and a daily-notes folder for the streak

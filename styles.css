@@ -7933,22 +7933,30 @@
 }
 
 @media (max-width: 640px) {
-	/* Disable per-element glass backdrop blur on mobile. blur(24px) on every
-	   card/section/row is the single biggest GPU/heat driver on phones; the
-	   variable cascades to all .dashboard-card / .dashboard-section / etc. */
+	/* Disable ALL backdrop blur on mobile. backdrop-filter is iOS WKWebView's
+	   heaviest GPU/memory operation; a single first-tap :hover repaint across
+	   many stacked blur layers can crash the render process (Obsidian then
+	   restarts). The var covers panels referencing --db-backdrop-blur; the
+	   wildcard catches hardcoded blur() that ignores the var (file-suggest,
+	   heatmap popup, etc.); the modal rules catch body-mounted modals and
+	   theme overrides. Frost degrades to flat translucent fills; desktop is
+	   completely untouched. */
 	.apex-dashboard-root[data-theme] {
 		--db-backdrop-blur: none;
 	}
-
-	/* Modal blur: theme rules hardcode blur(20~24px) and ignore the variable
-	   above (modals mount at body level). Drop to 6px so opening a modal no
-	   longer spikes the GPU on phones. */
+	.apex-dashboard-root,
+	.apex-dashboard-root * {
+		backdrop-filter: none !important;
+		-webkit-backdrop-filter: none !important;
+	}
 	.dashboard-modal,
 	[data-theme] .dashboard-modal,
 	.theme-light [data-theme] .dashboard-modal,
-	.theme-dark [data-theme] .dashboard-modal {
-		backdrop-filter: blur(6px) !important;
-		-webkit-backdrop-filter: blur(6px) !important;
+	.theme-dark [data-theme] .dashboard-modal,
+	.modal--dashboard,
+	.modal-bg--dashboard {
+		backdrop-filter: none !important;
+		-webkit-backdrop-filter: none !important;
 	}
 
 	/* Hide sidebar widgets on mobile */
@@ -13232,18 +13240,19 @@
 @media (max-width: 640px) {
 	.dashboard-banner-stats {
 		padding: 8px 12px;
-		justify-content: flex-start;
+		justify-content: center;
 		gap: 4px;
 		overflow-x: auto;
 		scrollbar-width: none;
 	}
 	.dashboard-banner-stats::-webkit-scrollbar { display: none; }
-	.dashboard-banner-stat-col--left   { flex: 0 0 116px; }
-	.dashboard-banner-stat-col--center { flex: 0 0 230px; }
-	.dashboard-banner-stat-col--right  { flex: 0 0 128px; }
+	/* On phones only the center (Activity) column fits — the left/right columns
+	   would clip at this width, so hide them and let the center fill the banner. */
+	.dashboard-banner-stat-col--left,
+	.dashboard-banner-stat-col--right { display: none; }
+	.dashboard-banner-stat-col--center { flex: 1 1 auto; max-width: none; }
 	/* Drop the dividers on narrow screens. */
 	.dashboard-banner-stat-col + .dashboard-banner-stat-col::before { display: none; }
-	.dashboard-banner-stat-col--left .dashboard-banner-stat-num,
 	.dashboard-banner-stat-col--center .dashboard-banner-stat-num { font-size: 1.5em; }
 	/* Denser heatmap cells on narrow screens so it wraps to fewer rows. */
 	.dashboard-banner-heatmap { grid-template-columns: repeat(auto-fill, 7px); grid-auto-rows: 7px; gap: 1px; }

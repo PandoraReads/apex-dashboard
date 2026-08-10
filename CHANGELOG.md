@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.3 (2026-08-10)
+
+### Fixed
+- **iOS tap crash** — Tapping the dashboard just after it finished rendering could crash the Obsidian render process on iOS (the app would restart and you'd lose your place). The mobile backdrop-filter pass now disables *all* blur, not just the variable-driven panels: hardcoded blur layers (file-suggest dropdown, heatmap popup) and modal blur were still active and, combined with iOS's sticky-`:hover` repaint on the first tap, pushed the WKWebView past its GPU/memory limit
+
+### Changed
+- **Banner statistics on phones** — The three-column statistics banner now shows only the center (Activity) column on phone-width screens; the left and right columns were being clipped and forced horizontal scrolling
+
 ## 1.6.2 (2026-08-09)
 
 ### Added
