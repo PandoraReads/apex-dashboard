@@ -2457,6 +2457,18 @@ function readPathAttr(el: Element, attr: string): number[] {
  * board on every chevron click — the source of the long lag. Instead we flip a
  * `--hidden` class on every descendant item here, and let the sync engine
  * persist the `collapsed` flag on a debounced write with no re-render.
+ *
+ * DOM truth source: each parent item carries `aria-expanded` (set at render and
+ * flipped here on every toggle). After flipping the toggled parent, we recompute
+ * the `--hidden` class on EVERY descendant by walking its path prefix chain — a
+ * descendant is shown only if every ancestor on that chain is expanded. This
+ * handles nested collapse correctly: expanding A still keeps A's collapsed
+ * child B's subtree hidden, because B's `aria-expanded=false` is on C's prefix.
+ *
+ * Note: children must actually exist in the DOM for this to work, so the
+ * renderer creates them unconditionally (using `--hidden` for the collapsed
+ * case) rather than skipping them — otherwise an expand after a full re-render
+ * of a collapsed parent would find nothing to unhide.
  */
 function toggleCollapseInPlace(
 	item: HTMLElement,
@@ -2467,20 +2479,42 @@ function toggleCollapseInPlace(
 	const list = item.parentElement;
 	if (!list) return;
 
-	// Flip the chevron icon to reflect the new state.
+	// Flip the chevron icon + record the new state as the DOM truth source.
 	const toggle = item.querySelector(':scope > .dashboard-task-toggle');
 	if (toggle instanceof HTMLElement) {
 		setIcon(toggle, nowCollapsed ? 'chevron-right' : 'chevron-down');
 	}
+	item.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
 
-	// Show/hide every descendant item (direct children and their children).
+	// Build a path-keyed map of every item's expanded state ONCE, so the per-
+	// descendant ancestor walk is O(1) per step instead of re-querying the list
+	// (which made a single toggle O(n²) on large trees).
+	const expandedByPath = new Map<string, boolean>();
+	list.querySelectorAll<HTMLElement>(`:scope > [${pathAttr}]`).forEach((el) => {
+		expandedByPath.set(JSON.stringify(readPathAttr(el, pathAttr)), el.getAttribute('aria-expanded') !== 'false');
+	});
+
+	// Recompute visibility for every descendant: show only if every ancestor on
+	// its path prefix is currently expanded (read from the map above).
 	list.querySelectorAll<HTMLElement>(`:scope > [${pathAttr}]`).forEach((sibling) => {
 		if (sibling === item) return;
 		const siblingPath = readPathAttr(sibling, pathAttr);
-		if (isDescendantPath(parentPath, siblingPath)) {
-			sibling.toggleClass('dashboard-task-item--hidden', nowCollapsed);
-			sibling.toggleClass('dashboard-project-doc-item--hidden', nowCollapsed);
+		if (!isDescendantPath(parentPath, siblingPath)) return;
+
+		let hidden = false;
+		// Walk every strict ancestor index of siblingPath (skip the node itself).
+		for (let len = parentPath.length; len < siblingPath.length; len++) {
+			const ancestorExpanded = expandedByPath.get(JSON.stringify(siblingPath.slice(0, len)));
+			// Fail-safe: a strict prefix should always be a parent that exists in a
+			// well-formed render. If it's missing, hide rather than risk leaking a
+			// subtree due to stale/DOM drift.
+			if (ancestorExpanded === false || ancestorExpanded === undefined) {
+				hidden = true;
+				break;
+			}
 		}
+		sibling.toggleClass('dashboard-task-item--hidden', hidden);
+		sibling.toggleClass('dashboard-project-doc-item--hidden', hidden);
 	});
 }
 
@@ -2493,9 +2527,11 @@ function renderTaskItem(
 	callbacks: RenderCallbacks,
 	app: App,
 	depth: number,
+	ancestorHidden = false,
 ): void {
 	const item = list.createDiv({ cls: 'dashboard-task-item' });
 	if (depth > 0) item.addClass('dashboard-task-item--child');
+	if (ancestorHidden) item.addClass('dashboard-task-item--hidden');
 	item.style.marginLeft = `${depth * 18}px`;
 	item.setAttribute('draggable', 'true');
 	item.dataset.taskPath = JSON.stringify(path);
@@ -2592,6 +2628,7 @@ function renderTaskItem(
 
 	const hasChildren = (task.children?.length ?? 0) > 0;
 	if (hasChildren) {
+		item.setAttribute('aria-expanded', task.collapsed ? 'false' : 'true');
 		const toggle = item.createDiv({ cls: 'dashboard-task-toggle dashboard-task-toggle--active' });
 		toggle.setAttribute('role', 'button');
 		toggle.setAttribute('aria-label', task.collapsed ? t('renderer.expandTask') : t('renderer.collapseTask'));
@@ -2744,9 +2781,20 @@ function renderTaskItem(
 		}
 	});
 
-	if (task.children && task.children.length > 0 && !task.collapsed) {
+	// CONTRACT: always render children, even when collapsed. The in-place
+	// toggle (`toggleCollapseInPlace`) can only show/hide DOM that already
+	// exists — if collapsed subtrees were skipped here, an expand after any full
+	// re-render (e.g. checking a sibling task) would find nothing to unhide and
+	// the chevron would appear dead. Do NOT "optimize" this back to
+	// `!task.collapsed` — that was the bug. Collapsed subtrees are hidden via the
+	// `--hidden` class (driven by `ancestorHidden`), not by omitting the DOM.
+	// Trade-off: a deeply collapsed tree pays DOM-creation cost on full render;
+	// acceptable because full render is low-frequency (chevron clicks are O(n)
+	// in-place, not re-renders).
+	if (task.children && task.children.length > 0) {
+		const childHidden = ancestorHidden || task.collapsed;
 		for (let i = 0; i < task.children.length; i++) {
-			renderTaskItem(list, task.children[i]!, [...path, i], card, callbacks, app, depth + 1);
+			renderTaskItem(list, task.children[i]!, [...path, i], card, callbacks, app, depth + 1, childHidden);
 		}
 	}
 }
@@ -2948,15 +2996,17 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 			callbacks.onDocMoveToCard(docDragSource.cardId, docDragSource.docPath, card.id, destPath, 'before');
 		});
 
-		const renderDocItem = (doc: DocNode, path: number[], depth: number) => {
+		const renderDocItem = (doc: DocNode, path: number[], depth: number, ancestorHidden = false) => {
 			const docItem = docList.createDiv({ cls: 'dashboard-project-doc-item' });
 			if (depth > 0) docItem.addClass('dashboard-project-doc-item--child');
+			if (ancestorHidden) docItem.addClass('dashboard-project-doc-item--hidden');
 			docItem.style.marginLeft = `${depth * 18}px`;
 			docItem.setAttribute('draggable', 'true');
 			docItem.dataset.docPath = JSON.stringify(path);
 
 			const hasChildren = (doc.children?.length ?? 0) > 0;
 			if (hasChildren) {
+				docItem.setAttribute('aria-expanded', doc.collapsed ? 'false' : 'true');
 				const toggle = docItem.createDiv({ cls: 'dashboard-task-toggle dashboard-task-toggle--active' });
 				toggle.setAttribute('role', 'button');
 				toggle.setAttribute('aria-label', doc.collapsed ? t('renderer.expandDoc') : t('renderer.collapseDoc'));
@@ -3068,8 +3118,11 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 				}
 			});
 
-			if (hasChildren && !doc.collapsed) {
-				doc.children!.forEach((child, i) => renderDocItem(child, [...path, i], depth + 1));
+			// CONTRACT: always render children, even when collapsed (see task
+			// branch for the full rationale). Do not gate on `!doc.collapsed`.
+			if (hasChildren) {
+				const childHidden = ancestorHidden || doc.collapsed;
+				doc.children!.forEach((child, i) => renderDocItem(child, [...path, i], depth + 1, childHidden));
 			}
 		};
 

@@ -5,12 +5,14 @@
 ### Added
 - **Dataview section — query your vault with DQL** — A brand-new section type that runs Dataview-style queries directly inside the dashboard, no external plugin required. Write a self-contained DQL engine covering `TABLE`, `LIST`, `TASK`, `CALENDAR`, and `HEATMAP` query types with the full clause set (`FROM` folders/tags/links with `AND`/`OR`/`NOT`, `WHERE`, `SORT`, `GROUP BY`, `FLATTEN`, `LIMIT`), ~40 built-in functions, all `file.*` implicit fields, YAML frontmatter, and inline fields (`[key:: value]`). The config modal offers live syntax validation and one-click sample queries; `TASK` rows toggle back to the source note, `CALENDAR` plots a month grid, and `HEATMAP` plots a year contribution grid from any numeric field. Results reuse the dashboard's glassmorphism theme and refresh on demand (manual refresh button).
 - **Dataview heatmap queries** — `HEATMAP <value> [USING <date>]` aggregates a numeric field by day into a year heatmap; `USING` may sit before or after `FROM`.
+- **Scroll-to-top button** — A small floating button in the bottom-right corner smoothly scrolls the dashboard back to the top once you've scrolled down, with safe-area inset on mobile so it clears the native bottom bar.
 
 ### Changed
 - **Calendar DQL date fields** — `CALENDAR <field>` now uses the requested date field instead of silently falling back to file creation dates.
 
 ### Fixed
 - **Subtask collapse/expand lag** — Tapping the chevron to expand or collapse a parent task's subtasks (or a project's nested docs) could take several seconds to respond. The "quiet" collapse path was still echoing through the full-board re-render: the deferred disk write unconditionally notified the view, rebuilding the entire dashboard a second after every toggle. The write is now silent, and the chevron handler tracks collapse state locally instead of reading a stale closed-over snapshot (which could only ever fold once after the re-render was removed). Toggling is now instant.
+- **Collapsed parent could not be expanded after a sibling change** — If a parent task (or nested doc) was collapsed and then anything triggered a full re-render of the card — e.g. checking off a sibling task, which moves the completed task to the bottom — the collapsed parent's children were never re-created in the DOM, so the in-place expand had nothing to unhide and the chevron appeared dead. The renderer now always builds the child DOM (hidden via a class when collapsed) and recomputes visibility from a DOM-readable `aria-expanded` flag, so collapse/expand stays correct across full re-renders, including nested collapse.
 
 ### Removed
 - **Standalone heatmap section** — The old heatmap section type has been removed. Use a Dataview section with `HEATMAP rating FROM "Books" USING finished`, or the existing tracker card heatmap style, depending on the use case. Existing `type: heatmap` sections safely fall back to regular project-style sections on load.

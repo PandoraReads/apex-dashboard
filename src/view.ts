@@ -386,6 +386,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.pendingScrollToLastCardOfColumn = null;
 		}
 
+		this.renderScrollToTop(container);
+
 	}
 
 	private renderMobileActions(bannerEl: HTMLElement): void {
@@ -1539,6 +1541,64 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.cleanupFns = [];
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
+	}
+
+	/**
+	 * Floating "back to top" button pinned to the bottom-right corner.
+	 *
+	 * The active scroll element differs by layout: on desktop the inner
+	 * `.dashboard-kanban` scrolls; on mobile (<=640px) the `.apex-dashboard-root`
+	 * itself scrolls. We detect which one is actually scrollable and listen to it,
+	 * so the button always scrolls the right container and only appears once the
+	 * user has scrolled down. Cleanup is registered so listeners are torn down on
+	 * re-render / close.
+	 */
+	private renderScrollToTop(container: HTMLElement): void {
+		const btn = container.createEl('button', {
+			cls: 'dashboard-scroll-top',
+			attr: { 'aria-label': t('renderer.scrollToTop'), type: 'button' },
+		});
+		setIcon(btn, 'arrow-up');
+
+		// Pick the element that actually scrolls in the current layout.
+		const root = container;
+		const kanbanEl = container.querySelector('.dashboard-kanban');
+		const pickScroller = (): HTMLElement => {
+			if (window.innerWidth <= 640) return root;
+			return (kanbanEl as HTMLElement) ?? root;
+		};
+
+		const updateVisibility = (): void => {
+			const scroller = pickScroller();
+			const threshold = Math.max(160, scroller.clientHeight * 0.3);
+			if (scroller.scrollTop > threshold) {
+				btn.addClass('dashboard-scroll-top--visible');
+			} else {
+				btn.removeClass('dashboard-scroll-top--visible');
+			}
+		};
+
+		btn.addEventListener('click', () => {
+			const scroller = pickScroller();
+			scroller.scrollTo({ top: 0, behavior: 'smooth' });
+		});
+
+		// Listen on both candidates: cheap, and covers desktop↔mobile resizes.
+		const onKanbanScroll = (): void => updateVisibility();
+		const onRootScroll = (): void => updateVisibility();
+		const onResize = (): void => updateVisibility();
+		if (kanbanEl) kanbanEl.addEventListener('scroll', onKanbanScroll, { passive: true });
+		root.addEventListener('scroll', onRootScroll, { passive: true });
+		window.addEventListener('resize', onResize);
+
+		this.cleanupFns.push(() => {
+			btn.remove();
+			if (kanbanEl) kanbanEl.removeEventListener('scroll', onKanbanScroll);
+			root.removeEventListener('scroll', onRootScroll);
+			window.removeEventListener('resize', onResize);
+		});
+
+		updateVisibility();
 	}
 
 	private startReminderChecker(): void {

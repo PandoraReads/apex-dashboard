@@ -228,6 +228,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'default.projectTitle': 'My First Project',
 
 		'renderer.addSection': '+ Add section',
+		'renderer.scrollToTop': 'Back to top',
 		'renderer.sectionName': 'Section name:',
 		'renderer.dragSection': 'Drag to reorder section',
 		'renderer.toggleSection': 'Collapse section',
@@ -1145,6 +1146,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'default.projectTitle': '我的第一个项目',
 
 		'renderer.addSection': '+ 添加分区',
+		'renderer.scrollToTop': '回到顶部',
 		'renderer.sectionName': '分区名称：',
 		'renderer.dragSection': '拖拽以调整分区顺序',
 		'renderer.toggleSection': '折叠分区',
