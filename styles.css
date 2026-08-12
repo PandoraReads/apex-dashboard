@@ -3950,17 +3950,23 @@
 	position: fixed;
 	z-index: 9000;
 	min-width: 180px;
-	max-width: 300px;
+	max-width: 320px;
 	max-height: min(60vh, 420px);
 	display: flex;
 	flex-direction: column;
-	background: var(--db-bg-card);
-	border: 1px solid var(--db-border-card);
+	/* Guaranteed-opaque surface. --db-bg-card is translucent on most themes
+	   (cards float over a bg image) and color-mix with it still let the dashboard
+	   bg bleed through, making the text unreadable. --background-primary is
+	   Obsidian's own opaque editor surface, so it stays solid regardless of theme
+	   or user background image. We avoid backdrop-filter here (crash-prone on iOS,
+	   and this popup is desktop-only anyway). */
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--db-radius-md);
-	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-	color: var(--db-text);
-	font-size: 0.85em;
-	line-height: 1.4;
+	box-shadow: 0 10px 32px rgba(0, 0, 0, 0.38);
+	color: var(--text-normal);
+	font-size: 1em;
+	line-height: 1.45;
 	overflow: hidden;
 	pointer-events: none;
 	animation: dashboard-day-preview-in 0.12s ease;
@@ -3971,19 +3977,11 @@
 	to   { opacity: 1; transform: translateY(0); }
 }
 
-.dashboard-calendar-day-preview-date {
-	padding: 7px 10px 5px;
-	font-size: 0.8em;
-	font-weight: 700;
-	color: var(--db-text-muted);
-	border-bottom: 1px solid var(--db-border-card);
-}
-
 .dashboard-calendar-day-preview-list {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
-	padding: 5px;
+	gap: 3px;
+	padding: 8px;
 	overflow-y: auto;
 	scrollbar-width: thin;
 }
@@ -3992,8 +3990,8 @@
 .dashboard-calendar-day-preview-list .dashboard-calendar-event {
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	padding: 3px 5px;
+	gap: 8px;
+	padding: 5px 7px;
 	border-radius: var(--db-radius-sm, 6px);
 	border-left: 3px solid transparent;
 }
@@ -4012,9 +4010,11 @@
 }
 
 .dashboard-calendar-day-preview-list .dashboard-calendar-event-time {
-	font-size: 0.8em;
-	color: var(--db-text-muted);
+	font-size: 0.92em;
+	font-weight: 600;
+	color: var(--text-muted);
 	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
 }
 
 .dashboard-calendar-day-preview-list .dashboard-calendar-event-text {
@@ -4027,8 +4027,8 @@
 
 .dashboard-calendar-day-preview-more {
 	padding: 4px 6px 2px;
-	font-size: 0.78em;
-	color: var(--db-text-muted);
+	font-size: 0.85em;
+	color: var(--text-muted);
 	text-align: center;
 }
 

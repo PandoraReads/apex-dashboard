@@ -223,6 +223,17 @@ export function renderWeekGrid(
 			head.addClass('is-clickable');
 			head.addEventListener('click', () => opts.onDayClick?.(iso));
 		}
+
+		// Hover preview: anchored on the day header. Useful in the week view
+		// because tasks are capped at WEEK_COMPACT_MAX and long titles truncate,
+		// so the preview surfaces the hidden/rest of the day's tasks. Only wired
+		// when the header is already interactive (compact + onDayClick).
+		if (opts.compact && dayTasks.length > 0 && opts.onDayHover) {
+			head.addEventListener('mouseenter', () => opts.onDayHover?.(iso, head));
+			head.addEventListener('mouseleave', () => opts.onDayLeave?.());
+			head.addEventListener('focus', () => opts.onDayHover?.(iso, head));
+			head.addEventListener('blur', () => opts.onDayLeave?.());
+		}
 	}
 
 	return { label: weekLabel(weekStart) };

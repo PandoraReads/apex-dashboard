@@ -46,18 +46,13 @@ function renderPreviewTask(task: VaultTask, app: App): HTMLElement {
 
 /** Build and position the preview popup near `anchor`, listing the day's tasks.
  *  Clamps to the viewport so it never spills off-screen. */
-function showDayPreview(iso: string, anchor: HTMLElement, tasks: VaultTask[], app: App): void {
+function showDayPreview(anchor: HTMLElement, tasks: VaultTask[], app: App): void {
 	// A newer hover superseded this one while its timer was pending.
 	if (hoverTimer !== null) { window.clearTimeout(hoverTimer); hoverTimer = null; }
 
 	closeDayPreview();
 	const popup = activeDocument.body.createDiv({ cls: 'dashboard-calendar-day-preview' });
 	hoverPopup = popup;
-
-	// Date header, formatted from the ISO string to avoid Date.now() (banned in some contexts).
-	const [y, m, d] = iso.split('-').map(Number);
-	const dateLabel = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-	popup.createDiv({ cls: 'dashboard-calendar-day-preview-date', text: dateLabel });
 
 	const list = popup.createDiv({ cls: 'dashboard-calendar-day-preview-list' });
 	const sorted = tasks.slice().sort(byTaskTime);
@@ -187,7 +182,7 @@ export function renderSidebarCalendar(
 				if (hoverTimer !== null) window.clearTimeout(hoverTimer);
 				hoverTimer = window.setTimeout(() => {
 					hoverTimer = null;
-					showDayPreview(iso, anchor, tasks, app);
+					showDayPreview(anchor, tasks, app);
 				}, HOVER_DELAY_MS);
 			}
 			: undefined;
@@ -198,7 +193,7 @@ export function renderSidebarCalendar(
 			}
 			: undefined;
 		const { label } = view === 'week'
-			? renderWeekGrid(gridHost, weekStart, byDay, { compact: true, app, onDayClick })
+			? renderWeekGrid(gridHost, weekStart, byDay, { compact: true, app, onDayClick, onDayHover, onDayLeave })
 			: renderMonthGrid(gridHost, year, month, byDay, { compact: true, dotMode: true, app, onDayClick, onDayHover, onDayLeave });
 		labelEl.textContent = label;
 	}
