@@ -3942,6 +3942,96 @@
 	flex-shrink: 0;
 }
 
+/* ===== Hover day preview (dotMode only) =====
+   Lives on document.body, positioned by JS next to the hovered cell. High
+   z-index so it floats over the sidebar and kanban; no backdrop-filter to stay
+   safe on mobile/iOS crash-prone contexts (the popup only ever shows on desktop). */
+.dashboard-calendar-day-preview {
+	position: fixed;
+	z-index: 9000;
+	min-width: 180px;
+	max-width: 300px;
+	max-height: min(60vh, 420px);
+	display: flex;
+	flex-direction: column;
+	background: var(--db-bg-card);
+	border: 1px solid var(--db-border-card);
+	border-radius: var(--db-radius-md);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+	color: var(--db-text);
+	font-size: 0.85em;
+	line-height: 1.4;
+	overflow: hidden;
+	pointer-events: none;
+	animation: dashboard-day-preview-in 0.12s ease;
+}
+
+@keyframes dashboard-day-preview-in {
+	from { opacity: 0; transform: translateY(2px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+.dashboard-calendar-day-preview-date {
+	padding: 7px 10px 5px;
+	font-size: 0.8em;
+	font-weight: 700;
+	color: var(--db-text-muted);
+	border-bottom: 1px solid var(--db-border-card);
+}
+
+.dashboard-calendar-day-preview-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 5px;
+	overflow-y: auto;
+	scrollbar-width: thin;
+}
+
+/* Reuse the calendar event-row look inside the preview. */
+.dashboard-calendar-day-preview-list .dashboard-calendar-event {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 5px;
+	border-radius: var(--db-radius-sm, 6px);
+	border-left: 3px solid transparent;
+}
+
+.dashboard-calendar-day-preview-list .dashboard-calendar-event.prio-high { border-left-color: var(--db-prio-high, #ef4444); }
+.dashboard-calendar-day-preview-list .dashboard-calendar-event.prio-medium { border-left-color: var(--db-prio-medium, #f59e0b); }
+.dashboard-calendar-day-preview-list .dashboard-calendar-event.prio-low { border-left-color: var(--db-prio-low, #3b82f6); }
+
+.dashboard-calendar-day-preview-list .dashboard-calendar-event.is-overdue {
+	background: color-mix(in srgb, var(--db-prio-high, #ef4444) 16%, transparent);
+}
+
+.dashboard-calendar-day-preview-list .dashboard-calendar-event.is-done .dashboard-calendar-event-text {
+	text-decoration: line-through;
+	opacity: 0.6;
+}
+
+.dashboard-calendar-day-preview-list .dashboard-calendar-event-time {
+	font-size: 0.8em;
+	color: var(--db-text-muted);
+	flex-shrink: 0;
+}
+
+.dashboard-calendar-day-preview-list .dashboard-calendar-event-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-calendar-day-preview-more {
+	padding: 4px 6px 2px;
+	font-size: 0.78em;
+	color: var(--db-text-muted);
+	text-align: center;
+}
+
 .dashboard-calendar.is-compact .dashboard-calendar-cell-list,
 .dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-more {
 	display: none;

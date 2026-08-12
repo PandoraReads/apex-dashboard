@@ -16,11 +16,17 @@ export interface MonthGridOptions {
 	onOpenNote?: (file: TFile) => void;
 	/** Compact mode: clicking a day cell opens its agenda. */
 	onDayClick?: (iso: string) => void;
+	/** Dot mode: show a single dot when the day has tasks (no task text). Implies
+	 *  compact-style clickable cells. Typically paired with onDayHover so the
+	 *  hidden tasks surface on hover. */
+	dotMode?: boolean;
 	/** Show each task's time-of-day label (week view). */
 	showTimes?: boolean;
-	/** Dot mode (narrow sidebar): show only the day number + a single dot when the day has tasks,
-	 *  no task text. Implies compact-style clickable cells. */
-	dotMode?: boolean;
+	/** Dot mode: the pointer enters a day cell that has tasks. `anchor` is the cell
+	 *  element — used by the caller to position a preview popup near it. */
+	onDayHover?: (iso: string, anchor: HTMLElement) => void;
+	/** Dot mode: the pointer left a day cell (or the grid). Caller hides its popup. */
+	onDayLeave?: () => void;
 }
 
 const COMPACT_MAX_PER_DAY = 3;
@@ -144,6 +150,15 @@ export function renderMonthGrid(
 		if ((opts.compact || opts.dotMode) && opts.onDayClick) {
 			cell.addClass('is-clickable');
 			cell.addEventListener('click', () => opts.onDayClick?.(iso));
+		}
+
+		// Dot mode hover preview: only fire for cells that actually have tasks,
+		// so empty days stay quiet.
+		if (opts.dotMode && dayTasks.length > 0 && opts.onDayHover) {
+			cell.addEventListener('mouseenter', () => opts.onDayHover?.(iso, cell));
+			cell.addEventListener('mouseleave', () => opts.onDayLeave?.());
+			cell.addEventListener('focus', () => opts.onDayHover?.(iso, cell));
+			cell.addEventListener('blur', () => opts.onDayLeave?.());
 		}
 	}
 

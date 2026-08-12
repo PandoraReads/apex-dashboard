@@ -384,7 +384,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 
 		this.renderScrollToTop(container);
-
 	}
 
 	private renderMobileActions(bannerEl: HTMLElement): void {
