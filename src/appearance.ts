@@ -1,4 +1,4 @@
-import type { App } from 'obsidian';
+import { Platform, type App } from 'obsidian';
 import type { CustomColors, DashboardSettings } from './types';
 import { resolveVaultImage } from './banner';
 
@@ -74,7 +74,7 @@ function applyBackground(container: HTMLElement, app: App, settings: DashboardSe
 	layer.style.backgroundSize = settings.bgSize === 'contain' ? 'contain' : 'cover';
 	// background-position/repeat come from the .apex-dashboard-bg CSS class.
 
-	const blur = clampNumber(settings.bgBlur, 0, 30, 0);
+	const blur = Platform.isMobile ? 0 : clampNumber(settings.bgBlur, 0, 30, 0);
 	if (blur > 0) {
 		// Slight overscale so the blur's faded edge stays off-screen.
 		layer.style.filter = `blur(${blur}px)`;
@@ -115,7 +115,9 @@ export function clearCustomColors(root: HTMLElement): void {
  * Must run AFTER applyCustomColors so surfaceOpacity composes with custom colors.
  */
 function applyAdvanced(root: HTMLElement, settings: DashboardSettings): void {
-	if (settings.glassBlur != null) {
+	if (Platform.isMobile) {
+		root.setCssProps({ '--db-backdrop-blur': 'none' });
+	} else if (settings.glassBlur != null) {
 		const px = clampNumber(settings.glassBlur, 0, 20, 0);
 		root.style.setProperty('--db-backdrop-blur', px <= 0 ? 'none' : `blur(${px}px)`);
 	}

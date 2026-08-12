@@ -48,6 +48,8 @@ function findUnknownFunction(query: import('./types').Query): string | null {
 	const names: string[] = [];
 	for (const f of query.fields) collectFunctionCalls(f.expr, names);
 	if (query.calendarField) collectFunctionCalls(query.calendarField, names);
+	if (query.heatmapValueField) collectFunctionCalls(query.heatmapValueField, names);
+	if (query.heatmapDateField) collectFunctionCalls(query.heatmapDateField, names);
 	for (const cmd of query.commands) {
 		switch (cmd.kind) {
 			case 'where': collectFunctionCalls(cmd.expr, names); break;

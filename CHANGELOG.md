@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.7.0 (2026-08-12)
+
+### Added
+- **Dataview section — query your vault with DQL** — A brand-new section type that runs Dataview-style queries directly inside the dashboard, no external plugin required. Write a self-contained DQL engine covering `TABLE`, `LIST`, `TASK`, `CALENDAR`, and `HEATMAP` query types with the full clause set (`FROM` folders/tags/links with `AND`/`OR`/`NOT`, `WHERE`, `SORT`, `GROUP BY`, `FLATTEN`, `LIMIT`), ~40 built-in functions, all `file.*` implicit fields, YAML frontmatter, and inline fields (`[key:: value]`). The config modal offers live syntax validation and one-click sample queries; `TASK` rows toggle back to the source note, `CALENDAR` plots a month grid, and `HEATMAP` plots a year contribution grid from any numeric field. Results reuse the dashboard's glassmorphism theme and refresh on demand (manual refresh button).
+- **Dataview heatmap queries** — `HEATMAP <value> [USING <date>]` aggregates a numeric field by day into a year heatmap; `USING` may sit before or after `FROM`.
+
+### Changed
+- **Calendar DQL date fields** — `CALENDAR <field>` now uses the requested date field instead of silently falling back to file creation dates.
+
+### Fixed
+- **Subtask collapse/expand lag** — Tapping the chevron to expand or collapse a parent task's subtasks (or a project's nested docs) could take several seconds to respond. The "quiet" collapse path was still echoing through the full-board re-render: the deferred disk write unconditionally notified the view, rebuilding the entire dashboard a second after every toggle. The write is now silent, and the chevron handler tracks collapse state locally instead of reading a stale closed-over snapshot (which could only ever fold once after the re-render was removed). Toggling is now instant.
+
+### Removed
+- **Standalone heatmap section** — The old heatmap section type has been removed. Use a Dataview section with `HEATMAP rating FROM "Books" USING finished`, or the existing tracker card heatmap style, depending on the use case. Existing `type: heatmap` sections safely fall back to regular project-style sections on load.
+- **Legacy sidebar heatmap widget settings** — Dropped the unused `widgetHeatmap*` settings strings left over from the removed sidebar widget.
+
 ## 1.6.3 (2026-08-10)
 
 ### Fixed

@@ -478,6 +478,8 @@ function project(query: Query, rows: readonly Row[], grouped: boolean): QueryRes
 		rows: resultRows,
 		grouped,
 		calendarField: query.calendarField,
+		heatmapValueField: query.heatmapValueField,
+		heatmapDateField: query.heatmapDateField,
 	};
 }
 
@@ -525,6 +527,19 @@ function projectRow(query: Query, row: Row, grouped: boolean): ResultRow {
 		values.push(row.task?.text ? coerceString(row.task.text) : row.page.fields['file.link'] ?? null);
 	} else if (query.queryType === 'CALENDAR') {
 		values.push(row.page.fields['file.link'] ?? null);
+		// When the user named a date field (CALENDAR <expr>), evaluate it per row
+		// and surface the resolved DqlDate as the second value so the renderer can
+		// place the dot on the intended day (not always file.cday).
+		if (query.calendarField) {
+			const dv = evaluate(query.calendarField, ctx, 0);
+			values.push(dv.ok ? dv.value : null);
+		}
+	} else if (query.queryType === 'HEATMAP') {
+		const value = query.heatmapValueField ? evaluate(query.heatmapValueField, ctx, 0) : { ok: true as const, value: null };
+		values.push(value.ok ? coerceNumber(value.value) : null);
+		const dateExpr = query.heatmapDateField ?? defaultFileDayExpr();
+		const date = evaluate(dateExpr, ctx, 0);
+		values.push(date.ok ? date.value : null);
 	}
 
 	const memberRows: ResultRow[] | undefined = grouped && row.locals['rows']
@@ -538,6 +553,10 @@ function projectRow(query: Query, row: Row, grouped: boolean): ResultRow {
 		rows: memberRows,
 		task: row.task,
 	};
+}
+
+function defaultFileDayExpr(): Expression {
+	return { type: 'member', object: { type: 'identifier', name: 'file' }, field: 'day' };
 }
 
 /* ----------------------------- public API ----------------------------- */

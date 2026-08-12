@@ -15,7 +15,6 @@ import type {
 	WeatherConfig,
 	TrackerConfig,
 	LibraryConfig,
-	HeatmapConfig,
 	WereadConfig,
 	TickTickConfig,
 	DataviewConfig,
@@ -24,6 +23,7 @@ import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
+const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
 // does not register them as tags. Restore the '#' here; legacy '#xxxxxx' values
@@ -211,14 +211,6 @@ export function serialize(data: DashboardData): string {
 		}
 		if (col.height != null) {
 			lines.push(`    height: ${col.height}`);
-		}
-		if (col.heatmapConfig) {
-			const hc = col.heatmapConfig;
-			lines.push('    heatmap:');
-			lines.push(`      folder: "${escapeYamlString(hc.folder)}"`);
-			lines.push(`      trackerKey: "${escapeYamlString(hc.trackerKey)}"`);
-			if (hc.title) lines.push(`      title: "${escapeYamlString(hc.title)}"`);
-			lines.push(`      period: ${hc.period === 'thisYear' ? 'thisYear' : 'pastYear'}`);
 		}
 		if (col.wereadConfig) {
 			const wc = col.wereadConfig;
@@ -745,16 +737,15 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
 	return (raw as Array<Record<string, unknown>>).map(item => ({
 			name: String((item.name ?? 'Unnamed') as string | number | boolean),
 			color: String((item.color ?? '#6366f1') as string | number | boolean),
-			sectionType: item.type ? String(item.type as string | number | boolean) : undefined,
+		sectionType: item.type ? String(item.type as string | number | boolean) : undefined,
 		libraryConfig: item.library ? parseLibraryConfig(item.library as Record<string, unknown>) : undefined,
-		heatmapConfig: item.heatmap ? parseHeatmapConfig(item.heatmap as Record<string, unknown>) : undefined,
 		wereadConfig: item.weread ? parseWereadConfig(item.weread as Record<string, unknown>) : undefined,
 		ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
 		dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
@@ -762,7 +753,7 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 	}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -788,7 +779,6 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			// stable across save/reload. Project/notes/etc. sections keep using `docs`.
 			cards: resolvedType === 'memo' ? cards.map(foldDocsIntoBody) : cards,
 			libraryConfig: def?.libraryConfig,
-			heatmapConfig: def?.heatmapConfig,
 			wereadConfig: def?.wereadConfig,
 			ticktickConfig: def?.ticktickConfig,
 			dataviewConfig: def?.dataviewConfig,
@@ -820,21 +810,10 @@ function resolveSectionType(
 	cards: DashboardCard[],
 	fallback?: string,
 ): string {
-	if (fallback) return fallback;
+	if (fallback && SECTION_TYPES.has(fallback)) return fallback;
 
 	const lower = name.toLowerCase();
-	if (lower === 'memo') return 'memo';
-	if (lower === 'todo') return 'todo';
-	if (lower === 'projects') return 'projects';
-	if (lower === 'notes') return 'notes';
-	if (lower === 'dashboard') return 'dashboard';
-	if (lower === 'library') return 'library';
-	if (lower === 'folder') return 'folder';
-	if (lower === 'images') return 'images';
-	if (lower === 'videos') return 'videos';
-	if (lower === 'alltasks') return 'alltasks';
-	if (lower === 'calendar') return 'calendar';
-	if (lower === 'dataview') return 'dataview';
+	if (SECTION_TYPES.has(lower)) return lower;
 
 	if (cards.length > 0) {
 		const types = new Set(cards.map(c => c.type));
@@ -890,17 +869,6 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 			} : undefined,
 		};
 	}
-
-function parseHeatmapConfig(raw: Record<string, unknown>): HeatmapConfig {
-	// New: period ∈ {pastYear, thisYear}. Legacy rangeMode/days/period values are migrated.
-	const period: HeatmapConfig['period'] = raw.period === 'thisYear' ? 'thisYear' : 'pastYear';
-	return {
-		folder: str(raw.folder ?? ''),
-		trackerKey: str(raw.trackerKey ?? ''),
-		title: raw.title ? str(raw.title) : undefined,
-		period,
-	};
-}
 
 function parseWereadConfig(raw: Record<string, unknown>): WereadConfig {
 	const validView = (v: unknown): WereadConfig['widgets'][number]['view'] =>

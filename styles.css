@@ -13722,3 +13722,39 @@
 	font-size: 9px;
 	color: var(--db-text-muted, var(--text-muted));
 }
+
+/* Mobile GPU safety override.
+   Keep this near the end of the stylesheet so later feature/theme blocks cannot
+   re-enable expensive blur/filter layers on iOS/Android WebView. Obsidian
+   reloads plugins after a renderer crash, so these effects can look like
+   repeated plugin loads on phones. Desktop/tablet-wide layouts keep the full
+   glass treatment. */
+@media (max-width: 640px) {
+	.is-mobile .apex-dashboard-root,
+	.is-mobile .apex-dashboard-root *,
+	.is-mobile .dashboard-modal,
+	.is-mobile [data-theme] .dashboard-modal,
+	.is-mobile .theme-light [data-theme] .dashboard-modal,
+	.is-mobile .theme-dark [data-theme] .dashboard-modal,
+	.is-mobile .modal--dashboard,
+	.is-mobile .modal-bg--dashboard,
+	.is-mobile .dashboard-banner--stats::before,
+	.is-mobile .dashboard-heatmap-stats-popup,
+	.is-mobile .dashboard-pomodoro-stats-overlay,
+	.is-mobile .dashboard-confirm-overlay,
+	.is-mobile .file-suggest-container,
+	.is-mobile .suggestion-container {
+		backdrop-filter: none !important;
+		-webkit-backdrop-filter: none !important;
+		filter: none !important;
+	}
+
+	.is-mobile .apex-dashboard-root {
+		--db-backdrop-blur: none !important;
+	}
+
+	.is-mobile .apex-dashboard-bg {
+		filter: none !important;
+		transform: none !important;
+	}
+}

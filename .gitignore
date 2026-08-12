@@ -23,3 +23,5 @@ version-bump.mjs
 # AI / Dev helpers
 AGENTS.md
 300句经典句子.md
+# DQL test fixtures (local only)
+dataview-test/

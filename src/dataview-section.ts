@@ -1,13 +1,13 @@
 import { App, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
-import type { DashboardColumn } from './types';
+import type { DashboardColumn, TrackerDataPoint } from './types';
 import type { DqlLink, DqlValue, QueryResult, ResultRow } from './dql/types';
-import { t } from './i18n';
+import { getLanguage, t } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { toggleTaskInFile } from './alltasks-scan';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
-import { formatValue, kindOf } from './dql/values';
+import { coerceNumber, formatValue, kindOf } from './dql/values';
 
 // Module-level singletons mirroring library-section.ts:13-14 — set once per
 // render so the inner renderers can route opens + hover previews without
@@ -16,6 +16,9 @@ let dvHoverParent: HoverParent | null = null;
 let dvOpener: ((file: TFile) => void) | null = null;
 
 const MAX_ROWS = 500; // hard cap to keep the DOM finite on pathological queries.
+const HEATMAP_CELL_GAP = 3;
+const HEATMAP_MIN_CELL = 10;
+const HEATMAP_MAX_CELL = 20;
 
 /**
  * Render a Dataview (DQL) section. Builds the query once on open, then on each
@@ -35,9 +38,11 @@ export function renderDataviewSection(
 
 	const config = column.dataviewConfig ?? { query: '' };
 	const content = el.createDiv({ cls: 'dashboard-dataview-content' });
+	let hasRun = false;
 
 	const render = async (): Promise<void> => {
 		content.empty();
+		hasRun = true;
 
 		if (config.query.trim().length === 0) {
 			renderEmptyState(content, 'dataview.emptyQuery', true);
@@ -65,17 +70,21 @@ export function renderDataviewSection(
 	};
 
 	reloadRegister(() => { void render(); });
-	void render();
+	if (Platform.isMobile) {
+		renderEmptyState(content, 'dataview.mobileManualRun', 'dataview.mobileManualRunHint');
+	} else if (!hasRun) {
+		void render();
+	}
 }
 
 /* ----------------------------- states ----------------------------- */
 
-function renderEmptyState(container: HTMLElement, key: string, hint = false): void {
+function renderEmptyState(container: HTMLElement, key: string, hint: boolean | string = false): void {
 	const wrap = container.createDiv({ cls: 'dashboard-dataview-empty' });
 	wrap.createDiv({ cls: 'dashboard-dataview-empty-icon' });
 	wrap.createDiv({ cls: 'dashboard-dataview-empty-text', text: t(key) });
 	if (hint) {
-		wrap.createDiv({ cls: 'dashboard-dataview-empty-hint', text: t('dataview.configureHint') });
+		wrap.createDiv({ cls: 'dashboard-dataview-empty-hint', text: t(typeof hint === 'string' ? hint : 'dataview.configureHint') });
 	}
 }
 
@@ -120,6 +129,9 @@ function renderResult(container: HTMLElement, result: QueryResult, app: App, rer
 			break;
 		case 'CALENDAR':
 			renderCalendar(container, result, visible, app);
+			break;
+		case 'HEATMAP':
+			renderHeatmap(container, visible);
 			break;
 	}
 }
@@ -311,9 +323,17 @@ function renderCalendar(container: HTMLElement, result: QueryResult, rows: reado
 	container.appendChild(wrap);
 }
 
-/** Extract the epoch ms for a calendar row from its projected value or file.day. */
+/** Extract the epoch ms for a calendar row. When the query named a date field
+ *  (`CALENDAR <expr>`), the evaluator stored its resolved DqlDate at values[1] —
+ *  prefer it (and return null if the note lacks that field, rather than silently
+ *  falling back to file.cday). Only when no field was given do we walk the
+ *  file.day/cday/ctime fallback chain. */
 function rowDateTs(row: ResultRow, result: QueryResult): number | null {
-	void result;
+	if (result.calendarField && row.values.length > 1) {
+		const v = row.values[1];
+		if (v && kindOf(v) === 'date') return (v as { ts: number }).ts;
+		return null;
+	}
 	const page = row.page;
 	if (!page) return null;
 	for (const key of ['file.day', 'file.cday', 'file.ctime']) {
@@ -342,6 +362,151 @@ function monthLabel(ts: number): string {
 	const d = new Date(ts);
 	const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 	return `${names[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/* ----------------------------- HEATMAP ----------------------------- */
+
+function renderHeatmap(container: HTMLElement, rows: readonly ResultRow[]): void {
+	const totals = new Map<string, number>();
+	for (const row of rows) {
+		const value = coerceNumber(row.values[0] ?? null);
+		const dateValue = row.values[1] ?? null;
+		if (value === null || !dateValue || kindOf(dateValue) !== 'date') continue;
+		const date = ymdKey((dateValue as { ts: number }).ts);
+		totals.set(date, (totals.get(date) ?? 0) + value);
+	}
+	if (totals.size === 0) {
+		renderEmptyState(container, 'dataview.heatmapNoData');
+		return;
+	}
+
+	const dates = [...totals.keys()].sort();
+	const latestYear = Number(dates[dates.length - 1]!.slice(0, 4));
+	const year = Number.isFinite(latestYear) ? latestYear : new Date().getFullYear();
+	const data = fillYearHeatmapData(totals, year);
+	const validPoints = data.filter((p): p is TrackerDataPoint & { value: number } => p.value !== null);
+	if (validPoints.length === 0) {
+		renderEmptyState(container, 'dataview.heatmapNoData');
+		return;
+	}
+
+	const values = validPoints.map(p => p.value);
+	const minVal = Math.min(...values);
+	const maxVal = Math.max(...values);
+	const valueRange = maxVal - minVal || 1;
+	const accent = dvCssVar('--db-accent') || dvCssVar('--interactive-accent') || '#6366f1';
+	const body = container.createDiv({ cls: 'dashboard-heatmap-section-body dashboard-dataview-heatmap-body' });
+	renderDataviewYearGrid(body, buildDataviewWeekColumns(data), minVal, valueRange, accent);
+}
+
+function fillYearHeatmapData(totals: Map<string, number>, year: number): TrackerDataPoint[] {
+	const points: TrackerDataPoint[] = [];
+	const cursor = new Date(year, 0, 1);
+	while (cursor.getFullYear() === year) {
+		const date = ymdKey(cursor.getTime());
+		points.push({ date, value: totals.get(date) ?? null });
+		cursor.setDate(cursor.getDate() + 1);
+	}
+	return points;
+}
+
+function dvCssVar(name: string): string {
+	const root = activeDocument.querySelector('.apex-dashboard-root');
+	const el = root instanceof HTMLElement ? root : activeDocument.body;
+	return getComputedStyle(el).getPropertyValue(name).trim();
+}
+
+function buildDataviewWeekColumns(data: TrackerDataPoint[]): Array<Array<TrackerDataPoint | null>> {
+	const cols: Array<Array<TrackerDataPoint | null>> = [];
+	if (data.length === 0) return cols;
+	const first = new Date(data[0]!.date + 'T00:00:00');
+	const firstDow = first.getDay();
+	const mondayOffset = firstDow === 0 ? 6 : firstDow - 1;
+	let col: Array<TrackerDataPoint | null> = [];
+	for (let i = 0; i < mondayOffset; i++) col.push(null);
+	for (const p of data) {
+		col.push(p);
+		if (col.length === 7) {
+			cols.push(col);
+			col = [];
+		}
+	}
+	if (col.length > 0) cols.push(col);
+	return cols;
+}
+
+function chooseDataviewCellSize(containerWidth: number, weekCount: number): number {
+	if (weekCount <= 0 || containerWidth <= 0) return HEATMAP_MIN_CELL;
+	const available = containerWidth - (weekCount - 1) * HEATMAP_CELL_GAP;
+	const ideal = Math.floor(available / weekCount);
+	return Math.max(HEATMAP_MIN_CELL, Math.min(HEATMAP_MAX_CELL, ideal));
+}
+
+function renderDataviewYearGrid(
+	host: HTMLElement,
+	weekCols: Array<Array<TrackerDataPoint | null>>,
+	minVal: number,
+	valueRange: number,
+	accent: string,
+): void {
+	const wrap = host.createDiv({ cls: 'dashboard-heatmap-year' });
+	const width = wrap.parentElement?.clientWidth ?? 800;
+	const cell = chooseDataviewCellSize(width, weekCols.length);
+	wrap.style.setProperty('--hm-cell', `${cell}px`);
+
+	const monthRow = wrap.createDiv({ cls: 'dashboard-heatmap-months-top' });
+	const grid = wrap.createDiv({ cls: 'dashboard-heatmap-grid' });
+
+	const monthLabels = computeDataviewMonthLabels(weekCols);
+	monthRow.style.gridTemplateColumns = `repeat(${weekCols.length}, ${cell}px)`;
+	for (let i = 0; i < weekCols.length; i++) {
+		const slot = monthRow.createDiv({ cls: 'dashboard-heatmap-month-label-top' });
+		const label = monthLabels[i];
+		if (label) slot.setText(label);
+	}
+
+	for (const col of weekCols) {
+		for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+			const point = col[dayIdx] ?? null;
+			const cellEl = grid.createDiv({ cls: 'dashboard-sidebar-heatmap-cell' });
+			if (point === null || point.value === null) {
+				cellEl.addClass('dashboard-sidebar-heatmap-cell--empty');
+			} else {
+				const intensity = valueRange > 0 ? (point.value - minVal) / valueRange : 1;
+				const clamped = Math.max(0, Math.min(1, intensity));
+				cellEl.style.backgroundColor = accent;
+				cellEl.style.opacity = String(0.35 + clamped * 0.65);
+				cellEl.style.filter = `brightness(${1 + clamped * 0.5}) saturate(1.4)`;
+				cellEl.title = `${point.date}: ${point.value}`;
+			}
+		}
+	}
+}
+
+function computeDataviewMonthLabels(weekCols: Array<Array<TrackerDataPoint | null>>): Array<string | null> {
+	const labels: Array<string | null> = [];
+	let lastMonth = '';
+	const locale = getLanguage() === 'zh' ? 'zh-CN' : 'en-US';
+	for (const col of weekCols) {
+		const firstPoint = col.find((p): p is TrackerDataPoint => p !== null);
+		const monthKey = firstPoint ? firstPoint.date.slice(0, 7) : '';
+		if (monthKey && monthKey !== lastMonth) {
+			const d = new Date(`${monthKey}-01T00:00:00`);
+			labels.push(Number.isNaN(d.getTime()) ? monthKey : d.toLocaleDateString(locale, { month: 'short' }));
+			lastMonth = monthKey;
+		} else {
+			labels.push(null);
+		}
+	}
+	return labels;
+}
+
+function ymdKey(ts: number): string {
+	const d = new Date(ts);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
 }
 
 /* ----------------------------- value cell rendering ----------------------------- */

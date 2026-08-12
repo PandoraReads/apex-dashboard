@@ -1,5 +1,5 @@
 import { App } from 'obsidian';
-import type { HeatmapPeriod, TrackerDataPoint } from './types';
+import type { TrackerDataPoint } from './types';
 
 export function readTrackerDataForRange(
 	app: App,
@@ -74,32 +74,6 @@ export function computeStreak(points: TrackerDataPoint[]): number {
 		cursor.setDate(cursor.getDate() - 1);
 	}
 	return streak;
-}
-
-export function getPeriodRange(
-	period: HeatmapPeriod,
-	now: Date = new Date(),
-): { start: Date; end: Date } {
-	const y = now.getFullYear();
-	const m = now.getMonth();
-
-	let start: Date;
-	let naturalEnd: Date;
-	if (period === 'month') {
-		start = new Date(y, m, 1);
-		naturalEnd = new Date(y, m + 1, 0);
-	} else if (period === 'quarter') {
-		const qStartMonth = Math.floor(m / 3) * 3;
-		start = new Date(y, qStartMonth, 1);
-		naturalEnd = new Date(y, qStartMonth + 3, 0);
-	} else {
-		start = new Date(y, 0, 1);
-		naturalEnd = new Date(y, 11, 31);
-	}
-
-	const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-	const end = naturalEnd.getTime() < todayEnd.getTime() ? naturalEnd : todayEnd;
-	return { start, end };
 }
 
 /** Past N days ending today (inclusive). N = 365 or 366 depending on leap year. */

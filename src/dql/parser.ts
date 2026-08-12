@@ -10,7 +10,7 @@ import { makeDate, makeDuration, makeLink, makeObject } from './values';
 /**
  * Recursive-descent DQL parser. Produces a {@link Query} AST or a parse error.
  * Grammar (simplified):
- *   query        := queryType (withoutId)? (fieldList)? from? command* (calendarField)?
+ *   query        := queryType (withoutId)? (fieldList)? heatmapField? from? command*
  *   from         := FROM source
  *   source       := sourceTerm (('AND'|'&' | 'OR'|'|') sourceTerm)*
  *                 | sourceTerm 'AND' 'NOT' sourceTerm
@@ -61,8 +61,32 @@ class Parser {
 			calendarField = cf.value;
 		}
 
+		let heatmapValueField: Expression | undefined;
+		let heatmapDateField: Expression | undefined;
+		if (queryType.value === 'HEATMAP') {
+			const valueField = this.parseExpression(0);
+			if (!valueField.ok) return valueField;
+			heatmapValueField = valueField.value;
+			if (this.peek().type === 'keyword' && this.peek().text === 'USING') {
+				this.advance();
+				const dateField = this.parseExpression(0);
+				if (!dateField.ok) return dateField;
+				heatmapDateField = dateField.value;
+			}
+		}
+
 		const from = this.parseFrom();
 		if (!from.ok) return from;
+
+		// USING may also appear AFTER FROM (e.g. `HEATMAP rating FROM "Books"
+		// USING finished`) — accept both orderings for ergonomics.
+		if (queryType.value === 'HEATMAP' && !heatmapDateField
+			&& this.peek().type === 'keyword' && this.peek().text === 'USING') {
+			this.advance();
+			const dateField = this.parseExpression(0);
+			if (!dateField.ok) return dateField;
+			heatmapDateField = dateField.value;
+		}
 
 		const commands: DataCommand[] = [];
 		let limitSeen = false;
@@ -90,6 +114,8 @@ class Parser {
 			from: from.value,
 			commands,
 			calendarField,
+			heatmapValueField,
+			heatmapDateField,
 		});
 	}
 
@@ -97,12 +123,12 @@ class Parser {
 
 	private parseQueryType(): Result<QueryType> {
 		const tok = this.peek();
-		if (tok.type === 'keyword' && (tok.text === 'LIST' || tok.text === 'TABLE' || tok.text === 'TASK' || tok.text === 'CALENDAR')) {
+		if (tok.type === 'keyword' && (tok.text === 'LIST' || tok.text === 'TABLE' || tok.text === 'TASK' || tok.text === 'CALENDAR' || tok.text === 'HEATMAP')) {
 			this.advance();
 			return ok<QueryType>(tok.text);
 		}
-		if (tok.type === 'eof') return parseError<QueryType>('Query must start with LIST, TABLE, TASK, or CALENDAR.');
-		return parseError<QueryType>(`Expected a query type (LIST/TABLE/TASK/CALENDAR) but found "${tok.text}".`, tok.line, tok.column);
+		if (tok.type === 'eof') return parseError<QueryType>('Query must start with LIST, TABLE, TASK, CALENDAR, or HEATMAP.');
+		return parseError<QueryType>(`Expected a query type (LIST/TABLE/TASK/CALENDAR/HEATMAP) but found "${tok.text}".`, tok.line, tok.column);
 	}
 
 	private consumeWithoutId(): boolean {
@@ -119,7 +145,7 @@ class Parser {
 		return false;
 	}
 
-	/** TABLE fields / LIST field / TASK none / CALENDAR none. */
+	/** TABLE fields / LIST field / TASK none / CALENDAR none / HEATMAP parsed separately. */
 	private parseFieldList(queryType: QueryType): Result<FieldSpec[]> {
 		if (queryType === 'TABLE' || queryType === 'LIST') {
 			if (this.startsFieldList()) {

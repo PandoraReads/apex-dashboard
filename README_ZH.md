@@ -26,6 +26,9 @@
 ### 📅 日历（Calendar）
 原生月历格子，展示全仓库所有带日期的任务（无需 dataview 或外部插件）。每格列出当天任务，点击格子查看当日日程；可打开全屏大月历，支持月份切换与就地勾选。多日行程（`[start::]`/`[end::]`）跨天显示。
 
+### 🔍 查询（Dataview）
+用内置 DQL 引擎查询整个仓库，无需安装 Dataview 插件。添加查询分区后即可书写查询语句，例如 `TABLE file.name, rating FROM "Books" WHERE rating >= 4 SORT rating DESC`。支持 `TABLE`、`LIST`、`TASK`、`CALENDAR`、`HEATMAP` 五种输出，来源可用文件夹、标签、链接（`FROM`），搭配 `WHERE`、`SORT`、`GROUP BY`、`FLATTEN`、`LIMIT` 子句、约 40 个内置函数、全部 `file.*` 隐式字段、YAML frontmatter 和内联字段（`[key:: value]`）。配置弹窗实时校验语法并提供一键示例查询。`TASK` 复选框可直接回写源笔记，`CALENDAR` 绘制月历网格，`HEATMAP` 用任意数值字段绘制年度贡献热力图。结果通过分区刷新按钮按需更新。
+
 ### ⚡ 快捷操作
 将常用快捷方式固定到侧边栏，支持两种操作类型：**文件**链接可打开任意文档，**命令**快捷方式可触发任意 Obsidian 命令。内置新建日记和新建笔记预设。
 

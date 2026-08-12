@@ -400,18 +400,6 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async updateHeatmapConfig(columnName: string, config: import('./types').HeatmapConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, heatmapConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
-	}
-
 	async updateWereadConfig(columnName: string, config: import('./types').WereadConfig): Promise<void> {
 		if (!this.data) return;
 
@@ -838,14 +826,24 @@ export class SyncEngine {
 		void this.writeToDisk();
 	}
 
+	/**
+	 * Persist `this.data` to disk on a debounce WITHOUT re-rendering the view.
+	 *
+	 * Used by the "quiet" collapse toggles (`toggleCollapseTaskQuiet` /
+	 * `toggleCollapseDocQuiet`): the renderer has already updated the DOM in
+	 * place, so the deferred write only needs to flush the new `collapsed` flag
+	 * to disk. The write MUST NOT echo back through `notifyCallbacks`, otherwise
+	 * the whole dashboard is torn down and rebuilt a second after every chevron
+	 * click — the source of the multi-second lag.
+	 */
 	private scheduleDeferredWrite(): void {
 		if (this.deferredWriteTimer) window.clearTimeout(this.deferredWriteTimer);
 		this.deferredWriteTimer = window.setTimeout(() => {
 			this.deferredWriteTimer = null;
 			if (this.data) {
-				void this.writeToDisk();
+				void this.writeToDisk(true);
 			}
-		}, 1000);
+		}, 400);
 	}
 
 	private onFileModify(): void {
@@ -872,7 +870,14 @@ export class SyncEngine {
 		this.notifyCallbacks();
 	}
 
-	private async writeToDisk(): Promise<void> {
+	/**
+	 * Serialize `this.data` to the dashboard file.
+	 *
+	 * `silent=true` skips `notifyCallbacks` — for collapse toggles whose DOM is
+	 * already updated in place and only need the new state flushed to disk,
+	 * without triggering a full-board re-render.
+	 */
+	private async writeToDisk(silent = false): Promise<void> {
 		if (!this.data || !this.file) return;
 
 		const content = serialize(this.data);
@@ -897,7 +902,9 @@ export class SyncEngine {
 			}
 		});
 
-		this.notifyCallbacks();
+		if (!silent) {
+			this.notifyCallbacks();
+		}
 	}
 
 	private async createBackup(currentContent: string): Promise<void> {

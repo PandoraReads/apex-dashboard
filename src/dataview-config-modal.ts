@@ -35,6 +35,10 @@ const SAMPLE_QUERIES: readonly SampleQuery[] = [
 		key: 'dataview.sample_authorCounts',
 		dql: 'TABLE length(rows) AS "Books", rows.file.name AS "Titles"\nFROM "Books"\nGROUP BY author\nSORT length(rows) DESC',
 	},
+	{
+		key: 'dataview.sample_heatmap',
+		dql: 'HEATMAP rating FROM "Books" USING finished',
+	},
 ];
 
 /**

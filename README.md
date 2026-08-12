@@ -26,6 +26,9 @@ Aggregate every checkbox task across your entire vault into one section — like
 ### 📅 Calendar
 A native month-grid calendar of every dated task across your vault (no dataview or external plugin needed). Each day cell lists its tasks; click a day for its agenda. Open a full-screen calendar with month navigation and inline toggling. Multi-day events with `[start::]` / `[end::]` span across days.
 
+### 🔍 Dataview
+Query your vault with a built-in DQL engine — no Dataview plugin required. Add a Dataview section and write queries like `TABLE file.name, rating FROM "Books" WHERE rating >= 4 SORT rating DESC`. Supports `TABLE`, `LIST`, `TASK`, `CALENDAR`, and `HEATMAP` outputs over folders, tags, and links (`FROM`), with `WHERE`, `SORT`, `GROUP BY`, `FLATTEN`, and `LIMIT` clauses, ~40 built-in functions, all `file.*` implicit fields, YAML frontmatter, and inline fields (`[key:: value]`). The config modal validates syntax live and ships one-click sample queries. `TASK` checkboxes write back to the source note, `CALENDAR` plots a month grid, and `HEATMAP` plots a year contribution grid from any numeric field. Results refresh on demand via the section's refresh button.
+
 ### ⚡ Quick Actions
 Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
 
@@ -34,7 +37,6 @@ The left sidebar features decorative widgets for at-a-glance information:
 
 - **Week Calendar** — A compact 7-day strip highlighting today's date
 - **Weather Widget** — Real-time weather with current temperature, feels-like, humidity, wind speed, and a 5-day forecast with daily high/low temperatures. Powered by Open-Meteo (no API key needed). City search with geocoding autocomplete for precise location
-- **Heatmap Widget** — Track daily frontmatter data (mood, sleep, etc.) as a GitHub-style contribution heatmap. Configurable summary: streak days (⚡), completion rate (✅), or both
 - **Pomodoro Timer** — A focus timer with activity selector and session tracking. Start, pause, and stop timed sessions with a donut chart showing today's breakdown by activity
 - **Reading Tracker** — Track your reading sessions with a built-in timer. Add books from Douban search or manual input, time your reading sessions, and record progress with page numbers. Each book card shows cover image, author, and reading progress bar
 - **Countdown** — A customizable countdown to any target date, displayed as days or hours remaining

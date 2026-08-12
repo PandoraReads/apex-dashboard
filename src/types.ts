@@ -294,9 +294,6 @@ export interface WeatherData {
 
 export type TrackerStyle = 'line' | 'heatmap' | 'bar';
 
-export type HeatmapRangeMode = 'rolling' | 'period';
-export type HeatmapPeriod = 'month' | 'quarter' | 'year';
-
 export interface TrackerConfig {
 	key: string;
 	days: number;
@@ -387,18 +384,6 @@ export interface LibraryConfig {
 	taskGroupBy?: 'date' | 'priority' | 'none';
 }
 
-/**
- * Heatmap section config. Renders a GitHub-style year heatmap (week columns,
- * 7 day rows, month labels on top) over one of two ranges.
- */
-export interface HeatmapConfig {
-	folder: string;
-	trackerKey: string;
-	title?: string;
-	/** pastYear = last 365/366 days ending today; thisYear = Jan 1→Dec 31. */
-	period: 'pastYear' | 'thisYear';
-}
-
 /** One countdown entry. Multiple countdowns are managed in settings (countdowns[]). */
 export interface CountdownConfig {
 	id: string;
@@ -450,8 +435,6 @@ export interface DashboardColumn {
 	sectionType?: string;
 	cards: DashboardCard[];
 	libraryConfig?: LibraryConfig;
-	/** Heatmap section config (sectionType 'heatmap'). */
-	heatmapConfig?: HeatmapConfig;
 	/** Weread section config (sectionType 'weread'). */
 	wereadConfig?: WereadConfig;
 	/** TickTick section config (sectionType 'ticktick'). */

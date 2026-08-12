@@ -24,7 +24,6 @@ import { AddSectionModal } from './add-section-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
-import { HeatmapConfigModal } from './heatmap-config-modal';
 import { DataviewConfigModal } from './dataview-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
 import { fetchWereadCategories } from './weread-service';
@@ -301,8 +300,6 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openFolderConfigModal(columnName);
 			} else if (col?.sectionType === 'calendar') {
 				this.openCalendarConfigModal(columnName);
-			} else if (col?.sectionType === 'heatmap') {
-				this.openHeatmapConfigModal(columnName);
 			} else if (col?.sectionType === 'weread') {
 				this.openWereadConfigModal(columnName);
 			} else if (col?.sectionType === 'dataview') {
@@ -1108,8 +1105,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.openLibraryConfigModal(name);
 		} else if (sectionType === 'folder') {
 			this.openFolderConfigModal(name);
-		} else if (sectionType === 'heatmap') {
-			this.openHeatmapConfigModal(name);
 		} else if (sectionType === 'weread') {
 			this.openWereadConfigModal(name);
 		} else if (sectionType === 'dataview') {
@@ -1188,21 +1183,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			(config) => {
 				void this.sync.updateLibraryConfig(colName, config);
 			},
-		);
-		modal.open();
-	}
-
-	private openHeatmapConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const existing = column?.heatmapConfig ?? {
-			folder: '',
-			trackerKey: '',
-			period: 'pastYear' as const,
-		};
-		const modal = new HeatmapConfigModal(
-			this.app,
-			existing,
-			(config) => { void this.sync.updateHeatmapConfig(colName, config); },
 		);
 		modal.open();
 	}

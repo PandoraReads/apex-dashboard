@@ -22,7 +22,6 @@ export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
 	{ value: 'images', icon: 'image', labelKey: 'renderer.typeImages' },
 	{ value: 'videos', icon: 'video', labelKey: 'renderer.typeVideos' },
 	{ value: 'calendar', icon: 'calendar-days', labelKey: 'renderer.typeCalendar' },
-	{ value: 'heatmap', icon: 'activity', labelKey: 'renderer.typeHeatmap' },
 	{ value: 'weread', icon: 'book-open', labelKey: 'renderer.typeWeread' },
 	{ value: 'ticktick', icon: 'check-circle', labelKey: 'renderer.typeTickTick' },
 	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },

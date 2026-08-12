@@ -5,7 +5,6 @@ import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
 import { renderCalendarSection } from './calendar-section';
-import { renderHeatmapSection } from './heatmap-section';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
 import { renderDataviewSection, setDataviewApp } from './dataview-section';
@@ -1888,6 +1887,14 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 
 	// Calendar section: month grid of every dated task across the vault.
 	if (sectionType === 'calendar') {
+		const refreshBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('calendar.refresh') },
+		});
+		setIcon(refreshBtn, 'refresh-cw');
+		let reload: (() => void) | null = null;
+		refreshBtn.addEventListener('click', () => reload?.());
+
 		const configBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('calendar.configure') },
@@ -1908,67 +1915,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			callbacks.onColumnDelete(column.name);
 		});
 
-		void renderCalendarSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
-		return el;
-	}
-
-	// Heatmap section: tracker heatmap driven by per-section HeatmapConfig.
-	if (sectionType === 'heatmap') {
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('heatmap.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		// Stats button — click shows a floating popup with streak/total/rate.
-		let statsGetter: (() => { streak: number; total: number; rate: number }) | null = null;
-		const statsBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('heatmap.stats') },
-		});
-		setIcon(statsBtn, 'bar-chart-2');
-		let statsPopup: HTMLElement | null = null;
-		statsBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			if (statsPopup) { statsPopup.remove(); statsPopup = null; return; }
-			if (!statsGetter) return;
-			const s = statsGetter();
-			statsPopup = activeDocument.body.createDiv({ cls: 'dashboard-heatmap-stats-popup' });
-			const rect = statsBtn.getBoundingClientRect();
-			statsPopup.setCssProps({ position: 'fixed', top: `${rect.bottom + 6}px`, left: `${Math.max(8, rect.right - 160)}px`, zIndex: '9999' });
-			const mkRow = (icon: string, text: string): void => {
-				const row = statsPopup!.createDiv({ cls: 'dashboard-heatmap-stats-popup-row' });
-				const ic = row.createSpan({ cls: 'dashboard-heatmap-stats-popup-icon' });
-				setIcon(ic, icon);
-				row.createSpan({ text });
-			};
-			mkRow('flame', t('heatmap.streak', { count: s.streak }));
-			mkRow('bar-chart-2', t('heatmap.total', { count: s.total }));
-			mkRow('circle-check', t('heatmap.rate', { rate: s.rate }));
-			const close = (ev: MouseEvent): void => {
-				if (statsPopup && !statsPopup.contains(ev.target as Node) && ev.target !== statsBtn) {
-					statsPopup.remove(); statsPopup = null;
-					activeDocument.removeEventListener('mousedown', close);
-				}
-			};
-			window.setTimeout(() => activeDocument.addEventListener('mousedown', close), 0);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
-		});
-
-		renderHeatmapSection(el, column, app, (getter) => { statsGetter = getter; });
+		void renderCalendarSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover, (fn) => { reload = fn; });
 		return el;
 	}
 
@@ -2084,6 +2031,15 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	if (sectionType === 'dataview') {
 		setDataviewApp(app);
 
+		// Manual refresh (deliberately NOT wired to the vault-change debounce).
+		const refreshBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('dataview.refresh') },
+		});
+		setIcon(refreshBtn, 'refresh-cw');
+		let reload: (() => void) | null = null;
+		refreshBtn.addEventListener('click', () => reload?.());
+
 		const configBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('dataview.configure') },
@@ -2093,15 +2049,6 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
 			el.dispatchEvent(event);
 		});
-
-		// Manual refresh (deliberately NOT wired to the vault-change debounce).
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('dataview.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
 
 		const deleteSectionBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
@@ -2649,13 +2596,18 @@ function renderTaskItem(
 		toggle.setAttribute('role', 'button');
 		toggle.setAttribute('aria-label', task.collapsed ? t('renderer.expandTask') : t('renderer.collapseTask'));
 		setIcon(toggle, task.collapsed ? 'chevron-right' : 'chevron-down');
+		// Track collapse state locally. The quiet toggle path no longer rebuilds
+		// the DOM (no full re-render), so the closed-over `task` reference would
+		// stay frozen at its initial value and the chevron could only ever fold
+		// once. This mutable flag is the source of truth for the click handler.
+		let isCollapsed = task.collapsed;
 		toggle.addEventListener('click', (e) => {
 			e.stopPropagation();
 			// Optimistic in-place DOM update + debounced quiet persist. Avoids the
 			// full-board re-render the old collapse path triggered.
-			const nowCollapsed = !task.collapsed;
-			toggleCollapseInPlace(item, path, 'data-task-path', nowCollapsed);
-			toggle.setAttribute('aria-label', nowCollapsed ? t('renderer.expandTask') : t('renderer.collapseTask'));
+			isCollapsed = !isCollapsed;
+			toggleCollapseInPlace(item, path, 'data-task-path', isCollapsed);
+			toggle.setAttribute('aria-label', isCollapsed ? t('renderer.expandTask') : t('renderer.collapseTask'));
 			callbacks.onTaskToggleCollapse(card.id, path);
 		});
 	}
@@ -3009,13 +2961,16 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 				toggle.setAttribute('role', 'button');
 				toggle.setAttribute('aria-label', doc.collapsed ? t('renderer.expandDoc') : t('renderer.collapseDoc'));
 				setIcon(toggle, doc.collapsed ? 'chevron-right' : 'chevron-down');
+				// See task toggle: mutable local flag avoids the frozen closed-over
+				// value now that the quiet path skips the full re-render.
+				let isCollapsed = doc.collapsed;
 				toggle.addEventListener('click', (e) => {
 					e.stopPropagation();
 					// Optimistic in-place DOM update + debounced quiet persist. Avoids
 					// the full-board re-render the old collapse path triggered.
-					const nowCollapsed = !doc.collapsed;
-					toggleCollapseInPlace(docItem, path, 'data-doc-path', nowCollapsed);
-					toggle.setAttribute('aria-label', nowCollapsed ? t('renderer.expandDoc') : t('renderer.collapseDoc'));
+					isCollapsed = !isCollapsed;
+					toggleCollapseInPlace(docItem, path, 'data-doc-path', isCollapsed);
+					toggle.setAttribute('aria-label', isCollapsed ? t('renderer.expandDoc') : t('renderer.collapseDoc'));
 					callbacks.onDocToggleCollapse(card.id, path);
 				});
 			}
@@ -3169,7 +3124,6 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'alltasks') return 'alltasks';
 	if (lower === 'calendar') return 'calendar';
 	if (lower === 'dataview') return 'dataview';
-	if (lower === 'heatmap') return 'heatmap';
 	if (lower === 'weread') return 'weread';
 	if (lower === 'ticktick') return 'ticktick';
 	if (column.cards.length > 0) {

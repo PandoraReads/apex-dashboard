@@ -79,7 +79,7 @@ export function evalError<T>(message: string): Result<T> {
 
 /* ----------------------------- AST: query ----------------------------- */
 
-export type QueryType = 'TABLE' | 'LIST' | 'TASK' | 'CALENDAR';
+export type QueryType = 'TABLE' | 'LIST' | 'TASK' | 'CALENDAR' | 'HEATMAP';
 
 export interface FieldSpec {
 	/** The expression producing this column/list-item value. */
@@ -130,6 +130,10 @@ export interface Query {
 	readonly commands: readonly DataCommand[];
 	/** CALENDAR's date field expression (e.g. `file.ctime`). */
 	readonly calendarField?: Expression;
+	/** HEATMAP's numeric value expression. */
+	readonly heatmapValueField?: Expression;
+	/** HEATMAP's date field expression; defaults to `file.day`. */
+	readonly heatmapDateField?: Expression;
 }
 
 /* ----------------------------- AST: expressions ----------------------------- */
@@ -191,4 +195,8 @@ export interface QueryResult {
 	readonly grouped: boolean;
 	/** CALENDAR's resolved date field, if applicable. */
 	readonly calendarField?: Expression;
+	/** HEATMAP's numeric value expression, if applicable. */
+	readonly heatmapValueField?: Expression;
+	/** HEATMAP's resolved date field, if applicable. */
+	readonly heatmapDateField?: Expression;
 }

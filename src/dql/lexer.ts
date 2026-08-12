@@ -23,8 +23,9 @@ export interface Token {
 /** Reserved DQL keywords. Recognized case-insensitively; emitted as `keyword`
  *  with an UPPERCASE `text` so the parser can match by exact string. */
 const KEYWORDS = new Set([
-	'LIST', 'TABLE', 'TASK', 'CALENDAR',
+	'LIST', 'TABLE', 'TASK', 'CALENDAR', 'HEATMAP',
 	'FROM', 'WHERE', 'SORT', 'GROUP', 'BY', 'FLATTEN', 'LIMIT',
+	'USING',
 	'ASC', 'DESC',
 	'AND', 'OR', 'NOT',
 	'WITHOUT', 'ID',

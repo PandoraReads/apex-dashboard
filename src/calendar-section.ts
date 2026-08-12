@@ -1,4 +1,4 @@
-import { App, Notice, setIcon, TFile } from 'obsidian';
+import { App, Notice, Platform, setIcon, TFile } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { DashboardColumn } from './types';
 import { t } from './i18n';
@@ -26,6 +26,7 @@ export async function renderCalendarSection(
 	app: App,
 	_onHoverParent: HoverParent | null,
 	onOpenNote?: (file: TFile) => void,
+	reloadRegister?: (fn: () => void) => void,
 ): Promise<void> {
 	const excludeFolders = column.libraryConfig?.excludeFolders ?? [];
 	const now = new Date();
@@ -59,7 +60,7 @@ export async function renderCalendarSection(
 				view = v;
 				if (v === 'week') weekStart = mondayOf(new Date());
 				buildViewToggle();
-				void render();
+				void load();
 			});
 		});
 	};
@@ -71,6 +72,7 @@ export async function renderCalendarSection(
 	setIcon(fullBtn, 'maximize-2');
 
 	const gridHost = content.createDiv({ cls: 'dashboard-calendar-host' });
+	let hasLoaded = false;
 
 	const onToggle = async (task: VaultTask, nextChecked: boolean): Promise<void> => {
 		try {
@@ -82,6 +84,7 @@ export async function renderCalendarSection(
 	};
 
 	async function render(): Promise<void> {
+		hasLoaded = true;
 		const tasks = (await collectVaultTasks(app, excludeFolders)).filter(isCalendarRelevant);
 		const byDay = indexTasksByDay(tasks);
 		const onDayClick = (iso: string): void => {
@@ -95,7 +98,7 @@ export async function renderCalendarSection(
 
 	prev.addEventListener('click', () => { shift(-1); });
 	next.addEventListener('click', () => { shift(1); });
-	todayBtn.addEventListener('click', () => { resetToToday(); void render(); });
+	todayBtn.addEventListener('click', () => { resetToToday(); void load(); });
 	fullBtn.addEventListener('click', () => {
 		void openFullscreen();
 	});
@@ -120,7 +123,7 @@ export async function renderCalendarSection(
 			month = m;
 			year = y;
 		}
-		void render();
+		void load();
 	}
 
 	function resetToToday(): void {
@@ -130,5 +133,12 @@ export async function renderCalendarSection(
 		weekStart = mondayOf(t0);
 	}
 
-	await render();
+	const load = (): void => { void render(); };
+	reloadRegister?.(load);
+	if (Platform.isMobile) {
+		labelEl.textContent = t('calendar.today');
+		gridHost.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.mobileManualLoad') });
+	} else if (!hasLoaded) {
+		await render();
+	}
 }
