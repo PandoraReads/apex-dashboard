@@ -4,7 +4,6 @@ import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, Ta
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
-import { renderCalendarSection } from './calendar-section';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
 import { renderDataviewSection, setDataviewApp } from './dataview-section';
@@ -21,6 +20,7 @@ import { searchBooks, downloadCoverAsBlobUrl } from './book-service';
 import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
 import { renderSidebarYearProgress } from './year-progress-widget';
+import { renderSidebarCalendar } from './calendar-widget';
 import { SUPPORTED_FILE_EXTS, iconForExtension } from './file-types';
 import type { HolidayInfo } from './holiday-service';
 import { CountdownSettingsModal } from './countdown-modal';
@@ -185,12 +185,12 @@ export function renderSidebarWidgets(
 	holidayData?: Record<string, HolidayInfo>,
 	onWidgetReorder?: (order: string[]) => void,
 ): void {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
 	if (!anyEnabled) return;
 
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
 
-	const DEFAULT_ORDER = ['lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress'];
+	const DEFAULT_ORDER = ['lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar'];
 	const order = settings.widgetOrder?.length ? settings.widgetOrder : DEFAULT_ORDER;
 
 	type WidgetEntry = { key: string; render: () => void };
@@ -200,6 +200,9 @@ export function renderSidebarWidgets(
 	}
 	if (settings.widgetYearProgressEnabled) {
 		enabled.push({ key: 'yearProgress', render: () => renderSidebarYearProgress(widgetArea) });
+	}
+	if (settings.widgetCalendarEnabled) {
+		enabled.push({ key: 'calendar', render: () => renderSidebarCalendar(widgetArea, settings, app) });
 	}
 	if (settings.widgetWeatherEnabled) {
 		enabled.push({ key: 'weather', render: () => renderSidebarWeather(widgetArea, settings, app) });
@@ -1620,7 +1623,7 @@ export function renderDashboard(
 	});
 }
 
-const SCANNING_SECTION_TYPES = new Set(['library', 'folder', 'calendar']);
+const SCANNING_SECTION_TYPES = new Set(['library', 'folder']);
 const MEDIA_SECTION_TYPES = new Set(['images', 'videos']);
 
 /**
@@ -1885,39 +1888,10 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		return el;
 	}
 
-	// Calendar section: month grid of every dated task across the vault.
-	if (sectionType === 'calendar') {
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('calendar.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
-
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('calendar.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
-		});
-
-		void renderCalendarSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover, (fn) => { reload = fn; });
-		return el;
-	}
+	// Calendar section type has been removed — the calendar now lives in the
+	// sidebar as a widget (see renderSidebarCalendar). Any legacy `type: calendar`
+	// column still in a dashboard file simply renders an empty, deletable shell
+	// (falls through to the default tail `return el`).
 
 	// Weread section: reading data from the official API.
 	if (sectionType === 'weread') {

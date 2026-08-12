@@ -17,14 +17,13 @@ export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
 	{ value: 'todo', icon: 'check-square', labelKey: 'renderer.typeTodo' },
 	{ value: 'memo', icon: 'sticky-note', labelKey: 'renderer.typeMemo' },
 	{ value: 'notes', icon: 'file-text', labelKey: 'renderer.typeNotesPlain' },
+	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
 	{ value: 'library', icon: 'database', labelKey: 'renderer.typeLibrary' },
 	{ value: 'folder', icon: 'folder', labelKey: 'renderer.typeFolder' },
 	{ value: 'images', icon: 'image', labelKey: 'renderer.typeImages' },
 	{ value: 'videos', icon: 'video', labelKey: 'renderer.typeVideos' },
-	{ value: 'calendar', icon: 'calendar-days', labelKey: 'renderer.typeCalendar' },
 	{ value: 'weread', icon: 'book-open', labelKey: 'renderer.typeWeread' },
 	{ value: 'ticktick', icon: 'check-circle', labelKey: 'renderer.typeTickTick' },
-	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
 ];
 
 export class AddSectionModal extends Modal {

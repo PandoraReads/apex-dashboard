@@ -3799,6 +3799,221 @@
 	transform: scale(1.15);
 }
 
+/* ===== Sidebar Calendar Widget ===== */
+.dashboard-sidebar-calendar {
+	position: relative;
+	overflow: hidden;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-content {
+	padding: 0;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-nav {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-bottom: 6px;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-nav-label {
+	flex: 1;
+	text-align: center;
+	font-size: 0.85em;
+	font-weight: 600;
+	color: var(--db-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-nav-btn {
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text-muted);
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-nav-btn:hover {
+	background: var(--db-bg-hover);
+	color: var(--db-text);
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-nav-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-today-btn {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text-muted);
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-today-btn:hover {
+	background: var(--db-bg-hover);
+	color: var(--db-accent);
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar-today-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* Compact the segmented month/week toggle for the narrow sidebar */
+.dashboard-sidebar-calendar .dashboard-calendar-view-toggle {
+	flex-shrink: 0;
+}
+
+.dashboard-sidebar-calendar .dashboard-library-view-btn {
+	padding: 3px 5px;
+}
+
+.dashboard-sidebar-calendar .dashboard-library-view-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* Dot-mode month grid: equal square-ish cells, number + a single accent dot */
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-body {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-cell {
+	aspect-ratio: 1 / 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	padding: 0;
+	min-height: 0;
+	border-radius: var(--db-radius-sm, 6px);
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-cell-num {
+	font-size: 0.78em;
+	line-height: 1;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-cell.is-clickable {
+	cursor: pointer;
+	transition: background 0.12s ease;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-cell.is-clickable:hover {
+	background: var(--db-bg-hover);
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-cell.is-today {
+	background: color-mix(in srgb, var(--db-accent) 22%, transparent);
+	color: var(--db-text);
+	font-weight: 700;
+}
+
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-cell.is-outside {
+	opacity: 0.4;
+}
+
+/* The dot shown under the day number when the day has tasks (dotMode only) */
+.dashboard-calendar-cell-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--db-accent);
+	flex-shrink: 0;
+}
+
+.dashboard-calendar.is-compact .dashboard-calendar-cell-list,
+.dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-more {
+	display: none;
+}
+
+/* Settings panel: excluded-folder chips + add row (shared, lightweight) */
+.dashboard-settings-folder-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	margin-top: 6px;
+}
+
+.dashboard-settings-folder-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 6px 3px 8px;
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	border: 1px solid var(--db-border-card);
+	border-radius: 999px;
+	font-size: var(--font-ui-smaller);
+}
+
+.dashboard-settings-folder-chip-remove {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+	padding: 0;
+	border-radius: 50%;
+}
+
+.dashboard-settings-folder-chip-remove:hover {
+	color: var(--text-normal);
+}
+
+.dashboard-settings-folder-chip-remove svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-settings-folder-add {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	width: 100%;
+	margin-top: 4px;
+}
+
+.dashboard-settings-folder-input {
+	flex: 1;
+	min-width: 0;
+}
+
+.dashboard-settings-folder-browse,
+.dashboard-settings-folder-add-btn {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.dashboard-settings-folder-browse svg {
+	width: 14px;
+	height: 14px;
+}
+
 /* ===== Fortune Stick Modal — Traditional Parchment ===== */
 .fortune-overlay {
 	position: fixed;

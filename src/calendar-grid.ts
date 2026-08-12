@@ -18,6 +18,9 @@ export interface MonthGridOptions {
 	onDayClick?: (iso: string) => void;
 	/** Show each task's time-of-day label (week view). */
 	showTimes?: boolean;
+	/** Dot mode (narrow sidebar): show only the day number + a single dot when the day has tasks,
+	 *  no task text. Implies compact-style clickable cells. */
+	dotMode?: boolean;
 }
 
 const COMPACT_MAX_PER_DAY = 3;
@@ -92,7 +95,7 @@ export function renderMonthGrid(
 	const leading = (firstOfMonth.getDay() + 6) % 7;
 	const gridStart = new Date(year, month, 1 - leading);
 
-	const wrap = container.createDiv({ cls: 'dashboard-calendar' + (opts.compact ? ' is-compact' : ' is-full') });
+	const wrap = container.createDiv({ cls: 'dashboard-calendar' + ((opts.compact || opts.dotMode) ? ' is-compact' : ' is-full') });
 
 	// Weekday header
 	const head = wrap.createDiv({ cls: 'dashboard-calendar-weekdays' });
@@ -119,19 +122,27 @@ export function renderMonthGrid(
 
 		cell.createDiv({ cls: 'dashboard-calendar-cell-num', text: String(d.getDate()) });
 
-		const list = cell.createDiv({ cls: 'dashboard-calendar-cell-list' });
-		const shown = opts.compact ? dayTasks.slice(0, COMPACT_MAX_PER_DAY) : dayTasks;
-		for (const task of shown) {
-			list.appendChild(renderDayTask(task, opts));
-		}
-		if (opts.compact && dayTasks.length > COMPACT_MAX_PER_DAY) {
-			list.createDiv({
-				cls: 'dashboard-calendar-more',
-				text: t('calendar.moreCount', { count: dayTasks.length - COMPACT_MAX_PER_DAY }),
-			});
+		if (opts.dotMode) {
+			// Narrow-sidebar mode: just a dot when the day has tasks.
+			if (dayTasks.length > 0) {
+				cell.createDiv({ cls: 'dashboard-calendar-cell-dot' });
+			}
+		} else {
+			const list = cell.createDiv({ cls: 'dashboard-calendar-cell-list' });
+			const shown = opts.compact ? dayTasks.slice(0, COMPACT_MAX_PER_DAY) : dayTasks;
+			for (const task of shown) {
+				list.appendChild(renderDayTask(task, opts));
+			}
+			if (opts.compact && dayTasks.length > COMPACT_MAX_PER_DAY) {
+				list.createDiv({
+					cls: 'dashboard-calendar-more',
+					text: t('calendar.moreCount', { count: dayTasks.length - COMPACT_MAX_PER_DAY }),
+				});
+			}
 		}
 
-		if (opts.compact && opts.onDayClick) {
+		if ((opts.compact || opts.dotMode) && opts.onDayClick) {
+			cell.addClass('is-clickable');
 			cell.addEventListener('click', () => opts.onDayClick?.(iso));
 		}
 	}

@@ -20,6 +20,10 @@ export interface DashboardSettings {
 	widgetLunarEnabled: boolean;
 	/** Year-progress widget: shows how much % of the current year has elapsed. */
 	widgetYearProgressEnabled: boolean;
+	/** Calendar widget: a month/week calendar of vault tasks in the sidebar. */
+	widgetCalendarEnabled: boolean;
+	/** Folders whose tasks are excluded from the calendar widget/section. */
+	calendarExcludeFolders: string[];
 	widgetOrder: string[];
 	/** Weread (WeChat Read) official API key (wrk-...), shared account-wide. */
 	wereadApiKey: string;
@@ -163,7 +167,9 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	pomodoroSoundEnabled: true,
 	widgetLunarEnabled: true,
 	widgetYearProgressEnabled: false,
-	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress'],
+	widgetCalendarEnabled: false,
+	calendarExcludeFolders: [],
+	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar'],
 	wereadApiKey: '',
 	wereadImportPath: 'Weread/划线',
 	ticktickRegion: 'dida365',

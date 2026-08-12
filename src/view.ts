@@ -28,7 +28,6 @@ import { DataviewConfigModal } from './dataview-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
 import { fetchWereadCategories } from './weread-service';
 import { fetchTickTickProjects } from './ticktick-config-modal';
-import { CalendarConfigModal } from './calendar-config-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
 import { PomodoroService } from './pomodoro-service';
@@ -298,8 +297,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (col?.sectionType === 'folder') {
 				this.openFolderConfigModal(columnName);
-			} else if (col?.sectionType === 'calendar') {
-				this.openCalendarConfigModal(columnName);
 			} else if (col?.sectionType === 'weread') {
 				this.openWereadConfigModal(columnName);
 			} else if (col?.sectionType === 'dataview') {
@@ -856,7 +853,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onOpenPinnedNote: (note: PinnedNote) => openPinnedNote(this.app, note),
 			onQuickNoteDaily: () => void openTodayNote(this.app),
 			onQuickNoteConfig: () => new QuickNoteConfigModal(this.app, this.plugin).open(),
-			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.sync.moveCard(cardId, targetCol, targetIdx),
+			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.handleMoveCard(cardId, targetCol, targetIdx),
 			onMemoColorChange: (card: DashboardCard, color: string) => this.sync.updateMemoColor(card.id, color),
 			onProjectCoverChange: (card: DashboardCard, imagePath: string) => this.sync.updateProjectCover(card.id, imagePath),
 				onCardTitleEdit: (cardId: string, newTitle: string) => this.sync.updateCard(cardId, { title: newTitle }),
@@ -1215,20 +1212,56 @@ export class DashboardView extends ItemView implements HoverParent {
 		})();
 	}
 
-	private refreshSectionInPlace(columnName: string): void {
-		if (!this.data) return;
+	/**
+	 * Optimistic card move: rewrite only the affected section(s) in place
+	 * instead of letting the default full-board re-render tear down every
+	 * section (the source of the long lag and the dragend transform "afterimage"
+	 * on memo cards).
+	 *
+	 * moveCard updates `this.data` synchronously then persists; its
+	 * `notifyCallbacks` is suppressed here (one-shot) and the file-watcher's
+	 * own reload is a no-op via its serialize-equality check, so no extra
+	 * full render fires. We then refresh just the source and target sections.
+	 */
+	private async handleMoveCard(cardId: string, targetCol: string, targetIdx: number): Promise<void> {
+		const sourceCol = this.data?.columns.find(c => c.cards.some(card => card.id === cardId))?.name;
+		this.suppressNextRender = true;
+		try {
+			await this.sync.moveCard(cardId, targetCol, targetIdx);
+		} catch {
+			// moveCard swallows disk I/O errors itself, but guard against anything
+			// else so a rejection doesn't leave the UI out of sync with this.data.
+			this.suppressNextRender = false;
+			if (this.data) this.render(this.data);
+			return;
+		}
+		// Refresh only the affected sections in place. If for some reason the
+		// in-place refresh couldn't find the DOM (e.g. a concurrent full render
+		// swapped the tree), fall back to a full render so the move still shows.
+		let refreshed = this.refreshSectionInPlace(targetCol);
+		if (sourceCol && sourceCol !== targetCol) {
+			refreshed = this.refreshSectionInPlace(sourceCol) || refreshed;
+		}
+		if (!refreshed && this.data) {
+			this.render(this.data);
+		}
+	}
+
+	private refreshSectionInPlace(columnName: string): boolean {
+		if (!this.data) return false;
 		const kanban = (this.containerEl.children[1] as HTMLElement)?.querySelector<HTMLElement>('.dashboard-kanban');
-		if (!kanban) return;
+		if (!kanban) return false;
 		const oldEl = kanban.querySelector(`:scope > [data-column="${CSS.escape(columnName)}"]`);
-		if (!oldEl) return;
+		if (!oldEl) return false;
 		const column = this.data.columns.find(c => c.name === columnName);
-		if (!column) return;
+		if (!column) return false;
 		const callbacks = this.createCallbacks();
 		const newEl = renderSection(column, callbacks, this.app, this.data, this.plugin.settings);
 		oldEl.replaceWith(newEl);
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
 		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns);
+		return true;
 	}
 
 	private async openTickTickFilterModal(colName: string): Promise<void> {
@@ -1259,23 +1292,6 @@ export class DashboardView extends ItemView implements HoverParent {
 				});
 				modal.close();
 			}));
-		modal.open();
-	}
-
-	private openCalendarConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);		const existingConfig = column?.libraryConfig ?? {
-			filters: [],
-			viewMode: 'grid' as const,
-			sortBy: 'modified',
-			sortDesc: true,
-		};
-		const modal = new CalendarConfigModal(
-			this.app,
-			existingConfig,
-			(config) => {
-				void this.sync.updateLibraryConfig(colName, config);
-			},
-		);
 		modal.open();
 	}
 

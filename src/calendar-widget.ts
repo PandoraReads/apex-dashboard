@@ -1,7 +1,6 @@
 import { App, Notice, Platform, setIcon, TFile } from 'obsidian';
-import type { HoverParent } from 'obsidian';
-import type { DashboardColumn } from './types';
 import { t } from './i18n';
+import type { DashboardSettings } from './types';
 import {
 	collectVaultTasks,
 	indexTasksByDay,
@@ -14,36 +13,26 @@ import { renderMonthGrid, renderWeekGrid, mondayOf } from './calendar-grid';
 import { CalendarMonthModal, DayAgendaModal } from './calendar-modal';
 
 /**
- * @deprecated The calendar *section* (right-side kanban column) has been removed.
- * The calendar now lives in the left sidebar as a widget — see `src/calendar-widget.ts`.
- * This module is retained only so existing imports don't break and so the file's
- * logic can be referenced; `renderCalendarSection` is no longer called by the renderer.
- * Safe to delete in a follow-up cleanup.
+ * Sidebar calendar widget: a compact month grid (day number + a dot when the day
+ * has tasks) or a week list, with month/week switching and an expand button that
+ * opens the full-screen calendar modal. Clicking a day opens its agenda (view /
+ * add / toggle tasks). Excluded folders come from the global `calendarExcludeFolders`
+ * setting. This is the sidebar replacement for the old calendar *section*.
+ *
+ * Pure presentation: no timer — cross-day refresh is handled by the view's
+ * day-rollover full re-render (same approach as the lunar / year-progress widgets).
  */
-
-/**
- * Render the calendar section: a compact in-column month grid (each day cell
- * shows its tasks, click a day for its agenda) with month navigation and a
- * full-screen button. Excluded folders come from the column's libraryConfig.
- * Toggling a task writes back to its source file; the vault modify event then
- * refreshes the grid.
- */
-export async function renderCalendarSection(
-	el: HTMLElement,
-	column: DashboardColumn,
+export function renderSidebarCalendar(
+	container: HTMLElement,
+	settings: DashboardSettings,
 	app: App,
-	_onHoverParent: HoverParent | null,
 	onOpenNote?: (file: TFile) => void,
-	reloadRegister?: (fn: () => void) => void,
-): Promise<void> {
-	const excludeFolders = column.libraryConfig?.excludeFolders ?? [];
-	const now = new Date();
-	let year = now.getFullYear();
-	let month = now.getMonth();
-	let view: 'month' | 'week' = 'month';
-	let weekStart: Date = mondayOf(now);
+): void {
+	const excludeFolders = settings.calendarExcludeFolders ?? [];
 
-	const content = el.createDiv({ cls: 'dashboard-library-content dashboard-calendar-content' });
+	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-calendar' });
+
+	const content = widget.createDiv({ cls: 'dashboard-library-content dashboard-calendar-content' });
 
 	// Navigation bar
 	const nav = content.createDiv({ cls: 'dashboard-calendar-nav' });
@@ -55,6 +44,13 @@ export async function renderCalendarSection(
 
 	// Month | Week view toggle
 	const viewToggle = nav.createDiv({ cls: 'dashboard-library-view-toggle dashboard-calendar-view-toggle' });
+
+	const now = new Date();
+	let year = now.getFullYear();
+	let month = now.getMonth();
+	let view: 'month' | 'week' = 'month';
+	let weekStart: Date = mondayOf(now);
+
 	const buildViewToggle = (): void => {
 		viewToggle.empty();
 		(['month', 'week'] as const).forEach((v) => {
@@ -75,8 +71,10 @@ export async function renderCalendarSection(
 	buildViewToggle();
 
 	nav.createDiv({ cls: 'dashboard-library-toolbar-spacer' });
-	const todayBtn = nav.createEl('button', { cls: 'dashboard-calendar-today-btn', text: t('calendar.today') });
-	const fullBtn = nav.createEl('button', { cls: 'dashboard-calendar-today-btn', attr: { 'aria-label': t('calendar.fullscreen') } });
+	const fullBtn = nav.createEl('button', {
+		cls: 'dashboard-calendar-today-btn',
+		attr: { 'aria-label': t('calendar.fullscreen') },
+	});
 	setIcon(fullBtn, 'maximize-2');
 
 	const gridHost = content.createDiv({ cls: 'dashboard-calendar-host' });
@@ -100,16 +98,12 @@ export async function renderCalendarSection(
 		};
 		const { label } = view === 'week'
 			? renderWeekGrid(gridHost, weekStart, byDay, { compact: true, app, onDayClick })
-			: renderMonthGrid(gridHost, year, month, byDay, { compact: true, app, onDayClick });
+			: renderMonthGrid(gridHost, year, month, byDay, { compact: true, dotMode: true, app, onDayClick });
 		labelEl.textContent = label;
 	}
 
 	prev.addEventListener('click', () => { shift(-1); });
 	next.addEventListener('click', () => { shift(1); });
-	todayBtn.addEventListener('click', () => { resetToToday(); void load(); });
-	fullBtn.addEventListener('click', () => {
-		void openFullscreen();
-	});
 
 	async function openFullscreen(): Promise<void> {
 		const tasks = (await collectVaultTasks(app, excludeFolders)).filter(isCalendarRelevant);
@@ -134,19 +128,26 @@ export async function renderCalendarSection(
 		void load();
 	}
 
-	function resetToToday(): void {
-		const t0 = new Date();
-		year = t0.getFullYear();
-		month = t0.getMonth();
-		weekStart = mondayOf(t0);
-	}
+	const load = (): Promise<void> => render();
 
-	const load = (): void => { void render(); };
-	reloadRegister?.(load);
 	if (Platform.isMobile) {
+		// Mobile: defer the vault scan to keep the sidebar light. The expand
+		// button loads the inline grid; from there a second tap opens fullscreen.
 		labelEl.textContent = t('calendar.today');
 		gridHost.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.mobileManualLoad') });
-	} else if (!hasLoaded) {
-		await render();
+		let loadedOnce = false;
+		fullBtn.addEventListener('click', () => {
+			if (!loadedOnce) {
+				loadedOnce = true;
+				void load().then(openFullscreen);
+			} else {
+				void openFullscreen();
+			}
+		});
+	} else {
+		fullBtn.addEventListener('click', () => { void openFullscreen(); });
+		if (!hasLoaded) {
+			void render();
+		}
 	}
 }
