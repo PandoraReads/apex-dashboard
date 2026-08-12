@@ -5,6 +5,7 @@ import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
 import { QuickNoteGuideModal } from './quick-note-guide-modal';
+import { teardownBasenameIndex } from './renderer';
 
 /** All valid style preset keys — single source of truth for migration. */
 const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'jade', 'carbon', 'onyx', 'mono'] as const;
@@ -148,6 +149,7 @@ export default class DashboardPlugin extends Plugin {
 
 	onunload(): void {
 		// registerView cleanup is automatic
+		teardownBasenameIndex(this.app);
 	}
 
 	private async openDashboard(): Promise<void> {
