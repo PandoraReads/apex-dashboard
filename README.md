@@ -111,6 +111,14 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.7.0
+- **Dataview section (built-in DQL engine)** — A new section type that runs Dataview-style queries with no external plugin: `TABLE`, `LIST`, `TASK`, `CALENDAR`, and `HEATMAP`, with `FROM`/`WHERE`/`SORT`/`GROUP BY`/`FLATTEN`/`LIMIT`, ~40 functions, `file.*` fields, YAML frontmatter, and inline fields. Live syntax validation in the config modal, one-click samples, and a manual refresh button. The old standalone Heatmap section is replaced by `HEATMAP` queries (existing heatmap sections fall back to project-style safely)
+- **Scroll-to-top button** — A floating button in the bottom-right scrolls the dashboard back to the top, with safe-area inset on mobile
+- **Faster subtask collapse/expand** — Tapping a chevron to expand/collapse subtasks (or nested docs) could take several seconds. Collapse is now a silent, in-place DOM toggle with no full re-render, so it's instant
+- **Fix: collapsed parent couldn't expand after a sibling changed** — Checking off a sibling task triggered a re-render that left a collapsed parent with no child DOM, so its chevron appeared dead. Children are now always rendered (hidden via a class), so expand works across re-renders, including nested collapse
+- **Faster memo card drag (no lag, no afterimage)** — Moving a memo card used to rebuild the whole board and tore the dragged card into a double image mid-transition. Cards now move by physically relocating their DOM node — parsed links and hover bindings stay intact, the drop is instant
+- **Faster wikilink resolution on large vaults** — Links that didn't match by exact path used to scan the entire vault, once per link per render. They now resolve against a cached basename index kept in sync on file changes — a full vault scan becomes a hash lookup
+
 ### 1.6.3
 - **iOS tap crash fix** — On iOS, tapping the dashboard right after it loaded could crash Obsidian (the app would restart). Mobile now fully disables backdrop blur — several blur layers were still active and, combined with iOS's tap behavior, exceeded the WebView's render limit
 - **Banner statistics on phones** — The statistics banner now shows only the center column on phone widths; the side columns were clipped before
