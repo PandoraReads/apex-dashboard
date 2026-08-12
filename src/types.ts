@@ -435,6 +435,15 @@ export interface TickTickConfig {
 	projectWidths?: Record<string, number>;
 }
 
+/** Dataview (DQL) section config. The raw DQL query string is the sole required
+ *  field; `title` optionally overrides the column name in the section header. */
+export interface DataviewConfig {
+	/** Raw DQL query, e.g. `TABLE file.name FROM "Books" WHERE rating >= 4 SORT file.name`. */
+	query: string;
+	/** Optional display title override (defaults to column name). */
+	title?: string;
+}
+
 export interface DashboardColumn {
 	name: string;
 	color: string;
@@ -447,6 +456,8 @@ export interface DashboardColumn {
 	wereadConfig?: WereadConfig;
 	/** TickTick section config (sectionType 'ticktick'). */
 	ticktickConfig?: TickTickConfig;
+	/** Dataview section config (sectionType 'dataview'). */
+	dataviewConfig?: DataviewConfig;
 	/** User-set max height in px (drag-resize, desktop only). */
 	height?: number;
 }

@@ -18,6 +18,7 @@ import type {
 	HeatmapConfig,
 	WereadConfig,
 	TickTickConfig,
+	DataviewConfig,
 } from './types';
 import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
@@ -246,6 +247,14 @@ export function serialize(data: DashboardData): string {
 				for (const pid of tc.hiddenProjects) lines.push(`        - "${escapeYamlString(pid)}"`);
 			}
 		}
+		if (col.dataviewConfig) {
+			const dc = col.dataviewConfig;
+			lines.push('    dataview:');
+			// JSON.stringify yields a valid double-quoted YAML scalar and safely
+			// escapes embedded newlines/quotes in the multi-line query.
+			lines.push(`      query: ${JSON.stringify(dc.query)}`);
+			if (dc.title) lines.push(`      title: ${JSON.stringify(dc.title)}`);
+		}
 	}
 
 	lines.push('---');
@@ -255,7 +264,7 @@ export function serialize(data: DashboardData): string {
 		lines.push(`## ${column.name}`);
 		lines.push('');
 
-		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar') continue;
+		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview') continue;
 
 		for (const card of column.cards) {
 			lines.push(`### ${card.title}`);
@@ -736,7 +745,7 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; height?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -748,11 +757,12 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		heatmapConfig: item.heatmap ? parseHeatmapConfig(item.heatmap as Record<string, unknown>) : undefined,
 		wereadConfig: item.weread ? parseWereadConfig(item.weread as Record<string, unknown>) : undefined,
 		ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
+		dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
 		height: typeof item.height === 'number' ? item.height : undefined,
 	}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; height?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; heatmapConfig?: HeatmapConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -781,6 +791,7 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			heatmapConfig: def?.heatmapConfig,
 			wereadConfig: def?.wereadConfig,
 			ticktickConfig: def?.ticktickConfig,
+			dataviewConfig: def?.dataviewConfig,
 			height: def?.height,
 		};
 	});
@@ -823,6 +834,7 @@ function resolveSectionType(
 	if (lower === 'videos') return 'videos';
 	if (lower === 'alltasks') return 'alltasks';
 	if (lower === 'calendar') return 'calendar';
+	if (lower === 'dataview') return 'dataview';
 
 	if (cards.length > 0) {
 		const types = new Set(cards.map(c => c.type));
@@ -924,6 +936,12 @@ function parseTickTickConfig(raw: Record<string, unknown>): TickTickConfig {
 		? (raw['hiddenProjects'] as Array<unknown>).map(v => String(v as string | number | boolean)).filter(v => v.length > 0)
 		: undefined;
 	return { view, hiddenProjects: hiddenProjects?.length ? hiddenProjects : undefined };
+}
+
+function parseDataviewConfig(raw: Record<string, unknown>): DataviewConfig {
+	const query = str(raw.query ?? '');
+	const title = raw.title ? str(raw.title) : undefined;
+	return { query, title: title && title.length > 0 ? title : undefined };
 }
 
 function splitByH2(body: string): Array<{ heading: string; content: string }> {

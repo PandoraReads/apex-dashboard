@@ -283,12 +283,20 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async toggleCollapseTask(cardId: string, taskPath: TaskPath): Promise<void> {
+	/**
+	 * Toggle a task's collapsed state WITHOUT triggering a full re-render.
+	 *
+	 * Collapse is a purely visual state — the chevron click should update the DOM
+	 * in place (handled by the renderer) and persist to disk on a debounce, but
+	 * must not echo back through `notifyCallbacks`, which would tear down and
+	 * rebuild the entire dashboard for a single chevron toggle.
+	 */
+	toggleCollapseTaskQuiet(cardId: string, taskPath: TaskPath): void {
 		if (!this.data) return;
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			updateTaskAt(tasks, taskPath, (t) => ({ ...t, collapsed: !t.collapsed })));
-		await this.writeToDisk();
+		this.scheduleDeferredWrite();
 	}
 
 	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
@@ -423,6 +431,18 @@ export class SyncEngine {
 			...this.data,
 			columns: this.data.columns.map(col =>
 				col.name === columnName ? { ...col, ticktickConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
+	async updateDataviewConfig(columnName: string, config: import('./types').DataviewConfig): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, dataviewConfig: config } : col
 			),
 		};
 		await this.writeToDisk();
@@ -652,12 +672,12 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async toggleCollapseDoc(cardId: string, docPath: DocPath): Promise<void> {
+	toggleCollapseDocQuiet(cardId: string, docPath: DocPath): void {
 		if (!this.data) return;
 
 		this.data = this.mapCardDocs(this.data, cardId, (docs) =>
 			updateDocAt(docs, docPath, (d) => ({ ...d, collapsed: !d.collapsed })));
-		await this.writeToDisk();
+		this.scheduleDeferredWrite();
 	}
 
 	async deleteDoc(cardId: string, docPath: DocPath): Promise<void> {

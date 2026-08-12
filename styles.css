@@ -5379,6 +5379,13 @@
 	border-left: 2px solid var(--db-border-card);
 }
 
+/* Direct DOM hide for collapsed descendants — avoids a full re-render on
+   every chevron toggle. The renderer toggles this class in place. */
+.dashboard-task-item--hidden,
+.dashboard-project-doc-item--hidden {
+	display: none !important;
+}
+
 .dashboard-task-item {
 	position: relative;
 	transition: transform 0.12s ease;
@@ -13398,3 +13405,320 @@
 	color: var(--text-normal);
 }
 .dashboard-modal-stats-checkbox input { margin: 0; }
+
+/* =========================================================================
+   Dataview Section — DQL query results (TABLE / LIST / TASK / CALENDAR).
+   Reuses the library-section table & list tokens for visual consistency.
+   ========================================================================= */
+
+.dashboard-dataview-content {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 4px 0;
+}
+
+/* Result count header */
+.dashboard-dataview-count {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	color: var(--db-text-muted, var(--text-muted));
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	padding: 0 2px;
+}
+.dashboard-dataview-capped {
+	text-transform: none;
+	letter-spacing: 0;
+	opacity: 0.7;
+}
+
+/* TABLE — extends the library table look. Allow wrapping in cells since DQL
+   values can be long strings or lists. */
+.dashboard-dataview-table td {
+	white-space: normal;
+	max-width: none;
+	vertical-align: top;
+	line-height: 1.5;
+}
+.dashboard-dataview-table th {
+	cursor: default;
+}
+.dashboard-dataview-table tr:not(.is-clickable) {
+	cursor: default;
+}
+.dashboard-dataview-null {
+	color: var(--db-text-muted, var(--text-muted));
+	opacity: 0.4;
+}
+.dashboard-dataview-group-key {
+	font-weight: 600;
+	color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-dataview-group-member {
+	padding: 1px 0;
+}
+
+/* LIST */
+.dashboard-dataview-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.dashboard-dataview-list-item {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	padding: 5px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text, var(--text-normal));
+	font-size: 13px;
+	transition: background 0.1s ease;
+}
+.dashboard-dataview-list-item:hover {
+	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.06));
+}
+.dashboard-dataview-list-group {
+	font-weight: 600;
+	color: var(--db-accent, var(--interactive-accent));
+	margin-bottom: 2px;
+}
+.dashboard-dataview-list-members {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding-left: 12px;
+}
+.dashboard-dataview-list-member {
+	color: var(--db-text, var(--text-normal));
+	opacity: 0.9;
+}
+
+/* TASK (Phase 3 — read-only for now) */
+.dashboard-dataview-tasklist {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.dashboard-dataview-task {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 4px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+}
+.dashboard-dataview-task:hover {
+	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.06));
+}
+.dashboard-dataview-task-checkbox {
+	margin: 0;
+	flex-shrink: 0;
+	transform: translateY(1px);
+}
+.dashboard-dataview-task-text {
+	font-size: 13px;
+	color: var(--db-text, var(--text-normal));
+}
+
+/* Empty + error + scanning states */
+.dashboard-dataview-empty,
+.dashboard-dataview-error,
+.dashboard-dataview-scanning {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 28px 16px;
+	text-align: center;
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 13px;
+}
+.dashboard-dataview-empty-icon {
+	width: 32px;
+	height: 32px;
+	opacity: 0.3;
+	background: currentColor;
+	-webkit-mask: var(--icon-search) center / contain no-repeat;
+	mask: var(--icon-search) center / contain no-repeat;
+}
+.dashboard-dataview-empty-hint {
+	font-size: 11px;
+	opacity: 0.7;
+}
+.dashboard-dataview-error {
+	color: var(--text-error, #e06c75);
+}
+.dashboard-dataview-error-icon svg {
+	width: 22px;
+	height: 22px;
+}
+.dashboard-dataview-error-text {
+	max-width: 360px;
+	word-break: break-word;
+}
+.dashboard-dataview-spinner {
+	animation: dashboard-dataview-spin 0.9s linear infinite;
+}
+.dashboard-dataview-spinner svg {
+	width: 18px;
+	height: 18px;
+}
+@keyframes dashboard-dataview-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+/* External (http) links rendered from field values */
+.dashboard-dataview-extlink {
+	color: var(--db-accent, var(--text-accent));
+	text-decoration: underline;
+}
+
+/* Config modal */
+.dashboard-dataview-query-input {
+	width: 100%;
+	min-height: 140px;
+	padding: 10px 12px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	background: var(--db-bg, var(--background-secondary));
+	color: var(--db-text, var(--text-normal));
+	font-family: var(--font-monospace, ui-monospace, monospace);
+	font-size: 12.5px;
+	line-height: 1.6;
+	resize: vertical;
+	box-sizing: border-box;
+}
+.dashboard-dataview-query-input:focus {
+	outline: none;
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-dataview-validation {
+	min-height: 18px;
+	font-size: 11.5px;
+}
+.dashboard-dataview-validation.is-error {
+	color: var(--text-error, #e06c75);
+}
+.dashboard-dataview-validation-ok {
+	color: var(--color-green, #4caf50);
+}
+.dashboard-dataview-sample-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.dashboard-dataview-sample-chip {
+	padding: 4px 10px;
+	border-radius: 12px;
+	font-size: 11.5px;
+	cursor: pointer;
+	color: var(--db-text, var(--text-normal));
+	background: var(--db-bg-card, var(--background-modifier-hover));
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	transition: background 0.12s ease, border-color 0.12s ease;
+}
+.dashboard-dataview-sample-chip:hover {
+	background: var(--db-accent, var(--interactive-accent));
+	color: var(--db-bg, var(--text-on-accent));
+	border-color: transparent;
+}
+
+/* Dataview TASK: done state + calendar grid */
+.dashboard-dataview-task.is-done .dashboard-dataview-task-text {
+	text-decoration: line-through;
+	opacity: 0.55;
+}
+
+/* CALENDAR query — month grid */
+.dashboard-dataview-calendar {
+	padding: 4px 2px;
+}
+.dashboard-dataview-calendar-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+.dashboard-dataview-calendar-nav {
+	background: transparent;
+	border: none;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+}
+.dashboard-dataview-calendar-nav:hover {
+	color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-dataview-calendar-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+.dashboard-dataview-calendar-weekdays {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+	margin-bottom: 4px;
+}
+.dashboard-dataview-calendar-wd {
+	text-align: center;
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--db-text-muted, var(--text-muted));
+	text-transform: uppercase;
+}
+.dashboard-dataview-calendar-cells {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+.dashboard-dataview-calendar-cell {
+	min-height: 36px;
+	padding: 3px 4px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card, rgba(255,255,255,0.04));
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: flex-start;
+	gap: 2px;
+}
+.dashboard-dataview-calendar-cell.is-blank {
+	border-color: transparent;
+}
+.dashboard-dataview-calendar-cell.has-dots {
+	cursor: pointer;
+	background: var(--db-bg-card, rgba(255,255,255,0.04));
+}
+.dashboard-dataview-calendar-cell.has-dots:hover {
+	background: var(--db-bg-card-hover, rgba(255,255,255,0.10));
+}
+.dashboard-dataview-calendar-day {
+	font-size: 10px;
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-dataview-calendar-cell.has-dots .dashboard-dataview-calendar-day {
+	color: var(--db-text, var(--text-normal));
+	font-weight: 600;
+}
+.dashboard-dataview-calendar-dots {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+.dashboard-dataview-calendar-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-dataview-calendar-more {
+	font-size: 9px;
+	color: var(--db-text-muted, var(--text-muted));
+}

@@ -25,6 +25,7 @@ export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
 	{ value: 'heatmap', icon: 'activity', labelKey: 'renderer.typeHeatmap' },
 	{ value: 'weread', icon: 'book-open', labelKey: 'renderer.typeWeread' },
 	{ value: 'ticktick', icon: 'check-circle', labelKey: 'renderer.typeTickTick' },
+	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
 ];
 
 export class AddSectionModal extends Modal {

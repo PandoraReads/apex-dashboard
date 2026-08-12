@@ -25,6 +25,7 @@ import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
 import { HeatmapConfigModal } from './heatmap-config-modal';
+import { DataviewConfigModal } from './dataview-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
 import { fetchWereadCategories } from './weread-service';
 import { fetchTickTickProjects } from './ticktick-config-modal';
@@ -304,6 +305,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openHeatmapConfigModal(columnName);
 			} else if (col?.sectionType === 'weread') {
 				this.openWereadConfigModal(columnName);
+			} else if (col?.sectionType === 'dataview') {
+				this.openDataviewConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
 			}
@@ -543,43 +546,44 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private setupBannerRotation(container: HTMLElement, banner: BannerData): void {
-		// Stats mode has no quotes/images to rotate.
-		if (banner.mode === 'stats') return;
-		// Quote rotation
-		const quotes = banner.quotes;
-		if (quotes && quotes.length > 1) {
-			// Offset by 1 hour so quote and image swaps don't overlap
-			const quoteIndex = Math.floor((Date.now() + DashboardView.BANNER_QUOTE_OFFSET_MS) / DashboardView.BANNER_QUOTE_ROTATION_MS) % quotes.length;
-			this.bannerQuoteIndex = quoteIndex;
+		// Quote rotation — stats mode has no quote text to rotate.
+		if (banner.mode !== 'stats') {
+			const quotes = banner.quotes;
+			if (quotes && quotes.length > 1) {
+				// Offset by 1 hour so quote and image swaps don't overlap
+				const quoteIndex = Math.floor((Date.now() + DashboardView.BANNER_QUOTE_OFFSET_MS) / DashboardView.BANNER_QUOTE_ROTATION_MS) % quotes.length;
+				this.bannerQuoteIndex = quoteIndex;
 
-			const quoteEl = container.querySelector('.dashboard-banner-quote') as HTMLElement;
-			const authorEl = container.querySelector('.dashboard-banner-author') as HTMLElement;
-			if (quoteEl && authorEl) {
-				const initial = quotes[quoteIndex]!;
-				quoteEl.textContent = initial.quote;
-				authorEl.textContent = initial.author;
+				const quoteEl = container.querySelector('.dashboard-banner-quote') as HTMLElement;
+				const authorEl = container.querySelector('.dashboard-banner-author') as HTMLElement;
+				if (quoteEl && authorEl) {
+					const initial = quotes[quoteIndex]!;
+					quoteEl.textContent = initial.quote;
+					authorEl.textContent = initial.author;
 
-				const rotateQuote = () => {
-					this.bannerQuoteIndex = (this.bannerQuoteIndex + 1) % quotes.length;
-					const next = quotes[this.bannerQuoteIndex]!;
+					const rotateQuote = () => {
+						this.bannerQuoteIndex = (this.bannerQuoteIndex + 1) % quotes.length;
+						const next = quotes[this.bannerQuoteIndex]!;
 
-					quoteEl.addClass('dashboard-banner-quote--fading');
-					authorEl.addClass('dashboard-banner-author--fading');
+						quoteEl.addClass('dashboard-banner-quote--fading');
+						authorEl.addClass('dashboard-banner-author--fading');
 
-					window.setTimeout(() => {
-						quoteEl.textContent = next.quote;
-						authorEl.textContent = next.author;
-						quoteEl.removeClass('dashboard-banner-quote--fading');
-						authorEl.removeClass('dashboard-banner-author--fading');
-					}, 400);
-				};
+						window.setTimeout(() => {
+							quoteEl.textContent = next.quote;
+							authorEl.textContent = next.author;
+							quoteEl.removeClass('dashboard-banner-quote--fading');
+							authorEl.removeClass('dashboard-banner-author--fading');
+						}, 400);
+					};
 
-				const quoteTimer = window.setInterval(rotateQuote, DashboardView.BANNER_QUOTE_ROTATION_MS);
-				this.cleanupFns.push(() => window.clearInterval(quoteTimer));
+					const quoteTimer = window.setInterval(rotateQuote, DashboardView.BANNER_QUOTE_ROTATION_MS);
+					this.cleanupFns.push(() => window.clearInterval(quoteTimer));
+				}
 			}
 		}
 
-		// Image rotation
+		// Image rotation — applies to both quote and stats modes (stats uses the
+		// same .dashboard-banner background, so it rotates identically).
 		const images = banner.images;
 		if (images && images.length > 1) {
 			const imgIndex = Math.floor(Date.now() / DashboardView.BANNER_IMAGE_ROTATION_MS) % images.length;
@@ -810,7 +814,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onTaskNest: (cardId: string, taskPath: number[]) => this.sync.nestTask(cardId, taskPath),
 			onTaskNestInto: (cardId: string, srcPath: number[], destPath: number[]) => this.sync.nestTaskInto(cardId, srcPath, destPath),
 			onTaskUnnest: (cardId: string, taskPath: number[]) => this.sync.unnestTask(cardId, taskPath),
-			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTask(cardId, taskPath),
+			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTaskQuiet(cardId, taskPath),
 			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
 			onTaskSaveToDaily: (card: DashboardCard) => this.saveTasksToDaily(card),
@@ -819,7 +823,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onDocReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderDocs(cardId, fromPath, toPath, before),
 			onDocMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveDocToCard(srcCardId, fromPath, destCardId, destPath, mode),
 			onDocNest: (cardId: string, docPath: number[]) => this.sync.nestDoc(cardId, docPath),
-			onDocToggleCollapse: (cardId: string, docPath: number[]) => this.sync.toggleCollapseDoc(cardId, docPath),
+			onDocToggleCollapse: (cardId: string, docPath: number[]) => this.sync.toggleCollapseDocQuiet(cardId, docPath),
 			onCardAdd: (colName: string) => {
 				const column = this.data?.columns.find(col => col.name === colName);
 				const effectiveType = column?.sectionType ?? colName.toLowerCase();
@@ -1108,6 +1112,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.openHeatmapConfigModal(name);
 		} else if (sectionType === 'weread') {
 			this.openWereadConfigModal(name);
+		} else if (sectionType === 'dataview') {
+			this.openDataviewConfigModal(name);
 		}
 	}
 
@@ -1197,6 +1203,17 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existing,
 			(config) => { void this.sync.updateHeatmapConfig(colName, config); },
+		);
+		modal.open();
+	}
+
+	private openDataviewConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const existing = column?.dataviewConfig ?? { query: '' };
+		const modal = new DataviewConfigModal(
+			this.app,
+			existing,
+			(config) => { void this.sync.updateDataviewConfig(colName, config); },
 		);
 		modal.open();
 	}

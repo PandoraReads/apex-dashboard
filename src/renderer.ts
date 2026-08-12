@@ -8,6 +8,7 @@ import { renderCalendarSection } from './calendar-section';
 import { renderHeatmapSection } from './heatmap-section';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
+import { renderDataviewSection, setDataviewApp } from './dataview-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
@@ -2079,6 +2080,43 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		return el;
 	}
 
+	// Dataview section: DQL query results (TABLE/LIST/TASK/CALENDAR).
+	if (sectionType === 'dataview') {
+		setDataviewApp(app);
+
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('dataview.configure') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		// Manual refresh (deliberately NOT wired to the vault-change debounce).
+		const refreshBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('dataview.refresh') },
+		});
+		setIcon(refreshBtn, 'refresh-cw');
+		let reload: (() => void) | null = null;
+		refreshBtn.addEventListener('click', () => reload?.());
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name);
+		});
+
+		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover, (fn) => { reload = fn; });
+		return el;
+	}
+
 	const addCardBtn = headerActions.createEl('button', {
 		cls: 'dashboard-section-add-btn',
 		attr: { 'aria-label': t('renderer.addCardTo', { column: column.name }) },
@@ -2437,6 +2475,69 @@ function renderCardBody(container: HTMLElement, card: DashboardCard, columnName:
 	renderProjectBody(container, card, callbacks, app);
 }
 
+/**
+ * Whether `maybeChildPath` is a descendant of `parentPath` (a strict prefix in
+ * the path array). Used to find a collapsed item's DOM descendants for an
+ * in-place show/hide that avoids a full dashboard re-render.
+ */
+function isDescendantPath(parentPath: number[], maybeChildPath: number[]): boolean {
+	if (maybeChildPath.length <= parentPath.length) return false;
+	for (let i = 0; i < parentPath.length; i++) {
+		if (maybeChildPath[i] !== parentPath[i]) return false;
+	}
+	return true;
+}
+
+/**
+ * Parse the `data-task-path` / `data-doc-path` JSON attribute off a DOM node.
+ * Returns an empty array (never matches as a descendant) if absent or malformed.
+ */
+function readPathAttr(el: Element, attr: string): number[] {
+	try {
+		const raw = el.getAttribute(attr);
+		return raw ? (JSON.parse(raw) as number[]) : [];
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Toggle a collapsed parent's children visibility directly on the DOM, plus the
+ * chevron icon, WITHOUT triggering `notifyCallbacks` / a full `render()`.
+ *
+ * Why: collapsing/expanding is a pure visual state. Routing it through the sync
+ * engine's `writeToDisk` + `notifyCallbacks` tore down and rebuilt the whole
+ * board on every chevron click — the source of the long lag. Instead we flip a
+ * `--hidden` class on every descendant item here, and let the sync engine
+ * persist the `collapsed` flag on a debounced write with no re-render.
+ */
+function toggleCollapseInPlace(
+	item: HTMLElement,
+	parentPath: number[],
+	pathAttr: string,
+	nowCollapsed: boolean,
+): void {
+	const list = item.parentElement;
+	if (!list) return;
+
+	// Flip the chevron icon to reflect the new state.
+	const toggle = item.querySelector(':scope > .dashboard-task-toggle');
+	if (toggle instanceof HTMLElement) {
+		setIcon(toggle, nowCollapsed ? 'chevron-right' : 'chevron-down');
+	}
+
+	// Show/hide every descendant item (direct children and their children).
+	list.querySelectorAll<HTMLElement>(`:scope > [${pathAttr}]`).forEach((sibling) => {
+		if (sibling === item) return;
+		const siblingPath = readPathAttr(sibling, pathAttr);
+		if (isDescendantPath(parentPath, siblingPath)) {
+			sibling.toggleClass('dashboard-task-item--hidden', nowCollapsed);
+			sibling.toggleClass('dashboard-project-doc-item--hidden', nowCollapsed);
+		}
+	});
+}
+
+
 function renderTaskItem(
 	list: HTMLElement,
 	task: TaskItem,
@@ -2550,6 +2651,11 @@ function renderTaskItem(
 		setIcon(toggle, task.collapsed ? 'chevron-right' : 'chevron-down');
 		toggle.addEventListener('click', (e) => {
 			e.stopPropagation();
+			// Optimistic in-place DOM update + debounced quiet persist. Avoids the
+			// full-board re-render the old collapse path triggered.
+			const nowCollapsed = !task.collapsed;
+			toggleCollapseInPlace(item, path, 'data-task-path', nowCollapsed);
+			toggle.setAttribute('aria-label', nowCollapsed ? t('renderer.expandTask') : t('renderer.collapseTask'));
 			callbacks.onTaskToggleCollapse(card.id, path);
 		});
 	}
@@ -2905,6 +3011,11 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 				setIcon(toggle, doc.collapsed ? 'chevron-right' : 'chevron-down');
 				toggle.addEventListener('click', (e) => {
 					e.stopPropagation();
+					// Optimistic in-place DOM update + debounced quiet persist. Avoids
+					// the full-board re-render the old collapse path triggered.
+					const nowCollapsed = !doc.collapsed;
+					toggleCollapseInPlace(docItem, path, 'data-doc-path', nowCollapsed);
+					toggle.setAttribute('aria-label', nowCollapsed ? t('renderer.expandDoc') : t('renderer.collapseDoc'));
 					callbacks.onDocToggleCollapse(card.id, path);
 				});
 			}
@@ -3057,6 +3168,10 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'videos') return 'videos';
 	if (lower === 'alltasks') return 'alltasks';
 	if (lower === 'calendar') return 'calendar';
+	if (lower === 'dataview') return 'dataview';
+	if (lower === 'heatmap') return 'heatmap';
+	if (lower === 'weread') return 'weread';
+	if (lower === 'ticktick') return 'ticktick';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);
