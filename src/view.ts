@@ -1223,28 +1223,89 @@ export class DashboardView extends ItemView implements HoverParent {
 	 * own reload is a no-op via its serialize-equality check, so no extra
 	 * full render fires. We then refresh just the source and target sections.
 	 */
+	/**
+	 * Optimistic card move: physically relocate the dragged card's DOM node
+	 * instead of re-rendering. This is zero-cost compared to refreshSectionInPlace
+	 * (which rebuilds every memo card — each line re-parsing links, each wikilink
+	 * re-resolved against the vault — the real source of the lingering lag).
+	 *
+	 * DnD listeners are bound per cardEl (setupDragAndDrop attaches dragstart to
+	 * each card), so moving a node keeps its listeners intact — no rebind needed.
+	 * The dragged card carries a `--dragging` class during the drag (desktop) /
+	 * until cleanupDrag (touch); we clear it here in case dragend lands after us.
+	 */
 	private async handleMoveCard(cardId: string, targetCol: string, targetIdx: number): Promise<void> {
+		const kanban = (this.containerEl.children[1] as HTMLElement)?.querySelector<HTMLElement>('.dashboard-kanban');
+		const draggedEl = kanban?.querySelector<HTMLElement>(`.dashboard-card[data-card-id="${CSS.escape(cardId)}"]`) ?? null;
 		const sourceCol = this.data?.columns.find(c => c.cards.some(card => card.id === cardId))?.name;
+
 		this.suppressNextRender = true;
 		try {
 			await this.sync.moveCard(cardId, targetCol, targetIdx);
 		} catch {
-			// moveCard swallows disk I/O errors itself, but guard against anything
-			// else so a rejection doesn't leave the UI out of sync with this.data.
+			// moveCard swallows disk I/O itself; guard anything else so a rejection
+			// can't desync the UI from this.data.
 			this.suppressNextRender = false;
 			if (this.data) this.render(this.data);
 			return;
 		}
-		// Refresh only the affected sections in place. If for some reason the
-		// in-place refresh couldn't find the DOM (e.g. a concurrent full render
-		// swapped the tree), fall back to a full render so the move still shows.
-		let refreshed = this.refreshSectionInPlace(targetCol);
+
+		// Physically reorder the target section's card DOM to match the new data
+		// order. If we can't (element missing — e.g. a concurrent full render
+		// swapped the tree), fall back to the in-place section refresh, then full.
+		const moved = draggedEl && this.reorderCardsInDOM(targetCol);
 		if (sourceCol && sourceCol !== targetCol) {
-			refreshed = this.refreshSectionInPlace(sourceCol) || refreshed;
+			this.reorderCardsInDOM(sourceCol);
 		}
-		if (!refreshed && this.data) {
-			this.render(this.data);
+		if (draggedEl) {
+			draggedEl.removeClass('dashboard-card--dragging');
 		}
+		if (!moved) {
+			let refreshed = this.refreshSectionInPlace(targetCol);
+			if (sourceCol && sourceCol !== targetCol) {
+				refreshed = this.refreshSectionInPlace(sourceCol) || refreshed;
+			}
+			if (!refreshed && this.data) {
+				this.render(this.data);
+			}
+		}
+	}
+
+	/**
+	 * Reorder the card DOM nodes in one section to match `this.data`'s card
+	 * order for that column. Pure DOM shuffle (insertBefore) — no rebuild, so
+	 * memo cards keep their already-parsed links and hover bindings. Returns
+	 * false if the section's DOM can't be located.
+	 */
+	private reorderCardsInDOM(columnName: string): boolean {
+		if (!this.data) return false;
+		const kanban = (this.containerEl.children[1] as HTMLElement)?.querySelector<HTMLElement>('.dashboard-kanban');
+		const section = kanban?.querySelector<HTMLElement>(`:scope > [data-column="${CSS.escape(columnName)}"]`);
+		const cardsContainer = section?.querySelector<HTMLElement>('.dashboard-section-cards');
+		if (!cardsContainer) return false;
+		const column = this.data.columns.find(c => c.name === columnName);
+		if (!column) return false;
+
+		const existing = new Map<string, HTMLElement>();
+		cardsContainer.querySelectorAll<HTMLElement>(':scope > .dashboard-card').forEach(el => {
+			const id = el.dataset.cardId;
+			if (id) existing.set(id, el);
+		});
+
+		// Re-append in data order; remove any drop indicator sitting first.
+		cardsContainer.querySelectorAll(':scope > .dashboard-drop-indicator').forEach(el => el.remove());
+		let cursor: Node | null = null;
+		for (const card of column.cards) {
+			const el = existing.get(card.id);
+			if (!el) continue;
+			if (cursor) {
+				if (cursor.nextSibling !== el) cardsContainer.insertBefore(el, cursor.nextSibling);
+			} else {
+				if (cardsContainer.firstChild !== el) cardsContainer.insertBefore(el, cardsContainer.firstChild);
+			}
+			cursor = el;
+		}
+		return true;
 	}
 
 	private refreshSectionInPlace(columnName: string): boolean {
