@@ -83,6 +83,9 @@ export class DashboardView extends ItemView implements HoverParent {
 	private libraryRefreshTimer: number | null = null;
 	private bannerStatsTimer: number | null = null;
 	private bannerStatsEl: HTMLElement | null = null;
+	/** True after the first `metadataCache` `resolved` event corrected the
+	 *  banner stats following startup. One-shot to avoid repeat recomputes. */
+	private bannerStatsResolvedOnce = false;
 	private readonly RECENT_DOCS_DEBOUNCE = 500;
 	private readonly BANNER_STATS_DEBOUNCE = 800;
 	private bannerQuoteIndex = 0;
@@ -149,6 +152,16 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		await this.sync.init();
 		this.registerVaultListeners();
+		// The banner "streak" auto-detects the Daily Notes core plugin, whose
+		// internal-plugins state may report as not-yet-enabled during the very
+		// first render. Re-compute once the metadata cache has fully resolved so
+		// the number never flashes an incorrect value from the startup race.
+		// One-shot guard: `resolved` can fire repeatedly on large vaults.
+		this.registerEvent(this.app.metadataCache.on('resolved', () => {
+			if (this.bannerStatsResolvedOnce) return;
+			this.bannerStatsResolvedOnce = true;
+			this.debouncedRefreshBannerStats();
+		}));
 		this.startReminderChecker();
 		this.startWeatherRefresh();
 		this.startDayRolloverChecker();

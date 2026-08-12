@@ -58,7 +58,18 @@ export interface BannerStatsResult {
 	newThisMonth: number;
 	newThisWeek: number;
 	tagsCount: number;
+	/** Consecutive days with a daily note. Only meaningful when `hasDailySource`
+	 *  is true; otherwise the daily-notes folder could not be resolved and the
+	 *  streak falls back to `activeStreak` semantics (see below). */
 	streak: number;
+	/** True when a daily-notes source (manual folder or the core plugin) was
+	 *  resolved AND yielded at least one matching note. When false, `streak`
+	 *  equals `activeStreak` and the label must read "活跃天数", not "连续记录",
+	 *  so the number never silently switches meaning between page loads. */
+	hasDailySource: boolean;
+	/** Consecutive days on which ANY markdown file was created in the vault —
+	 *  the same dataset the heatmap is drawn from. Deterministic across loads. */
+	activeStreak: number;
 	totalLinks: number;
 	orphanNotes: number;
 	orphanRate: number; // 0–100
@@ -150,16 +161,32 @@ export function computeBannerStats(app: App, config?: BannerStatsConfig): Banner
 
 	const manual = (config?.dailyFolder ?? '').trim();
 	const dailyCfg = manual ? { folder: manual, format: config?.dailyFormat || 'YYYY-MM-DD' } : getDailyNotesConfig(app);
+
+	// `activeStreak` is always derived from the same file-creation set the
+	// heatmap uses, so it is stable across loads. It is the ONLY streak value
+	// when no daily-notes source is available.
+	const activeStreak = computeDateStreak(activityDates);
+
+	// The "real" streak counts daily notes only. We must NOT silently fall back
+	// to `activityDates` when the daily source is empty/unavailable — that was
+	// the root cause of the number flipping meaning between page loads (a small
+	// daily-note streak one load, a large all-vault streak the next). Instead
+	// we record whether a daily source was usable; the renderer swaps the LABEL
+	// (连续记录 vs 活跃天数) so the number's meaning is always unambiguous.
 	let streak = 0;
+	let hasDailySource = false;
 	if (dailyCfg) {
 		const dailyDates = collectDailyNoteDates(app, dailyCfg.folder, dailyCfg.format);
-		if (dailyDates.size > 0) streak = computeDateStreak(dailyDates);
+		if (dailyDates.size > 0) {
+			streak = computeDateStreak(dailyDates);
+			hasDailySource = true;
+		}
 	}
-	if (streak === 0) streak = computeDateStreak(activityDates);
+	if (!hasDailySource) streak = activeStreak;
 
 	return {
 		totalNotes, newThisMonth, newThisWeek, tagsCount: tagCounts.size,
-		streak, totalLinks, orphanNotes,
+		streak, hasDailySource, activeStreak, totalLinks, orphanNotes,
 		orphanRate: totalNotes > 0 ? Math.round((orphanNotes / totalNotes) * 100) : 0,
 		avgLinksPerNote: totalNotes > 0 ? totalLinks / totalNotes : 0,
 		connectivity: totalNotes > 0 ? Math.round(((totalNotes - orphanNotes) / totalNotes) * 100) : 0,
@@ -287,7 +314,11 @@ function renderCenterColumn(container: HTMLElement, config: BannerStatsConfig, r
 	const { text, format } = centerValue(stat, r);
 	animateCount(numEl, text, format, animate);
 	// Label sits inline to the right of the big number (e.g. "7天 连续记录").
-	hero.createDiv({ cls: 'dashboard-banner-stat-label dashboard-banner-stat-label--inline', text: t(`banner.stats.${stat}`) });
+	// When the daily-notes source is unavailable the center streak is really an
+	// "active days" count — surface that in the label so the number's meaning is
+	// always unambiguous and never silently flips between page loads.
+	const labelKey = stat === 'streak' && !r.hasDailySource ? 'banner.stats.active' : `banner.stats.${stat}`;
+	hero.createDiv({ cls: 'dashboard-banner-stat-label dashboard-banner-stat-label--inline', text: t(labelKey) });
 
 	if (config.showDetails !== false) {
 		col.createDiv({ cls: 'dashboard-banner-stat-sub', text: centerSub(stat, r) });
@@ -349,7 +380,7 @@ function centerValue(stat: BannerCenterStat, r: BannerStatsResult): { text: numb
 
 function centerSub(stat: BannerCenterStat, r: BannerStatsResult): string {
 	switch (stat) {
-		case 'streak': return t('banner.stats.centerSubStreak', { week: r.newThisWeek, month: r.newThisMonth });
+		case 'streak': return t(r.hasDailySource ? 'banner.stats.centerSubStreak' : 'banner.stats.centerSubActive', { week: r.newThisWeek, month: r.newThisMonth });
 		case 'taskCompletion': return t('banner.stats.centerSubTask', { done: r.doneTasks, total: r.totalTasks });
 		case 'connectivity': return t('banner.stats.centerSubConn', { n: r.orphanNotes });
 		case 'newThisWeek': return t('banner.stats.centerSubWeek', { n: r.streak });
