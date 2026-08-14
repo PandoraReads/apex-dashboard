@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.1 (2026-08-14)
+
+### Fixed
+- **Tablet: Quick Notes toolbar split into two rows** — Obsidian sets `.is-mobile` on phones *and* tablets, so the phone-only rule that wraps the Quick Notes bar (capture input on its own row, chips above) was hijacking the tablet layout too. The wrap rules are now scoped to `.is-phone`; tablets keep the desktop single-row toolbar.
+- **Tablet: scroll-to-top button distorted with no visible icon** — Obsidian's tablet stylesheet ships `.is-tablet button:not(.clickable-icon) { padding: 4px 20px }` (specificity 0,2,1), which overrode the plugin's `padding: 0` and inflated the 36px round button into a wide pill, pushing the arrow glyph out of view. The plugin now re-asserts zero padding at matching specificity for its fixed-size icon buttons (scroll-to-top, calendar expand, calendar refresh).
+- **Tablet: todo delete & reminder buttons squeezing task text** — The same Obsidian tablet button-padding rule added 40px of horizontal padding to *each* of the todo row's two action buttons, eating ~80px of task-text width on every row. Both buttons are back to their intended 2px footprint (icon size unchanged — only the occupied width).
+- **Tablet: sidebar calendar stuck on "tap refresh to load" with no refresh button** — The widget used `Platform.isMobile` to pick the phone's deferred manual-load branch; tablets also match, so they showed the manual-load hint forever with no way to load. Tablets now auto-load the grid like desktop, and the phone branch gained an actual refresh button under the hint text.
+
 ## 1.7.0 (2026-08-12)
 
 ### Added

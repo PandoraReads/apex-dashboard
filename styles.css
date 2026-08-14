@@ -3876,6 +3876,37 @@
 	height: 14px;
 }
 
+/* Phone manual-load state: refresh button under the hint text. Mirrors the
+   today-btn styling; resets Obsidian's `.is-tablet button` padding (harmless
+   on phones — no .is-tablet there) and the base `button` padding/height so
+   it stays a compact square. */
+.dashboard-calendar-refresh-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	margin-top: 4px;
+	padding: 0;
+	background: transparent;
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	border-radius: var(--db-radius-sm, 6px);
+	cursor: pointer;
+	color: var(--db-text-muted);
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.dashboard-calendar-refresh-btn:hover {
+	background: var(--db-bg-hover);
+	color: var(--db-accent);
+	border-color: var(--db-accent);
+}
+
+.dashboard-calendar-refresh-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
 /* Compact the segmented month/week toggle for the narrow sidebar */
 .dashboard-sidebar-calendar .dashboard-calendar-view-toggle {
 	flex-shrink: 0;
@@ -5463,6 +5494,29 @@
 .dashboard-scroll-top svg {
 	width: 16px;
 	height: 16px;
+}
+
+/* Tablet fix: Obsidian's own stylesheet ships `.is-tablet button:not(.clickable-icon)
+   { padding: 4px 20px }` — specificity 0,2,1, since :not() counts its argument.
+   That beats this plugin's plain-class `padding: 0` (0,1,0), inflating the 36px
+   round scroll-top button into a wide pill that pushes its arrow glyph out of
+   view, and eating ~80px of task-text width on every todo row (delete +
+   reminder buttons). Qualify with `button` to reach 0,2,1 and win by source
+   order (plugin styles load after app.css). Phones have no .is-tablet class,
+   desktop matches neither — both stay on the base styles. */
+.is-tablet button.dashboard-scroll-top,
+.is-tablet button.dashboard-task-delete,
+.is-tablet button.dashboard-task-reminder-btn,
+.is-tablet button.dashboard-calendar-refresh-btn,
+.is-tablet button.dashboard-calendar-today-btn {
+	padding: 0;
+}
+
+/* Todo action buttons keep their intended 2px side padding (14px glyph +
+   padding = compact footprint), instead of Obsidian's 20px tablet padding. */
+.is-tablet button.dashboard-task-delete,
+.is-tablet button.dashboard-task-reminder-btn {
+	padding: 0 2px;
 }
 
 /* Add-section modal type picker (icon+label grid, mobile-friendly) */
@@ -13284,26 +13338,27 @@
 }
 .dashboard-quicknote-cog svg { width: 14px; height: 14px; }
 
-/* ── Mobile: the bar is narrow, so let the chips wrap onto their own line(s)
-   and drop the capture field + cog to a second row. Otherwise the fixed-width
-   capture input squeezes the chips off-screen. (Obsidian adds .is-mobile on
-   phones and tablets.) */
-.is-mobile .dashboard-quicknote {
+/* ── Phone only: the bar is narrow, so let the chips wrap onto their own
+   line(s) and drop the capture field + cog to a second row. Otherwise the
+   fixed-width capture input squeezes the chips off-screen.
+   Scoped to .is-phone because Obsidian sets .is-mobile on phones AND tablets;
+   tablets are wide enough to keep the desktop single-row layout. */
+.is-phone .dashboard-quicknote {
 	flex-wrap: wrap;
 	gap: 8px;
 }
-.is-mobile .dashboard-quicknote-nav {
+.is-phone .dashboard-quicknote-nav {
 	flex: 1 1 100%;
 	flex-wrap: wrap;
 	overflow-x: visible;
 }
-.is-mobile .dashboard-quicknote-actions {
+.is-phone .dashboard-quicknote-actions {
 	flex: 1 1 100%;
 }
-.is-mobile .dashboard-quicknote-capture {
+.is-phone .dashboard-quicknote-capture {
 	flex: 1 1 auto;
 }
-.is-mobile .dashboard-quicknote-capture-input {
+.is-phone .dashboard-quicknote-capture-input {
 	width: auto;
 	flex: 1 1 auto;
 	min-width: 0;

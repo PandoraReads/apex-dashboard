@@ -226,11 +226,22 @@ export function renderSidebarCalendar(
 
 	const load = (): Promise<void> => render();
 
-	if (Platform.isMobile) {
-		// Mobile: defer the vault scan to keep the sidebar light. The expand
-		// button loads the inline grid; from there a second tap opens fullscreen.
+	if (Platform.isPhone) {
+		// Phones: defer the vault scan to keep the sidebar light. The refresh
+		// button loads the inline grid; from there a tap on the expand button
+		// opens fullscreen. (Tablets also have .is-mobile but plenty of room,
+		// so they take the auto-load branch below like desktop.)
 		labelEl.textContent = t('calendar.today');
 		gridHost.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.mobileManualLoad') });
+		const refreshBtn = gridHost.createEl('button', {
+			cls: 'dashboard-calendar-refresh-btn',
+			attr: { 'aria-label': t('calendar.refresh'), type: 'button' },
+		});
+		setIcon(refreshBtn, 'rotate-cw');
+		refreshBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			void load();
+		});
 		let loadedOnce = false;
 		fullBtn.addEventListener('click', () => {
 			if (!loadedOnce) {
