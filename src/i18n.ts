@@ -92,6 +92,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.toggleNotePopover': 'Toggle: open notes directly in a tab',
 		'main.notePopoverOff': 'Notes open directly in a tab (popover off)',
 		'main.notePopoverOn': 'Notes open in the dashboard popover',
+		'sidebar.pin': 'Pin sidebar',
+		'sidebar.unpin': 'Unpin sidebar',
+		'sidebar.title': 'Sidebar',
+		'sidebar.pinned': 'Pinned',
+		'sidebar.unpinned': 'Auto-hide',
 
 		// Renderer
 		// Default dashboard content
@@ -861,6 +866,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.toggleNotePopover': '切换：直接在标签页打开笔记',
 		'main.notePopoverOff': '笔记直接在标签页打开（已关闭弹窗）',
 		'main.notePopoverOn': '笔记在仪表盘弹窗中打开',
+		'sidebar.pin': '固定侧边栏',
+		'sidebar.unpin': '取消固定侧边栏',
+		'sidebar.title': '侧边栏',
+		'sidebar.pinned': '已固定',
+		'sidebar.unpinned': '自动收起',
 
 		// Renderer
 		// Default dashboard content

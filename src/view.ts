@@ -652,6 +652,39 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (!this.data) return;
 
 		const scroll = sidebar.createDiv({ cls: 'dashboard-sidebar-scroll' });
+		const pinModule = scroll.createDiv({ cls: 'dashboard-sidebar-pin-module' });
+		const pinLabel = pinModule.createDiv({ cls: 'dashboard-sidebar-pin-module-label', text: t('sidebar.title') });
+		const pinBtn = pinModule.createEl('button', {
+			cls: 'dashboard-sidebar-pin-btn',
+			attr: { type: 'button' },
+		});
+		const updatePinButton = () => {
+			const label = t(this.sidebarPinned ? 'sidebar.unpin' : 'sidebar.pin');
+			setIcon(pinBtn, this.sidebarPinned ? 'pin' : 'pin-off');
+			pinBtn.setAttribute('aria-label', label);
+			pinBtn.setAttribute('title', label);
+			pinLabel.setText(this.sidebarPinned ? t('sidebar.pinned') : t('sidebar.unpinned'));
+			pinBtn.toggleClass('dashboard-sidebar-pin-btn--active', this.sidebarPinned);
+		};
+		updatePinButton();
+		const onPinMouseDown = (e: MouseEvent) => e.stopPropagation();
+		const onPinClick = (e: MouseEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this.sidebarPinned = !this.sidebarPinned;
+			this.sidebarExpanded = false;
+			this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', String(this.sidebarPinned));
+			sidebar.toggleClass('dashboard-sidebar--pinned', this.sidebarPinned);
+			sidebar.toggleClass('dashboard-sidebar--expanded', !this.sidebarPinned && this.sidebarExpanded);
+			sidebar.toggleClass('dashboard-sidebar--collapsed', !this.sidebarPinned && !this.sidebarExpanded);
+			updatePinButton();
+		};
+		pinBtn.addEventListener('mousedown', onPinMouseDown);
+		pinBtn.addEventListener('click', onPinClick);
+		this.cleanupFns.push(() => {
+			pinBtn.removeEventListener('mousedown', onPinMouseDown);
+			pinBtn.removeEventListener('click', onPinClick);
+		});
 
 		renderSidebarWeekCalendar(scroll);
 
@@ -679,21 +712,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				});
 			},
 			() => this.openAddActionModal(),
-			this.sidebarPinned,
-			() => {
-				this.sidebarPinned = !this.sidebarPinned;
-				this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', String(this.sidebarPinned));
-				if (this.sidebarPinned) {
-					sidebar.addClass('dashboard-sidebar--pinned');
-					sidebar.removeClass('dashboard-sidebar--expanded');
-					sidebar.removeClass('dashboard-sidebar--collapsed');
-					this.sidebarExpanded = false;
-				} else {
-					sidebar.removeClass('dashboard-sidebar--pinned');
-					sidebar.addClass('dashboard-sidebar--collapsed');
-					this.sidebarExpanded = false;
-				}
-			},
+			undefined,
+			undefined,
 			this.data.quickActionOrder,
 			(order) => { void this.sync.reorderQuickActions(order); },
 			(key) => {
@@ -722,6 +742,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		// Use capture phase so child handlers can't stopPropagation before we see it
 		sidebar.addEventListener('mousedown', (e: MouseEvent) => {
+			if ((e.target as HTMLElement).closest('.dashboard-sidebar-pin-module')) return;
 			if (this.sidebarPinned) return;
 			if (sidebar.hasClass('dashboard-sidebar--collapsed')) {
 				e.preventDefault();

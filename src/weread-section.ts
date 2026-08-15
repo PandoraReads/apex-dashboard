@@ -56,11 +56,9 @@ export function renderWereadSection(
 					renderNotebooks(content, client, notebooks, app, importPath, pageState, w.id);
 				} else {
 					const allBooks = await client.fetchShelf();
-					if (w.progressFilters?.length) {
-						renderHint(content, t('weread.loadingProgress'), '');
-						await enrichProgress(client, allBooks);
-						content.empty();
-					}
+					renderHint(content, t('weread.loadingProgress'), '');
+					await enrichProgress(client, allBooks);
+					content.empty();
 					const books = filterBooks(allBooks, w.progressFilters, w.categoryFilters);
 					drawShelf(content, w, books, pageState);
 				}

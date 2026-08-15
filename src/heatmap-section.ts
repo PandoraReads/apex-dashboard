@@ -110,11 +110,19 @@ function renderYearGrid(
 	const wrap = host.createDiv({ cls: 'dashboard-heatmap-year' });
 	// Measure container width, then pick a cell size that fills it.
 	const width = wrap.parentElement?.clientWidth ?? 800;
-	const cell = chooseCellSize(width, weekCols.length);
+	const cell = chooseCellSize(Math.max(0, width - 28), weekCols.length);
 	wrap.style.setProperty('--hm-cell', `${cell}px`);
 
 	const monthRow = wrap.createDiv({ cls: 'dashboard-heatmap-months-top' });
-	const grid = wrap.createDiv({ cls: 'dashboard-heatmap-grid' });
+	const gridRow = wrap.createDiv({ cls: 'dashboard-heatmap-grid-row' });
+	const weekdayLabels = gridRow.createDiv({ cls: 'dashboard-heatmap-weekdays' });
+	const weekdayNames = getLanguage() === 'zh'
+		? ['一', '', '三', '', '五', '', '日']
+		: ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'];
+	for (const name of weekdayNames) {
+		weekdayLabels.createDiv({ cls: 'dashboard-heatmap-weekday-label', text: name });
+	}
+	const grid = gridRow.createDiv({ cls: 'dashboard-heatmap-grid' });
 
 	const monthLabels = computeMonthLabels(weekCols);
 	// monthRow columns set via direct style (repeat count must be a literal int,

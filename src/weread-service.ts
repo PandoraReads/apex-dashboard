@@ -154,13 +154,19 @@ export class WereadClient {
 	}
 
 	async fetchReadData(mode: 'weekly' | 'monthly' | 'annually' | 'overall' = 'overall'): Promise<WereadStats> {
-		const data = await this.request<{ totalReadTime?: number; dayAverageReadTime?: number; readDays?: number }>(
+		const data = await this.request<Record<string, unknown>>(
 			'/readdata/detail', { mode },
 		);
+		const totalReadTime = readDuration(firstValue(data, ['totalReadTime', 'total_read_time', 'readTime', 'totalTime']), 0);
+		const readDays = numOr(firstValue(data, ['readDays', 'read_days', 'days']), 0);
+		const reportedAverage = readDuration(
+			firstValue(data, ['dayAverageReadTime', 'day_average_read_time', 'averageReadTime', 'avgReadTime', 'dailyAverageReadTime']),
+			0,
+		);
 		return {
-			totalReadTime: numOr(data.totalReadTime, 0),
-			dayAverageReadTime: numOr(data.dayAverageReadTime, 0),
-			readDays: numOr(data.readDays, 0),
+			totalReadTime,
+			dayAverageReadTime: reportedAverage || (readDays > 0 ? Math.round(totalReadTime / readDays) : 0),
+			readDays,
 		};
 	}
 
@@ -182,9 +188,10 @@ export class WereadClient {
 
 	/** Per-book reading progress (0-100). Shelf data lacks this, so it is fetched per book. */
 	async fetchProgress(bookId: string): Promise<number> {
-		const data = await this.request<{ progress?: number; readPercent?: number } & Record<string, unknown>>('/book/getprogress', { bookId });
-		const raw = data.progress ?? data.readPercent;
-		return clampPct(numOr(raw, 0));
+		const data = await this.request<Record<string, unknown>>('/book/getprogress', { bookId });
+		const book = isRecord(data.book) ? data.book : undefined;
+		const raw = firstValue(book ?? data, ['progress', 'readPercent', 'readProgress', 'bookProgress', 'progressRate', 'readingProgress', 'percent']);
+		return normalizeProgress(raw);
 	}
 
 	clearCache(): void {
@@ -200,6 +207,8 @@ interface ShelfBookRaw {
 	progress?: number;
 	readPercent?: number;
 	readProgress?: number;
+	readingProgress?: number;
+	book?: { progress?: number; readingProgress?: number };
 	finished?: number;
 	markStatus?: number;
 	category?: string | number;
@@ -226,8 +235,8 @@ function parseShelf(data: { books?: ShelfBookRaw[]; albums?: Array<Record<string
 	const out: WereadBook[] = [];
 
 	for (const b of rawBooks) {
-		const progressRaw = b.progress ?? b.readPercent ?? b.readProgress;
-		const progress = clampPct(numOr(progressRaw, 0));
+		const progressRaw = b.progress ?? b.readPercent ?? b.readProgress ?? b.readingProgress ?? b.book?.progress ?? b.book?.readingProgress;
+		const progress = normalizeProgress(progressRaw);
 		const category = bigCategory(b.bigCategory ?? b.categoryParent ?? b.category);
 		out.push({
 			bookId: String(b.bookId ?? ''),
@@ -304,7 +313,36 @@ function parseNotebook(raw: NotebookRaw): WereadNotebook | null {
 }
 
 function numOr(v: unknown, d: number): number {
-	return typeof v === 'number' && !isNaN(v) ? v : d;
+	if (typeof v === 'number' && Number.isFinite(v)) return v;
+	if (typeof v === 'string' && v.trim() !== '') {
+		const n = Number(v);
+		if (Number.isFinite(n)) return n;
+	}
+	return d;
+}
+
+function firstValue(data: Record<string, unknown>, keys: string[]): unknown {
+	for (const key of keys) {
+		if (data[key] !== undefined && data[key] !== null) return data[key];
+	}
+	return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function normalizeProgress(raw: unknown): number {
+	const value = numOr(raw, 0);
+	// Some endpoints return a ratio (0..1), while the UI uses percentages.
+	return clampPct(value > 0 && value <= 1 ? value * 100 : value);
+}
+
+function readDuration(raw: unknown, fallback: number): number {
+	const value = numOr(raw, fallback);
+	// Read-data values are seconds in the current API. Accept milliseconds from
+	// older gateway responses without changing normal second-based values.
+	return value > 100_000_000 ? value / 1000 : value;
 }
 
 function str(v: unknown): string {

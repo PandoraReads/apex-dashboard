@@ -4158,6 +4158,84 @@
 	background: var(--db-text-faint);
 }
 
+.dashboard-sidebar-pin-module {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-height: 34px;
+	margin: 0 4px 2px;
+	padding: 5px 6px 5px 10px;
+	border: 1px solid var(--db-border-sidebar);
+	border-radius: var(--db-radius-sm);
+	background: var(--db-bg-sidebar);
+	color: var(--db-text-muted);
+	transition: opacity 0.2s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.dashboard-sidebar-pin-module-label {
+	min-width: 0;
+	font-size: 0.7em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-sidebar-pin-btn {
+	flex: 0 0 24px;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--db-text-faint);
+	cursor: pointer;
+	transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.dashboard-sidebar-pin-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-sidebar-pin-btn:focus-visible,
+.dashboard-sidebar-pin-btn--active {
+	color: var(--db-accent);
+}
+
+.dashboard-sidebar-pin-btn:hover,
+.dashboard-sidebar-pin-btn--active {
+	color: var(--db-accent);
+	background: var(--db-bg-btn-hover);
+	border-color: var(--db-border-btn);
+}
+
+.dashboard-sidebar--collapsed .dashboard-sidebar-pin-module {
+	margin: 0;
+	padding: 5px 0;
+	border-color: transparent;
+	background: transparent;
+}
+
+.dashboard-sidebar--collapsed .dashboard-sidebar-pin-module-label {
+	display: none;
+}
+
+.dashboard-sidebar--collapsed .dashboard-sidebar-pin-btn {
+	margin: 0 auto;
+	color: var(--db-text-faint);
+}
+
+/* Obsidian provides the modal close button. Hide the duplicate custom header X. */
+.dashboard-modal-close {
+	display: none !important;
+}
+
 /* --- Expanded --- */
 .dashboard-sidebar--expanded {
 	width: 220px;
@@ -11949,7 +12027,6 @@
 .dashboard-heatmap-year {
 	width: 100%;
 	margin-top: 4px;
-	padding-left: 20px;
 	--hm-cell: 13px;
 }
 
@@ -11958,7 +12035,7 @@
 	height: 16px;
 	margin-bottom: 4px;
 	gap: 3px;
-	padding-left: 20px;
+	margin-left: 28px;
 	width: 100%;
 	justify-content: flex-start;
 }
@@ -11971,10 +12048,32 @@
 	overflow: visible;
 }
 
+.dashboard-heatmap-grid-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 4px;
+}
+
+.dashboard-heatmap-weekdays {
+	flex: 0 0 24px;
+	display: grid;
+	grid-template-rows: repeat(7, var(--hm-cell, 13px));
+	row-gap: 3px;
+}
+
+.dashboard-heatmap-weekday-label {
+	font-size: 0.58em;
+	line-height: var(--hm-cell, 13px);
+	color: var(--db-text-muted, var(--text-muted));
+	white-space: nowrap;
+	text-align: right;
+}
+
 /* GitHub-style matrix: cells fill down a 7-row column (Mon→Sun) then the next
    week column. Layout lives in CSS (not setCssProps) so grid-auto-flow reliably
    applies; cell size via the --hm-cell variable. */
 .dashboard-heatmap-grid {
+	flex: 1 1 auto;
 	display: grid;
 	grid-template-rows: repeat(7, var(--hm-cell, 13px));
 	grid-auto-flow: column;
