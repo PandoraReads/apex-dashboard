@@ -180,13 +180,13 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': 'Got it',
 
 		// Dataview announcement + community group
-		'dataviewGuide.title': 'New: Dataview sections',
+		'dataviewGuide.title': 'New section: Dataview 🎉',
 		'dataviewGuide.intro': 'Query your vault right on the dashboard — no plugins needed.',
 		'dataviewGuide.featureDql': 'DQL queries: TABLE / LIST / TASK / CALENDAR / HEATMAP',
 		'dataviewGuide.featureFields': 'Frontmatter, inline fields, 40+ functions',
 		'dataviewGuide.featureViews': 'Interactive task toggles, calendar & heatmap views',
 		'dataviewGuide.featureNoPlugin': 'Zero dependencies',
-		'dataviewGuide.groupTitle': 'Join the community',
+		'dataviewGuide.groupTitle': 'Join the Apex Dashboard community',
 		'dataviewGuide.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'dataviewGuide.gotIt': 'Got it',
 			'settings.widgetTheme': 'Sidebar Widgets',
@@ -1191,13 +1191,13 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// Dataview 公告 + 社区群
-		'dataviewGuide.title': '新功能:Dataview 数据视图',
+		'dataviewGuide.title': '新分区:Dataview 🎉',
 		'dataviewGuide.intro': '在仪表盘上直接查询你的知识库,无需安装任何插件。',
 		'dataviewGuide.featureDql': 'DQL 查询:TABLE / LIST / TASK / CALENDAR / HEATMAP',
 		'dataviewGuide.featureFields': '支持 frontmatter、行内字段、40+ 函数',
 		'dataviewGuide.featureViews': '任务可勾选、日历与热力图视图',
 		'dataviewGuide.featureNoPlugin': '零依赖',
-		'dataviewGuide.groupTitle': '加入交流群',
+		'dataviewGuide.groupTitle': '加入 Apex Dashboard 交流群',
 		'dataviewGuide.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'dataviewGuide.gotIt': '知道了',
 			'settings.widgetTheme': '侧边栏小组件',

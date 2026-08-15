@@ -12159,7 +12159,7 @@
 /* ===== Dataview announcement + community-group modal ===== */
 .dashboard-dataview-guide-modal {
 	padding: 24px 28px 20px;
-	max-width: 480px;
+	max-width: 560px;
 }
 
 .dashboard-dataview-guide-title {
@@ -12235,7 +12235,7 @@
 }
 
 .dashboard-dataview-guide-qr {
-	width: 150px;
+	width: 200px;
 	height: auto;
 	border-radius: var(--db-radius-sm, 6px);
 	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
