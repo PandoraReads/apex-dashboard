@@ -31,6 +31,18 @@ export function sanitizeMediaTags(raw: unknown): Record<string, string[]> {
 	return out;
 }
 
+/** Plugin-scoped service instance, registered from main.ts onload so the
+ *  renderer (which only receives App) can reach it. Cleared on unload. */
+let activeService: MediaTagService | null = null;
+
+export function registerMediaTagService(service: MediaTagService | null): void {
+	activeService = service;
+}
+
+export function getMediaTagService(): MediaTagService | null {
+	return activeService;
+}
+
 /**
  * Owns the media tag store (settings.mediaTags: Record<path, string[]>).
  * Writes go through a 400ms debounce so batch tagging produces a single
@@ -57,7 +69,7 @@ export class MediaTagService {
 
 	/** Flush any pending write and detach vault listeners. */
 	destroy(): void {
-		this.flush();
+		void this.flush();
 		if (this.renameRef !== null) this.plugin.app.vault.offref(this.renameRef);
 		if (this.deleteRef !== null) this.plugin.app.vault.offref(this.deleteRef);
 		this.renameRef = null;

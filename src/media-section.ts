@@ -1,12 +1,20 @@
 import { App, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { DashboardColumn } from './types';
-import { resolveVaultImage } from './banner';
 import { t } from './i18n';
 import { showConfirmDialog } from './confirm-dialog';
 import { MediaLightboxModal } from './media-lightbox-modal';
-import { renderPagination } from './library-section';
+import { MediaTagEditModal } from './media-tag-editor-modal';
+import type { MediaTagService } from './media-tags';
+import { renderPagination, renderTagsSelector } from './library-section';
 import { FolderSuggestModal } from './folder-config-modal';
+import {
+	type MediaFileResult,
+	renderMediaGrid,
+	renderMediaList,
+	formatDate,
+} from './media-views';
+import { trashMediaFile } from './media-utils';
 
 /** Image file extensions shown in an images section (excludes pdf). */
 export const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp']);
@@ -15,18 +23,8 @@ export const VIDEO_EXTS = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v']);
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
-type MediaViewMode = 'grid' | 'list' | 'table';
+type MediaViewMode = 'grid' | 'list';
 type ThumbSize = 'small' | 'medium' | 'large';
-
-interface MediaFileResult {
-	file: TFile;
-	basename: string;
-	path: string;
-	mtime: number;
-	ctime: number;
-	ext: string;
-	size: number;
-}
 
 function extsFor(sectionType: string): Set<string> | null {
 	if (sectionType === 'images') return IMAGE_EXTS;
@@ -38,7 +36,7 @@ function isMediaSection(sectionType: string): boolean {
 	return sectionType === 'images' || sectionType === 'videos';
 }
 
-function queryMediaFiles(app: App, exts: Set<string>): MediaFileResult[] {
+function queryMediaFiles(app: App, exts: Set<string>, tagService?: MediaTagService): MediaFileResult[] {
 	const results: MediaFileResult[] = [];
 	for (const file of app.vault.getFiles()) {
 		if (file.path.startsWith('.')) continue;
@@ -51,6 +49,7 @@ function queryMediaFiles(app: App, exts: Set<string>): MediaFileResult[] {
 			ctime: file.stat.ctime,
 			ext: file.extension,
 			size: file.stat.size,
+			tags: tagService?.getTags(file.path) ?? [],
 		});
 	}
 	return results;
@@ -68,28 +67,6 @@ function sortMedia(results: MediaFileResult[], sortBy: string, desc: boolean): v
 		}
 		return desc ? -cmp : cmp;
 	});
-}
-
-function formatDate(ts: number): string {
-	const d = new Date(ts);
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, '0');
-	const day = String(d.getDate()).padStart(2, '0');
-	return `${y}-${m}-${day}`;
-}
-
-/** Human-readable file size for the static video placeholder badge. */
-function formatFileSize(bytes: number): string {
-	if (!bytes || bytes <= 0) return '';
-	if (bytes < 1024) return `${bytes} B`;
-	const units = ['KB', 'MB', 'GB'];
-	let val = bytes / 1024;
-	let i = 0;
-	while (val >= 1024 && i < units.length - 1) {
-		val /= 1024;
-		i++;
-	}
-	return `${val.toFixed(val >= 10 ? 0 : 1)} ${units[i]}`;
 }
 
 /**
@@ -174,80 +151,22 @@ function mountVideoInTile(tile: HTMLElement, src: string): void {
 	});
 }
 
-/** Static placeholder shown for video tiles until (desktop) a real `<video>` is
- *  lazily mounted, or always (mobile, where no `<video>` is ever created). */
-function renderVideoThumbPlaceholder(parent: HTMLElement, result: MediaFileResult, showSize: boolean): void {
-	const ph = parent.createDiv({ cls: 'dashboard-media-thumb dashboard-media-thumb--video-placeholder' });
-	setIcon(ph.createDiv({ cls: 'dashboard-media-thumb-icon' }), 'film');
-	if (showSize) {
-		const size = formatFileSize(result.size);
-		if (size) ph.createDiv({ cls: 'dashboard-media-size-badge', text: size });
-	}
-}
-
-/** Notes that link to or embed the given media file (backlinks via resolvedLinks). */
-function getMediaBacklinks(app: App, file: TFile): TFile[] {
-	const target = file.path;
-	const out: TFile[] = [];
-	const resolved = app.metadataCache.resolvedLinks;
-	for (const [srcPath, targets] of Object.entries(resolved)) {
-		if (targets[target]) {
-			const src = app.vault.getFileByPath(srcPath);
-			if (src) out.push(src);
-		}
-	}
-	out.sort((a, b) => a.basename.localeCompare(b.basename));
-	return out;
-}
-
-/** Render backlinks as clickable chips that open the note in a popover. */
-function appendBacklinks(container: HTMLElement, files: TFile[], onOpenNote?: (file: TFile) => void): void {
-	if (files.length === 0) {
-		container.createDiv({ cls: 'dashboard-media-no-links', text: '—' });
-		return;
-	}
-	const wrap = container.createDiv({ cls: 'dashboard-media-backlinks' });
-	for (const f of files.slice(0, 5)) {
-		const chip = wrap.createDiv({ cls: 'dashboard-media-backlink', text: f.basename });
-		chip.title = f.path;
-		chip.setAttribute('role', 'button');
-		chip.addEventListener('click', (e) => {
-			e.stopPropagation();
-			onOpenNote?.(f);
-		});
-	}
-	if (files.length > 5) {
-		wrap.createDiv({ cls: 'dashboard-media-backlink dashboard-media-backlink--more', text: `+${files.length - 5}` });
-	}
-}
-
-/** Rename a media file; fileManager.renameFile updates all [[links]]/![[embeds]] automatically. */
-async function renameMediaFile(app: App, file: TFile, newBasename: string): Promise<void> {
-	const name = newBasename.trim();
-	if (!name || name === file.basename) return;
-	const parentPath = file.parent ? file.parent.path : '';
-	const newPath = parentPath ? `${parentPath}/${name}.${file.extension}` : `${name}.${file.extension}`;
-	await app.fileManager.renameFile(file, newPath);
-}
-
-/** Move a media file to the trash (recoverable) via the file manager so the
- *  user's "delete to trash vs permanent" preference is respected. */
-async function trashMediaFile(app: App, file: TFile): Promise<void> {
-	await app.fileManager.trashFile(file);
-}
-
 /**
  * Render an images or videos section: compact toolbar (search + sort +
  * direction + grid/list/table toggle + count) over a paginated view.
  * Grid shows a thumbnail wall; list/table add delete buttons; table lets you
  * rename a file (updating backlinks). Clicking a thumbnail opens the lightbox.
+ * With a tagService, files carry user tags: filterable via the filter popup's
+ * tag chips row, editable via tile buttons / table Tags column / the lightbox
+ * tag bar. Tag edits persist debounced and only re-render this section.
  */
 export function renderMediaSection(
 	el: HTMLElement,
 	column: DashboardColumn,
 	app: App,
 	_hoverParent: HoverParent | null,
-	onOpenNote?: (file: TFile, subpath?: string) => void,
+	onOpenNote?: (file: TFile) => void,
+	tagService?: MediaTagService,
 ): void {
 	const sectionType = column.sectionType ?? '';
 	const exts = extsFor(sectionType);
@@ -281,10 +200,10 @@ export function renderMediaSection(
 	// View mode toggle (reuses library's view-toggle styling)
 	let viewMode: MediaViewMode = 'grid';
 	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle' });
-	const viewIcons: Record<MediaViewMode, string> = { grid: 'layout-grid', list: 'list', table: 'table' };
+	const viewIcons: Record<MediaViewMode, string> = { grid: 'layout-grid', list: 'list' };
 	const buildViewToggle = (): void => {
 		viewToggle.empty();
-		(['grid', 'list', 'table'] as MediaViewMode[]).forEach((mode) => {
+		(['grid', 'list'] as MediaViewMode[]).forEach((mode) => {
 			const btn = viewToggle.createDiv({
 				cls: 'dashboard-library-view-btn' + (mode === viewMode ? ' active' : ''),
 			});
@@ -311,7 +230,7 @@ export function renderMediaSection(
 	};
 	buildSizeToggle();
 
-	// Filter funnel: date range (created/modified) + folder path
+	// Filter funnel: tags + date range (created/modified) + folder path
 	const filterBtn = toolbar.createDiv({ cls: 'dashboard-library-filter-btn' });
 	setIcon(filterBtn, 'filter');
 	filterBtn.title = t('media.quickFilter');
@@ -321,12 +240,14 @@ export function renderMediaSection(
 	let filterStart = '';
 	let filterEnd = '';
 	let filterFolders: string[] = [];
+	let filterTags: string[] = [];
 	let filterPopup: HTMLElement | null = null;
 	let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
 	const folderNorm = (f: string): string => f.trim().replace(/^\/+|\/+$/g, '');
 
 	function mediaPassesFilters(r: MediaFileResult): boolean {
+		if (filterTags.length > 0 && !r.tags.some(tag => filterTags.includes(tag))) return false;
 		if (filterStart || filterEnd) {
 			const ts = filterProp === 'created' ? r.ctime : r.mtime;
 			const d = formatDate(ts);
@@ -342,11 +263,19 @@ export function renderMediaSection(
 	}
 
 	function hasMediaFilter(): boolean {
-		return !!(filterStart || filterEnd || filterFolders.length > 0);
+		return !!(filterStart || filterEnd || filterFolders.length > 0 || filterTags.length > 0);
 	}
 
 	function renderMediaFilterTags(): void {
 		filterTagBar.empty();
+		for (const tag of filterTags) {
+			const chip = filterTagBar.createDiv({ cls: 'dashboard-library-filter-tag dashboard-library-filter-tag--tag' });
+			chip.createSpan({ cls: 'dashboard-library-filter-tag-label', text: `#${tag}` });
+			chip.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' }).addEventListener('click', () => {
+				filterTags = filterTags.filter(tg => tg !== tag);
+				refreshMedia();
+			});
+		}
 		if (filterStart || filterEnd) {
 			const start = filterStart || '...';
 			const end = filterEnd || '...';
@@ -378,6 +307,16 @@ export function renderMediaSection(
 		if (filterPopup) { filterPopup.remove(); filterPopup = null; }
 	}
 
+	function toggleFilterTag(tag: string, chipsHost: HTMLElement): void {
+		filterTags = filterTags.includes(tag)
+			? filterTags.filter(tg => tg !== tag)
+			: [...filterTags, tag];
+		refreshMedia();
+		if (filterPopup) {
+			renderTagsSelector(chipsHost, tagService?.getAllTags() ?? [], filterTags, (tg) => toggleFilterTag(tg, chipsHost));
+		}
+	}
+
 	function openMediaPopup(): void {
 		closeMediaPopup();
 		filterPopup = activeDocument.body.createDiv({ cls: 'dashboard-library-filter-popup' });
@@ -398,6 +337,13 @@ export function renderMediaSection(
 			left: `${rect.left}px`,
 			zIndex: '10000',
 		});
+
+		if (tagService) {
+			const tagRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
+			tagRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('media.filterTags') });
+			const tagChipsHost = tagRow.createDiv({ cls: 'dashboard-library-filter-chips' });
+			renderTagsSelector(tagChipsHost, tagService.getAllTags(), filterTags, (tag) => toggleFilterTag(tag, tagChipsHost));
+		}
 
 		const propRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
 		propRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('library.filterProperty') });
@@ -458,7 +404,7 @@ export function renderMediaSection(
 			const clearBtn = filterPopup.createEl('button', { cls: 'dashboard-library-filter-popup-clear', text: t('reminder.clearReminder') });
 			clearBtn.addEventListener('click', (ev) => {
 				ev.stopPropagation();
-				filterStart = ''; filterEnd = ''; filterFolders = [];
+				filterStart = ''; filterEnd = ''; filterFolders = []; filterTags = [];
 				refreshMedia();
 				closeMediaPopup();
 			});
@@ -525,7 +471,7 @@ export function renderMediaSection(
 		resultArea.empty();
 		paginationArea.empty();
 
-		let results = queryMediaFiles(app, exts!);
+		let results = queryMediaFiles(app, exts!, tagService);
 		const q = searchInput.value.trim().toLowerCase();
 		if (q) {
 			results = results.filter(r => r.basename.toLowerCase().includes(q) || r.path.toLowerCase().includes(q));
@@ -549,8 +495,27 @@ export function renderMediaSection(
 		const start = (currentPage - 1) * pageSize;
 		const page = results.slice(start, start + pageSize);
 
+		const openTagEditor = (result: MediaFileResult): void => {
+			if (!tagService) return;
+			new MediaTagEditModal(
+				app,
+				result.file,
+				tagService.getTags(result.path),
+				tagService.getAllTags(),
+				(tags) => {
+					if (tagService.setTags(result.path, tags)) render();
+				},
+			).open();
+		};
+
+		const tagHooks = tagService ? {
+			getTags: (file: TFile) => tagService.getTags(file.path),
+			getAllTags: () => tagService.getAllTags(),
+			onTagsChange: (file: TFile, tags: string[]) => { tagService.setTags(file.path, tags); },
+		} : undefined;
+
 		const openLightbox = (pageIndex: number): void => {
-			new MediaLightboxModal(app, results.map(r => r.file), start + pageIndex, kind).open();
+			new MediaLightboxModal(app, results.map(r => r.file), start + pageIndex, kind, tagHooks).open();
 		};
 
 		// One lazy mounter per render: desktop video tiles mount a real <video>
@@ -561,11 +526,9 @@ export function renderMediaSection(
 		else sectionMounters.delete(el);
 
 		if (viewMode === 'grid') {
-			renderMediaGrid(resultArea, page, app, kind, thumbSize, openLightbox, (f) => { void deleteWithConfirm(f); }, mounter);
-		} else if (viewMode === 'list') {
-			renderMediaList(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, onOpenNote, mounter);
+			renderMediaGrid(resultArea, page, app, kind, thumbSize, openLightbox, (f) => { void deleteWithConfirm(f); }, mounter, openTagEditor);
 		} else {
-			renderMediaTable(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, render, onOpenNote);
+			renderMediaList(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, render, onOpenNote, mounter, openTagEditor);
 		}
 
 		if (totalPages > 1) {
@@ -580,197 +543,6 @@ export function renderMediaSection(
 	sortSelect.addEventListener('change', () => { sortBy = sortSelect.value; currentPage = 1; render(); });
 
 	render();
-}
-
-function renderMediaGrid(
-	container: HTMLElement,
-	results: MediaFileResult[],
-	app: App,
-	kind: 'image' | 'video',
-	thumbSize: ThumbSize,
-	onOpen: (index: number) => void,
-	onDelete: (file: TFile) => void,
-	mounter: LazyVideoMounter | null,
-): void {
-	const grid = container.createDiv({ cls: `dashboard-media-grid dashboard-media-grid--${thumbSize}` });
-
-	for (let i = 0; i < results.length; i++) {
-		const result = results[i]!;
-		const src = resolveVaultImage(app, result.path);
-		const item = grid.createDiv({ cls: 'dashboard-media-item' });
-
-		if (src) {
-			if (kind === 'image') {
-				item.createEl('img', {
-					cls: 'dashboard-media-thumb',
-					attr: { src, alt: result.basename, loading: 'lazy' },
-				});
-			} else {
-				// Static placeholder first; on desktop a real <video> is lazily
-				// mounted only when this tile scrolls into view (mounter.observe),
-				// on mobile no <video> is ever created on the board.
-				renderVideoThumbPlaceholder(item, result, true);
-				if (mounter) mounter.observe(item, src);
-				const play = item.createDiv({ cls: 'dashboard-media-play' });
-				setIcon(play, 'play');
-			}
-		} else {
-			item.createDiv({ cls: 'dashboard-media-thumb dashboard-media-thumb--broken' });
-		}
-
-		const name = item.createDiv({ cls: 'dashboard-media-name', text: result.basename });
-		name.title = `${result.path}\n${formatDate(result.mtime)}`;
-
-		const delBtn = item.createEl('button', {
-			cls: 'dashboard-qa-remove dashboard-media-delete',
-			attr: { 'aria-label': t('media.delete') },
-		});
-		setIcon(delBtn, 'trash-2');
-		delBtn.addEventListener('click', (e) => { e.stopPropagation(); onDelete(result.file); });
-
-		item.addEventListener('click', () => onOpen(i));
-		item.setAttribute('role', 'button');
-	}
-}
-
-function renderMediaList(
-	container: HTMLElement,
-	results: MediaFileResult[],
-	app: App,
-	kind: 'image' | 'video',
-	onOpen: (index: number) => void,
-	onDelete: (file: TFile) => void,
-	onOpenNote?: (file: TFile, subpath?: string) => void,
-	mounter: LazyVideoMounter | null = null,
-): void {
-	const list = container.createDiv({ cls: 'dashboard-media-list' });
-	for (let i = 0; i < results.length; i++) {
-		const result = results[i]!;
-		const row = list.createDiv({ cls: 'dashboard-media-list-row' });
-		row.setAttribute('role', 'button');
-
-		// Small thumbnail
-		const src = resolveVaultImage(app, result.path);
-		const thumb = row.createDiv({ cls: 'dashboard-media-list-thumb' });
-		if (src) {
-			if (kind === 'image') {
-				thumb.createEl('img', { attr: { src, alt: result.basename, loading: 'lazy' } });
-			} else {
-				renderVideoThumbPlaceholder(thumb, result, false);
-				if (mounter) mounter.observe(thumb, src);
-			}
-		}
-
-		const info = row.createDiv({ cls: 'dashboard-media-list-info' });
-		info.createDiv({ cls: 'dashboard-media-list-name', text: result.basename });
-		info.createDiv({ cls: 'dashboard-media-list-meta', text: `${result.path} · ${formatDate(result.mtime)}` });
-		appendBacklinks(info, getMediaBacklinks(app, result.file), onOpenNote);
-
-		const delBtn = row.createEl('button', {
-			cls: 'dashboard-library-page-btn dashboard-media-delete',
-			attr: { 'aria-label': t('media.delete') },
-		});
-		setIcon(delBtn, 'trash-2');
-		delBtn.addEventListener('click', (e) => { e.stopPropagation(); onDelete(result.file); });
-
-		row.addEventListener('click', () => onOpen(i));
-	}
-}
-
-function renderMediaTable(
-	container: HTMLElement,
-	results: MediaFileResult[],
-	app: App,
-	kind: 'image' | 'video',
-	onOpen: (index: number) => void,
-	onDelete: (file: TFile) => void,
-	refresh: () => void,
-	onOpenNote?: (file: TFile, subpath?: string) => void,
-): void {
-	const wrap = container.createDiv({ cls: 'dashboard-media-table-wrap' });
-	const table = wrap.createEl('table', { cls: 'dashboard-library-table dashboard-media-table' });
-
-	const thead = table.createEl('thead');
-	const headRow = thead.createEl('tr');
-	headRow.createEl('th', { text: t('media.colName'), cls: 'dashboard-media-table-name-col' });
-	[t('media.colModified'), t('media.colCreated'), t('media.colPath'), t('media.colLinks'), ''].forEach((label) => {
-		headRow.createEl('th', { text: label });
-	});
-
-	const tbody = table.createEl('tbody');
-	for (let i = 0; i < results.length; i++) {
-		const result = results[i]!;
-		const tr = tbody.createEl('tr');
-
-		const nameTd = tr.createEl('td', { cls: 'dashboard-library-table-name dashboard-media-table-name-col', text: result.basename });
-		nameTd.title = result.basename;
-		nameElClick(nameTd, result, app, refresh);
-		tr.createEl('td', { text: formatDate(result.mtime) });
-		tr.createEl('td', { text: formatDate(result.ctime) });
-		const pathTd = tr.createEl('td', { cls: 'dashboard-media-table-path', text: result.path });
-		pathTd.title = result.path;
-
-		const linksTd = tr.createEl('td', { cls: 'dashboard-media-table-links' });
-		appendBacklinks(linksTd, getMediaBacklinks(app, result.file), onOpenNote);
-
-		const opTd = tr.createEl('td', { cls: 'dashboard-media-table-op' });
-		const openBtn = opTd.createEl('button', {
-			cls: 'dashboard-library-page-btn',
-			attr: { 'aria-label': result.basename },
-		});
-		openBtn.title = result.basename;
-		setIcon(openBtn, kind === 'video' ? 'play' : 'maximize-2');
-		openBtn.addEventListener('click', (e) => { e.stopPropagation(); onOpen(i); });
-
-		const delBtn = opTd.createEl('button', {
-			cls: 'dashboard-library-page-btn dashboard-media-delete',
-			attr: { 'aria-label': t('media.delete') },
-		});
-		setIcon(delBtn, 'trash-2');
-		delBtn.addEventListener('click', (e) => { e.stopPropagation(); onDelete(result.file); });
-	}
-}
-
-/** Double-click the name cell to rename the file (backlinks update automatically). */
-function nameElClick(td: HTMLElement, result: MediaFileResult, app: App, refresh: () => void): void {
-	td.addClass('dashboard-media-table-name-cell');
-	td.addEventListener('dblclick', (e) => {
-		e.stopPropagation();
-		if (td.querySelector('input')) return;
-		const original = result.basename;
-		td.empty();
-		const input = td.createEl('input', {
-			cls: 'dashboard-library-table-edit-input',
-			attr: { type: 'text', value: original },
-		});
-		input.focus();
-		input.select();
-
-		const finish = async (save: boolean): Promise<void> => {
-			if (!input.isConnected) return;
-			const raw = input.value.trim();
-			input.remove();
-			if (!save || !raw || raw === original) {
-				td.textContent = original;
-				return;
-			}
-			td.textContent = raw;
-			try {
-				await renameMediaFile(app, result.file, raw);
-				refresh();
-			} catch (err) {
-				console.error('[Dashboard] media rename failed:', err);
-				new Notice(t('media.renameFailed'));
-				td.textContent = original;
-			}
-		};
-
-		input.addEventListener('keydown', (ke: KeyboardEvent) => {
-			if (ke.key === 'Enter') { ke.preventDefault(); void finish(true); }
-			else if (ke.key === 'Escape') { ke.preventDefault(); void finish(false); }
-		});
-		input.addEventListener('blur', () => { void finish(true); });
-	});
 }
 
 export { isMediaSection };
