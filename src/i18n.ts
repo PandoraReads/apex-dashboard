@@ -1191,7 +1191,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// Dataview 公告 + 社区群
-		'dataviewGuide.title': '新分区:Dataview 🎉',
+		'dataviewGuide.title': '新分区:Dataview 数据视图 🎉',
 		'dataviewGuide.intro': '在仪表盘上直接查询你的知识库,无需安装任何插件。',
 		'dataviewGuide.featureDql': 'DQL 查询:TABLE / LIST / TASK / CALENDAR / HEATMAP',
 		'dataviewGuide.featureFields': '支持 frontmatter、行内字段、40+ 函数',
