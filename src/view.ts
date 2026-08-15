@@ -783,7 +783,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private createCallbacks() {
 		return {
 			onCardEdit: (card: DashboardCard) => this.openCardEditModal(card),
-			onOpenNoteInPopover: (file: TFile) => this.openNote(file),
+			onOpenNoteInPopover: (file: TFile, subpath?: string) => this.openNote(file, subpath),
 			onCardDelete: async (cardId: string) => {
 				const confirmed = await showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
@@ -1074,11 +1074,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	private openNotePopover(file: TFile): void {
+	private openNotePopover(file: TFile, subpath?: string): void {
 		// Close any previously open popover so its embedded leaf is detached
 		// before we open a fresh one.
 		this.popoverModal?.close();
-		const modal = new NotePopoverModal(this.app, file, this.plugin.settings.stylePreset);
+		const modal = new NotePopoverModal(this.app, file, this.plugin.settings.stylePreset, subpath);
 		this.popoverModal = modal;
 		modal.open();
 	}
@@ -1086,15 +1086,19 @@ export class DashboardView extends ItemView implements HoverParent {
 	/** Opens a note on card click. Honors the "disable popover" setting: when
 	 *  on, the note opens directly in a tab (no in-dashboard editor).
 	 *
+	 *  subpath is the raw `#heading` / `#^block` fragment of a wikilink; the
+	 *  tab path resolves it via openLinkText, the popover scrolls to it after
+	 *  the embedded view is ready.
+	 *
 	 *  Non-markdown files (canvas whiteboards, base databases, pdf, media) are
 	 *  always opened in a real tab — the in-dashboard popover only hosts a
 	 *  MarkdownView and would render them broken. */
-	private openNote(file: TFile): void {
+	private openNote(file: TFile, subpath?: string): void {
 		if (this.plugin.settings.disableNotePopover || file.extension !== 'md') {
-			void this.app.workspace.getLeaf(false).openFile(file);
+			void this.app.workspace.openLinkText(subpath ? `${file.path}${subpath}` : file.path, '');
 			return;
 		}
-		this.openNotePopover(file);
+		this.openNotePopover(file, subpath);
 	}
 
 	private async addColumnWithType(name: string, sectionType?: string): Promise<void> {

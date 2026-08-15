@@ -16,14 +16,16 @@ type NoteViewMode = 'source' | 'preview';
 export class NotePopoverModal extends Modal {
 	private readonly file: TFile;
 	private readonly theme: string;
+	private readonly subpath?: string;
 	private leaf: WorkspaceLeaf | null = null;
 	private toggleBtn: HTMLElement | null = null;
 	private mode: NoteViewMode;
 
-	constructor(app: App, file: TFile, theme = 'earth') {
+	constructor(app: App, file: TFile, theme = 'earth', subpath?: string) {
 		super(app);
 		this.file = file;
 		this.theme = theme;
+		this.subpath = subpath;
 		this.mode = (this.app.loadLocalStorage(MODE_STORAGE_KEY) as string | null) === 'preview' ? 'preview' : 'source';
 	}
 
@@ -74,6 +76,21 @@ export class NotePopoverModal extends Modal {
 		this.leaf = leaf;
 		await leaf.openFile(this.file, { state: { mode: this.mode } });
 		host.appendChild(leaf.containerEl);
+
+		// Wikilink subpath (#heading / #^block): scroll the embedded view to the
+		// anchor once the editor has actually laid out. setEphemeralState is the
+		// same mechanism Obsidian's own internal-link click uses; without the
+		// delay the editor has no geometry yet and the scroll lands on the top.
+		if (this.subpath && leaf.view instanceof MarkdownView) {
+			const view = leaf.view;
+			window.setTimeout(() => {
+				try {
+					view.setEphemeralState({ subpath: this.subpath });
+				} catch {
+					// Best-effort scroll; a bad anchor just leaves the note at the top.
+				}
+			}, 100);
+		}
 	}
 
 	private async toggleMode(): Promise<void> {

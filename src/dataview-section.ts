@@ -13,7 +13,7 @@ import { coerceNumber, formatValue, kindOf } from './dql/values';
 // render so the inner renderers can route opens + hover previews without
 // threading callbacks through every signature.
 let dvHoverParent: HoverParent | null = null;
-let dvOpener: ((file: TFile) => void) | null = null;
+let dvOpener: ((file: TFile, subpath?: string) => void) | null = null;
 
 const MAX_ROWS = 500; // hard cap to keep the DOM finite on pathological queries.
 const HEATMAP_CELL_GAP = 3;
@@ -30,7 +30,7 @@ export function renderDataviewSection(
 	column: DashboardColumn,
 	app: App,
 	hoverParent: HoverParent | null,
-	onOpenNote: ((file: TFile) => void) | null,
+	onOpenNote: ((file: TFile, subpath?: string) => void) | null,
 	reloadRegister: (fn: () => void) => void,
 ): void {
 	dvHoverParent = hoverParent;
@@ -589,12 +589,12 @@ function renderDvLink(container: HTMLElement, content: string): void {
 	const file = resolveDvFile(path);
 	const span = container.createSpan({ cls: 'dashboard-wikilink', text: displayName });
 	if (file && dvHoverParent && !Platform.isMobile) {
-		attachNoteHover(appRef, span, file, dvHoverParent);
+		attachNoteHover(appRef, span, file, dvHoverParent, fragment ? `#${fragment}` : undefined);
 	}
 	span.addEventListener('click', (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (file && dvOpener) dvOpener(file);
+		if (file && dvOpener) dvOpener(file, fragment ? `#${fragment}` : undefined);
 	});
 }
 

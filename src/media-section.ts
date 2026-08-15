@@ -247,7 +247,7 @@ export function renderMediaSection(
 	column: DashboardColumn,
 	app: App,
 	_hoverParent: HoverParent | null,
-	onOpenNote?: (file: TFile) => void,
+	onOpenNote?: (file: TFile, subpath?: string) => void,
 ): void {
 	const sectionType = column.sectionType ?? '';
 	const exts = extsFor(sectionType);
@@ -640,7 +640,7 @@ function renderMediaList(
 	kind: 'image' | 'video',
 	onOpen: (index: number) => void,
 	onDelete: (file: TFile) => void,
-	onOpenNote?: (file: TFile) => void,
+	onOpenNote?: (file: TFile, subpath?: string) => void,
 	mounter: LazyVideoMounter | null = null,
 ): void {
 	const list = container.createDiv({ cls: 'dashboard-media-list' });
@@ -685,7 +685,7 @@ function renderMediaTable(
 	onOpen: (index: number) => void,
 	onDelete: (file: TFile) => void,
 	refresh: () => void,
-	onOpenNote?: (file: TFile) => void,
+	onOpenNote?: (file: TFile, subpath?: string) => void,
 ): void {
 	const wrap = container.createDiv({ cls: 'dashboard-media-table-wrap' });
 	const table = wrap.createEl('table', { cls: 'dashboard-library-table dashboard-media-table' });

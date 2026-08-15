@@ -8,6 +8,9 @@ import type { App, HoverParent, TFile } from 'obsidian';
  * hovering an internal link inside a note. The dashboard's owning view must
  * implement HoverParent so Obsidian can track the popover lifecycle.
  *
+ * subpath is the raw `#heading` / `#^block` fragment of a wikilink; when given,
+ * the preview scrolls to that anchor instead of the note top.
+ *
  * Desktop only: mobile has no hover, so callers keep the original open-in-tab
  * behaviour there.
  */
@@ -16,6 +19,7 @@ export function attachNoteHover(
 	el: HTMLElement,
 	file: TFile,
 	hoverParent: HoverParent,
+	subpath?: string,
 ): void {
 	el.addEventListener('mouseover', (event: MouseEvent) => {
 		app.workspace.trigger('hover-link', {
@@ -23,7 +27,7 @@ export function attachNoteHover(
 			source: 'apex-dashboard',
 			hoverParent,
 			targetEl: el,
-			linktext: file.basename,
+			linktext: subpath ? `${file.basename}${subpath}` : file.basename,
 			sourcePath: '',
 		});
 	});

@@ -461,7 +461,8 @@ export interface DashboardData {
 
 export interface RenderCallbacks {
 	onCardEdit(card: DashboardCard): void;
-	onOpenNoteInPopover(this: void, file: TFile): void;
+	/** subpath is the raw `#heading` / `#^block` fragment of a wikilink, when present. */
+	onOpenNoteInPopover(this: void, file: TFile, subpath?: string): void;
 	onCardDelete(cardId: string): void;
 	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;

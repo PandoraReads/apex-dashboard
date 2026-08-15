@@ -100,7 +100,7 @@ let docDragSource: { cardId: string; docPath: number[] } | null = null;
 // can attach hover previews and open the note popover without threading these
 // through every function signature. Mirrors the docDragSource module-level idiom.
 let activeHoverParent: HoverParent | null = null;
-let activeNoteOpener: ((file: TFile) => void) | null = null;
+let activeNoteOpener: ((file: TFile, subpath?: string) => void) | null = null;
 
 const VAULT_FILE_EXTS = SUPPORTED_FILE_EXTS;
 
@@ -2099,7 +2099,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			callbacks.onColumnDelete(column.name);
 		});
 
-		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover, (fn) => { reload = fn; });
+		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover ?? null, (fn) => { reload = fn; });
 		return el;
 	}
 
@@ -3286,13 +3286,13 @@ function renderWikilink(container: HTMLElement, content: string, app: App): void
 	const file = resolveNoteFile(app, path);
 
 	if (file && !Platform.isMobile && activeHoverParent) {
-		attachNoteHover(app, link, file, activeHoverParent);
+		attachNoteHover(app, link, file, activeHoverParent, fragment ? `#${fragment}` : undefined);
 	}
 
 	link.addEventListener('click', (e) => {
 		e.stopPropagation();
 		if (!file) return;
-		activeNoteOpener?.(file);
+		activeNoteOpener?.(file, fragment ? `#${fragment}` : undefined);
 	});
 }
 
