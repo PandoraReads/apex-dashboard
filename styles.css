@@ -2687,6 +2687,398 @@
 	flex-shrink: 0;
 }
 
+/* ===== Wide stats modal (landscape) ===== */
+.dashboard-pomodoro-stats-modal--wide {
+	max-width: 1040px;
+	width: 94%;
+	max-height: 86vh;
+	padding: 22px 26px;
+	display: flex;
+	flex-direction: column;
+}
+
+.dashboard-pomodoro-stats-header-right {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.dashboard-pomodoro-stats-icon-btn {
+	cursor: pointer;
+	color: var(--db-text-muted);
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	transition: background 0.15s, color 0.15s;
+}
+.dashboard-pomodoro-stats-icon-btn:hover {
+	background: var(--db-bg-hover);
+	color: var(--db-text);
+}
+
+.dashboard-pomodoro-stats-body {
+	display: grid;
+	grid-template-columns: 230px 1fr 300px;
+	gap: 18px;
+	overflow-y: auto;
+	min-height: 0;
+	flex: 1;
+	padding-top: 4px;
+}
+
+/* Left column — KPIs */
+.dashboard-pomodoro-kpi-col {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.dashboard-pomodoro-kpi-trophy {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background: linear-gradient(135deg, rgba(241, 196, 15, 0.14), rgba(230, 126, 34, 0.10));
+	border: 1px solid rgba(241, 196, 15, 0.25);
+	border-radius: 10px;
+	padding: 10px 12px;
+}
+
+.dashboard-pomodoro-kpi-trophy-icon {
+	color: #f1c40f;
+	display: flex;
+}
+
+.dashboard-pomodoro-kpi-trophy-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.dashboard-pomodoro-kpi-trophy-value {
+	font-size: 0.95em;
+	font-weight: 700;
+	color: var(--db-text);
+}
+
+.dashboard-pomodoro-kpi-trophy-label {
+	font-size: 0.62em;
+	color: var(--db-text-muted);
+	margin-top: 1px;
+}
+
+.dashboard-pomodoro-stats-modal--wide .dashboard-pomodoro-stats-summary {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px;
+	flex-wrap: wrap;
+	margin-bottom: 0;
+}
+
+.dashboard-pomodoro-stats-card-value-row {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	justify-content: center;
+}
+
+.dashboard-pomodoro-stats-card-delta {
+	font-size: 0.58em;
+	font-weight: 600;
+	padding: 1px 4px;
+	border-radius: 4px;
+}
+.dashboard-pomodoro-stats-card-delta--up {
+	color: #2ecc71;
+	background: rgba(46, 204, 113, 0.12);
+}
+.dashboard-pomodoro-stats-card-delta--down {
+	color: #e74c3c;
+	background: rgba(231, 76, 60, 0.12);
+}
+
+/* Mid column */
+.dashboard-pomodoro-mid-col {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+.dashboard-pomodoro-donut-wrap {
+	display: flex;
+	justify-content: center;
+}
+
+.dashboard-pomodoro-donut-container--wide {
+	align-items: stretch;
+}
+
+.dashboard-pomodoro-donut-segment {
+	cursor: pointer;
+	transition: stroke-width 0.12s;
+}
+
+.dashboard-pomodoro-donut-legend--grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 5px 14px;
+}
+
+.dashboard-pomodoro-trend-container {
+	min-height: 140px;
+}
+
+.dashboard-pomodoro-trend-svg {
+	display: block;
+}
+
+.dashboard-pomodoro-trend-bar {
+	transition: opacity 0.12s;
+}
+.dashboard-pomodoro-trend-bar:hover {
+	opacity: 0.75;
+}
+
+.dashboard-pomodoro-trend-tick {
+	fill: var(--db-text-faint);
+	font-size: 8px;
+}
+
+/* Right column */
+.dashboard-pomodoro-right-col {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+.dashboard-pomodoro-stats-section-title-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+}
+
+.dashboard-pomodoro-stats-section-hint {
+	font-size: 0.6em;
+	color: var(--db-text-faint);
+}
+
+.dashboard-pomodoro-rank-row {
+	margin-bottom: 7px;
+}
+
+.dashboard-pomodoro-rank-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 3px;
+}
+
+.dashboard-pomodoro-rank-name {
+	font-size: 0.68em;
+	color: var(--db-text);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pomodoro-rank-time {
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	flex-shrink: 0;
+}
+
+.dashboard-pomodoro-rank-bar-wrap {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--db-bg-hover);
+	overflow: hidden;
+}
+
+.dashboard-pomodoro-rank-bar {
+	height: 100%;
+	border-radius: 3px;
+}
+
+.dashboard-pomodoro-heatmap-container {
+	line-height: 0;
+}
+
+.dashboard-pomodoro-heatmap-cell {
+	fill: var(--db-bg-hover);
+}
+.dashboard-pomodoro-heatmap-cell--active {
+	cursor: pointer;
+}
+
+.dashboard-pomodoro-recent-container {
+	max-height: 190px;
+	overflow-y: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+.dashboard-pomodoro-recent-container::-webkit-scrollbar {
+	display: none;
+}
+
+/* ===== Tag manager modal ===== */
+.dashboard-pomodoro-tagmanager {
+	max-width: 520px;
+}
+
+.dashboard-pomodoro-tagmanager-list {
+	display: flex;
+	flex-direction: column;
+	max-height: 46vh;
+	overflow-y: auto;
+}
+
+.dashboard-pomodoro-tagmanager-row {
+	padding: 8px 0;
+	border-bottom: 1px solid var(--db-bg-hover);
+}
+
+.dashboard-pomodoro-tagmanager-row:last-child {
+	border-bottom: none;
+}
+
+.dashboard-pomodoro-tagmanager-row-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.dashboard-pomodoro-tagmanager-name {
+	font-size: 0.78em;
+	font-weight: 600;
+	color: var(--db-text);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pomodoro-tagmanager-pin-badge {
+	color: var(--db-accent);
+	display: flex;
+	opacity: 0.8;
+}
+
+.dashboard-pomodoro-tagmanager-actions {
+	display: flex;
+	gap: 4px;
+}
+
+.dashboard-pomodoro-tagmanager-btn {
+	cursor: pointer;
+	color: var(--db-text-muted);
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	transition: background 0.15s, color 0.15s;
+}
+.dashboard-pomodoro-tagmanager-btn:hover {
+	background: var(--db-bg-hover);
+	color: var(--db-text);
+}
+.dashboard-pomodoro-tagmanager-btn--active {
+	color: var(--db-accent);
+}
+
+.dashboard-pomodoro-tagmanager-prompt {
+	margin-top: 12px;
+	padding: 12px;
+	background: var(--db-bg-hover);
+	border-radius: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.dashboard-pomodoro-tagmanager-prompt-label {
+	font-size: 0.72em;
+	color: var(--db-text);
+}
+
+.dashboard-pomodoro-tagmanager-prompt-input,
+.dashboard-pomodoro-tagmanager-prompt-select {
+	background: var(--background-primary, var(--db-bg));
+	border: 1px solid var(--db-border-card);
+	border-radius: 6px;
+	color: var(--db-text);
+	font-size: 0.75em;
+	padding: 6px 8px;
+	outline: none;
+	width: 100%;
+}
+.dashboard-pomodoro-tagmanager-prompt-input:focus,
+.dashboard-pomodoro-tagmanager-prompt-select:focus {
+	border-color: var(--db-accent);
+}
+
+.dashboard-pomodoro-tagmanager-prompt-error {
+	font-size: 0.65em;
+	color: #e74c3c;
+	min-height: 0;
+}
+
+.dashboard-pomodoro-tagmanager-prompt-btns {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.dashboard-pomodoro-tagmanager-prompt-cancel,
+.dashboard-pomodoro-tagmanager-prompt-ok {
+	border: none;
+	border-radius: 6px;
+	padding: 6px 14px;
+	font-size: 0.72em;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 0.15s;
+}
+.dashboard-pomodoro-tagmanager-prompt-cancel {
+	background: var(--db-bg-hover);
+	color: var(--db-text-muted);
+}
+.dashboard-pomodoro-tagmanager-prompt-ok {
+	background: var(--db-accent);
+	color: var(--background-primary, #fff);
+}
+.dashboard-pomodoro-tagmanager-prompt-ok--danger {
+	background: #e74c3c;
+}
+.dashboard-pomodoro-tagmanager-prompt-cancel:hover,
+.dashboard-pomodoro-tagmanager-prompt-ok:hover {
+	opacity: 0.85;
+}
+
+/* Responsive: below 900px viewport (or mobile), collapse to one column */
+@media (max-width: 900px) {
+	.dashboard-pomodoro-stats-body {
+		grid-template-columns: 1fr;
+	}
+
+	.dashboard-pomodoro-stats-modal--wide {
+		max-width: 420px;
+		max-height: 80vh;
+	}
+
+	.dashboard-pomodoro-donut-legend--grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+
 /* ===== Reading Widget ===== */
 .dashboard-sidebar-reading {
 	display: flex;

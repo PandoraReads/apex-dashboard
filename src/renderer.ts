@@ -15,6 +15,7 @@ import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, computeStreak } from './tracker-service';
 import type { PomodoroService } from './pomodoro-service';
+import { showPomodoroStats as openWidePomodoroStats } from './pomodoro-stats-modal';
 import type { ReadingService } from './reading-service';
 import { searchBooks, downloadCoverAsBlobUrl } from './book-service';
 import { activityColor } from './pomodoro-service';
@@ -510,10 +511,19 @@ export function renderSidebarPomodoro(
 		});
 	}
 
-	// Start/stop button
+	// Start/stop button. When AutoStartBreak is off and a phase completed, the
+	// service parks in paused-ready — label the button with the next action
+	// instead of a generic start.
+	const state2 = service.getState();
+	const isStandby = state2.status === 'paused' && state2.remainingSeconds === state2.totalSeconds;
+	const mainLabel = isRunning
+		? t('pomodoro.stop')
+		: isStandby
+			? (state2.phase === 'work' ? t('pomodoro.resumeFocus') : t('pomodoro.startBreak'))
+			: t('pomodoro.startFocus');
 	const mainBtn = widget.createEl('button', {
 		cls: 'dashboard-sidebar-pomodoro-main-btn',
-		text: isRunning ? t('pomodoro.stop') : t('pomodoro.startFocus'),
+		text: mainLabel,
 	});
 	if (isRunning) {
 		mainBtn.addClass('dashboard-sidebar-pomodoro-main-btn--running');
@@ -531,7 +541,12 @@ export function renderSidebarPomodoro(
 		const s = service.getState();
 		updateRing(s.remainingSeconds, s.totalSeconds);
 		const running = s.status === 'running';
-		mainBtn.textContent = running ? t('pomodoro.stop') : t('pomodoro.startFocus');
+		const standby = s.status === 'paused' && s.remainingSeconds === s.totalSeconds;
+		mainBtn.textContent = running
+			? t('pomodoro.stop')
+			: standby
+				? (s.phase === 'work' ? t('pomodoro.resumeFocus') : t('pomodoro.startBreak'))
+				: t('pomodoro.startFocus');
 		mainBtn.toggleClass('dashboard-sidebar-pomodoro-main-btn--running', running);
 		const dots = dotsWrap.querySelectorAll('.dashboard-sidebar-pomodoro-dot');
 		dots.forEach((dot, i) => dot.toggleClass('dashboard-sidebar-pomodoro-dot--filled', i < s.completedWorkSessions));
@@ -764,187 +779,9 @@ export function renderSidebarCountdown(
 }
 
 function showPomodoroStats(doc: Document, service: PomodoroService): void {
-	const overlay = doc.body.createDiv({ cls: 'dashboard-pomodoro-stats-overlay' });
-	const modal = overlay.createDiv({ cls: 'dashboard-pomodoro-stats-modal' });
-
-	function close() {
-		doc.removeEventListener('keydown', onKey);
-		overlay.remove();
-	}
-	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') close();
-	}
-	doc.addEventListener('keydown', onKey);
-
-	// Header
-	const header = modal.createDiv({ cls: 'dashboard-pomodoro-stats-header' });
-	header.createDiv({ cls: 'dashboard-pomodoro-stats-header-title', text: t('pomodoro.statsTitle') });
-	const closeBtn = header.createDiv({ cls: 'dashboard-pomodoro-stats-close' });
-	setIcon(closeBtn, 'x');
-	closeBtn.addEventListener('click', () => close());
-	overlay.addEventListener('click', (e) => {
-		if (e.target === overlay) close();
-	});
-
-	// Summary cards
-	const summary = modal.createDiv({ cls: 'dashboard-pomodoro-stats-summary' });
-
-	const totalMin = service.getTotalFocusMinutes();
-	const todayMin = service.getTodayFocusMinutes();
-	const streak = service.getStreak();
-
-	const totalCard = summary.createDiv({ cls: 'dashboard-pomodoro-stats-card' });
-	totalCard.createDiv({ cls: 'dashboard-pomodoro-stats-card-value', text: formatMinutes(totalMin) });
-	totalCard.createDiv({ cls: 'dashboard-pomodoro-stats-card-label', text: t('pomodoro.totalFocus') });
-
-	const todayCard = summary.createDiv({ cls: 'dashboard-pomodoro-stats-card' });
-	todayCard.createDiv({ cls: 'dashboard-pomodoro-stats-card-value', text: formatMinutes(todayMin) });
-	todayCard.createDiv({ cls: 'dashboard-pomodoro-stats-card-label', text: t('pomodoro.todayFocus') });
-
-	const streakCard = summary.createDiv({ cls: 'dashboard-pomodoro-stats-card' });
-	streakCard.createDiv({ cls: 'dashboard-pomodoro-stats-card-value', text: String(streak) });
-	streakCard.createDiv({ cls: 'dashboard-pomodoro-stats-card-label', text: t('pomodoro.streakDays') });
-
-	// Donut chart section with range toggle
-	const donutSection = modal.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-
-	// Range toggle: Day / Week / Month
-	const rangeToggle = donutSection.createDiv({ cls: 'dashboard-pomodoro-range-toggle' });
-	const ranges: { key: string; label: string; days: number }[] = [
-		{ key: 'day', label: t('pomodoro.rangeDay'), days: 1 },
-		{ key: 'week', label: t('pomodoro.rangeWeek'), days: 7 },
-		{ key: 'month', label: t('pomodoro.rangeMonth'), days: 30 },
-	];
-	let activeRange = 'week';
-
-	const toggleButtons = ranges.map(r => {
-		const btn = rangeToggle.createDiv({
-			cls: 'dashboard-pomodoro-range-btn' + (r.key === activeRange ? ' dashboard-pomodoro-range-btn--active' : ''),
-			text: r.label,
-		});
-		return btn;
-	});
-
-	// Donut chart container
-	const donutContainer = donutSection.createDiv({ cls: 'dashboard-pomodoro-donut-container' });
-
-	function renderDonut(rangeKey: string): void {
-		donutContainer.empty();
-
-		const rangeInfo = ranges.find(r => r.key === rangeKey);
-		if (!rangeInfo) return;
-
-		const breakdown = rangeKey === 'week'
-			? service.getActivityBreakdownByCalendarWeek()
-			: rangeKey === 'month'
-				? service.getActivityBreakdownByCalendarMonth()
-				: service.getActivityBreakdownByRange(rangeInfo.days);
-		const sorted = [...breakdown.entries()].sort((a, b) => b[1] - a[1]);
-		const totalRangeMin = sorted.reduce((sum, [, m]) => sum + m, 0);
-
-		if (totalRangeMin === 0) {
-			donutContainer.createDiv({ cls: 'dashboard-pomodoro-donut-empty', text: t('pomodoro.noRecords') });
-			return;
-		}
-
-		// SVG donut chart
-		const size = 160;
-		const strokeWidth = 28;
-		const donutR = (size - strokeWidth) / 2;
-		const circumference = 2 * Math.PI * donutR;
-
-		const svg = donutContainer.createSvg('svg', {
-			cls: 'dashboard-pomodoro-donut-svg',
-			attr: { viewBox: `0 0 ${size} ${size}`, width: String(size), height: String(size) },
-		});
-
-		// Background circle
-		svg.createSvg('circle', {
-			attr: { cx: size / 2, cy: size / 2, r: donutR, fill: 'none', 'stroke-width': strokeWidth },
-			cls: 'dashboard-pomodoro-donut-bg',
-		});
-
-		// Draw arcs
-		let offset = 0;
-		const gap = sorted.length > 1 ? 3 : 0;
-		for (const [name, mins] of sorted) {
-			const pct = mins / totalRangeMin;
-			const dashLen = Math.max(0, circumference * pct - gap);
-			const circle = svg.createSvg('circle', {
-				cls: 'dashboard-pomodoro-donut-segment',
-				attr: {
-					cx: size / 2, cy: size / 2, r: donutR, fill: 'none',
-					'stroke-width': strokeWidth,
-					'stroke-dasharray': `${dashLen} ${circumference - dashLen}`,
-					'stroke-dashoffset': String(-offset),
-					transform: `rotate(-90 ${size / 2} ${size / 2})`,
-					'stroke-linecap': 'butt',
-				},
-			});
-			circle.style.stroke = activityColor(name);
-			offset += dashLen + gap;
-		}
-
-		// Center text: total time
-		const centerValue = svg.createSvg('text', {
-			attr: {
-				x: size / 2, y: size / 2 - 6,
-				'text-anchor': 'middle', 'dominant-baseline': 'middle',
-			},
-			cls: 'dashboard-pomodoro-donut-center-value',
-		});
-		centerValue.textContent = formatMinutes(totalRangeMin);
-
-		const centerLabel = svg.createSvg('text', {
-			attr: {
-				x: size / 2, y: size / 2 + 14,
-				'text-anchor': 'middle', 'dominant-baseline': 'middle',
-			},
-			cls: 'dashboard-pomodoro-donut-center-label',
-		});
-		centerLabel.textContent = rangeInfo.label;
-
-		// Legend with percentages
-		const legend = donutContainer.createDiv({ cls: 'dashboard-pomodoro-donut-legend' });
-		for (const [name, mins] of sorted) {
-			const pct = Math.round((mins / totalRangeMin) * 100);
-			const item = legend.createDiv({ cls: 'dashboard-pomodoro-donut-legend-item' });
-			const dot = item.createDiv({ cls: 'dashboard-pomodoro-donut-legend-dot' });
-			dot.style.backgroundColor = activityColor(name);
-			item.createDiv({ cls: 'dashboard-pomodoro-donut-legend-name', text: name });
-			item.createDiv({ cls: 'dashboard-pomodoro-donut-legend-pct', text: pct + '%' });
-			item.createDiv({ cls: 'dashboard-pomodoro-donut-legend-time', text: formatMinutes(mins) });
-		}
-	}
-
-	// Toggle handlers
-	toggleButtons.forEach((btn, i) => {
-		btn.addEventListener('click', () => {
-			activeRange = ranges[i]!.key;
-			toggleButtons.forEach((b, j) => b.toggleClass('dashboard-pomodoro-range-btn--active', j === i));
-			renderDonut(activeRange);
-		});
-	});
-
-	renderDonut(activeRange);
-
-	// Recent sessions with activity color dots
-	const recentRecords = service.getRecentRecords(10);
-	if (recentRecords.length > 0) {
-		const recentSection = modal.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-		recentSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.recentSessions') });
-		for (const rec of recentRecords) {
-			const row = recentSection.createDiv({ cls: 'dashboard-pomodoro-stats-record-row' });
-			const actDot = row.createDiv({ cls: 'dashboard-pomodoro-stats-record-dot' });
-			actDot.style.backgroundColor = activityColor(rec.activity || t('pomodoro.defaultActivity'));
-			const ts = new Date(rec.timestamp);
-			const dateStr = ts.getMonth() + 1 + '/' + ts.getDate() + ' ' +
-				String(ts.getHours()).padStart(2, '0') + ':' + String(ts.getMinutes()).padStart(2, '0');
-			row.createDiv({ cls: 'dashboard-pomodoro-stats-record-date', text: dateStr });
-			row.createDiv({ cls: 'dashboard-pomodoro-stats-record-activity', text: rec.activity });
-			row.createDiv({ cls: 'dashboard-pomodoro-stats-record-duration', text: rec.duration + ' min' });
-		}
-	}
+	// Landscape stats modal lives in its own module (KPIs, donut, trend,
+	// ranking, heatmap, recent records + tag management entry).
+	openWidePomodoroStats(doc, service);
 }
 
 function formatMinutes(minutes: number): string {
