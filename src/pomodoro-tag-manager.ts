@@ -3,6 +3,12 @@ import { t } from './i18n';
 import type { PomodoroService, PomodoroTag } from './pomodoro-service';
 import { activityColor } from './pomodoro-service';
 
+/** Mount inside the themed dashboard root so --db-* variables resolve. */
+function mountOverlay(doc: Document): HTMLElement {
+	const root = doc.querySelector('.apex-dashboard-root');
+	return (root ?? doc.body).createDiv({ cls: 'dashboard-pomodoro-stats-overlay' });
+}
+
 /**
  * Tag management overlay: rename / delete / merge / pin tags.
  * Opened from the focus-statistics modal's header gear button; mutations go
@@ -10,7 +16,7 @@ import { activityColor } from './pomodoro-service';
  * the caller's onChange re-renders the stats.
  */
 export function openPomodoroTagManager(doc: Document, service: PomodoroService, onChange: () => void): void {
-	const overlay = doc.body.createDiv({ cls: 'dashboard-pomodoro-stats-overlay' });
+	const overlay = mountOverlay(doc);
 	const modal = overlay.createDiv({ cls: 'dashboard-pomodoro-stats-modal dashboard-pomodoro-tagmanager' });
 
 	function close() {
