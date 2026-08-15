@@ -298,6 +298,21 @@ export class DashboardSettingTab extends PluginSettingTab {
 						intervalSetting.nameEl.setText(t('settings.pomodoroInterval') + '  ' + value);
 					}));
 
+			const goalSetting = new Setting(pomodoroCard)
+				.setName(t('settings.pomodoroGoal') + '  ' + this.plugin.settings.pomodoroDailyGoal + ' 🍅')
+				.addSlider(slider => slider
+					.setLimits(1, 16, 1)
+					.setValue(this.plugin.settings.pomodoroDailyGoal)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							pomodoroDailyGoal: value,
+						};
+						await this.plugin.saveSettings();
+						goalSetting.nameEl.setText(t('settings.pomodoroGoal') + '  ' + value + ' 🍅');
+					}));
+
 			new Setting(pomodoroCard)
 				.setName(t('settings.pomodoroAutoStart'))
 				.setDesc(t('settings.pomodoroAutoStartDesc'))

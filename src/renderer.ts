@@ -4,6 +4,7 @@ import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, Ta
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
+import { getMediaTagService } from './media-tags';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
 import { renderDataviewSection, setDataviewApp } from './dataview-section';
@@ -1786,7 +1787,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			callbacks.onColumnDelete(column.name);
 		});
 
-		renderMediaSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover);
+		renderMediaSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover, getMediaTagService() ?? undefined);
 		return el;
 	}
 

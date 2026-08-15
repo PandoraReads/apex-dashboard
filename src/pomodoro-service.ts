@@ -25,6 +25,12 @@ export interface PomodoroRecord {
 	activity: string;
 	/** Actual focused minutes (pauses excluded), not the configured duration. */
 	duration: number;
+	/** Times the work phase was paused (focus interruptions). */
+	interruptions?: number;
+	/** Actual break minutes taken after this work phase (0 = skipped/none). */
+	breakMinutes?: number;
+	/** True when the following break ran to completion (rest adherence). */
+	breakCompleted?: boolean;
 }
 
 /** User-managed tag metadata. History records only carry the name; pin/color live here. */
@@ -79,6 +85,10 @@ export class PomodoroService {
 	/** Wall-clock ms accumulated across pauses for the current work phase. */
 	private focusedMs = 0;
 	private workPhaseResumedAt = 0;
+	/** Pauses of the current work phase (focus interruptions). */
+	private interruptions = 0;
+	/** Pending work record awaiting its break-adherence outcome. */
+	private pendingBreak: { record: PomodoroRecord; breakPhaseStartedAt: number } | null = null;
 	private completedWorkSessions = 0;
 	private tickInterval: number | null = null;
 	private onTickCallback: (() => void) | null = null;
@@ -184,9 +194,12 @@ export class PomodoroService {
 	pause(): void {
 		if (this.status !== 'running') return;
 		this.pausedRemaining = Math.max(0, this.durationMs - (Date.now() - this.startedAt));
-		if (this.phase === 'work' && this.workPhaseResumedAt) {
-			this.focusedMs += Date.now() - this.workPhaseResumedAt;
-			this.workPhaseResumedAt = 0;
+		if (this.phase === 'work') {
+			if (this.workPhaseResumedAt) {
+				this.focusedMs += Date.now() - this.workPhaseResumedAt;
+				this.workPhaseResumedAt = 0;
+			}
+			this.interruptions++;
 		}
 		this.status = 'paused';
 		this.clearTickInterval();
@@ -201,6 +214,13 @@ export class PomodoroService {
 		this.startedAt = 0;
 		this.focusedMs = 0;
 		this.workPhaseResumedAt = 0;
+		this.interruptions = 0;
+		// A manual reset during a break counts as a skipped break.
+		if (this.pendingBreak) {
+			this.pendingBreak.record.breakMinutes = 0;
+			this.pendingBreak.record.breakCompleted = false;
+			void this.flushPendingBreak();
+		}
 		this.completedWorkSessions = 0;
 		this.clearTickInterval();
 		this.notifyTick();
@@ -271,6 +291,13 @@ export class PomodoroService {
 			this.playSound();
 			new Notice(t('pomodoro.workComplete'));
 		} else {
+			// Break ran to completion — settle the pending work record's adherence.
+			if (this.pendingBreak) {
+				this.pendingBreak.record.breakMinutes = Math.round(
+					(Date.now() - this.pendingBreak.breakPhaseStartedAt) / 60000);
+				this.pendingBreak.record.breakCompleted = true;
+				void this.flushPendingBreak();
+			}
 			this.playSound();
 			new Notice(t('pomodoro.breakComplete'));
 		}
@@ -280,6 +307,14 @@ export class PomodoroService {
 	}
 
 	private transitionToNextPhase(): void {
+		// Leaving a break phase without completing it (skip / start-focus) marks
+		// the pending work record's break as not taken.
+		if (this.phase !== 'work' && this.pendingBreak) {
+			this.pendingBreak.record.breakMinutes = 0;
+			this.pendingBreak.record.breakCompleted = false;
+			void this.flushPendingBreak();
+		}
+
 		if (this.phase === 'work') {
 			const settings = this.getSettings();
 			if (this.completedWorkSessions >= settings.pomodoroLongBreakInterval) {
@@ -297,6 +332,7 @@ export class PomodoroService {
 		this.pausedRemaining = this.durationMs;
 		this.focusedMs = 0;
 		this.workPhaseResumedAt = 0;
+		this.interruptions = 0;
 
 		// pomodoroAutoStartBreak honored on every phase boundary: when off,
 		// park in paused-ready instead of running so the user consciously starts.
@@ -319,17 +355,44 @@ export class PomodoroService {
 			timestamp: new Date().toISOString(),
 			activity: this.currentActivity || t('pomodoro.defaultActivity'),
 			duration: focusedMin,
+			interruptions: this.interruptions,
 		};
-		const existing = this.sessions.find(s => s.date === today);
+		this.appendRecord(today, record);
+		// Hold the record until the following break resolves (completed / skipped)
+		// so breakMinutes/breakCompleted land in the same write.
+		this.pendingBreak = { record, breakPhaseStartedAt: Date.now() };
+		await this.saveSessions();
+	}
+
+	/** Rewrite the pending work record (now carrying break adherence) in place. */
+	private async flushPendingBreak(): Promise<void> {
+		const pending = this.pendingBreak;
+		this.pendingBreak = null;
+		if (!pending) return;
+		const date = pending.record.timestamp.slice(0, 10);
+		this.data = {
+			...this.data,
+			sessions: this.data.sessions.map(s => s.date === date
+				? {
+					...s,
+					records: (s.records ?? []).map(r =>
+						r.timestamp === pending.record.timestamp ? { ...r, ...pending.record } : r),
+				}
+				: s),
+		};
+		await this.saveSessions();
+	}
+
+	private appendRecord(date: string, record: PomodoroRecord): void {
+		const existing = this.data.sessions.find(s => s.date === date);
 		const sessions = existing
 			? this.data.sessions.map(s =>
-				s.date === today
+				s.date === date
 					? { ...s, completed: s.completed + 1, records: [...(s.records ?? []), record] }
 					: s
 			)
-			: [...this.data.sessions, { date: today, completed: 1, records: [record] }];
+			: [...this.data.sessions, { date, completed: 1, records: [record] }];
 		this.data = { ...this.data, sessions };
-		await this.saveSessions();
 	}
 
 	private playSound(): void {
@@ -359,6 +422,11 @@ export class PomodoroService {
 
 	getActivity(): string {
 		return this.currentActivity;
+	}
+
+	/** Configured work-phase length in minutes (goal baseline math in stats). */
+	getWorkMinutes(): number {
+		return this.getSettings().pomodoroWorkMinutes;
 	}
 
 	// ===== Tag management =====
@@ -549,6 +617,110 @@ export class PomodoroService {
 		}
 		return result;
 	}
+
+	// ===== Insight queries (KPIs, quality metrics, distributions) =====
+
+	/** Today's completed pomodoro count against the configured daily goal. */
+	getTodayGoal(): { completed: number; goal: number } {
+		return { completed: this.getTodayCount(), goal: Math.max(1, this.getSettings().pomodoroDailyGoal) };
+	}
+
+	/** Mean focused minutes over the trailing 7 days (today included), 0..N. */
+	getRecent7AvgMinutes(): number {
+		const daily = this.getDailyMinutes(7);
+		return Math.round(daily.reduce((sum, d) => sum + d.minutes, 0) / daily.length);
+	}
+
+	/** Today's interruptions (pauses) across all completed work phases. */
+	getTodayInterruptions(): number {
+		const today = formatDate(new Date());
+		return this.sessions.find(s => s.date === today)?.records
+			?.reduce((sum, r) => sum + (r.interruptions ?? 0), 0) ?? 0;
+	}
+
+	/** Break adherence % over the trailing 30 days: completed breaks / breaks due. */
+	getBreakAdherence(days = 30): number | null {
+		let due = 0;
+		let taken = 0;
+		const cutoff = daysAgo(days);
+		for (const s of this.sessions) {
+			if (s.date < cutoff) continue;
+			for (const r of s.records ?? []) {
+				if (r.breakCompleted === undefined) continue; // legacy records: unknown
+				due++;
+				if (r.breakCompleted) taken++;
+			}
+		}
+		return due > 0 ? Math.round((taken / due) * 100) : null;
+	}
+
+	/**
+	 * Focus-efficiency score 0-100 for today: completeness toward the daily
+	 * goal, penalized by interruptions (5 pts each, floor 0). Only counts
+	 * completed pomodoros.
+	 */
+	getTodayScore(): number {
+		const { completed, goal } = this.getTodayGoal();
+		const completeness = Math.min(1, completed / goal);
+		const penalty = Math.min(40, this.getTodayInterruptions() * 5);
+		return Math.max(0, Math.round(completeness * 100 - penalty));
+	}
+
+	/** Hour-of-day focus minutes aggregated over all history: favorite slots. */
+	getHourDistribution(): { hour: number; minutes: number }[] {
+		const buckets = Array.from({ length: 24 }, (_, hour) => ({ hour, minutes: 0 }));
+		for (const s of this.sessions) {
+			for (const r of s.records ?? []) {
+				buckets[new Date(r.timestamp).getHours()]!.minutes += r.duration;
+			}
+		}
+		return buckets;
+	}
+
+	/** Most productive hour-of-day (by total minutes), null when no records. */
+	getPeakHour(): number | null {
+		const dist = this.getHourDistribution();
+		let peak: { hour: number; minutes: number } | null = null;
+		for (const b of dist) {
+			if (b.minutes > 0 && (!peak || b.minutes > peak.minutes)) peak = b;
+		}
+		return peak?.hour ?? null;
+	}
+
+	/** Records within a date (YYYY-MM-DD), chronological. For day drill-down. */
+	getRecordsForDate(date: string): PomodoroRecord[] {
+		const session = this.sessions.find(s => s.date === date);
+		return [...(session?.records ?? [])].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+	}
+
+	/** Today's timeline entries: each work record plus its break outcome. */
+	getTodayTimeline(): PomodoroRecord[] {
+		return this.getRecordsForDate(formatDate(new Date()));
+	}
+
+	/** One-line insight for the stats header: streak-aware, delta-aware. */
+	getInsight(): string {
+		const today = this.getTodayCount();
+		const streak = this.getStreak();
+		const goal = this.getTodayGoal();
+
+		if (today === 0 && streak === 0) {
+			return t('pomodoro.insightStart');
+		}
+		if (today > 0 && today >= goal.goal) {
+			return t('pomodoro.insightGoalHit', { count: today, goal: goal.goal });
+		}
+		if (today > 0) {
+			return t('pomodoro.insightToday', { count: today, streak });
+		}
+		// No pomodoro today yet — did the user focus yesterday?
+		const yesterday = this.sessions.find(s => s.date === daysAgo(1));
+		if (yesterday && yesterday.completed > 0) {
+			return t('pomodoro.insightKeepStreak', { streak });
+		}
+		return t('pomodoro.insightResume');
+	}
+
 
 	/** Daily (or monthly) totals for the trend chart across the stored history. */
 	getMonthlyMinutes(): { month: string; minutes: number }[] {

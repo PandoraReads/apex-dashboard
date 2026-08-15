@@ -21,18 +21,40 @@ const RANGES: RangeInfo[] = [
 	{ key: 'all', labelKey: 'pomodoro.rangeAll' },
 ];
 
+/** Heatmap color steps: [threshold minutes, color] — zero falls back to faint. */
+const HEAT_STEPS: [number, string][] = [
+	[46, 'var(--db-accent)'],
+	[16, 'color-mix(in srgb, var(--db-accent) 65%, var(--db-bg-hover))'],
+	[1, 'color-mix(in srgb, var(--db-accent) 35%, var(--db-bg-hover))'],
+];
+
+function heatColor(minutes: number): string {
+	for (const [min, color] of HEAT_STEPS) {
+		if (minutes >= min) return color;
+	}
+	return '';
+}
+
 /**
- * Landscape (≈1000×640) focus-statistics overlay. Three columns:
- *  left  — KPI cards (today/week/avg/streak/total/best-day)
- *  mid   — donut time distribution + adaptive trend chart
- *  right — activity ranking bars, 12-week heatmap, recent records
+ * Landscape (≈1040×680) focus-statistics overlay.
  *
- * All charts are hand-rolled SVG to match the plugin's zero-dependency style.
- * Below 900px viewport width the grid collapses to a single column (mobile).
+ * Layout:
+ *  header — title + one-line insight + range toggle + tag-manage + close
+ *  left   — KPI column grouped "today state" (large) / "history" (compact)
+ *  mid    — goal gauge (single activity) or activity donut + adaptive trend
+ *           chart with daily-goal baseline + hour-of-day distribution strip
+ *  right  — activity ranking (click to filter trend) + 12-week gradient
+ *           heatmap + today timeline
+ *
+ * All charts are hand-rolled SVG (zero dependencies). Under 900px viewport
+ * width the grid collapses to a single column (mobile).
  */
 export function showPomodoroStats(doc: Document, service: PomodoroService): void {
 	const overlay = doc.body.createDiv({ cls: 'dashboard-pomodoro-stats-overlay' });
 	const modal = overlay.createDiv({ cls: 'dashboard-pomodoro-stats-modal dashboard-pomodoro-stats-modal--wide' });
+
+	/** Activity filter applied to trend/ranking; null = all activities. */
+	let activityFilter: string | null = null;
 
 	function close() {
 		doc.removeEventListener('keydown', onKey);
@@ -43,9 +65,11 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	}
 	doc.addEventListener('keydown', onKey);
 
-	// ===== Header: title / range toggle / tag-manage / close =====
+	// ===== Header =====
 	const header = modal.createDiv({ cls: 'dashboard-pomodoro-stats-header' });
-	header.createDiv({ cls: 'dashboard-pomodoro-stats-header-title', text: t('pomodoro.statsTitle') });
+	const titleWrap = header.createDiv({ cls: 'dashboard-pomodoro-stats-header-titlewrap' });
+	titleWrap.createDiv({ cls: 'dashboard-pomodoro-stats-header-title', text: t('pomodoro.statsTitle') });
+	const insightEl = titleWrap.createDiv({ cls: 'dashboard-pomodoro-insight' });
 
 	const headerRight = header.createDiv({ cls: 'dashboard-pomodoro-stats-header-right' });
 
@@ -69,6 +93,10 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		if (e.target === overlay) close();
 	});
 
+	// Activity-filter chip row (visible while a filter is active)
+	const filterBar = modal.createDiv({ cls: 'dashboard-pomodoro-filterbar' });
+	filterBar.style.display = 'none';
+
 	// ===== Body grid =====
 	const body = modal.createDiv({ cls: 'dashboard-pomodoro-stats-body' });
 	const kpiCol = body.createDiv({ cls: 'dashboard-pomodoro-kpi-col' });
@@ -77,7 +105,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 
 	let activeRange: PomodoroRangeKey = 'week';
 
-	// --- Date-window helpers (natural periods, same convention as the donut) ---
+	// --- Date-window helpers (natural periods) ---
 	function datesForRange(key: PomodoroRangeKey): { curStart: string; prevStart: string; prevEnd: string; dayCount: number } {
 		const fmt = (d: Date) => {
 			const y = d.getFullYear();
@@ -124,6 +152,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 	}
 
+	// ===== Left column: grouped KPIs =====
 	function kpiCard(parent: HTMLElement, value: string, label: string, deltaPct?: number): HTMLElement {
 		const card = parent.createDiv({ cls: 'dashboard-pomodoro-stats-card' });
 		const valRow = card.createDiv({ cls: 'dashboard-pomodoro-stats-card-value-row' });
@@ -144,49 +173,81 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	function renderKpis(): void {
 		kpiCol.empty();
 
-		const { curStart, prevStart, prevEnd, dayCount } = datesForRange(activeRange);
-		const totals = service.getRangeTotals(curStart, prevStart, prevEnd);
+		// --- Group 1: today's state (large, hero numbers) ---
+		const todayGroup = kpiCol.createDiv({ cls: 'dashboard-pomodoro-kpi-group' });
+		todayGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-group-title', text: t('pomodoro.kpiTodayGroup') });
 
-		const todayMin = service.getTodayFocusMinutes();
+		const goal = service.getTodayGoal();
+		const hero = todayGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-hero' });
+		const heroValue = hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value-row' });
+		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value', text: `${goal.completed}` });
+		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-goal', text: `/ ${goal.goal}` });
+		const heroPct = goal.goal > 0 ? Math.round((goal.completed / goal.goal) * 100) : 0;
+		const heroBar = hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-bar' });
+		heroBar.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-bar-fill' }).style.width = `${Math.min(100, heroPct)}%`;
+		hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-label', text: t('pomodoro.todayPomodoros') + ' · ' + heroPct + '%' });
+
+		const todayRow = todayGroup.createDiv({ cls: 'dashboard-pomodoro-stats-summary' });
+		kpiCard(todayRow, formatMinutes(service.getTodayFocusMinutes()), t('pomodoro.todayFocus'));
+		const score = service.getTodayScore();
+		const scoreCard = kpiCard(todayRow, String(score), t('pomodoro.efficiencyScore'));
+		scoreCard.toggleClass('dashboard-pomodoro-stats-card--good', score >= 80);
+
+		const todayRow2 = todayGroup.createDiv({ cls: 'dashboard-pomodoro-stats-summary' });
+		const inter = service.getTodayInterruptions();
+		const interCard = kpiCard(todayRow2, String(inter), t('pomodoro.interruptions'));
+		interCard.toggleClass('dashboard-pomodoro-stats-card--warn', inter >= 3);
+		const adherence = service.getBreakAdherence();
+		kpiCard(todayRow2, adherence === null ? '—' : adherence + '%', t('pomodoro.breakAdherence'));
+
+		// Streak with encouragement
 		const streak = service.getStreak();
-		const totalMin = service.getTotalFocusMinutes();
+		const streakRow = todayGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-streak' });
+		setIcon(streakRow.createSpan({ cls: 'dashboard-pomodoro-kpi-streak-icon' }), 'flame');
+		streakRow.createDiv({ cls: 'dashboard-pomodoro-kpi-streak-value', text: String(streak) });
+		streakRow.createDiv({ cls: 'dashboard-pomodoro-kpi-streak-label', text: t('pomodoro.streakDays') });
+		streakRow.createDiv({ cls: 'dashboard-pomodoro-kpi-streak-hint', text: streakText(streak) });
 
-		const activeDays = Math.max(1, dayCount);
-		const avgMin = Math.round(totals.current / Math.min(dayCount, daysElapsedSince(curStart)));
+		// --- Group 2: history (compact) ---
+		const histGroup = kpiCol.createDiv({ cls: 'dashboard-pomodoro-kpi-group dashboard-pomodoro-kpi-group--hist' });
+		histGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-group-title', text: t('pomodoro.kpiHistoryGroup') });
 
-		const daily = service.getDailyMinutes(Math.min(dayCount, 365));
-		const bestMin = daily.reduce((m, d) => Math.max(m, d.minutes), 0);
-
-		// Best-day trophy card at the top
-		const trophy = kpiCol.createDiv({ cls: 'dashboard-pomodoro-kpi-trophy' });
-		setIcon(trophy.createSpan({ cls: 'dashboard-pomodoro-kpi-trophy-icon' }), 'trophy');
-		const trophyText = trophy.createDiv({ cls: 'dashboard-pomodoro-kpi-trophy-text' });
-		trophyText.createDiv({ cls: 'dashboard-pomodoro-kpi-trophy-value', text: formatMinutes(bestMin) });
-		trophyText.createDiv({ cls: 'dashboard-pomodoro-kpi-trophy-label', text: t('pomodoro.bestDay') });
-
+		const { curStart, prevStart, prevEnd } = datesForRange(activeRange);
+		const totals = service.getRangeTotals(curStart, prevStart, prevEnd);
 		const delta = totals.previous > 0 ? ((totals.current - totals.previous) / totals.previous) * 100 : undefined;
-		const summary = kpiCol.createDiv({ cls: 'dashboard-pomodoro-stats-summary' });
-		kpiCard(summary, formatMinutes(totals.current), rangeLabel(), delta);
-		kpiCard(summary, formatMinutes(todayMin), t('pomodoro.todayFocus'));
-		kpiCard(summary, formatMinutes(avgMin), t('pomodoro.avgPerDay'));
-		kpiCard(summary, String(streak), t('pomodoro.streakDays'));
-		kpiCard(summary, formatMinutes(totalMin), t('pomodoro.totalFocus'));
-		void activeDays;
+
+		const histRow = histGroup.createDiv({ cls: 'dashboard-pomodoro-stats-summary' });
+		kpiCard(histRow, formatMinutes(totals.current), rangeLabel(), delta);
+		kpiCard(histRow, formatMinutes(service.getRecent7AvgMinutes()), t('pomodoro.avg7'));
+		const histRow2 = histGroup.createDiv({ cls: 'dashboard-pomodoro-stats-summary' });
+		kpiCard(histRow2, formatMinutes(service.getTotalFocusMinutes()), t('pomodoro.totalFocus'));
+
+		const daily = service.getDailyMinutes(365);
+		const bestMin = daily.reduce((m, d) => Math.max(m, d.minutes), 0);
+		kpiCard(histRow2, formatMinutes(bestMin), t('pomodoro.bestDay'));
+	}
+
+	function streakText(streak: number): string {
+		if (streak <= 0) return t('pomodoro.streakRestart');
+		if (streak === 1) return t('pomodoro.streakDay1');
+		if (streak < 3) return t('pomodoro.streakDay2');
+		if (streak < 7) return t('pomodoro.streakDay3');
+		return t('pomodoro.streakWeek');
 	}
 
 	function rangeLabel(): string {
 		switch (activeRange) {
 			case 'day': return t('pomodoro.todayFocus');
 			case 'week': return t('pomodoro.weekFocus');
-			case 'month': return t('pomodoro.rangeMonth');
-			case 'year': return t('pomodoro.rangeYear');
+			case 'month': return t('pomodoro.monthFocus');
+			case 'year': return t('pomodoro.yearFocus');
 			case 'all': return t('pomodoro.totalFocus');
 		}
 	}
 
-	// --- Mid column: donut ---
+	// ===== Mid column =====
 	const donutSection = midCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-	donutSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.timeDistribution') });
+	const donutTitle = donutSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: '' });
 	const donutContainer = donutSection.createDiv({ cls: 'dashboard-pomodoro-donut-container dashboard-pomodoro-donut-container--wide' });
 
 	function renderDonut(): void {
@@ -195,6 +256,15 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		const sorted = [...breakdown.entries()].sort((a, b) => b[1] - a[1]);
 		const totalRangeMin = sorted.reduce((sum, [, m]) => sum + m, 0);
 
+		// Single (or no) activity: switch to a daily-goal completion gauge —
+		// a 100%-filled donut carries no information, the gauge is actionable.
+		if (sorted.length <= 1) {
+			donutTitle.textContent = t('pomodoro.goalGaugeTitle');
+			renderGoalGauge();
+			return;
+		}
+
+		donutTitle.textContent = t('pomodoro.timeDistribution');
 		if (totalRangeMin === 0) {
 			donutContainer.createDiv({ cls: 'dashboard-pomodoro-donut-empty', text: t('pomodoro.noRecords') });
 			return;
@@ -269,16 +339,88 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 	}
 
-	// --- Mid column: trend chart (adaptive granularity) ---
+	/** Goal-completion gauge: today's pomodoros vs daily goal. */
+	function renderGoalGauge(): void {
+		const { completed, goal } = service.getTodayGoal();
+		const pct = Math.min(1, completed / goal);
+
+		const size = 200;
+		const strokeWidth = 26;
+		const cx = size / 2;
+		const cy = size / 2;
+		const gaugeR = (size - strokeWidth * 2) / 2 - 8;
+
+		// 270° gauge from 135° to 405°
+		const startAngle = 135;
+		const sweep = 270;
+		const arcLen = (sweep / 360) * 2 * Math.PI * gaugeR;
+
+		const wrap = donutContainer.createDiv({ cls: 'dashboard-pomodoro-donut-wrap' });
+		const svg = wrap.createSvg('svg', {
+			cls: 'dashboard-pomodoro-donut-svg',
+			attr: { viewBox: `0 0 ${size} ${size}`, width: String(size), height: String(size) },
+		});
+
+		// Background arc (open circle path)
+		const bgPath = describeArc(cx, cy, gaugeR, startAngle, startAngle + sweep);
+		svg.createSvg('path', {
+			cls: 'dashboard-pomodoro-donut-bg',
+			attr: { d: bgPath, fill: 'none', 'stroke-width': strokeWidth, 'stroke-linecap': 'round' },
+		});
+
+		if (completed > 0) {
+			const endAngle = startAngle + sweep * pct;
+			const valPath = describeArc(cx, cy, gaugeR, startAngle, endAngle);
+			const valArc = svg.createSvg('path', {
+				attr: { d: valPath, fill: 'none', 'stroke-width': strokeWidth, 'stroke-linecap': 'round' },
+			});
+			valArc.style.stroke = pct >= 1 ? '#2ecc71' : 'var(--db-accent)';
+		}
+
+		const valueText = svg.createSvg('text', {
+			attr: { x: cx, y: cy - 4, 'text-anchor': 'middle', 'dominant-baseline': 'middle' },
+			cls: 'dashboard-pomodoro-gauge-value',
+		});
+		valueText.textContent = `${completed}/${goal}`;
+		const label = svg.createSvg('text', {
+			attr: { x: cx, y: cy + 18, 'text-anchor': 'middle', 'dominant-baseline': 'middle' },
+			cls: 'dashboard-pomodoro-donut-center-label',
+		});
+		label.textContent = t('pomodoro.todayPomodoros');
+
+		const hint = donutContainer.createDiv({ cls: 'dashboard-pomodoro-gauge-hint' });
+		if (completed >= goal) {
+			hint.textContent = t('pomodoro.goalHit');
+			hint.addClass('dashboard-pomodoro-gauge-hint--good');
+		} else if (completed === 0) {
+			hint.textContent = t('pomodoro.goalEmptyHint');
+		} else {
+			hint.textContent = t('pomodoro.goalRemaining', { count: goal - completed });
+		}
+	}
+
+	/** SVG path for an arc between two angles (degrees, 0 = 3 o'clock). */
+	function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+		const polar = (angle: number): [number, number] => {
+			const rad = (angle * Math.PI) / 180;
+			return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+		};
+		const [sx, sy] = polar(startAngle);
+		const [ex, ey] = polar(endAngle);
+		const largeArc = endAngle - startAngle <= 180 ? 0 : 1;
+		return `M ${sx} ${sy} A ${r} ${r} 0 ${largeArc} 1 ${ex} ${ey}`;
+	}
+
+	// --- Trend chart (adaptive granularity + goal baseline + drill-down) ---
 	const trendSection = midCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	const trendTitle = trendSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.trend') });
 	const trendContainer = trendSection.createDiv({ cls: 'dashboard-pomodoro-trend-container' });
 
 	function renderTrend(): void {
 		trendContainer.empty();
-		trendTitle.textContent = trendTitleText();
+		trendTitle.textContent = trendTitleText() + (activityFilter ? ` · ${activityFilter}` : '');
 
-		let bars: { label: string; minutes: number; tooltip: string }[];
+		let bars: { label: string; minutes: number; tooltip: string; date?: string }[];
 		if (activeRange === 'day') {
 			bars = service.getTodayHourlyMinutes().map(h => ({
 				label: String(h.hour).padStart(2, '0'),
@@ -287,7 +429,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 			}));
 		} else if (activeRange === 'all') {
 			bars = service.getMonthlyMinutes().map(m => ({
-				label: m.month.slice(2), // YY-MM
+				label: m.month.slice(2),
 				minutes: m.minutes,
 				tooltip: `${m.month} · ${formatMinutes(m.minutes)}`,
 			}));
@@ -295,10 +437,19 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 			const { dayCount } = datesForRange(activeRange);
 			const daily = service.getDailyMinutes(Math.min(dayCount, 31));
 			bars = daily.map(d => ({
-				label: d.date.slice(8), // day of month
+				label: d.date.slice(8),
 				minutes: d.minutes,
 				tooltip: `${d.date} · ${formatMinutes(d.minutes)}`,
+				date: d.date,
 			}));
+			// Activity filter: recompute per-day minutes for the selected tag only.
+			if (activityFilter) {
+				bars = bars.map(b => {
+					const recs = b.date ? service.getRecordsForDate(b.date) : [];
+					const mins = recs.filter(r => r.activity === activityFilter).reduce((s, r) => s + r.duration, 0);
+					return { ...b, minutes: mins, tooltip: `${b.date} · ${activityFilter} · ${formatMinutes(mins)}` };
+				});
+			}
 		}
 
 		if (bars.length === 0 || bars.every(b => b.minutes === 0)) {
@@ -307,8 +458,13 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 
 		const width = 520;
-		const height = 120;
-		const maxMin = Math.max(...bars.map(b => b.minutes), 1);
+		const height = 130;
+		const goal = service.getTodayGoal();
+		const workMin = service.getWorkMinutes();
+		// Daily goal baseline in minutes (only meaningful on day-granularity bars)
+		const goalMinutes = goal.goal * workMin;
+		const showBaseline = bars.some(b => b.date) && !activityFilter;
+		const maxMin = Math.max(...bars.map(b => b.minutes), showBaseline ? goalMinutes : 0, 1);
 		const step = width / bars.length;
 		const barW = Math.max(2, Math.min(18, step * 0.6));
 
@@ -317,20 +473,40 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 			attr: { viewBox: `0 0 ${width} ${height + 16}`, width: '100%', height: String(height + 16) },
 		});
 
+		// Goal baseline (dashed) — a bar without a reference point.
+		if (showBaseline) {
+			const y = height - Math.round((goalMinutes / maxMin) * (height - 10));
+			if (y > 0 && y < height) {
+				svg.createSvg('line', {
+					cls: 'dashboard-pomodoro-trend-goal-line',
+					attr: { x1: 0, y1: y, x2: width, y2: y, 'stroke-dasharray': '5 4' },
+				});
+				const gl = svg.createSvg('text', {
+					attr: { x: width - 2, y: y - 4, 'text-anchor': 'end' },
+					cls: 'dashboard-pomodoro-trend-goal-label',
+				});
+				gl.textContent = t('pomodoro.goalBaseline', { count: goal.goal });
+			}
+		}
+
 		bars.forEach((b, i) => {
 			const h = Math.round((b.minutes / maxMin) * (height - 10));
 			const x = i * step + (step - barW) / 2;
 			const rect = svg.createSvg('rect', {
-				cls: 'dashboard-pomodoro-trend-bar',
+				cls: 'dashboard-pomodoro-trend-bar' + (b.date ? ' dashboard-pomodoro-trend-bar--clickable' : ''),
 				attr: {
 					x, y: height - h, width: barW, height: Math.max(b.minutes > 0 ? 2 : 0, h), rx: 2,
 				},
 			});
-			rect.style.fill = 'var(--db-accent)';
+			rect.style.fill = activityFilter ? activityColor(activityFilter) : 'var(--db-accent)';
 
 			const title = svg.createSvg('title');
-			title.textContent = b.tooltip;
+			title.textContent = b.tooltip + (b.date ? ' · ' + t('pomodoro.clickToDrill') : '');
 			rect.appendChild(title);
+
+			if (b.date) {
+				rect.addEventListener('click', () => showDayDrilldown(b.date!));
+			}
 
 			if (bars.length <= 14 || i % Math.ceil(bars.length / 12) === 0) {
 				const txt = svg.createSvg('text', {
@@ -352,7 +528,39 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 	}
 
-	// --- Right column: activity ranking ---
+	// --- Hour-of-day distribution strip ---
+	const hourSection = midCol.createDiv({ cls: 'dashboard-pomodoro-stats-section dashboard-pomodoro-hour-section' });
+	const hourHead = hourSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
+	hourHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.hourDistribution') });
+	const peak = service.getPeakHour();
+	if (peak !== null) {
+		hourHead.createDiv({
+			cls: 'dashboard-pomodoro-stats-section-hint',
+			text: t('pomodoro.peakHour', { hour: `${String(peak).padStart(2, '0')}:00` }),
+		});
+	}
+	const hourContainer = hourSection.createDiv({ cls: 'dashboard-pomodoro-hour-container' });
+
+	function renderHourDistribution(): void {
+		hourContainer.empty();
+		const dist = service.getHourDistribution();
+		const maxMin = Math.max(...dist.map(d => d.minutes), 1);
+		const peakHour = dist.reduce((m, d) => d.minutes > m.minutes ? d : m, dist[0]!).hour;
+
+		for (const b of dist) {
+			const cell = hourContainer.createDiv({
+				cls: 'dashboard-pomodoro-hour-cell'
+					+ (b.hour === peakHour && b.minutes > 0 ? ' dashboard-pomodoro-hour-cell--peak' : ''),
+			});
+			cell.setAttribute('title', `${String(b.hour).padStart(2, '0')}:00 · ${formatMinutes(b.minutes)}`);
+			const bar = cell.createDiv({ cls: 'dashboard-pomodoro-hour-bar' });
+			bar.style.height = `${Math.max(3, Math.round((b.minutes / maxMin) * 44))}px`;
+			if (b.minutes === 0) bar.addClass('dashboard-pomodoro-hour-bar--empty');
+			cell.createDiv({ cls: 'dashboard-pomodoro-hour-tick', text: b.hour % 6 === 0 ? String(b.hour) : '' });
+		}
+	}
+
+	// ===== Right column =====
 	const rankSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	rankSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.activityRanking') });
 	const rankContainer = rankSection.createDiv({ cls: 'dashboard-pomodoro-rank-container' });
@@ -369,7 +577,11 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 
 		for (const [name, mins] of sorted) {
-			const row = rankContainer.createDiv({ cls: 'dashboard-pomodoro-rank-row' });
+			const row = rankContainer.createDiv({
+				cls: 'dashboard-pomodoro-rank-row' + (activityFilter === name ? ' dashboard-pomodoro-rank-row--active' : ''),
+				attr: { role: 'button', tabindex: '0' },
+			});
+			row.setAttribute('title', t('pomodoro.filterByActivity'));
 			const head = row.createDiv({ cls: 'dashboard-pomodoro-rank-head' });
 			const dot = head.createDiv({ cls: 'dashboard-pomodoro-donut-legend-dot' });
 			dot.style.backgroundColor = activityColor(name);
@@ -380,25 +592,60 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 				cls: 'dashboard-pomodoro-rank-bar',
 			}).style.width = `${Math.max(3, Math.round((mins / maxMin) * 100))}%`;
 			(barWrap.firstElementChild as HTMLElement).style.backgroundColor = activityColor(name);
+
+			const toggleFilter = () => {
+				activityFilter = activityFilter === name ? null : name;
+				renderFilterBar();
+				renderTrend();
+				renderRanking();
+			};
+			row.addEventListener('click', toggleFilter);
+			row.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFilter(); }
+			});
 		}
 	}
 
-	// --- Right column: heatmap (12 weeks) ---
+	function renderFilterBar(): void {
+		filterBar.empty();
+		if (!activityFilter) {
+			filterBar.style.display = 'none';
+			return;
+		}
+		filterBar.style.display = 'flex';
+		const chip = filterBar.createDiv({ cls: 'dashboard-pomodoro-filterbar-chip' });
+		const dot = chip.createDiv({ cls: 'dashboard-pomodoro-donut-legend-dot' });
+		dot.style.backgroundColor = activityColor(activityFilter);
+		chip.createSpan({ text: t('pomodoro.filterActive', { name: activityFilter }) });
+		const clear = filterBar.createDiv({ cls: 'dashboard-pomodoro-filterbar-clear' });
+		setIcon(clear, 'x');
+		clear.setAttribute('role', 'button');
+		clear.addEventListener('click', () => {
+			activityFilter = null;
+			renderFilterBar();
+			renderTrend();
+			renderRanking();
+		});
+	}
+
+	// --- Heatmap (12 weeks, 4-step gradient) ---
 	const heatSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	const heatHead = heatSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
 	heatHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.heatmap') });
 	heatHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.heatmapHint') });
-	const heatContainer = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-container' });
+	const heatWrap = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-wrap' });
+	const heatContainer = heatWrap.createDiv({ cls: 'dashboard-pomodoro-heatmap-container' });
+	const heatLegend = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-legend' });
 
 	function renderHeatmap(): void {
 		heatContainer.empty();
+		heatLegend.empty();
 		const daily = service.getHeatmapMinutes();
-		const maxMin = Math.max(...daily.map(d => d.minutes), 1);
 
 		const cell = 11;
 		const gap = 3;
-		const cols = 12; // weeks
-		const rows = 7;  // days
+		const cols = 12;
+		const rows = 7;
 		const width = cols * (cell + gap);
 		const height = rows * (cell + gap);
 
@@ -407,59 +654,146 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 			attr: { viewBox: `0 0 ${width} ${height}`, width: '100%' },
 		});
 
+		let activeInLastWeek = 0;
 		daily.forEach((d, i) => {
 			const col = Math.floor(i / rows);
 			const row = i % rows;
-			const x = col * (cell + gap);
-			const y = row * (cell + gap);
+			if (col === cols - 1 && d.minutes > 0) activeInLastWeek++;
 			const rect = svg.createSvg('rect', {
 				cls: 'dashboard-pomodoro-heatmap-cell'
 					+ (d.minutes > 0 ? ' dashboard-pomodoro-heatmap-cell--active' : ''),
-				attr: { x, y, width: cell, height: cell, rx: 2.5 },
+				attr: { x: col * (cell + gap), y: row * (cell + gap), width: cell, height: cell, rx: 2.5 },
 			});
-			if (d.minutes > 0) {
-				const level = Math.min(1, d.minutes / maxMin);
-				rect.style.fill = 'var(--db-accent)';
-				rect.style.opacity = String(0.25 + level * 0.75);
-			}
+			const color = heatColor(d.minutes);
+			if (color) rect.style.fill = color;
+
 			const title = svg.createSvg('title');
 			title.textContent = `${d.date} · ${formatMinutes(d.minutes)}`;
 			rect.appendChild(title);
 		});
+
+		// Empty-week guidance: a wall of faint cells frustrates new users.
+		if (activeInLastWeek === 0 && daily.every(d => d.minutes === 0)) {
+			heatWrap.createDiv({
+				cls: 'dashboard-pomodoro-heatmap-empty',
+				text: t('pomodoro.heatmapEmptyHint'),
+			});
+		}
+
+		// 4-step gradient legend
+		const legendItems = [
+			{ label: '0', color: '' },
+			{ label: '1-15', color: heatColor(1) },
+			{ label: '16-45', color: heatColor(16) },
+			{ label: '46+', color: heatColor(46) },
+		];
+		heatLegend.createSpan({ cls: 'dashboard-pomodoro-heatmap-legend-label', text: t('pomodoro.less') });
+		for (const item of legendItems) {
+			const sw = heatLegend.createDiv({ cls: 'dashboard-pomodoro-heatmap-legend-swatch' });
+			if (item.color) sw.style.backgroundColor = item.color;
+		}
+		heatLegend.createSpan({ cls: 'dashboard-pomodoro-heatmap-legend-label', text: t('pomodoro.more') });
 	}
 
-	// --- Right column: recent records ---
-	const recentSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-	recentSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.recentSessions') });
-	const recentContainer = recentSection.createDiv({ cls: 'dashboard-pomodoro-recent-container' });
+	// --- Today timeline (work → break rhythm) ---
+	const timelineSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
+	timelineSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.todayTimeline') });
+	const timelineContainer = timelineSection.createDiv({ cls: 'dashboard-pomodoro-timeline-container' });
 
-	function renderRecent(): void {
-		recentContainer.empty();
-		const records = service.getRecentRecords(10);
+	function renderTimeline(): void {
+		timelineContainer.empty();
+		const records = service.getTodayTimeline();
 		if (records.length === 0) {
-			recentContainer.createDiv({ cls: 'dashboard-pomodoro-donut-empty', text: t('pomodoro.noRecords') });
+			const empty = timelineContainer.createDiv({ cls: 'dashboard-pomodoro-timeline-empty' });
+			empty.createDiv({ cls: 'dashboard-pomodoro-timeline-empty-text', text: t('pomodoro.timelineEmpty') });
+			const startBtn = empty.createEl('button', { cls: 'dashboard-pomodoro-timeline-start', text: t('pomodoro.startFocus') });
+			startBtn.addEventListener('click', () => close());
 			return;
 		}
-		for (const rec of records as PomodoroRecord[]) {
-			const row = recentContainer.createDiv({ cls: 'dashboard-pomodoro-stats-record-row' });
+
+		for (const rec of records) {
+			const item = timelineContainer.createDiv({ cls: 'dashboard-pomodoro-timeline-item' });
+			const head = item.createDiv({ cls: 'dashboard-pomodoro-timeline-head' });
+			const time = new Date(rec.timestamp);
+			head.createDiv({
+				cls: 'dashboard-pomodoro-timeline-time',
+				text: String(time.getHours()).padStart(2, '0') + ':' + String(time.getMinutes()).padStart(2, '0'),
+			});
+			head.createDiv({ cls: 'dashboard-pomodoro-timeline-activity' }, el => {
+				const dot = el.createDiv({ cls: 'dashboard-pomodoro-donut-legend-dot' });
+				dot.style.backgroundColor = activityColor(rec.activity || t('pomodoro.defaultActivity'));
+				el.createSpan({ text: rec.activity || t('pomodoro.defaultActivity') });
+			});
+			head.createDiv({ cls: 'dashboard-pomodoro-timeline-duration', text: formatMinutes(rec.duration) });
+			const done = head.createDiv({ cls: 'dashboard-pomodoro-timeline-done' });
+			setIcon(done, 'check');
+			done.setAttribute('title', t('pomodoro.timelineDone'));
+
+			// Break rhythm line (only when the new fields exist)
+			if (rec.breakCompleted !== undefined) {
+				const sub = item.createDiv({ cls: 'dashboard-pomodoro-timeline-sub' });
+				setIcon(sub.createSpan({ cls: 'dashboard-pomodoro-timeline-sub-icon' }), rec.breakCompleted ? 'coffee' : 'zap-off');
+				sub.createSpan({
+					text: rec.breakCompleted
+						? t('pomodoro.breakTaken', { count: rec.breakMinutes ?? 0 })
+						: t('pomodoro.breakSkipped'),
+				});
+				if (rec.interruptions && rec.interruptions > 0) {
+					sub.createSpan({ cls: 'dashboard-pomodoro-timeline-interruptions', text: ' · ' + t('pomodoro.interrupted', { count: rec.interruptions }) });
+				}
+			}
+		}
+	}
+
+	// --- Day drill-down overlay (click a trend bar) ---
+	function showDayDrilldown(date: string): void {
+		const records = service.getRecordsForDate(date);
+		if (records.length === 0) return;
+
+		const panel = modal.createDiv({ cls: 'dashboard-pomodoro-drilldown' });
+		const head = panel.createDiv({ cls: 'dashboard-pomodoro-drilldown-head' });
+		head.createDiv({ cls: 'dashboard-pomodoro-drilldown-title', text: date });
+		const closeDd = head.createDiv({ cls: 'dashboard-pomodoro-stats-close' });
+		setIcon(closeDd, 'x');
+		closeDd.addEventListener('click', () => panel.remove());
+
+		const list = panel.createDiv({ cls: 'dashboard-pomodoro-drilldown-list' });
+		for (const rec of records) {
+			const row = list.createDiv({ cls: 'dashboard-pomodoro-stats-record-row' });
 			const actDot = row.createDiv({ cls: 'dashboard-pomodoro-stats-record-dot' });
 			actDot.style.backgroundColor = activityColor(rec.activity || t('pomodoro.defaultActivity'));
 			const ts = new Date(rec.timestamp);
-			const dateStr = (ts.getMonth() + 1) + '/' + ts.getDate() + ' ' +
-				String(ts.getHours()).padStart(2, '0') + ':' + String(ts.getMinutes()).padStart(2, '0');
-			row.createDiv({ cls: 'dashboard-pomodoro-stats-record-date', text: dateStr });
+			row.createDiv({
+				cls: 'dashboard-pomodoro-stats-record-date',
+				text: String(ts.getHours()).padStart(2, '0') + ':' + String(ts.getMinutes()).padStart(2, '0'),
+			});
 			row.createDiv({ cls: 'dashboard-pomodoro-stats-record-activity', text: rec.activity });
 			row.createDiv({ cls: 'dashboard-pomodoro-stats-record-duration', text: rec.duration + ' min' });
+			if (rec.interruptions && rec.interruptions > 0) {
+				row.createDiv({ cls: 'dashboard-pomodoro-stats-record-interruptions', text: '⏸ ' + rec.interruptions });
+			}
 		}
+		// Click outside closes
+		setTimeout(() => {
+			const onDown = (e: MouseEvent) => {
+				if (!panel.contains(e.target as Node)) {
+					panel.remove();
+					doc.removeEventListener('mousedown', onDown);
+				}
+			};
+			doc.addEventListener('mousedown', onDown);
+		}, 0);
 	}
 
 	function renderAll(): void {
+		insightEl.textContent = service.getInsight();
 		renderKpis();
 		renderDonut();
 		renderTrend();
+		renderHourDistribution();
 		renderRanking();
 		renderHeatmap();
-		renderRecent();
+		renderTimeline();
 	}
 
 	toggleButtons.forEach((btn, i) => {
@@ -471,13 +805,6 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	});
 
 	renderAll();
-}
-
-function daysElapsedSince(startStr: string): number {
-	const start = new Date(startStr + 'T00:00:00');
-	if (Number.isNaN(start.getTime())) return 1;
-	const diff = Math.floor((Date.now() - start.getTime()) / 86400000) + 1;
-	return Math.max(1, diff);
 }
 
 function formatMinutes(minutes: number): string {

@@ -15,6 +15,8 @@ export interface DashboardSettings {
 	pomodoroShortBreakMinutes: number;
 	pomodoroLongBreakMinutes: number;
 	pomodoroLongBreakInterval: number;
+	/** Daily pomodoro completion goal (count), shown as "1/8" in KPIs/gauge. */
+	pomodoroDailyGoal: number;
 	pomodoroAutoStartBreak: boolean;
 	pomodoroSoundEnabled: boolean;
 	widgetLunarEnabled: boolean;
@@ -78,6 +80,9 @@ export interface DashboardSettings {
 	countdownEnabled: boolean;
 	/** Multiple countdowns managed in settings; rendered in the sidebar. */
 	countdowns: CountdownConfig[];
+	/** User-defined tags for media files (images/videos sections), keyed by
+	 *  vault path. Managed by MediaTagService; optional so old data.json loads. */
+	mediaTags?: Record<string, string[]>;
 	readingEnabled: boolean;
 	readingSoundEnabled: boolean;
 	taskTemplates: TaskTemplate[];
@@ -163,6 +168,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	pomodoroShortBreakMinutes: 5,
 	pomodoroLongBreakMinutes: 15,
 	pomodoroLongBreakInterval: 4,
+	pomodoroDailyGoal: 8,
 	pomodoroAutoStartBreak: true,
 	pomodoroSoundEnabled: true,
 	widgetLunarEnabled: true,
@@ -196,6 +202,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickNoteGuideShownVersion: '',
 	countdownEnabled: false,
 	countdowns: [] as CountdownConfig[],
+	mediaTags: {},
 	readingEnabled: false,
 	readingSoundEnabled: true,
 	taskTemplates: [],
