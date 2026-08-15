@@ -12150,11 +12150,151 @@
 	background: var(--db-accent, #6366f1) !important;
 	color: #fff !important;
 	border-color: transparent !important;
-	font-weight: 500;
-}
+	font-weight: 500;}
 
 .dashboard-quicknote-guide-enable:hover {
 	opacity: 0.9;
+}
+
+/* ===== Dataview announcement + community-group modal ===== */
+.dashboard-dataview-guide-modal {
+	padding: 24px 28px 20px;
+	max-width: 480px;
+}
+
+.dashboard-dataview-guide-title {
+	margin: 0 0 10px;
+	font-size: 18px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-dataview-guide-intro {
+	margin: 0 0 16px;
+	font-size: 14px;
+	line-height: 1.6;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-dataview-guide-features {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 18px;
+}
+
+.dashboard-dataview-guide-feature {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-size: 13px;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-dataview-guide-feature-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	flex-shrink: 0;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-accent-soft, rgba(99, 102, 241, 0.15));
+	color: var(--db-accent, #6366f1);
+}
+
+.dashboard-dataview-guide-feature-icon svg {
+	width: 15px;
+	height: 15px;
+}
+
+/* Community group card: text left, QR right; stacks on narrow widths */
+.dashboard-dataview-guide-group {
+	display: flex;
+	flex-direction: row;
+	gap: 16px;
+	padding: 14px 16px;
+	margin-bottom: 18px;
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
+	border-radius: var(--db-radius-md, 10px);
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
+}
+
+.dashboard-dataview-guide-group-text {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dashboard-dataview-guide-group-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-dataview-guide-group-desc {
+	font-size: 12.5px;
+	line-height: 1.6;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-dataview-guide-group-fallback {
+	margin-top: auto;
+	font-size: 12px;
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+.dashboard-dataview-guide-qr-wrap {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.dashboard-dataview-guide-qr {
+	width: 128px;
+	height: auto;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
+	cursor: zoom-in;
+	display: block;
+}
+
+.dashboard-dataview-guide-qr-hint {
+	font-size: 11px;
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+.dashboard-dataview-guide-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.dashboard-dataview-guide-gotit {
+	padding: 6px 16px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid transparent;
+	background: var(--db-accent, #6366f1);
+	color: #fff;
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: opacity 0.15s ease;
+}
+
+.dashboard-dataview-guide-gotit:hover {
+	opacity: 0.9;
+}
+
+@media (max-width: 420px) {
+	.dashboard-dataview-guide-group {
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+	}
 }
 
 /* ===== Note popover modal — in-place edit popup for hover-previewed links =====

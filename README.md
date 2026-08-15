@@ -111,6 +111,17 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.8.2
+- **Dataview announcement + community group** — A one-time popup on update introduces the new Dataview section and invites you to the WeChat user group (QR code included; if the invite has expired, add WeChat contact `PandoraReads`)
+- **Fix: wikilinks with heading/block subpaths** — `[[note#heading]]` and `[[note#^block]]` in memos and Dataview sections now jump to the anchor itself, not just open the note: the tab path resolves via native link text, the note popover scrolls with `setEphemeralState`, and hover previews show the anchor position
+
+### 1.8.0
+- **Focus statistics, redesigned as a landscape dashboard** — The pomodoro stats popup is now a three-column view: KPIs (goal progress, today's focus, efficiency score, interruptions, break adherence, streak), time-distribution donut with an adaptive trend chart (hours/days/months per range, dashed daily-goal baseline, clickable day bars that drill into that date's records), activity ranking that filters the trend, a 12-week gradient heatmap, and a today timeline showing work→break rhythm. Day/Week/Month/Year/All ranges on natural periods, responsive single-column below 900px
+- **Daily pomodoro goal** — Set a goal (slider in settings, or the pencil on the stats hero card); progress shows as `3/8` with a gauge replacing the donut when there's a single activity
+- **Pomodoro tag management** — Rename, delete, merge, and pin activity tags from the stats header gear; history rewrites in place and pinned tags lead the widget's quick-pick list
+- **Pomodoro data v2** — The current activity tag persists across restarts; records log actual focused minutes (pauses excluded), interruption counts, and break outcomes (taken/skipped); the auto-start-break setting is now honored (phases park in standby with a Start Break / Resume Focus button)
+- **Media tags for images & videos sections** — Tag individual images and videos and filter the section by tag; edits from the grid, table, or lightbox are debounced and re-render only that section
+
 ### 1.7.0
 - **Dataview section (built-in DQL engine)** — A new section type that runs Dataview-style queries with no external plugin: `TABLE`, `LIST`, `TASK`, `CALENDAR`, and `HEATMAP`, with `FROM`/`WHERE`/`SORT`/`GROUP BY`/`FLATTEN`/`LIMIT`, ~40 functions, `file.*` fields, YAML frontmatter, and inline fields. Live syntax validation in the config modal, one-click samples, and a manual refresh button. The old standalone Heatmap section is replaced by `HEATMAP` queries (existing heatmap sections fall back to project-style safely)
 - **Scroll-to-top button** — A floating button in the bottom-right scrolls the dashboard back to the top, with safe-area inset on mobile

@@ -77,6 +77,8 @@ export interface DashboardSettings {
 	quickDailyEnabled: boolean;
 	/** Last plugin version that showed the Quick Notes first-run guide. Empty = never shown. */
 	quickNoteGuideShownVersion: string;
+	/** Last plugin version that showed the Dataview + community-group announcement. Empty = never shown. */
+	dataviewGuideShownVersion: string;
 	countdownEnabled: boolean;
 	/** Multiple countdowns managed in settings; rendered in the sidebar. */
 	countdowns: CountdownConfig[];
@@ -200,6 +202,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	pinnedNotes: [] as PinnedNote[],
 	quickDailyEnabled: false,
 	quickNoteGuideShownVersion: '',
+	dataviewGuideShownVersion: '',
 	countdownEnabled: false,
 	countdowns: [] as CountdownConfig[],
 	mediaTags: {},

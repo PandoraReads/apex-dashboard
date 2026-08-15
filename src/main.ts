@@ -5,7 +5,9 @@ import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
 import { QuickNoteGuideModal } from './quick-note-guide-modal';
+import { DataviewGuideModal } from './dataview-guide-modal';
 import { teardownBasenameIndex } from './renderer';
+import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
 
 /** All valid style preset keys — single source of truth for migration. */
 const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'jade', 'carbon', 'onyx', 'mono'] as const;
@@ -53,6 +55,7 @@ function migrateCountdowns(raw: Record<string, unknown>): CountdownConfig[] {
 export default class DashboardPlugin extends Plugin {
 	settings!: DashboardSettings;
 	backupService!: BackupService;
+	mediaTagService!: MediaTagService;
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
@@ -62,6 +65,10 @@ export default class DashboardPlugin extends Plugin {
 		this.backupService = new BackupService(this);
 		// The 60s tick is registered so Obsidian clears it on unload automatically.
 		this.registerInterval(window.setInterval(() => { void this.backupService.tick(); }, 60_000));
+
+		this.mediaTagService = new MediaTagService(this);
+		this.mediaTagService.load();
+		registerMediaTagService(this.mediaTagService);
 
 		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
 
@@ -114,6 +121,41 @@ export default class DashboardPlugin extends Plugin {
 		this.addSettingTab(new DashboardSettingTab(this.app, this));
 
 		this.maybeShowQuickNoteGuide();
+		this.maybeShowDataviewGuide();
+	}
+
+	/**
+	 * One-time announcement for the Dataview section + community group, shown
+	 * after the (possible) Quick Notes guide so the two never overlap visually —
+	 * the dataview modal opens only after the quick-note modal is dismissed.
+	 */
+	private maybeShowDataviewGuide(): void {
+		if (this.settings.dataviewGuideShownVersion === this.manifest.version) {
+			return;
+		}
+		this.app.workspace.onLayoutReady(() => {
+			const open = () => {
+				new DataviewGuideModal(this.app, () => { void this.markDataviewGuideSeen(); }).open();
+			};
+			// If the quick-note guide is showing for this same version, wait for
+			// its close; otherwise open immediately.
+			if (
+				this.settings.quickNoteGuideShownVersion !== this.manifest.version
+				&& this.settings.quickNotesEnabled === false
+			) {
+				// Quick-note guide will appear; chain after it via a short delay
+				// polling for its removal is overkill — a 1s stagger suffices.
+				window.setTimeout(open, 1000);
+			} else {
+				open();
+			}
+		});
+	}
+
+	/** Record the current version as having shown the dataview announcement. */
+	private async markDataviewGuideSeen(): Promise<void> {
+		this.settings = { ...this.settings, dataviewGuideShownVersion: this.manifest.version };
+		await this.saveSettings();
 	}
 
 	/**
@@ -150,6 +192,9 @@ export default class DashboardPlugin extends Plugin {
 	onunload(): void {
 		// registerView cleanup is automatic
 		teardownBasenameIndex(this.app);
+		registerMediaTagService(null);
+		void this.mediaTagService.flush();
+		this.mediaTagService.destroy();
 	}
 
 	private async openDashboard(): Promise<void> {
@@ -176,10 +221,13 @@ export default class DashboardPlugin extends Plugin {
 		}
 		// Migrate single-countdown flat fields to the countdowns[] list
 		const countdowns = migrateCountdowns(raw);
+		// Sanitize the media tag map (drop malformed entries, empty lists)
+		const mediaTags = sanitizeMediaTags(raw.mediaTags);
 		this.settings = {
 			...DEFAULT_SETTINGS,
 			...raw,
 			countdowns,
+			mediaTags,
 		};
 		setLanguage(this.settings.language);
 	}

@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.8.2 (2026-08-15)
+
+### Added
+- **Dataview announcement + WeChat community group** — A one-time popup shown on plugin update (once per version, after layout ready) introduces the Dataview section's capabilities and invites users to the WeChat exchange group. The QR code is base64-bundled into the plugin (works offline, no vault file dependency); clicking it opens the full-size image for scanning. A fallback line tells users to add WeChat contact `PandoraReads` when the group invite has expired. Staggered against the Quick Notes guide so the two modals never overlap.
+
+### Fixed
+- **Wikilinks with heading/block subpaths only opened the note** — `[[note#heading]]` / `[[note#^block]]` in memo cards and Dataview sections parsed the `#fragment` but dropped it on click. The fragment now flows through the whole open-note chain: opening in a tab resolves the anchor via native `openLinkText`, the in-dashboard note popover scrolls to it with `setEphemeralState`, and hover previews include the subpath so they preview at the anchor.
+
+## 1.8.1 (2026-08-15)
+
+### Fixed
+- **Stats overlay rendered blank** — All `--db-*` theme variables live on `.apex-dashboard-root[data-theme]`, but the stats and tag-manager overlays were appended to `document.body` — outside that scope — so every `var()` reference (chart fills, text colors, card backgrounds, the `color-mix()` heatmap gradient) resolved to nothing. Both overlays now mount under the themed root (falling back to body when no dashboard view exists).
+- **Stats range "All" wrapped to two lines** — Range toggle buttons now keep their label on one line (`white-space: nowrap`), matching Day/Week/Month/Year.
+- **Right column blank until a range click** — The heatmap SVG carried `width: 100%` with no height inside an overflow-auto grid; the percentage width fed the grid row-height cycle and collapsed to 0 on first paint. The SVG gets an explicit height, the container a fixed aspect-ratio, and the grid track `minmax(0, 1fr)`.
+- **Daily goal had no visible entry point** — New inline editor: the pencil next to the hero goal number opens a `− N +` stepper (1–16) that persists immediately; previously only reachable in plugin settings.
+- **Stats header/range text too small** — Title 1em → 1.3em, insight line 0.68em → 0.8em, range buttons 0.65em → 0.82em with a shadow on the active pill.
+- **Tag manager actions were anonymous icon buttons** — Tags now render as bubble chips (color dot + name; pinned chips tinted with a pin glyph). Clicking a chip expands labeled pill buttons (Pin/Unpin, Rename, Merge, Delete — red on hover), with tooltips explaining pinning and merging, plus a header hint line.
+
+## 1.8.0 (2026-08-15)
+
+### Added
+- **Focus statistics landscape dashboard** — The pomodoro stats popup is redesigned as a ~1040px three-column view. Left: grouped KPIs — Today (hero goal card with progress bar, focus time, efficiency score, interruptions, break adherence, streak with encouragement) and History (range total with period-over-period delta, 7-day average, total, best day). Middle: interactive donut (hover expands a segment; center switches to that tag's time) that becomes a daily-goal gauge when there's a single activity, plus an adaptive trend chart (day = 24 hour bars, week/month = days, year/all = months) with a dashed daily-goal baseline and click-to-drill day panels, and a 24-hour time-of-day distribution strip with a peak-hour badge. Right: activity ranking bars (click filters the trend to one activity, with a removable filter chip), a 12-week 4-step gradient heatmap with less→more legend, and a today timeline showing each work record with its break-rhythm sub-line (break minutes taken / skipped, interruptions). Day/Week/Month/Year/All natural-period ranges; collapses to one column under 900px.
+- **Daily pomodoro goal** — New `pomodoroDailyGoal` setting (default 8, slider 1–16 in settings, inline stepper on the stats hero card). Drives the hero progress card, the single-activity gauge, the trend baseline, and efficiency score.
+- **Pomodoro tag management** — Rename / delete (history falls into the default activity) / merge / pin tags via the stats header gear. Tag metadata persists in `pomodoro.json`; pinned tags always lead the widget's recent-activity chips.
+- **Pomodoro data v2** — `pomodoro.json` upgrades to `{ version, currentActivity, tags, sessions }`; bare-array v1 files migrate transparently. The current activity persists across restarts. Records log actual focused minutes (pauses excluded via wall-clock accounting), interruption counts, and break outcomes (minutes taken or skipped; legacy records read as unknown, not zero). The `pomodoroAutoStartBreak` setting is now honored — phases park in standby with a "Start Break"/"Resume Focus" button instead of auto-running.
+- **Insight line** — The stats header shows a one-line, state-aware summary (goal hit / streak alive / gentle restart nudge).
+- **Media tags for images & videos sections** — Tag individual images and videos directly in the dashboard and filter the section by tag. Tags live in plugin data (no vault files touched), follow files across rename/move, and are pruned when a file is deleted. Three ways to edit: a tag button on each grid/list tile, a Tags column in table view, and a tag bar inside the lightbox (saving there never restarts a playing video). The filter popup gains a tag-chips row (OR within tags, AND with search/date/folder filters, matching the library section's semantics). Tag writes are debounced so batch tagging produces a single settings write, and tag edits only re-render the affected section — never the whole board.
+
+## 1.8.0 (2026-08-15)
+
+### Added
+- **Media tags for images & videos sections** — Tag individual images and videos directly in the dashboard and filter the section by tag. Tags live in plugin data (no vault files touched), follow files across rename/move, and are pruned when a file is deleted. Three ways to edit: a tag button on each grid/list tile, a Tags column in table view, and a tag bar inside the lightbox (saving there never restarts a playing video). The filter popup gains a tag-chips row (OR within tags, AND with search/date/folder filters, matching the library section's semantics). Tag writes are debounced so batch tagging produces a single settings write, and tag edits only re-render the affected section — never the whole board.
+
 ## 1.7.1 (2026-08-14)
 
 ### Fixed
