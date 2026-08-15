@@ -123,20 +123,17 @@ export default class DashboardPlugin extends Plugin {
 	}
 
 	/**
-	 * One-time announcement for the Dataview section + community group.
-	 * (The old Quick Notes first-run guide was removed — the toolbar is
-	 * discoverable from settings; only this announcement ships now.)
+	 * Announcement for the Dataview section + community group. While in
+	 * 1.8.2 the popup intentionally shows on EVERY plugin load (per author
+	 * request) — no version gate — so it can be verified at each restart.
 	 */
 	private maybeShowDataviewGuide(): void {
-		if (this.settings.dataviewGuideShownVersion === this.manifest.version) {
-			return;
-		}
 		this.app.workspace.onLayoutReady(() => {
 			new DataviewGuideModal(this.app, () => { void this.markDataviewGuideSeen(); }).open();
 		});
 	}
 
-	/** Record the current version as having shown the dataview announcement. */
+	/** Record the announcement as shown (kept for when the version gate returns). */
 	private async markDataviewGuideSeen(): Promise<void> {
 		this.settings = { ...this.settings, dataviewGuideShownVersion: this.manifest.version };
 		await this.saveSettings();
