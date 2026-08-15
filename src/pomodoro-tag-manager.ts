@@ -10,10 +10,11 @@ function mountOverlay(doc: Document): HTMLElement {
 }
 
 /**
- * Tag management overlay: rename / delete / merge / pin tags.
- * Opened from the focus-statistics modal's header gear button; mutations go
- * through PomodoroService (which rewrites pomodoro.json history in place) and
- * the caller's onChange re-renders the stats.
+ * Tag management overlay. Tags render as color-dot bubble chips; each chip
+ * expands inline to labeled action buttons (Pin/Unpin, Rename, Merge, Delete)
+ * so every action's purpose is self-evident. Mutations go through
+ * PomodoroService (which rewrites pomodoro.json history in place) and the
+ * caller's onChange re-renders the stats.
  */
 export function openPomodoroTagManager(doc: Document, service: PomodoroService, onChange: () => void): void {
 	const overlay = mountOverlay(doc);
@@ -37,10 +38,13 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 		if (e.target === overlay) close();
 	});
 
+	// Usage hint under the header
+	modal.createDiv({ cls: 'dashboard-pomodoro-tagmanager-hint', text: t('pomodoro.tagHint') });
+
 	const list = modal.createDiv({ cls: 'dashboard-pomodoro-tagmanager-list' });
 
-	// All tag names present anywhere (managed tags plus names seen in history),
-	// so records recorded before the tags array existed are manageable too.
+	/** All tag names present anywhere (managed tags plus names seen in history),
+	 *  so records recorded before the tags array existed are manageable too. */
 	function allTagNames(): string[] {
 		const names = new Set<string>(service.getTags().map(tg => tg.name));
 		for (const [name] of service.getActivityBreakdown()) {
@@ -66,38 +70,62 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 			const tag: PomodoroTag = { name, pinned: isPinned(name) };
 			const row = list.createDiv({ cls: 'dashboard-pomodoro-tagmanager-row' });
 
-			const head = row.createDiv({ cls: 'dashboard-pomodoro-tagmanager-row-head' });
-			const dot = head.createDiv({ cls: 'dashboard-pomodoro-donut-legend-dot' });
+			// Bubble chip with color dot + pin indicator
+			const chip = row.createDiv({
+				cls: 'dashboard-pomodoro-tagmanager-chip'
+					+ (tag.pinned ? ' dashboard-pomodoro-tagmanager-chip--pinned' : ''),
+			});
+			const dot = chip.createDiv({ cls: 'dashboard-pomodoro-donut-legend-dot' });
 			dot.style.backgroundColor = activityColor(name);
-			head.createDiv({ cls: 'dashboard-pomodoro-tagmanager-name', text: name });
+			chip.createSpan({ cls: 'dashboard-pomodoro-tagmanager-chip-name', text: name });
 			if (tag.pinned) {
-				const pin = head.createDiv({ cls: 'dashboard-pomodoro-tagmanager-pin-badge' });
+				const pin = chip.createSpan({ cls: 'dashboard-pomodoro-tagmanager-chip-pin' });
 				setIcon(pin, 'pin');
-				pin.setAttribute('aria-label', t('pomodoro.tagPinned'));
 			}
+			chip.setAttribute('title', tag.pinned ? t('pomodoro.tagPinned') : '');
 
+			// Expand/collapse the action bar on chip click
+			chip.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const wasOpen = row.hasClass('dashboard-pomodoro-tagmanager-row--open');
+				// Collapse any other open row first
+				list.querySelectorAll('.dashboard-pomodoro-tagmanager-row--open').forEach(r => r.removeClass('dashboard-pomodoro-tagmanager-row--open'));
+				row.toggleClass('dashboard-pomodoro-tagmanager-row--open', !wasOpen);
+			});
+
+			// Inline action bar (revealed when the row is open)
 			const actions = row.createDiv({ cls: 'dashboard-pomodoro-tagmanager-actions' });
-			iconBtn(actions, 'pin', tag.pinned ? t('pomodoro.tagUnpin') : t('pomodoro.tagPin'), () => {
+			actionBtn(actions, tag.pinned ? 'pin-off' : 'pin', tag.pinned ? t('pomodoro.tagUnpin') : t('pomodoro.tagPin'), () => {
 				void service.setTagPinned(name, !tag.pinned).then(() => { render(); onChange(); });
-			}, tag.pinned ? 'dashboard-pomodoro-tagmanager-btn--active' : '');
-			iconBtn(actions, 'pencil', t('pomodoro.tagRename'), () => promptRename(name));
-			iconBtn(actions, 'git-merge', t('pomodoro.tagMerge'), () => promptMerge(name));
-			iconBtn(actions, 'trash-2', t('pomodoro.tagDelete'), () => promptDelete(name));
+			}, t('pomodoro.tagPinHint'));
+			actionBtn(actions, 'pencil', t('pomodoro.tagRename'), () => promptRename(name));
+			actionBtn(actions, 'git-merge', t('pomodoro.tagMerge'), () => promptMerge(name), t('pomodoro.tagMergeHint'));
+			dangerBtn(actions, 'trash-2', t('pomodoro.tagDelete'), () => promptDelete(name));
 		}
 	}
 
-	function iconBtn(parent: HTMLElement, icon: string, label: string, onClick: () => void, extraCls = ''): void {
-		const btn = parent.createDiv({ cls: `dashboard-pomodoro-tagmanager-btn ${extraCls}`.trim() });
-		btn.setAttribute('aria-label', label);
-		btn.setAttribute('title', label);
-		setIcon(btn, icon);
+	function actionBtn(parent: HTMLElement, icon: string, label: string, onClick: () => void, title?: string): void {
+		const btn = parent.createDiv({ cls: 'dashboard-pomodoro-tagmanager-action' });
+		if (title) btn.setAttribute('title', title);
+		setIcon(btn.createSpan({ cls: 'dashboard-pomodoro-tagmanager-action-icon' }), icon);
+		btn.createSpan({ cls: 'dashboard-pomodoro-tagmanager-action-label', text: label });
 		btn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			onClick();
 		});
 	}
 
-	// --- Inline prompt row (avoids window.prompt, matches the plugin's modal style) ---
+	function dangerBtn(parent: HTMLElement, icon: string, label: string, onClick: () => void): void {
+		const btn = parent.createDiv({ cls: 'dashboard-pomodoro-tagmanager-action dashboard-pomodoro-tagmanager-action--danger' });
+		setIcon(btn.createSpan({ cls: 'dashboard-pomodoro-tagmanager-action-icon' }), icon);
+		btn.createSpan({ cls: 'dashboard-pomodoro-tagmanager-action-label', text: label });
+		btn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			onClick();
+		});
+	}
+
+	// --- Inline prompt row (matches the plugin's modal style, no window.prompt) ---
 	let promptRow: HTMLElement | null = null;
 
 	function closePrompt(): void {

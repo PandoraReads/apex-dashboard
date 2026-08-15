@@ -2477,7 +2477,7 @@
 }
 
 .dashboard-pomodoro-stats-header-title {
-	font-size: 1em;
+	font-size: 1.3em;
 	font-weight: 700;
 	color: var(--db-text);
 }
@@ -2544,16 +2544,15 @@
 	background: var(--db-bg-hover);
 	border-radius: 6px;
 	padding: 2px;
-	margin-bottom: 12px;
 }
 
 .dashboard-pomodoro-range-btn {
 	flex: 1;
 	text-align: center;
-	font-size: 0.65em;
+	font-size: 0.82em;
 	font-weight: 500;
 	color: var(--db-text-muted);
-	padding: 4px 0;
+	padding: 5px 12px;
 	border-radius: 5px;
 	cursor: pointer;
 	transition: background 0.15s, color 0.15s;
@@ -2562,7 +2561,8 @@
 .dashboard-pomodoro-range-btn--active {
 	background: var(--background-primary, var(--db-bg));
 	color: var(--db-accent);
-	font-weight: 600;
+	font-weight: 700;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
 /* Donut chart */
@@ -2927,70 +2927,113 @@
 
 /* ===== Tag manager modal ===== */
 .dashboard-pomodoro-tagmanager {
-	max-width: 520px;
+	max-width: 560px;
+}
+
+.dashboard-pomodoro-tagmanager-hint {
+	font-size: 0.7em;
+	color: var(--db-text-muted);
+	margin: -8px 0 12px;
 }
 
 .dashboard-pomodoro-tagmanager-list {
 	display: flex;
 	flex-direction: column;
+	gap: 6px;
 	max-height: 46vh;
 	overflow-y: auto;
+	padding-right: 2px;
 }
 
 .dashboard-pomodoro-tagmanager-row {
-	padding: 8px 0;
-	border-bottom: 1px solid var(--db-bg-hover);
-}
-
-.dashboard-pomodoro-tagmanager-row:last-child {
-	border-bottom: none;
-}
-
-.dashboard-pomodoro-tagmanager-row-head {
 	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 6px;
+	flex-direction: column;
+	gap: 6px;
 }
 
-.dashboard-pomodoro-tagmanager-name {
-	font-size: 0.78em;
+/* Bubble chip */
+.dashboard-pomodoro-tagmanager-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	align-self: flex-start;
+	max-width: 100%;
+	padding: 6px 14px;
+	border-radius: 999px;
+	background: var(--db-bg-hover);
+	border: 1px solid var(--db-border-card);
+	cursor: pointer;
+	transition: border-color 0.15s, background 0.15s;
+}
+
+.dashboard-pomodoro-tagmanager-chip:hover {
+	border-color: var(--db-accent);
+	background: var(--db-bg-hover-strong, var(--db-bg-hover));
+}
+
+.dashboard-pomodoro-tagmanager-chip--pinned {
+	border-color: color-mix(in srgb, var(--db-accent) 45%, transparent);
+	background: color-mix(in srgb, var(--db-accent) 10%, var(--db-bg-hover));
+}
+
+.dashboard-pomodoro-tagmanager-chip-name {
+	font-size: 0.8em;
 	font-weight: 600;
 	color: var(--db-text);
-	flex: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.dashboard-pomodoro-tagmanager-pin-badge {
+.dashboard-pomodoro-tagmanager-chip-pin {
 	color: var(--db-accent);
 	display: flex;
-	opacity: 0.8;
+	opacity: 0.85;
 }
 
+/* Action bar — revealed when the row is open */
 .dashboard-pomodoro-tagmanager-actions {
-	display: flex;
-	gap: 4px;
+	display: none;
+	gap: 6px;
+	flex-wrap: wrap;
+	padding-left: 4px;
 }
 
-.dashboard-pomodoro-tagmanager-btn {
-	cursor: pointer;
-	color: var(--db-text-muted);
-	width: 26px;
-	height: 26px;
+.dashboard-pomodoro-tagmanager-row--open .dashboard-pomodoro-tagmanager-actions {
+	display: flex;
+}
+
+.dashboard-pomodoro-tagmanager-action {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	border-radius: 6px;
-	transition: background 0.15s, color 0.15s;
+	gap: 5px;
+	padding: 5px 11px;
+	border-radius: 999px;
+	border: 1px solid var(--db-border-card);
+	background: var(--background-primary, var(--db-bg));
+	font-size: 0.68em;
+	font-weight: 500;
+	color: var(--db-text-muted);
+	cursor: pointer;
+	transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.dashboard-pomodoro-tagmanager-btn:hover {
-	background: var(--db-bg-hover);
+
+.dashboard-pomodoro-tagmanager-action:hover {
+	border-color: var(--db-accent);
 	color: var(--db-text);
 }
-.dashboard-pomodoro-tagmanager-btn--active {
-	color: var(--db-accent);
+
+.dashboard-pomodoro-tagmanager-action--danger:hover {
+	border-color: #e74c3c;
+	color: #e74c3c;
+}
+
+.dashboard-pomodoro-tagmanager-action-icon {
+	display: flex;
+}
+
+.dashboard-pomodoro-tagmanager-action-label {
+	white-space: nowrap;
 }
 
 .dashboard-pomodoro-tagmanager-prompt {
@@ -3073,12 +3116,12 @@
 }
 
 .dashboard-pomodoro-insight {
-	font-size: 0.68em;
+	font-size: 0.8em;
 	color: var(--db-text-muted);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	max-width: 460px;
+	max-width: 520px;
 }
 
 /* Activity filter bar */
@@ -12316,8 +12359,7 @@
 	z-index: 2;
 }
 .dashboard-media-delete svg { width: 12px; height: 12px; }
-.dashboard-media-item:hover .dashboard-media-delete,
-.dashboard-media-table tr:hover .dashboard-media-delete { opacity: 1; }
+.dashboard-media-item:hover .dashboard-media-delete { opacity: 1; }
 .dashboard-media-item .dashboard-media-delete:hover { background: rgba(220, 50, 50, 0.85); }
 
 /* List view */
@@ -12411,9 +12453,6 @@
 	font-size: 10px;
 	color: var(--db-text-muted, var(--text-muted));
 }
-.dashboard-media-table-links {
-	max-width: 260px;
-}
 
 /* ---- Media tags ---- */
 
@@ -12476,19 +12515,6 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.1));
 	color: var(--db-text, var(--text-normal));
 }
-
-/* Table Tags column */
-.dashboard-media-table-tags {
-	max-width: 220px;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 3px;
-	align-items: center;
-}
-.dashboard-media-table-tags .dashboard-media-no-links { align-self: center; }
-/* Keep the op column compact so Tags never gets squeezed under it */
-.dashboard-media-table th:last-child,
-.dashboard-media-table td:last-child { width: 1%; white-space: nowrap; }
 
 /* Lightbox tag bar */
 .dashboard-media-lightbox-tags {
@@ -12564,41 +12590,6 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	margin: 6px 0;
 }
 
-/* Table view */
-.dashboard-media-table-wrap { overflow-x: auto; }
-.dashboard-media-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.dashboard-media-table th {
-	text-align: left;
-	padding: 6px 8px;
-	color: var(--db-text-muted, var(--text-muted));
-	font-weight: 600;
-	border-bottom: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
-}
-.dashboard-media-table td {
-	padding: 6px 8px;
-	border-bottom: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.06));
-	color: var(--db-text, var(--text-normal));
-}
-.dashboard-media-table tr { cursor: pointer; }
-.dashboard-media-table tr:hover td { background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.05)); }
-.dashboard-media-table-path {
-	max-width: 240px;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	color: var(--db-text-muted, var(--text-muted));
-}
-.dashboard-media-table-op { display: flex; gap: 4px; white-space: nowrap; }
-.dashboard-media-table-name-cell { cursor: pointer; }
-.dashboard-media-table-name-col {
-	width: 220px;
-	max-width: 220px;
-	min-width: 120px;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
 /* Media filter popup inputs (reuses library filter-popup shell) */
 .dashboard-media-filter-dates { display: flex; gap: 6px; flex-wrap: wrap; }
 .dashboard-media-filter-date {
@@ -12646,16 +12637,6 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 .dashboard-media-folder-browse:hover {
 	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.12));
-}
-.dashboard-media-table .dashboard-media-delete {
-	position: static;
-	opacity: 1;
-	background: transparent;
-	color: var(--db-text-muted, var(--text-muted));
-}
-.dashboard-media-table .dashboard-media-delete:hover {
-	background: rgba(220, 50, 50, 0.12);
-	color: rgb(220, 50, 50);
 }
 
 /* ===== Media lightbox ===== */
