@@ -4,7 +4,6 @@ import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
-import { QuickNoteGuideModal } from './quick-note-guide-modal';
 import { DataviewGuideModal } from './dataview-guide-modal';
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
@@ -120,72 +119,26 @@ export default class DashboardPlugin extends Plugin {
 
 		this.addSettingTab(new DashboardSettingTab(this.app, this));
 
-		this.maybeShowQuickNoteGuide();
 		this.maybeShowDataviewGuide();
 	}
 
 	/**
-	 * One-time announcement for the Dataview section + community group, shown
-	 * after the (possible) Quick Notes guide so the two never overlap visually —
-	 * the dataview modal opens only after the quick-note modal is dismissed.
+	 * One-time announcement for the Dataview section + community group.
+	 * (The old Quick Notes first-run guide was removed — the toolbar is
+	 * discoverable from settings; only this announcement ships now.)
 	 */
 	private maybeShowDataviewGuide(): void {
 		if (this.settings.dataviewGuideShownVersion === this.manifest.version) {
 			return;
 		}
 		this.app.workspace.onLayoutReady(() => {
-			const open = () => {
-				new DataviewGuideModal(this.app, () => { void this.markDataviewGuideSeen(); }).open();
-			};
-			// If the quick-note guide is showing for this same version, wait for
-			// its close; otherwise open immediately.
-			if (
-				this.settings.quickNoteGuideShownVersion !== this.manifest.version
-				&& this.settings.quickNotesEnabled === false
-			) {
-				// Quick-note guide will appear; chain after it via a short delay
-				// polling for its removal is overkill — a 1s stagger suffices.
-				window.setTimeout(open, 1000);
-			} else {
-				open();
-			}
+			new DataviewGuideModal(this.app, () => { void this.markDataviewGuideSeen(); }).open();
 		});
 	}
 
 	/** Record the current version as having shown the dataview announcement. */
 	private async markDataviewGuideSeen(): Promise<void> {
 		this.settings = { ...this.settings, dataviewGuideShownVersion: this.manifest.version };
-		await this.saveSettings();
-	}
-
-	/**
-	 * Show the Quick Notes toolbar first-run guide once per plugin version.
-	 * Fires on startup; closing the modal records the current version so it
-	 * won't reappear until the next version bump.
-	 */
-	private maybeShowQuickNoteGuide(): void {
-		if (this.settings.quickNoteGuideShownVersion === this.manifest.version) {
-			return;
-		}
-		this.app.workspace.onLayoutReady(() => {
-			new QuickNoteGuideModal(
-				this.app,
-				() => { void this.enableQuickNotes(); },
-				() => { void this.markQuickNoteGuideSeen(); },
-			).open();
-		});
-	}
-
-	/** Enable the Quick Notes toolbar and refresh any open dashboards. */
-	private async enableQuickNotes(): Promise<void> {
-		this.settings = { ...this.settings, quickNotesEnabled: true };
-		await this.saveSettings();
-		this.refreshAllDashboards();
-	}
-
-	/** Record the current version as having shown the guide. */
-	private async markQuickNoteGuideSeen(): Promise<void> {
-		this.settings = { ...this.settings, quickNoteGuideShownVersion: this.manifest.version };
 		await this.saveSettings();
 	}
 
