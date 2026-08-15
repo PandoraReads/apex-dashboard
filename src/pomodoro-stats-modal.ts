@@ -195,6 +195,16 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		const heroValue = hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value-row' });
 		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value', text: `${goal.completed}` });
 		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-goal', text: `/ ${goal.goal}` });
+		// Inline goal editor: click the "/ N" denominator to adjust the target.
+		const goalEditBtn = heroValue.createDiv({
+			cls: 'dashboard-pomodoro-kpi-hero-edit',
+			attr: { role: 'button', tabindex: '0', 'aria-label': t('pomodoro.editGoal') },
+		});
+		setIcon(goalEditBtn, 'pencil');
+		goalEditBtn.addEventListener('click', () => showGoalEditor());
+		goalEditBtn.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showGoalEditor(); }
+		});
 		const heroPct = goal.goal > 0 ? Math.round((goal.completed / goal.goal) * 100) : 0;
 		const heroBar = hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-bar' });
 		heroBar.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-bar-fill' }).style.width = `${Math.min(100, heroPct)}%`;
@@ -238,6 +248,45 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		const daily = service.getDailyMinutes(365);
 		const bestMin = daily.reduce((m, d) => Math.max(m, d.minutes), 0);
 		kpiCard(histRow2, formatMinutes(bestMin), t('pomodoro.bestDay'));
+	}
+
+	/** Inline popover under the hero card to change the daily pomodoro goal. */
+	function showGoalEditor(): void {
+		// One at a time
+		modal.querySelector('.dashboard-pomodoro-goal-editor')?.remove();
+		const editor = kpiCol.createDiv({ cls: 'dashboard-pomodoro-goal-editor' });
+		editor.createDiv({ cls: 'dashboard-pomodoro-goal-editor-label', text: t('pomodoro.editGoalLabel') });
+		const controls = editor.createDiv({ cls: 'dashboard-pomodoro-goal-editor-controls' });
+
+		const decBtn = controls.createEl('button', { cls: 'dashboard-pomodoro-goal-editor-step' });
+		setIcon(decBtn, 'minus');
+		const valueEl = controls.createDiv({ cls: 'dashboard-pomodoro-goal-editor-value' });
+		const incBtn = controls.createEl('button', { cls: 'dashboard-pomodoro-goal-editor-step' });
+		setIcon(incBtn, 'plus');
+
+		const settings = service.getGoalSettings();
+		valueEl.textContent = String(settings.pomodoroDailyGoal);
+
+		const apply = (value: number) => {
+			const clamped = Math.max(1, Math.min(16, value));
+			settings.pomodoroDailyGoal = clamped;
+			valueEl.textContent = String(clamped);
+			void service.saveGoalSettings();
+		};
+		decBtn.addEventListener('click', () => apply(settings.pomodoroDailyGoal - 1));
+		incBtn.addEventListener('click', () => apply(settings.pomodoroDailyGoal + 1));
+
+		// Dismiss on outside click
+		setTimeout(() => {
+			const onDown = (e: MouseEvent) => {
+				if (!editor.contains(e.target as Node)) {
+					editor.remove();
+					doc.removeEventListener('mousedown', onDown);
+					renderAll();
+				}
+			};
+			doc.addEventListener('mousedown', onDown);
+		}, 0);
 	}
 
 	function streakText(streak: number): string {
@@ -664,7 +713,10 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 
 		const svg = heatContainer.createSvg('svg', {
 			cls: 'dashboard-pomodoro-heatmap-svg',
-			attr: { viewBox: `0 0 ${width} ${height}`, width: '100%' },
+			// Explicit height (viewBox ratio): a width:100% SVG inside an
+			// overflow-auto grid collapses to 0 height on first paint, which
+			// blanked the right column until a re-render resized the tracks.
+			attr: { viewBox: `0 0 ${width} ${height}`, width: '100%', height: String(height) },
 		});
 
 		let activeInLastWeek = 0;

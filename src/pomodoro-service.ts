@@ -429,6 +429,16 @@ export class PomodoroService {
 		return this.getSettings().pomodoroWorkMinutes;
 	}
 
+	/** Live settings handle for the inline goal editor (mutate + saveGoalSettings). */
+	getGoalSettings(): DashboardSettings {
+		return this.plugin.settings;
+	}
+
+	/** Persist a goal edited inline in the stats modal. */
+	async saveGoalSettings(): Promise<void> {
+		await this.plugin.saveSettings();
+	}
+
 	// ===== Tag management =====
 
 	getTags(): PomodoroTag[] {

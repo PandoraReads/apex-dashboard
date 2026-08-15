@@ -2555,6 +2555,7 @@
 	padding: 5px 12px;
 	border-radius: 5px;
 	cursor: pointer;
+	white-space: nowrap;
 	transition: background 0.15s, color 0.15s;
 }
 
@@ -2721,7 +2722,8 @@
 
 .dashboard-pomodoro-stats-body {
 	display: grid;
-	grid-template-columns: 230px 1fr 300px;
+	grid-template-columns: 230px minmax(0, 1fr) 300px;
+	grid-template-rows: minmax(0, 1fr);
 	gap: 18px;
 	overflow-y: auto;
 	min-height: 0;
@@ -2906,6 +2908,9 @@
 
 .dashboard-pomodoro-heatmap-container {
 	line-height: 0;
+	/* Fixed aspect ratio: the SVG's width:100% must not participate in the
+	   grid row-height cycle or the first paint collapses to 0. */
+	aspect-ratio: 168 / 98;
 }
 
 .dashboard-pomodoro-heatmap-cell {
@@ -3228,6 +3233,71 @@
 	font-size: 0.62em;
 	color: var(--db-text-muted);
 	text-align: center;
+}
+
+/* Inline goal editor (pencil on the hero card) */
+.dashboard-pomodoro-kpi-hero-edit {
+	cursor: pointer;
+	color: var(--db-text-faint);
+	display: flex;
+	padding: 2px;
+	border-radius: 4px;
+	margin-left: 2px;
+	transition: color 0.15s, background 0.15s;
+}
+.dashboard-pomodoro-kpi-hero-edit:hover {
+	color: var(--db-accent);
+	background: var(--db-bg-hover);
+}
+
+.dashboard-pomodoro-goal-editor {
+	background: var(--db-bg-hover);
+	border: 1px solid var(--db-border-card);
+	border-radius: 10px;
+	padding: 10px 12px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.dashboard-pomodoro-goal-editor-label {
+	font-size: 0.68em;
+	color: var(--db-text);
+	font-weight: 600;
+}
+
+.dashboard-pomodoro-goal-editor-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-pomodoro-goal-editor-step {
+	border: 1px solid var(--db-border-card);
+	background: var(--background-primary, var(--db-bg));
+	color: var(--db-text);
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: border-color 0.15s;
+}
+.dashboard-pomodoro-goal-editor-step:hover {
+	border-color: var(--db-accent);
+	color: var(--db-accent);
+}
+
+.dashboard-pomodoro-goal-editor-value {
+	font-size: 1em;
+	font-weight: 800;
+	color: var(--db-accent);
+	min-width: 26px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
 }
 
 /* Streak row with encouragement */
@@ -12404,7 +12474,7 @@
 	gap: 3px;
 	margin-top: 3px;
 }
-.dashboard-media-list .dashboard-media-delete:hover {
+.dashboard-media-list .dashboard-media-delete--list:hover {
 	background: rgba(220, 50, 50, 0.12);
 	color: rgb(220, 50, 50);
 }
@@ -12516,15 +12586,17 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-text, var(--text-normal));
 }
 
-/* Lightbox tag bar */
+/* Lightbox tag bar — sits below the caption (media above, tags under it),
+   wrapping onto multiple rows when the pills don't fit one line. */
 .dashboard-media-lightbox-tags {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
 	align-items: center;
 	gap: 6px;
-	margin-top: 6px;
-	max-width: 80vw;
+	margin-top: 8px;
+	max-width: min(720px, 86vw);
+	padding: 0 16px;
 }
 .dashboard-media-lightbox-tag {
 	padding: 2px 10px;
@@ -12670,6 +12742,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	height: 100vh !important;
 	max-height: 100vh !important;
 	display: flex;
+	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	position: relative;
@@ -12681,7 +12754,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 .dashboard-media-lightbox-stage {
 	max-width: 90vw;
-	max-height: 85vh;
+	max-height: 78vh;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -12690,7 +12763,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-media-lightbox-img,
 .dashboard-media-lightbox-video {
 	max-width: 90vw;
-	max-height: 82vh;
+	max-height: 74vh;
 	width: auto;
 	height: auto;
 	object-fit: contain;
@@ -12698,13 +12771,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 
 .dashboard-media-lightbox-caption {
-	position: absolute;
-	bottom: 18px;
-	left: 0;
-	right: 0;
-	text-align: center;
 	color: rgba(255, 255, 255, 0.85);
 	font-size: 13px;
+	text-align: center;
+	margin-top: 10px;
 	pointer-events: none;
 }
 
