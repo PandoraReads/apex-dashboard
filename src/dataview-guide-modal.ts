@@ -53,25 +53,21 @@ export class DataviewGuideModal extends Modal {
 			row.createSpan({ text: t(feature.textKey) });
 		}
 
-		// --- Community group card ---
+		// --- Community group card: centered QR, one title, fallback below ---
 		const groupCard = contentEl.createDiv({ cls: 'dashboard-dataview-guide-group' });
-		const groupText = groupCard.createDiv({ cls: 'dashboard-dataview-guide-group-text' });
-		groupText.createDiv({ cls: 'dashboard-dataview-guide-group-title', text: t('dataviewGuide.groupTitle') });
-		groupText.createDiv({ cls: 'dashboard-dataview-guide-group-desc', text: t('dataviewGuide.groupDesc') });
+		groupCard.createDiv({ cls: 'dashboard-dataview-guide-group-title', text: t('dataviewGuide.groupTitle') });
 
 		const qrWrap = groupCard.createDiv({ cls: 'dashboard-dataview-guide-qr-wrap' });
 		const qrImg = qrWrap.createEl('img', {
 			cls: 'dashboard-dataview-guide-qr',
-			attr: { src: WECHAT_GROUP_QR_DATA_URL, alt: t('dataviewGuide.qrAlt') },
+			attr: { src: WECHAT_GROUP_QR_DATA_URL, alt: '' },
 		});
 		qrImg.addEventListener('click', () => {
 			// Open the raw QR in a new window so it can be scanned at full size
 			// (or saved) even when the modal renders it small.
 			window.open(WECHAT_GROUP_QR_DATA_URL, '_blank');
 		});
-		qrWrap.createDiv({ cls: 'dashboard-dataview-guide-qr-hint', text: t('dataviewGuide.qrHint') });
-
-		groupText.createDiv({ cls: 'dashboard-dataview-guide-group-fallback', text: t('dataviewGuide.groupFallback') });
+		qrWrap.createDiv({ cls: 'dashboard-dataview-guide-group-fallback', text: t('dataviewGuide.groupFallback') });
 
 		const actions = contentEl.createDiv({ cls: 'dashboard-dataview-guide-actions' });
 		const gotItBtn = actions.createEl('button', {

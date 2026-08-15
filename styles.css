@@ -12208,24 +12208,17 @@
 	height: 15px;
 }
 
-/* Community group card: text left, QR right; stacks on narrow widths */
+/* Community group card: centered title + QR + fallback line */
 .dashboard-dataview-guide-group {
 	display: flex;
-	flex-direction: row;
-	gap: 16px;
-	padding: 14px 16px;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	padding: 14px 16px 12px;
 	margin-bottom: 18px;
 	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
 	border-radius: var(--db-radius-md, 10px);
 	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
-}
-
-.dashboard-dataview-guide-group-text {
-	flex: 1;
-	min-width: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
 }
 
 .dashboard-dataview-guide-group-title {
@@ -12234,28 +12227,15 @@
 	color: var(--db-text, var(--text-normal));
 }
 
-.dashboard-dataview-guide-group-desc {
-	font-size: 12.5px;
-	line-height: 1.6;
-	color: var(--db-text-muted, var(--text-muted));
-}
-
-.dashboard-dataview-guide-group-fallback {
-	margin-top: auto;
-	font-size: 12px;
-	color: var(--db-text-faint, var(--text-faint));
-}
-
 .dashboard-dataview-guide-qr-wrap {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 4px;
-	flex-shrink: 0;
+	gap: 6px;
 }
 
 .dashboard-dataview-guide-qr {
-	width: 128px;
+	width: 150px;
 	height: auto;
 	border-radius: var(--db-radius-sm, 6px);
 	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
@@ -12263,9 +12243,10 @@
 	display: block;
 }
 
-.dashboard-dataview-guide-qr-hint {
-	font-size: 11px;
+.dashboard-dataview-guide-group-fallback {
+	font-size: 12px;
 	color: var(--db-text-faint, var(--text-faint));
+	text-align: center;
 }
 
 .dashboard-dataview-guide-actions {
@@ -12287,14 +12268,6 @@
 
 .dashboard-dataview-guide-gotit:hover {
 	opacity: 0.9;
-}
-
-@media (max-width: 420px) {
-	.dashboard-dataview-guide-group {
-		flex-direction: column;
-		align-items: center;
-		text-align: center;
-	}
 }
 
 /* ===== Note popover modal — in-place edit popup for hover-previewed links =====
