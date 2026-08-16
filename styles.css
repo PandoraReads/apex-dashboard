@@ -1485,8 +1485,27 @@
 
 /* Respect reduced-motion: stop the aurora drift for users who disable animation */
 @media (prefers-reduced-motion: reduce) {
-	.apex-dashboard-root[data-theme="aurora"] {
+	.apex-dashboard-root[data-theme="aurora"],
+	.apex-dashboard-root[data-theme="tundra"] {
 		animation: none;
+		/* Pin to the animation's start frame — without this the 400%-sized
+		   gradient falls back to background-position 0% 0% (top-left corner),
+		   which renders darker and misplaces the glow band. */
+		background-position: 0% 50%;
+	}
+}
+
+/* Mobile: stop the aurora background drift. The animated background-position
+   forces a full-root repaint every frame; on phones (iOS WKWebView in
+   particular) this competes with scrolling and janks the whole dashboard.
+   Pinning the gradient to the animation's start frame keeps the theme's look
+   (the glow band sits exactly where the drift starts); desktop keeps the drift. */
+@media (max-width: 640px) {
+	.apex-dashboard-root[data-theme="aurora"],
+	.apex-dashboard-root[data-theme="tundra"] {
+		animation: none;
+		background-position: 0% 50%;
+		will-change: auto;
 	}
 }
 
