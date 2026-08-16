@@ -22,124 +22,90 @@ export class DashboardSettingTab extends PluginSettingTab {
 	}
 
 	/**
-	 * Declarative settings bridge (Obsidian 1.13+): each section of the tab is
-	 * exposed as a definition so its settings become searchable in Obsidian's
-	 * unified settings search. The definitions re-render the exact same
-	 * imperative sections display() draws — same functions, one source — so
-	 * pre-1.13 builds (which never call this) and new builds cannot drift.
+	 * Declarative settings bridge (Obsidian 1.13+): the tab is exposed as one
+	 * inline group of section renderers — a single vertical page, no
+	 * navigable sub-pages — so each section becomes individually searchable
+	 * in Obsidian's unified settings search. The definitions re-render the
+	 * exact same imperative sections display() draws — same functions, one
+	 * source — so pre-1.13 builds (which never call this) and new builds
+	 * cannot drift.
 	 */
 	getSettingDefinitions(): SettingDefinitionItem[] {
+		// Each section renders inside one definition row. Obsidian styles rows
+		// as horizontal flex (.setting-item), which would lay the section's
+		// many rows out sideways — mark the host so CSS neutralizes it back
+		// to a plain block container (styles.css), stacking vertically like
+		// the pre-1.13 fallback tab. The .setting-item class itself stays so
+		// Obsidian's search/scroll machinery keeps working.
+		const asBlock = (setting: Setting) => {
+			setting.settingEl.addClass('dashboard-settings-section');
+			setting.settingEl.empty();
+		};
 		return [
 			{
 				type: 'group',
 				items: [
 					{
-						type: 'page',
 						name: t('settings.general'),
 						desc: t('settings.languageDesc'),
-						aliases: [t('settings.dashboardFile'), t('settings.stylePreset')],
-						items: [
-							{
-								name: t('settings.general'),
-								desc: t('settings.dashboardFileDesc'),
-								aliases: [t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title')],
-								searchable: false, // the page row above is the search hit
-								render: (setting) => {
-									setting.settingEl.empty();
-									this.renderGeneralSettings(setting.settingEl);
-								},
-							},
-						],
+						aliases: [t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.dashboardFile')],
+						render: (setting) => {
+							asBlock(setting);
+							this.renderGeneralSettings(setting.settingEl);
+						},
 					},
 					{
-						type: 'page',
 						name: t('settings.widgetTheme'),
-						desc: t('settings.pomodoroEnabledDesc'),
-						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey')],
-						items: [
-							{
-								name: t('settings.widgetTheme'),
-								desc: t('settings.widgetWeatherEnabledDesc'),
-								aliases: [t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion')],
-								searchable: false,
-								render: (setting) => {
-									setting.settingEl.empty();
-									this.renderWidgetSettings(setting.settingEl);
-								},
-							},
-						],
+						desc: t('settings.widgetWeatherEnabledDesc'),
+						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion')],
+						render: (setting) => {
+							asBlock(setting);
+							this.renderWidgetSettings(setting.settingEl);
+						},
 					},
 					{
-						type: 'page',
 						name: t('settings.widgetLunar'),
 						desc: t('settings.widgetLunarEnabledDesc'),
-						items: [
-							{
-								name: t('settings.widgetLunarEnabled'),
-								desc: t('settings.widgetLunarEnabledDesc'),
-								render: (setting) => {
-									setting.settingEl.empty();
-									this.renderLunarSettings(setting.settingEl);
-								},
-							},
-						],
+						render: (setting) => {
+							asBlock(setting);
+							this.renderLunarSettings(setting.settingEl);
+						},
 					},
 					{
-						type: 'page',
 						name: t('settings.widgetYearProgress'),
 						desc: t('settings.widgetYearProgressEnabledDesc'),
-						items: [
-							{
-								name: t('settings.widgetYearProgressEnabled'),
-								desc: t('settings.widgetYearProgressEnabledDesc'),
-								render: (setting) => {
-									setting.settingEl.empty();
-									this.renderYearProgressSettings(setting.settingEl);
-								},
-							},
-						],
+						render: (setting) => {
+							asBlock(setting);
+							this.renderYearProgressSettings(setting.settingEl);
+						},
 					},
 					{
-						type: 'page',
 						name: t('settings.widgetCalendar'),
 						desc: t('settings.widgetCalendarEnabledDesc'),
 						aliases: [t('settings.widgetCalendarExclude')],
-						items: [
-							{
-								name: t('settings.widgetCalendarEnabled'),
-								desc: t('settings.widgetCalendarEnabledDesc'),
-								render: (setting) => {
-									setting.settingEl.empty();
-									this.renderCalendarSettings(setting.settingEl);
-								},
-							},
-						],
+						render: (setting) => {
+							asBlock(setting);
+							this.renderCalendarSettings(setting.settingEl);
+						},
 					},
 					{
-						type: 'page',
 						name: t('settings.backup'),
 						desc: t('settings.backupEnabledDesc'),
 						aliases: [t('settings.backupPeriod'), t('settings.restoreLatest')],
-						items: [
-							{
-								name: t('settings.backupEnabled'),
-								desc: t('settings.backupEnabledDesc'),
-								render: (setting) => {
-									setting.settingEl.empty();
-									this.renderBackupSettings(setting.settingEl);
-								},
-							},
-						],
+						render: (setting) => {
+							asBlock(setting);
+							this.renderBackupSettings(setting.settingEl);
+						},
+					},
+					{
+						name: "crafted by Pandora's Digital Garden",
+						searchable: false, // a footer, not a setting
+						render: (setting) => {
+							asBlock(setting);
+							setting.settingEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
+						},
 					},
 				],
-			},
-			{
-				name: "crafted by Pandora's Digital Garden",
-				searchable: false, // a footer, not a setting
-				render: (setting) => {
-					setting.settingEl.empty();
-					setting.settingEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
-				},
 			},
 		];
 	}
@@ -178,7 +144,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 	}
 
 	/** Top block: language, style, quick notes, paths. Shared by display()
-	 *  (pre-1.13) and the declarative General page (1.13+). */
+	 *  (pre-1.13) and the declarative General section (1.13+). */
 	private renderGeneralSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName(t('settings.language'))
@@ -322,18 +288,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 					this.plugin.settings = { ...this.plugin.settings, disableNotePopover: value };
 					await this.plugin.saveSettings();
 				}));
-
-		this.renderWidgetSettings(containerEl);
-
-		this.renderLunarSettings(containerEl);
-
-		this.renderYearProgressSettings(containerEl);
-
-		this.renderCalendarSettings(containerEl);
-
-		this.renderBackupSettings(containerEl);
-
-		containerEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
 	}
 
 	private renderWidgetSettings(containerEl: HTMLElement): void {

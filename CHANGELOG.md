@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.4 (2026-08-16)
+
+### Fixed
+- **Settings tab layout broken on Obsidian 1.13+** — The declarative settings bridge exposed each module as a navigable sub-page, so the new Obsidian settings UI scattered the modules into separate pages and squeezed dozens of setting rows sideways inside horizontal flex rows. The tab is now a single vertical page: every module (General / Widgets / Lunar / Year Progress / Calendar / Backup) renders inline under its own heading, searchable in the unified settings search, identical to the pre-1.13 layout. Also removes a double-render that drew all modules twice on both old and new Obsidian, and fixes `version-bump.mjs` so `versions.json` actually records each new version (a bad `Object.values` check meant entries were silently skipped).
+
 ## 1.8.2 (2026-08-15)
 
 ### Added

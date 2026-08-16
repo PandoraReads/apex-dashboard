@@ -1451,6 +1451,16 @@
 }
 
 /* ===== Settings Footer ===== */
+/* Section host in the declarative (1.13+) settings tab: one definition row
+ * turned into a plain block container so its many Setting rows stack
+ * vertically, matching the pre-1.13 fallback layout. Higher specificity than
+ * the stock .setting-item flex rules. */
+.setting-item.dashboard-settings-section {
+	display: block;
+	padding: 0;
+	border: none;
+}
+
 .dashboard-settings-footer {
 	text-align: center;
 	padding: 30px 0 10px;
@@ -14673,22 +14683,29 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 /* Blur + darken scrim over the poster image so white text reads clearly while
    the photo stays visible (blurred). Falls back to a plain dark gradient where
-   backdrop-filter is unavailable. */
+   backdrop-filter is unavailable.
+   NOTE: border-radius: inherit is required — Chromium does not clip a
+   backdrop-filter layer by the ancestor's overflow:hidden + border-radius
+   (the composited blur surface escapes the rounded clip), so without this the
+   scrim shows as square corners sticking out past the rounded poster. */
 .dashboard-banner--stats::before {
 	content: '';
 	position: absolute;
 	inset: 0;
+	border-radius: inherit;
 	background: rgba(10, 10, 18, var(--banner-scrim, 0.55));
 	backdrop-filter: blur(var(--banner-blur, 6px)) brightness(var(--banner-bright, 0.6));
 	-webkit-backdrop-filter: blur(var(--banner-blur, 6px)) brightness(var(--banner-bright, 0.6));
 	pointer-events: none;
 	z-index: 0;
 }
-/* Accent tint on top of the scrim. */
+/* Accent tint on top of the scrim. Same radius inheritance so the gradient
+   never overhangs the poster's rounded corners either. */
 .dashboard-banner--stats::after {
 	content: '';
 	position: absolute;
 	inset: 0;
+	border-radius: inherit;
 	background: linear-gradient(120deg, var(--banner-stat-accent, var(--db-accent, #a78bfa)), transparent 62%);
 	opacity: 0.22;
 	pointer-events: none;
