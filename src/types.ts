@@ -437,12 +437,28 @@ export interface TickTickConfig {
 }
 
 /** Dataview (DQL) section config. The raw DQL query string is the sole required
- *  field; `title` optionally overrides the column name in the section header. */
+ *  field; `title` optionally overrides the column name in the section header.
+ *  The display fields (pageSize/density/striped/rowNumbers) are view-layer
+ *  preferences — the query result itself is unaffected by them. */
 export interface DataviewConfig {
 	/** Raw DQL query, e.g. `TABLE file.name FROM "Books" WHERE rating >= 4 SORT file.name`. */
 	query: string;
 	/** Optional display title override (defaults to column name). */
 	title?: string;
+	/** Rows per page for TABLE/LIST/TASK results (default 50). */
+	pageSize?: number;
+	/** Presentation mode: 'table' (columns incl. source) or 'list' (rows with
+	 *  source summary). Only affects rendering, never the query. Default 'table'. */
+	viewMode?: 'table' | 'list';
+	/** Show the source-note columns/summary (title, path, created date).
+	 *  Default on. */
+	showSource?: boolean;
+	/** Row density: 'normal' (comfortable) or 'compact' (halved paddings). */
+	density?: 'normal' | 'compact';
+	/** Zebra-striping on table rows / list items (default off). */
+	striped?: boolean;
+	/** Prepend a row-number column to TABLE results (default off). */
+	rowNumbers?: boolean;
 }
 
 export interface DashboardColumn {
@@ -516,6 +532,7 @@ export interface RenderCallbacks {
 	onAddFromTemplate(columnName: string): void;
 	onArchiveTasks(columnName: string): void;
 	onLibraryConfigChange(columnName: string, config: LibraryConfig): void;
+	onDataviewConfigChange(columnName: string, config: DataviewConfig): void;
 	onQuickNoteCreate(preset: QuickNotePreset): void;
 	onQuickNoteCapture(text: string): void;
 	onOpenPinnedNote(note: PinnedNote): void;

@@ -123,6 +123,63 @@ export class DataviewConfigModal extends Modal {
 			this.config = { ...this.config, title: value.length > 0 ? value : undefined };
 		});
 
+		// Display settings: density / zebra stripes / row numbers.
+		const displaySection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		displaySection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('dataview.displaySettings') });
+
+		const densityRow = displaySection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		densityRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('dataview.density') });
+		const densityChips = densityRow.createDiv({ cls: 'dashboard-dataview-density-chips' });
+		const densities: Array<{ value: 'normal' | 'compact'; key: string }> = [
+			{ value: 'normal', key: 'dataview.densityNormal' },
+			{ value: 'compact', key: 'dataview.densityCompact' },
+		];
+		const currentDensity = this.config.density ?? 'normal';
+		for (const d of densities) {
+			const chip = densityChips.createDiv({
+				cls: 'dashboard-dataview-sample-chip dashboard-dataview-density-chip' + (d.value === currentDensity ? ' active' : ''),
+				text: t(d.key),
+			});
+			chip.addEventListener('click', () => {
+				this.config = { ...this.config, density: d.value };
+				densityChips.querySelectorAll('.dashboard-dataview-density-chip').forEach(c => c.removeClass('active'));
+				chip.addClass('active');
+			});
+		}
+
+		const stripedRow = displaySection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const stripedBox = stripedRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		stripedBox.checked = this.config.striped === true;
+		stripedBox.addEventListener('change', () => {
+			this.config = { ...this.config, striped: stripedBox.checked ? true : undefined };
+		});
+		stripedRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('dataview.striped') });
+
+		const rowNumRow = displaySection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const rowNumBox = rowNumRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		rowNumBox.checked = this.config.rowNumbers === true;
+		rowNumBox.addEventListener('change', () => {
+			this.config = { ...this.config, rowNumbers: rowNumBox.checked ? true : undefined };
+		});
+		rowNumRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('dataview.rowNumbers') });
+
+		const sourceRow = displaySection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const sourceBox = sourceRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		sourceBox.checked = this.config.showSource !== false;
+		sourceBox.addEventListener('change', () => {
+			this.config = { ...this.config, showSource: sourceBox.checked ? undefined : false };
+		});
+		sourceRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('dataview.showSource') });
+
 		// Footer.
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {

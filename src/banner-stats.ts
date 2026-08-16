@@ -1,5 +1,6 @@
-import { App, moment, setIcon } from 'obsidian';
+import { App, setIcon } from 'obsidian';
 import type { BannerCenterStat, BannerLeftStat, BannerRightStat, BannerStatsConfig } from './types';
+import { momentOf, nowMoment, parseStrict } from './datetime';
 import { getDailyNotesConfig } from './daily-notes';
 import { t } from './i18n';
 
@@ -87,7 +88,7 @@ export interface BannerStatsResult {
  *  `file.stat`, the metadata cache, and the prebuilt `resolvedLinks` map). */
 export function computeBannerStats(app: App, config?: BannerStatsConfig): BannerStatsResult {
 	const files = app.vault.getMarkdownFiles();
-	const now = moment();
+	const now = nowMoment();
 	const startOfMonth = now.clone().startOf('month').valueOf();
 	const weekAgoMs = now.clone().subtract(6, 'days').startOf('day').valueOf();
 	const todayStartMs = now.clone().startOf('day').valueOf();
@@ -124,10 +125,10 @@ export function computeBannerStats(app: App, config?: BannerStatsConfig): Banner
 		if (ctime >= startOfMonth) newThisMonth++;
 		if (ctime >= weekAgoMs) newThisWeek++;
 		if (ctime >= heatStartMs) {
-			const dayDiff = Math.floor((todayStartMs - moment(ctime).startOf('day').valueOf()) / DAY_MS);
+			const dayDiff = Math.floor((todayStartMs - momentOf(ctime).startOf('day').valueOf()) / DAY_MS);
 			if (dayDiff >= 0 && dayDiff < HEATMAP_DAYS) activity[HEATMAP_DAYS - 1 - dayDiff]! += 1;
 		}
-		activityDates.add(moment(ctime).format('YYYY-MM-DD'));
+		activityDates.add(momentOf(ctime).format('YYYY-MM-DD'));
 
 		if (!hasOutgoing.has(file.path) && !hasIncoming.has(file.path)) orphanNotes++;
 
@@ -202,7 +203,7 @@ function collectDailyNoteDates(app: App, folder: string, format: string): Set<st
 	for (const file of app.vault.getMarkdownFiles()) {
 		if (prefix && !file.path.toLowerCase().startsWith(prefix.toLowerCase())) continue;
 		if (prefix && file.path.slice(prefix.length).includes('/')) continue;
-		const m = moment(file.basename, format, true);
+		const m = parseStrict(file.basename, format);
 		if (m.isValid()) dates.add(m.format('YYYY-MM-DD'));
 	}
 	return dates;
@@ -210,7 +211,7 @@ function collectDailyNoteDates(app: App, folder: string, format: string): Set<st
 
 function computeDateStreak(dates: Set<string>): number {
 	if (dates.size === 0) return 0;
-	let cursor = moment().startOf('day');
+	let cursor = nowMoment().startOf('day');
 	if (!dates.has(cursor.format('YYYY-MM-DD'))) cursor = cursor.subtract(1, 'day');
 	let streak = 0;
 	while (dates.has(cursor.format('YYYY-MM-DD'))) {

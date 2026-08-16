@@ -1,4 +1,5 @@
-import { App, TFile, moment } from 'obsidian';
+import { App, TFile } from 'obsidian';
+import { MomentLike, momentOf, nowMoment } from './datetime';
 
 interface DailyNotesOptions {
 	folder?: string;
@@ -62,9 +63,9 @@ export async function ensureFolder(app: App, folderPath: string): Promise<void> 
  */
 export function substituteTemplateVars(
 	content: string,
-	opts: { title?: string; now?: moment.Moment } = {},
+	opts: { title?: string; now?: MomentLike } = {},
 ): string {
-	const now = opts.now ?? moment();
+	const now = opts.now ?? nowMoment();
 	let out = content;
 	// Specific-format variants first so the bare regex doesn't shadow them.
 	out = out.replace(/\{\{date:([^}]+)\}\}/g, (_m, fmt: string) => now.format(fmt));
@@ -83,7 +84,7 @@ export function dailyNotePathFor(app: App, iso: string): string | null {
 	const opts = getDailyNotesOptions(app);
 	if (!opts) return null;
 	const format = opts.format || 'YYYY-MM-DD';
-	const base = moment(iso).format(format);
+	const base = momentOf(iso).format(format);
 	const folder = (opts.folder || '').trim().replace(/^\/+|\/+$/g, '');
 	return folder ? `${folder}/${base}.md` : `${base}.md`;
 }
@@ -91,7 +92,7 @@ export function dailyNotePathFor(app: App, iso: string): string | null {
 /** Read & var-substitute the Daily Notes template file (`opts.template`) for the
  *  given moment. Returns '' when no template is configured or the file can't be
  *  resolved/read — callers then create a blank note, matching Obsidian's behavior. */
-async function readDailyTemplateContent(app: App, opts: DailyNotesOptions, now: moment.Moment): Promise<string> {
+async function readDailyTemplateContent(app: App, opts: DailyNotesOptions, now: MomentLike): Promise<string> {
 	const tplPath = (opts.template || '').trim();
 	if (!tplPath) return '';
 	let tplFile = app.vault.getAbstractFileByPath(tplPath);
@@ -132,7 +133,7 @@ export async function appendTaskToDailyNote(app: App, iso: string, taskLine: str
 	}
 
 	// Create with the Daily Notes template content (if configured), else empty.
-	let content = await readDailyTemplateContent(app, opts, moment(iso));
+	let content = await readDailyTemplateContent(app, opts, momentOf(iso));
 	if (content && !content.endsWith('\n')) content += '\n';
 	content += `${taskLine}\n`;
 	return await app.vault.create(path, content);
@@ -153,7 +154,7 @@ export async function getOrCreateDailyNote(app: App, iso: string): Promise<TFile
 	const folder = (opts.folder || '').trim().replace(/^\/+|\/+$/g, '');
 	if (folder) await ensureFolder(app, folder);
 
-	const now = moment(iso);
+	const now = momentOf(iso);
 	const existing = app.vault.getAbstractFileByPath(path);
 	if (existing instanceof TFile) {
 		// Rescue a stale blank daily note (e.g. one created before a template was

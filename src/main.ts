@@ -117,6 +117,22 @@ export default class DashboardPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: 'toggle-banner-mode',
+			name: t('main.toggleBannerMode'),
+			callback: () => {
+				const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
+				if (leaves.length === 0) {
+					new Notice(t('main.openDashboard'));
+					return;
+				}
+				const leaf = leaves[0]!;
+				if (leaf.view instanceof DashboardView) {
+					void leaf.view.toggleBannerMode();
+				}
+			},
+		});
+
 		this.addSettingTab(new DashboardSettingTab(this.app, this));
 
 		this.maybeShowDataviewGuide();

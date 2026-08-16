@@ -1,13 +1,13 @@
 import { App, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
-import type { DashboardColumn, TrackerDataPoint } from './types';
+import type { DashboardColumn, DataviewConfig, TrackerDataPoint } from './types';
 import type { DqlLink, DqlValue, QueryResult, ResultRow } from './dql/types';
 import { getLanguage, t } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { toggleTaskInFile } from './alltasks-scan';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
-import { coerceNumber, formatValue, kindOf } from './dql/values';
+import { coerceNumber, dqlCompare, formatDate, formatValue, kindOf } from './dql/values';
 
 // Module-level singletons mirroring library-section.ts:13-14 — set once per
 // render so the inner renderers can route opens + hover previews without
@@ -16,6 +16,8 @@ let dvHoverParent: HoverParent | null = null;
 let dvOpener: ((file: TFile, subpath?: string) => void) | null = null;
 
 const MAX_ROWS = 500; // hard cap to keep the DOM finite on pathological queries.
+const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const HEATMAP_CELL_GAP = 3;
 const HEATMAP_MIN_CELL = 10;
 const HEATMAP_MAX_CELL = 20;
@@ -32,6 +34,7 @@ export function renderDataviewSection(
 	hoverParent: HoverParent | null,
 	onOpenNote: ((file: TFile, subpath?: string) => void) | null,
 	reloadRegister: (fn: () => void) => void,
+	onConfigChange: ((config: DataviewConfig) => void) | null = null,
 ): void {
 	dvHoverParent = hoverParent;
 	dvOpener = onOpenNote;
@@ -49,11 +52,15 @@ export function renderDataviewSection(
 			return;
 		}
 
+		// Scanning placeholder: replaced (not appended to) once the query finishes.
 		renderScanningState(content);
 
 		try {
 			const pages = await buildPages(app);
 			const outcome = executeDql(config.query, pages);
+			// Drop the spinner before rendering the outcome — every render* below
+			// appends into `content`, so without this reset it would spin forever.
+			content.empty();
 			if (!outcome.ok) {
 				renderErrorState(content, outcome.error.message);
 				return;
@@ -62,9 +69,10 @@ export function renderDataviewSection(
 				renderEmptyState(content, 'dataview.emptyQuery', true);
 				return;
 			}
-			renderResult(content, outcome.result, app, () => { void render(); });
+			renderResult(content, outcome.result, app, () => { void render(); }, config, onConfigChange);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
+			content.empty();
 			renderErrorState(content, message);
 		}
 	};
@@ -104,70 +112,529 @@ function renderErrorState(container: HTMLElement, message: string): void {
 
 /* ----------------------------- result dispatch ----------------------------- */
 
-function renderResult(container: HTMLElement, result: QueryResult, app: App, rerender: () => void): void {
-	const visible = result.rows.slice(0, MAX_ROWS);
-	if (visible.length === 0) {
+/** Paginated types get the toolbar (filter + page size + view mode) + scrolling
+ *  body + footer pagination; the aggregate views (CALENDAR/HEATMAP) are always
+ *  one screenful, so they keep the simple count header and just scroll. */
+const PAGINATED_TYPES = new Set<QueryResult['queryType']>(['TABLE', 'LIST', 'TASK']);
+
+/** Client-side view state for one rendered result. Not persisted — a refresh
+ *  re-runs the query and resets it (same as re-opening a database tool). */
+interface ViewState {
+	filter: string;
+	/** Column index + direction for TABLE header sort; null = query order. */
+	sortCol: number | null;
+	sortDir: 'asc' | 'desc';
+}
+
+/** Normalized column model for paginated rendering: whatever the query shape
+ *  (TABLE/LIST/TASK), rows are described as value columns plus optional
+ *  source-note columns appended for provenance. Shared by both view modes. */
+interface DisplayColumns {
+	/** Header labels for the value columns (projection, no source). */
+	valueColumns: string[];
+	/** True when the query has an implicit leading file-link column (TABLE
+	 *  without WITHOUT ID) that should merge with the source "Note" column. */
+	hasImplicitFileCol: boolean;
+}
+
+/** Derive the normalized column model from the query result. */
+function displayColumns(result: QueryResult): DisplayColumns {
+	if (result.queryType === 'TABLE') {
+		const valueColumns = result.columns.map(c => c.alias);
+		const hasImplicitFileCol = !valueColumns.includes('file') ? false
+			: result.columns[0]?.alias === 'file';
+		return { valueColumns, hasImplicitFileCol };
+	}
+	if (result.queryType === 'LIST') {
+		// LIST with no projection: the evaluator's values[0] IS the file link,
+		// so it doubles as the implicit note column. LIST with a projection:
+		// values[0] is the projected value — label the value column with the
+		// query's own alias/expression label (auto-adapts, like TABLE).
+		const nonFile = result.columns.filter(c => c.alias !== 'file');
+		if (nonFile.length === 0) {
+			return { valueColumns: ['file'], hasImplicitFileCol: true };
+		}
+		return { valueColumns: nonFile.map(c => c.alias), hasImplicitFileCol: false };
+	}
+	// TASK: values[0] is the task text — the note column is always synthesized.
+	return {
+		valueColumns: [t('dataview.taskCol')],
+		hasImplicitFileCol: false,
+	};
+}
+
+/** Source-note metadata for one row (null for synthetic GROUP BY rows). */
+interface SourceInfo {
+	readonly title: string;
+	readonly path: string;
+	readonly created: string;
+}
+
+function sourceInfoOf(row: ResultRow): SourceInfo | null {
+	const page = row.page;
+	if (!page) return null;
+	const path = page.file.path;
+	const title = page.file.basename;
+	const createdField = page.fields['file.cday'] ?? page.fields['file.ctime'];
+	const created = createdField && kindOf(createdField) === 'date'
+		? formatDate(createdField as import('./dql/types').DqlDate)
+		: '';
+	return { title, path, created };
+}
+
+/** Extract the searchable text for one row (all projected values joined;
+ *  TASK rows also match against the raw task text; source info included). */
+function rowSearchText(row: ResultRow): string {
+	const parts = row.values.map(v => formatValue(v));
+	if (row.task) parts.push(row.task.text);
+	const src = sourceInfoOf(row);
+	if (src) parts.push(src.title, src.path, src.created);
+	return parts.join(' ').toLowerCase();
+}
+
+/** Compare rows for TABLE header sorting. nulls always sort last regardless
+ *  of direction (dqlCompare puts null first; we wrap to flip that in asc too,
+ *  matching the database-tool convention). */
+function compareRowsForSort(a: ResultRow, b: ResultRow, col: number, dir: 'asc' | 'desc'): number {
+	const va = a.values[col] ?? null;
+	const vb = b.values[col] ?? null;
+	const aNull = va === null || va === undefined;
+	const bNull = vb === null || vb === undefined;
+	if (aNull && bNull) return 0;
+	if (aNull) return 1; // nulls last, both directions
+	if (bNull) return -1;
+	const cmp = dqlCompare(va, vb) ?? 0;
+	return dir === 'asc' ? cmp : -cmp;
+}
+
+function renderResult(
+	container: HTMLElement,
+	result: QueryResult,
+	app: App,
+	rerender: () => void,
+	config: DataviewConfig,
+	onConfigChange: ((config: DataviewConfig) => void) | null,
+): void {
+	if (result.rows.length === 0) {
 		renderEmptyState(container, 'dataview.empty');
 		return;
 	}
+	const capped = result.rows.slice(0, MAX_ROWS);
 
-	const header = container.createDiv({ cls: 'dashboard-dataview-count' });
-	header.createSpan({ text: t('dataview.resultCount', { count: result.rows.length }) });
-	if (result.rows.length > MAX_ROWS) {
-		header.createSpan({ cls: 'dashboard-dataview-capped', text: t('dataview.capped', { count: MAX_ROWS }) });
+	if (!PAGINATED_TYPES.has(result.queryType)) {
+		const header = container.createDiv({ cls: 'dashboard-dataview-count' });
+		header.createSpan({ text: t('dataview.resultCount', { count: result.rows.length }) });
+		if (result.rows.length > MAX_ROWS) {
+			header.createSpan({ cls: 'dashboard-dataview-capped', text: t('dataview.capped', { count: MAX_ROWS }) });
+		}
+		const body = container.createDiv({ cls: 'dashboard-dataview-body' });
+		renderResultBody(body, result, capped, app, rerender);
+		return;
 	}
 
+	/* ----- view state + the row pipeline: filter → sort → paginate ----- */
+	const view: ViewState = { filter: '', sortCol: null, sortDir: 'asc' };
+	const pageSize = config.pageSize ?? DEFAULT_PAGE_SIZE;
+	let currentPage = 1;
+
+	const applyPipeline = (): ResultRow[] => {
+		let rows = capped;
+		const needle = view.filter.trim().toLowerCase();
+		if (needle.length > 0) rows = rows.filter(r => rowSearchText(r).includes(needle));
+		if (view.sortCol !== null) {
+			const col = view.sortCol;
+			const dir = view.sortDir;
+			rows = [...rows].sort((a, b) => compareRowsForSort(a, b, col, dir));
+		}
+		return rows;
+	};
+
+	/* ----- toolbar: filter | count | spacer | page-size | view toggle ----- */
+	const toolbar = container.createDiv({ cls: 'dashboard-dataview-toolbar' });
+
+	const searchInput = toolbar.createEl('input', {
+		cls: 'dashboard-dataview-search',
+		attr: { type: 'text', placeholder: t('dataview.filterPlaceholder'), spellcheck: 'false' },
+	});
+	searchInput.addEventListener('input', () => {
+		view.filter = searchInput.value;
+		currentPage = 1;
+		drawPage();
+	});
+
+	const countEl = toolbar.createSpan({ cls: 'dashboard-dataview-count' });
+	toolbar.createDiv({ cls: 'dashboard-dataview-toolbar-spacer' });
+
+	const pageSizeSelect = toolbar.createEl('select', { cls: 'dashboard-library-page-size' });
+	for (const size of PAGE_SIZE_OPTIONS) {
+		const opt = pageSizeSelect.createEl('option', {
+			text: t('dataview.pageSize', { count: size }),
+			attr: { value: String(size) },
+		});
+		if (size === pageSize) opt.selected = true;
+	}
+	pageSizeSelect.addEventListener('change', () => {
+		const newSize = parseInt(pageSizeSelect.value) || DEFAULT_PAGE_SIZE;
+		if (onConfigChange) onConfigChange({ ...config, pageSize: newSize });
+		// Optimistic: redraw with the new size immediately (the persisted config
+		// catches up via refreshSectionInPlace without losing this state's query).
+		currentPage = 1;
+		drawPage(newSize);
+	});
+
+	// View-mode toggle: table vs list presentation (persisted preference).
+	// Mirrors the library section's segmented view toggle. `config` is treated
+	// read-only; the current mode is held in a local override merged on draw.
+	const currentViewMode = config.viewMode ?? 'table';
+	let viewModeOverride: 'table' | 'list' | null = null;
+	const effectiveConfig = (): DataviewConfig => viewModeOverride ? { ...config, viewMode: viewModeOverride } : config;
+	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-dataview-view-toggle' });
+	const setViewMode = (mode: 'table' | 'list'): void => {
+		viewModeOverride = mode;
+		if (onConfigChange) onConfigChange({ ...config, viewMode: mode });
+		viewToggle.querySelectorAll('.dashboard-library-view-btn').forEach(b => b.removeClass('active'));
+		const activeBtn = viewToggle.querySelector(`[data-view="${mode}"]`);
+		activeBtn?.addClass('active');
+		currentPage = 1;
+		drawPage();
+	};
+	for (const mode of ['table', 'list'] as const) {
+		const btn = viewToggle.createDiv({
+			cls: 'dashboard-library-view-btn' + (mode === currentViewMode ? ' active' : ''),
+		});
+		btn.dataset.view = mode;
+		setIcon(btn, mode === 'table' ? 'table' : 'list');
+		btn.title = mode === 'table' ? t('dataview.viewTable') : t('dataview.viewList');
+		btn.addEventListener('click', () => setViewMode(mode));
+	}
+
+	/* ----- layout: scrolling body + footer pagination ----- */
+	const paginated = container.createDiv({ cls: 'dashboard-dataview-pages' });
+	const body = paginated.createDiv({ cls: 'dashboard-dataview-body' });
+
+	const drawPage = (pageSz: number = pageSize): void => {
+		const rows = applyPipeline();
+		const totalPages = Math.max(1, Math.ceil(rows.length / pageSz));
+		if (currentPage > totalPages) currentPage = totalPages;
+
+		countEl.empty();
+		if (view.filter.trim().length > 0) {
+			countEl.createSpan({ text: t('dataview.filteredCount', { shown: rows.length, total: capped.length }) });
+		} else {
+			countEl.createSpan({ text: t('dataview.resultCount', { count: capped.length }) });
+			if (result.rows.length > MAX_ROWS) {
+				countEl.createSpan({ cls: 'dashboard-dataview-capped', text: t('dataview.capped', { count: MAX_ROWS }) });
+			}
+		}
+
+		body.empty();
+		const start = (currentPage - 1) * pageSz;
+		const pageRows = rows.slice(start, start + pageSz);
+		if (pageRows.length === 0) {
+			renderEmptyState(body, 'dataview.noMatch');
+		} else {
+			renderResultBody(body, result, pageRows, app, rerender, view, effectiveConfig(), (nextView) => {
+				view.sortCol = nextView.sortCol;
+				view.sortDir = nextView.sortDir;
+				currentPage = 1;
+				drawPage();
+			}, start);
+		}
+
+		paginated.querySelector('.dashboard-dataview-pagination')?.remove();
+		const footer = paginated.createDiv({ cls: 'dashboard-dataview-pagination' });
+		renderDvPagination(footer, currentPage, totalPages, (page) => {
+			currentPage = page;
+			drawPage();
+		});
+	};
+	drawPage();
+}
+
+/** Render one page of rows into the scrolling body. For the paginated types
+ *  the persisted viewMode decides the presentation: TABLE queries can render
+ *  as a list, and LIST/TASK queries as a table — the underlying row data is
+ *  the same; only the layout differs. TASK keeps its interactive checkboxes in
+ *  both modes (the table mode renders them in the first cell). */
+function renderResultBody(
+	container: HTMLElement,
+	result: QueryResult,
+	rows: readonly ResultRow[],
+	app: App,
+	rerender: () => void,
+	view?: ViewState,
+	config?: DataviewConfig,
+	onSortChange?: (next: ViewState) => void,
+	rowOffset = 0,
+): void {
+	if (rows.length === 0) {
+		renderEmptyState(container, 'dataview.empty');
+		return;
+	}
 	switch (result.queryType) {
 		case 'TABLE':
-			renderTable(container, result, visible);
-			break;
 		case 'LIST':
-			renderList(container, result, visible);
+		case 'TASK': {
+			const mode = config?.viewMode ?? 'table';
+			if (mode === 'list') {
+				renderList(container, result, rows, config, rerender);
+			} else {
+				renderTable(container, result, rows, view, config, onSortChange, rowOffset, rerender);
+			}
 			break;
-		case 'TASK':
-			renderTaskList(container, visible, app, rerender);
-			break;
+		}
 		case 'CALENDAR':
-			renderCalendar(container, result, visible, app);
+			renderCalendar(container, result, rows, app);
 			break;
 		case 'HEATMAP':
-			renderHeatmap(container, visible);
+			renderHeatmap(container, rows);
 			break;
 	}
 }
 
-/* ----------------------------- TABLE ----------------------------- */
+/** Footer pagination for paginated result types. Reuses the library section's
+ *  pagination CSS classes so both sections stay visually identical. */
+function renderDvPagination(container: HTMLElement, currentPage: number, totalPages: number, onPageChange: (page: number) => void): void {
+	if (totalPages <= 1) return;
+	const nav = container.createDiv({ cls: 'dashboard-library-pagination-nav' });
 
-function renderTable(container: HTMLElement, result: QueryResult, rows: readonly ResultRow[]): void {
-	const table = container.createEl('table', { cls: 'dashboard-library-table dashboard-dataview-table' });
-	const thead = table.createEl('thead');
-	const headRow = thead.createEl('tr');
-	for (const col of result.columns) {
-		headRow.createEl('th', { text: col.alias });
+	const prev = nav.createDiv({
+		cls: 'dashboard-library-pagination-btn' + (currentPage <= 1 ? ' disabled' : ''),
+		text: '<',
+	});
+	if (currentPage > 1) prev.addEventListener('click', () => onPageChange(currentPage - 1));
+
+	const maxVisible = 5;
+	let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+	const endPage = Math.min(totalPages, startPage + maxVisible - 1);
+	startPage = Math.max(1, endPage - maxVisible + 1);
+
+	if (startPage > 1) {
+		const first = nav.createDiv({ cls: 'dashboard-library-pagination-page', text: '1' });
+		first.addEventListener('click', () => onPageChange(1));
+		if (startPage > 2) nav.createDiv({ cls: 'dashboard-library-pagination-ellipsis', text: '...' });
+	}
+	for (let i = startPage; i <= endPage; i++) {
+		const page = nav.createDiv({
+			cls: 'dashboard-library-pagination-page' + (i === currentPage ? ' active' : ''),
+			text: String(i),
+		});
+		if (i !== currentPage) page.addEventListener('click', () => onPageChange(i));
+	}
+	if (endPage < totalPages) {
+		if (endPage < totalPages - 1) nav.createDiv({ cls: 'dashboard-library-pagination-ellipsis', text: '...' });
+		const last = nav.createDiv({ cls: 'dashboard-library-pagination-page', text: String(totalPages) });
+		last.addEventListener('click', () => onPageChange(totalPages));
 	}
 
-	const tbody = table.createEl('tbody');
-	for (const row of rows) {
-		const tr = tbody.createEl('tr');
-		attachRowOpen(tr, row);
-		if (result.grouped) {
-			renderGroupedRow(tr, row, result);
+	const next = nav.createDiv({
+		cls: 'dashboard-library-pagination-btn' + (currentPage >= totalPages ? ' disabled' : ''),
+		text: '>',
+	});
+	if (currentPage < totalPages) next.addEventListener('click', () => onPageChange(currentPage + 1));
+}
+
+/* ----------------------------- TABLE (any query shape) ----------------------------- */
+
+/** Header sort cycle for a clicked column: new column -> asc; same column
+ *  asc -> desc; same column desc -> back to query order. */
+function nextSortState(current: ViewState, clickedCol: number): ViewState {
+	if (current.sortCol !== clickedCol) return { ...current, sortCol: clickedCol, sortDir: 'asc' };
+	if (current.sortDir === 'asc') return { ...current, sortDir: 'desc' };
+	return { ...current, sortCol: null, sortDir: 'asc' };
+}
+
+/** Column layout for one render: [rownum?] [✓?] [value...] [note] [path] [created].
+ *  TASK queries get a dedicated leading checkbox column so the task text and
+ *  note title each keep their own column (no misalignment). When the query
+ *  carries an implicit file-link column (TABLE without WITHOUT ID, bare LIST),
+ *  it doubles as the source "Note" column. Value columns are sortable; the
+ *  checkbox and source columns are derived and not. */
+interface TableLayout {
+	/** Header labels in render order (empty string = icon-only checkbox col). */
+	readonly labels: string[];
+	/** Header indices that are sortable, in order. */
+	readonly sortableIdx: readonly number[];
+	/** For each sortable header index, the row.values index it maps to. */
+	readonly sortValueIdx: readonly number[];
+	/** TASK queries: leading checkbox column. */
+	readonly checkboxCol: boolean;
+	/** Where the source "Note" cell content comes from. */
+	readonly noteFrom: 'values0' | 'synth' | 'none';
+	readonly showSource: boolean;
+	/** Width hints per column, same length as `labels`. `undefined` = share the
+	 *  remaining space; strings are CSS widths for <col>. Fixed table layout
+	 *  keeps long content from squeezing other columns. */
+	readonly colWidths: readonly (string | undefined)[];
+}
+
+function tableLayout(result: QueryResult, config: DataviewConfig | undefined, showRowNumbers: boolean): TableLayout {
+	const dc = displayColumns(result);
+	const showSource = config?.showSource !== false;
+	const isTask = result.queryType === 'TASK';
+	const labels: string[] = [];
+	const colWidths: (string | undefined)[] = [];
+	const sortableIdx: number[] = [];
+	const sortValueIdx: number[] = [];
+	if (showRowNumbers) { labels.push('#'); colWidths.push('34px'); }
+	if (isTask) { labels.push(''); colWidths.push('30px'); } // checkbox column
+
+	const valueLabels = dc.hasImplicitFileCol ? dc.valueColumns.slice(1) : dc.valueColumns;
+	let valueIdx = dc.hasImplicitFileCol ? 1 : 0;
+	valueLabels.forEach((label, i) => {
+		labels.push(label);
+		// First value column (the task text / primary value) caps at 30% so it
+		// cannot swallow the table; other value columns share the remainder.
+		colWidths.push(i === 0 ? '30%' : undefined);
+		sortableIdx.push(labels.length - 1);
+		sortValueIdx.push(valueIdx++);
+	});
+
+	let noteFrom: TableLayout['noteFrom'] = 'none';
+	if (showSource) {
+		noteFrom = dc.hasImplicitFileCol ? 'values0' : 'synth';
+		labels.push(t('dataview.colFile')); colWidths.push('22%');
+		labels.push(t('dataview.colPath')); colWidths.push('28%');
+		labels.push(t('dataview.colCreated')); colWidths.push('96px');
+	} else if (dc.hasImplicitFileCol) {
+		// Source hidden, but the query's own file column still deserves a spot.
+		noteFrom = 'values0';
+		labels.push(dc.valueColumns[0]!); colWidths.push(undefined);
+	}
+	return { labels, sortableIdx, sortValueIdx, checkboxCol: isTask, noteFrom, showSource, colWidths };
+}
+
+function renderTable(
+	container: HTMLElement,
+	result: QueryResult,
+	rows: readonly ResultRow[],
+	view?: ViewState,
+	config?: DataviewConfig,
+	onSortChange?: (next: ViewState) => void,
+	rowOffset = 0,
+	rerender?: () => void,
+): void {
+	const table = container.createEl('table', { cls: 'dashboard-library-table dashboard-dataview-table' });
+	if (config?.striped) table.addClass('is-striped');
+	if (config?.density === 'compact') table.addClass('is-compact');
+	const showRowNumbers = config?.rowNumbers === true;
+	const layout = tableLayout(result, config, showRowNumbers);
+	const dc = displayColumns(result);
+	const valueStart = dc.hasImplicitFileCol ? 1 : 0;
+
+	/* ----- fixed column widths (colgroup must precede thead) ----- */
+	const colgroup = table.createEl('colgroup');
+	for (const w of layout.colWidths) {
+		const col = colgroup.createEl('col');
+		if (w) col.style.width = w;
+	}
+
+	/* ----- header ----- */
+	const thead = table.createEl('thead');
+	const headRow = thead.createEl('tr');
+	const sortCol = view?.sortCol ?? null;
+	const sortDir = view?.sortDir ?? 'asc';
+	const activeHeaderIdx = sortCol === null ? -1 : layout.sortValueIdx.indexOf(sortCol);
+	for (let ci = 0; ci < layout.labels.length; ci++) {
+		const th = headRow.createEl('th', { text: layout.labels[ci]! });
+		const sortSlot = layout.sortableIdx.indexOf(ci);
+		if (sortSlot === -1) {
+			th.addClass('is-source-col');
+			if (layout.checkboxCol && layout.labels[ci] === '') th.addClass('dashboard-dataview-check-head');
+			if (layout.showSource && ci === layout.labels.length - 1) th.addClass('is-datetime');
 			continue;
 		}
-		for (const value of row.values) {
+		th.addClass('is-sortable');
+		const active = ci === activeHeaderIdx;
+		if (active) th.addClass(sortDir === 'desc' ? 'is-sorted-desc' : 'is-sorted-asc');
+		const indicator = th.createSpan({ cls: 'dashboard-dataview-sort-ind' });
+		setIcon(indicator, active ? (sortDir === 'desc' ? 'chevron-down' : 'chevron-up') : 'chevrons-up-down');
+		const valueIdx = layout.sortValueIdx[sortSlot]!;
+		th.addEventListener('click', () => {
+			if (!onSortChange || !view) return;
+			onSortChange(nextSortState({ ...view }, valueIdx));
+		});
+		th.title = active
+			? (sortDir === 'asc' ? t('dataview.sortDesc') : t('dataview.sortClear'))
+			: t('dataview.sortAsc');
+	}
+
+	/* ----- body: cells rendered strictly in header order ----- */
+	const tbody = table.createEl('tbody');
+	for (let ri = 0; ri < rows.length; ri++) {
+		const row = rows[ri]!;
+		const tr = tbody.createEl('tr');
+		attachRowOpen(tr, row);
+		if (showRowNumbers) {
+			tr.createEl('td', { cls: 'dashboard-dataview-rownum', text: String(rowOffset + ri + 1) });
+		}
+		if (result.grouped) {
+			renderGroupedRow(tr, row, result, layout);
+			continue;
+		}
+
+		const src = sourceInfoOf(row);
+		if (layout.checkboxCol) {
+			const td = tr.createEl('td', { cls: 'dashboard-dataview-check-col' });
+			if (row.task) {
+				renderTaskCell(td, row.task, appRef, () => rerender?.());
+			}
+		}
+		for (let vi = valueStart; vi < row.values.length; vi++) {
+			const value = row.values[vi]!;
 			const td = tr.createEl('td');
-			renderValueCell(td, value);
+			if (value !== null && value !== undefined && kindOf(value) === 'number') td.addClass('is-numeric');
+			// Inner wrapper carries the 2-line clamp; td must stay table-cell
+			// (changing its display breaks the fixed table column layout).
+			renderValueCell(td.createDiv({ cls: 'dashboard-dataview-cell' }), value);
+		}
+		if (layout.noteFrom !== 'none') {
+			const noteTd = tr.createEl('td', { cls: 'dashboard-dataview-src-note' });
+			if (layout.noteFrom === 'values0') {
+				renderValueCell(noteTd.createDiv({ cls: 'dashboard-dataview-cell' }), row.values[0] ?? null);
+			} else {
+				noteTd.setText(src?.title ?? '—');
+			}
+		}
+		if (layout.showSource) {
+			const pathTd = tr.createEl('td', { cls: 'dashboard-dataview-src-path', text: src?.path ?? '—' });
+			pathTd.title = src?.path ?? '';
+			tr.createEl('td', { cls: 'dashboard-dataview-src-created', text: src?.created ?? '—' });
 		}
 	}
 	container.appendChild(table);
 }
 
-/** For grouped TABLE rows, the first cell is the group key; a second cell lists
- *  the member note names (via the implicit `rows` projection). */
-function renderGroupedRow(tr: HTMLElement, row: ResultRow, result: QueryResult): void {
+/** One TASK checkbox inside a cell: toggles the source line and busts the page
+ *  cache so the change is reflected on the next query run. */
+function renderTaskCell(td: HTMLElement, task: NonNullable<ResultRow['task']>, app: App, onToggled: () => void): void {
+	const checkbox = td.createEl('input', { cls: 'dashboard-dataview-task-checkbox', attr: { type: 'checkbox' } });
+	checkbox.checked = task.checked;
+	if (task.line >= 0) {
+		checkbox.addEventListener('change', () => {
+			void (async (): Promise<void> => {
+				const next = checkbox.checked;
+				checkbox.disabled = true;
+				const file = app.vault.getAbstractFileByPath(task.path);
+				if (file instanceof TFile) {
+					const wrote = await toggleTaskInFile(app, { ...task, file, mtime: file.stat.mtime, ctime: file.stat.ctime }, next);
+					if (wrote) invalidatePath(task.path);
+				}
+				checkbox.disabled = false;
+				onToggled();
+			})();
+		});
+	} else {
+		checkbox.disabled = true; // no source line to toggle (synthetic row).
+	}
+}
+
+/** For grouped TABLE rows, the first cell is the group key; the following
+ *  cells list the member note names (via the implicit `rows` projection). */
+function renderGroupedRow(tr: HTMLElement, row: ResultRow, result: QueryResult, layout: TableLayout): void {
 	const keyCell = tr.createEl('td', { cls: 'dashboard-dataview-group-key' });
 	renderValueCell(keyCell, row.groupKey ?? null);
-	const memberCell = tr.createEl('td');
+	const memberCell = tr.createEl('td', { cls: 'dashboard-dataview-group-members-cell' });
 	if (row.rows && row.rows.length > 0) {
 		for (const member of row.rows) {
 			const item = memberCell.createDiv({ cls: 'dashboard-dataview-group-member' });
@@ -180,13 +647,19 @@ function renderGroupedRow(tr: HTMLElement, row: ResultRow, result: QueryResult):
 			renderValueCell(memberCell, row.values[i]!);
 		}
 	}
+	// Pad trailing cells so colspan alignment holds when sources are shown.
+	for (let i = 2; i < layout.labels.length; i++) tr.createEl('td');
 	void result;
 }
 
-/* ----------------------------- LIST ----------------------------- */
+/* ----------------------------- LIST (any query shape) ----------------------------- */
 
-function renderList(container: HTMLElement, result: QueryResult, rows: readonly ResultRow[]): void {
+function renderList(container: HTMLElement, result: QueryResult, rows: readonly ResultRow[], config?: DataviewConfig, rerender?: () => void): void {
 	const list = container.createDiv({ cls: 'dashboard-library-list dashboard-dataview-list' });
+	if (config?.striped) list.addClass('is-striped');
+	if (config?.density === 'compact') list.addClass('is-compact');
+	const showSource = config?.showSource !== false;
+	const dc = displayColumns(result);
 	for (const row of rows) {
 		const item = list.createDiv({ cls: 'dashboard-library-list-item dashboard-dataview-list-item' });
 		attachRowOpen(item, row);
@@ -202,48 +675,40 @@ function renderList(container: HTMLElement, result: QueryResult, rows: readonly 
 			continue;
 		}
 
-		const value = row.values[0] ?? null;
-		renderValueCell(item, value, true);
-	}
-	container.appendChild(list);
-}
-
-/* ----------------------------- TASK ----------------------------- */
-
-/** Render TASK rows as interactive checkboxes. Toggling writes the new state
- *  back to the source line (via alltasks-scan.toggleTaskInFile), busts the page
- *  cache so the change is reflected on re-render, then re-runs the query. */
-function renderTaskList(container: HTMLElement, rows: readonly ResultRow[], app: App, rerender: () => void): void {
-	const list = container.createDiv({ cls: 'dashboard-dataview-tasklist' });
-	for (const row of rows) {
-		const task = row.task;
-		const item = list.createDiv({ cls: 'dashboard-dataview-task' + (task?.checked ? ' is-done' : '') });
-		const checkbox = item.createEl('input', { cls: 'dashboard-dataview-task-checkbox', attr: { type: 'checkbox' } });
-		checkbox.checked = task?.checked ?? false;
-		const label = item.createSpan({ cls: 'dashboard-dataview-task-text' });
-		const text = formatValue(row.values[0] ?? null);
-		renderTextWithDvLinks(label, text);
-
-		if (task && task.line >= 0) {
-			checkbox.addEventListener('change', () => {
-				void (async (): Promise<void> => {
-					const next = checkbox.checked;
-					checkbox.disabled = true;
-					const file = app.vault.getAbstractFileByPath(task.path);
-					if (file instanceof TFile) {
-						const wrote = await toggleTaskInFile(app, { ...task, file, mtime: file.stat.mtime, ctime: file.stat.ctime }, next);
-						if (wrote) invalidatePath(task.path);
-					}
-					checkbox.disabled = false;
-					rerender();
-				})();
-			});
+		const main = item.createDiv({ cls: 'dashboard-dataview-list-main' });
+		if (result.queryType === 'TASK' && row.task) {
+			main.addClass('dashboard-dataview-task-row');
+			renderTaskCell(main, row.task, appRef, () => rerender?.());
+			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
+			renderTextWithDvLinks(label, formatValue(row.values[0] ?? null));
 		} else {
-			checkbox.disabled = true; // no source line to toggle (synthetic row).
+			// First projected value as the primary line. For a bare LIST (or
+			// TABLE's implicit file column) values[0] IS the note link — render it
+			// as the main line; otherwise start at the first projected value.
+			const valueStart = dc.hasImplicitFileCol ? 1 : 0;
+			renderValueCell(main, row.values[valueStart] ?? row.values[0] ?? null, true);
+			// TABLE queries in list mode: append the remaining value columns,
+			// separated by a muted dot.
+			if (result.queryType === 'TABLE' || dc.hasImplicitFileCol) {
+				for (let i = valueStart + 1; i < row.values.length; i++) {
+					main.createSpan({ cls: 'dashboard-dataview-list-sep', text: '·' });
+					renderValueCell(main, row.values[i]!, true);
+				}
+			}
+		}
+		if (showSource) {
+			const src = sourceInfoOf(row);
+			if (src) {
+				item.createDiv({
+					cls: 'dashboard-dataview-list-source',
+					text: `${src.path} · ${src.created}`,
+				});
+			}
 		}
 	}
 	container.appendChild(list);
 }
+
 
 /* ----------------------------- CALENDAR ----------------------------- */
 

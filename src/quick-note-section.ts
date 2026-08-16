@@ -1,5 +1,6 @@
-import { App, Notice, TFile, moment, setIcon } from 'obsidian';
+import { App, Notice, TFile, setIcon } from 'obsidian';
 import type { DashboardSettings, PinnedNote, QuickNotePreset, RenderCallbacks } from './types';
+import { MomentLike, nowMoment } from './datetime';
 import { ensureFolder, getOrCreateDailyNote, substituteTemplateVars } from './daily-notes';
 import { showPromptDialog } from './prompt-dialog';
 import { t } from './i18n';
@@ -103,7 +104,7 @@ export async function createNoteFromPreset(app: App, preset: QuickNotePreset): P
 		if (!title) return;
 	}
 
-	const now = moment();
+	const now = nowMoment();
 	let filename = sanitizeFilename(substituteTemplateVars(filenamePattern, { title, now }));
 	if (!filename) filename = now.format('YYYY-MM-DD');
 
@@ -130,7 +131,7 @@ export async function createNoteFromPreset(app: App, preset: QuickNotePreset): P
 
 /** Capture a fleeting thought: append to the target note, or create a new note. */
 export async function captureThought(app: App, settings: DashboardSettings, text: string): Promise<void> {
-	const now = moment();
+	const now = nowMoment();
 	// Wiki-link date (jumps to the daily note + shows up in its backlinks) plus
 	// time-of-day; the plain date text is also globally searchable for filtering.
 	const line = `- ${text} *([[${now.format('YYYY-MM-DD')}]] ${now.format('HH:mm')})*`;
@@ -174,7 +175,7 @@ export function openPinnedNote(app: App, note: PinnedNote): void {
  *  stale blank note (e.g. from earlier, before the template was wired up) is
  *  auto-seeded with the template. Shows a hint when the core plugin is disabled. */
 export async function openTodayNote(app: App): Promise<void> {
-	const iso = moment().format('YYYY-MM-DD');
+	const iso = nowMoment().format('YYYY-MM-DD');
 	const file = await getOrCreateDailyNote(app, iso);
 	if (!file) {
 		new Notice(t('quickNote.dailyDisabled'));
@@ -204,7 +205,7 @@ function resolveFile(app: App, path: string): TFile | null {
 async function readTemplateContent(
 	app: App,
 	tplPath: string,
-	opts: { title?: string; now?: moment.Moment },
+	opts: { title?: string; now?: MomentLike },
 ): Promise<{ content: string; found: boolean }> {
 	const p = (tplPath || '').trim();
 	if (!p) return { content: '', found: true };

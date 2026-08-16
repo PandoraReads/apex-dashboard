@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, setIcon, Setting } from 'obsidian';
+import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem } from 'obsidian';
 import type DashboardPlugin from './main';
 import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig, type BackupPeriod } from './types';
 import { t, setLanguage, type Language } from './i18n';
@@ -21,9 +21,165 @@ export class DashboardSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Declarative settings bridge (Obsidian 1.13+): each section of the tab is
+	 * exposed as a definition so its settings become searchable in Obsidian's
+	 * unified settings search. The definitions re-render the exact same
+	 * imperative sections display() draws — same functions, one source — so
+	 * pre-1.13 builds (which never call this) and new builds cannot drift.
+	 */
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				type: 'group',
+				items: [
+					{
+						type: 'page',
+						name: t('settings.general'),
+						desc: t('settings.languageDesc'),
+						aliases: [t('settings.dashboardFile'), t('settings.stylePreset')],
+						items: [
+							{
+								name: t('settings.general'),
+								desc: t('settings.dashboardFileDesc'),
+								aliases: [t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title')],
+								searchable: false, // the page row above is the search hit
+								render: (setting) => {
+									setting.settingEl.empty();
+									this.renderGeneralSettings(setting.settingEl);
+								},
+							},
+						],
+					},
+					{
+						type: 'page',
+						name: t('settings.widgetTheme'),
+						desc: t('settings.pomodoroEnabledDesc'),
+						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey')],
+						items: [
+							{
+								name: t('settings.widgetTheme'),
+								desc: t('settings.widgetWeatherEnabledDesc'),
+								aliases: [t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion')],
+								searchable: false,
+								render: (setting) => {
+									setting.settingEl.empty();
+									this.renderWidgetSettings(setting.settingEl);
+								},
+							},
+						],
+					},
+					{
+						type: 'page',
+						name: t('settings.widgetLunar'),
+						desc: t('settings.widgetLunarEnabledDesc'),
+						items: [
+							{
+								name: t('settings.widgetLunarEnabled'),
+								desc: t('settings.widgetLunarEnabledDesc'),
+								render: (setting) => {
+									setting.settingEl.empty();
+									this.renderLunarSettings(setting.settingEl);
+								},
+							},
+						],
+					},
+					{
+						type: 'page',
+						name: t('settings.widgetYearProgress'),
+						desc: t('settings.widgetYearProgressEnabledDesc'),
+						items: [
+							{
+								name: t('settings.widgetYearProgressEnabled'),
+								desc: t('settings.widgetYearProgressEnabledDesc'),
+								render: (setting) => {
+									setting.settingEl.empty();
+									this.renderYearProgressSettings(setting.settingEl);
+								},
+							},
+						],
+					},
+					{
+						type: 'page',
+						name: t('settings.widgetCalendar'),
+						desc: t('settings.widgetCalendarEnabledDesc'),
+						aliases: [t('settings.widgetCalendarExclude')],
+						items: [
+							{
+								name: t('settings.widgetCalendarEnabled'),
+								desc: t('settings.widgetCalendarEnabledDesc'),
+								render: (setting) => {
+									setting.settingEl.empty();
+									this.renderCalendarSettings(setting.settingEl);
+								},
+							},
+						],
+					},
+					{
+						type: 'page',
+						name: t('settings.backup'),
+						desc: t('settings.backupEnabledDesc'),
+						aliases: [t('settings.backupPeriod'), t('settings.restoreLatest')],
+						items: [
+							{
+								name: t('settings.backupEnabled'),
+								desc: t('settings.backupEnabledDesc'),
+								render: (setting) => {
+									setting.settingEl.empty();
+									this.renderBackupSettings(setting.settingEl);
+								},
+							},
+						],
+					},
+				],
+			},
+			{
+				name: "crafted by Pandora's Digital Garden",
+				searchable: false, // a footer, not a setting
+				render: (setting) => {
+					setting.settingEl.empty();
+					setting.settingEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
+				},
+			},
+		];
+	}
+
+	/** Fallback renderer for Obsidian < 1.13 (declarative API absent). */
 	display(): void {
+		this.renderFallback();
+	}
+
+	private renderFallback(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		this.renderGeneralSettings(containerEl);
+
+		this.renderWidgetSettings(containerEl);
+
+		this.renderLunarSettings(containerEl);
+
+		this.renderYearProgressSettings(containerEl);
+
+		this.renderCalendarSettings(containerEl);
+
+		this.renderBackupSettings(containerEl);
+
+		containerEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
+	}
+
+	/** Redraw when the sections themselves change (a widget toggled on/off,
+	 *  countdown added, ...). update() arrived with the declarative API in
+	 *  1.13; older builds have no definitions to rebuild from and redraw via
+	 *  display() instead. */
+	private refresh(): void {
+		const tab = this as unknown as { update?: () => void };
+		if (typeof tab.update === 'function') tab.update();
+		else this.renderFallback();
+	}
+
+	/** Top block: language, style, quick notes, paths. Shared by display()
+	 *  (pre-1.13) and the declarative General page (1.13+). */
+	private renderGeneralSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName(t('settings.language'))
 			.setDesc(t('settings.languageDesc'))
@@ -41,7 +197,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					setLanguage(lang);
 					await this.plugin.saveSettings();
-					this.display();
+					this.refresh();
 					this.plugin.refreshAllDashboards();
 				}));
 
@@ -106,7 +262,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 			.addSlider(slider => slider
 				.setLimits(3, 15, 1)
 				.setValue(this.plugin.settings.recentDocCount)
-				.setDynamicTooltip()
 				.onChange(async (value) => {
 					this.plugin.settings = {
 						...this.plugin.settings,
@@ -198,7 +353,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
-					this.display();
+					this.refresh();
 				}));
 
 		if (this.plugin.settings.widgetWeatherEnabled) {
@@ -234,7 +389,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
-					this.display();
+					this.refresh();
 				}));
 
 		if (this.plugin.settings.pomodoroEnabled) {
@@ -243,8 +398,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 				.addSlider(slider => slider
 					.setLimits(15, 60, 5)
 					.setValue(this.plugin.settings.pomodoroWorkMinutes)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
+						.onChange(async (value) => {
 						this.plugin.settings = {
 							...this.plugin.settings,
 							pomodoroWorkMinutes: value,
@@ -258,8 +412,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 				.addSlider(slider => slider
 					.setLimits(1, 15, 1)
 					.setValue(this.plugin.settings.pomodoroShortBreakMinutes)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
+						.onChange(async (value) => {
 						this.plugin.settings = {
 							...this.plugin.settings,
 							pomodoroShortBreakMinutes: value,
@@ -273,8 +426,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 				.addSlider(slider => slider
 					.setLimits(5, 30, 5)
 					.setValue(this.plugin.settings.pomodoroLongBreakMinutes)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
+						.onChange(async (value) => {
 						this.plugin.settings = {
 							...this.plugin.settings,
 							pomodoroLongBreakMinutes: value,
@@ -288,8 +440,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 				.addSlider(slider => slider
 					.setLimits(2, 6, 1)
 					.setValue(this.plugin.settings.pomodoroLongBreakInterval)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
+						.onChange(async (value) => {
 						this.plugin.settings = {
 							...this.plugin.settings,
 							pomodoroLongBreakInterval: value,
@@ -303,8 +454,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 				.addSlider(slider => slider
 					.setLimits(1, 16, 1)
 					.setValue(this.plugin.settings.pomodoroDailyGoal)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
+						.onChange(async (value) => {
 						this.plugin.settings = {
 							...this.plugin.settings,
 							pomodoroDailyGoal: value,
@@ -353,7 +503,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
-					this.display();
+					this.refresh();
 				}));
 
 		if (this.plugin.settings.countdownEnabled) {
@@ -448,7 +598,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 							this.plugin.settings = { ...this.plugin.settings, ticktickCookie: token, ticktickCsrf: csrf };
 							await this.plugin.saveSettings();
 							this.plugin.refreshAllDashboards();
-							this.display();
+							this.refresh();
 						},
 					).open();
 				}))
@@ -460,7 +610,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 						this.plugin.settings = { ...this.plugin.settings, ticktickCookie: '', ticktickCsrf: '' };
 						await this.plugin.saveSettings();
 						this.plugin.refreshAllDashboards();
-						this.display();
+						this.refresh();
 					})();
 				}));
 		new Setting(ticktickCard)
@@ -486,7 +636,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					const tz = value.trim() || DEFAULT_TICKTICK_TZ;
 					if (!isValidTz(tz)) {
 						new Notice(t('settings.ticktickTimezoneInvalid'));
-						this.display();
+						this.refresh();
 						return;
 					}
 					this.plugin.settings = { ...this.plugin.settings, ticktickTimezone: tz };
@@ -518,7 +668,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 						};
 						await this.plugin.saveSettings();
 						this.plugin.refreshAllDashboards();
-						this.display();
+						this.refresh();
 					}));
 		}
 
@@ -554,7 +704,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 		};
 		await this.plugin.saveSettings();
 		this.plugin.refreshAllDashboards();
-		this.display();
+		this.refresh();
 	}
 
 	private renderLunarSettings(containerEl: HTMLElement): void {
@@ -573,7 +723,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
-					this.display();
+					this.refresh();
 				}));
 	}
 
@@ -593,7 +743,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
-					this.display();
+					this.refresh();
 				}));
 	}
 
@@ -613,7 +763,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
-					this.display();
+					this.refresh();
 				}));
 
 		if (!this.plugin.settings.widgetCalendarEnabled) return;
@@ -699,7 +849,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 						backupEnabled: value,
 					};
 					await this.plugin.saveSettings();
-					this.display();
+					this.refresh();
 				}));
 
 		new Setting(card)
@@ -800,8 +950,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 		close();
 		if (results.length === 0) return dropdown;
 
-		const next = inputEl.ownerDocument.createElement('div');
-		next.className = 'dashboard-city-suggest';
+		const next = inputEl.ownerDocument.createDiv({ cls: 'dashboard-city-suggest' });
 		Object.assign(next.style, {
 			position: 'absolute',
 			zIndex: '100',

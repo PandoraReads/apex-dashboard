@@ -3137,6 +3137,10 @@
 	margin: 4px 0 0;
 }
 
+.dashboard-pomodoro-filterbar--visible {
+	display: flex;
+}
+
 .dashboard-pomodoro-filterbar-chip {
 	display: flex;
 	align-items: center;
@@ -5996,7 +6000,8 @@
 
 .dashboard-section-row[data-section-type="weread"],
 .dashboard-section-row[data-section-type="ticktick"],
-.dashboard-section-row[data-section-type="heatmap"] {
+.dashboard-section-row[data-section-type="heatmap"],
+.dashboard-section-row[data-section-type="dataview"] {
 	max-height: 800px;
 }
 
@@ -11674,12 +11679,16 @@
 	padding: 4px 6px;
 	border-bottom: 2px solid var(--db-accent, var(--interactive-accent));
 	margin-bottom: 4px;
-	/* Stay pinned at the top of the column while its cards scroll. The opaque
-	   background matches the column so cards slide cleanly underneath. */
+	/* Stay pinned at the top of the column while its cards scroll. The theme's
+	   section bg can be translucent (rgba) in some themes, which would let
+	   cards bleed through — layer it over the opaque page bg (--db-bg) so the
+	   pinned title looks identical to the column but is fully opaque. */
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background: var(--db-bg-section, rgba(255, 255, 255, 0.02));
+	background:
+		linear-gradient(var(--db-bg-section, rgba(255, 255, 255, 0.02)), var(--db-bg-section, rgba(255, 255, 255, 0.02))),
+		var(--db-bg, var(--background-primary));
 	flex-shrink: 0;
 }
 
@@ -15038,9 +15047,60 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	flex-direction: column;
 	gap: 8px;
 	padding: 4px 0;
+	/* Fill the section row's column flex so the result body can take the
+	   remaining bounded height and scroll (mirrors .dashboard-library-content). */
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
 }
 
-/* Result count header */
+/* Paginated layout: count header pinned, body scrolls, pagination pinned. */
+.dashboard-dataview-pages {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+.dashboard-dataview-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent) 25%, transparent) transparent;
+}
+
+.dashboard-dataview-body::-webkit-scrollbar {
+	width: 8px;
+}
+.dashboard-dataview-body::-webkit-scrollbar-track {
+	background: transparent;
+}
+.dashboard-dataview-body::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent) 20%, transparent);
+	border-radius: 4px;
+}
+.dashboard-dataview-body::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--db-accent) 38%, transparent);
+}
+
+.dashboard-dataview-count,
+.dashboard-dataview-pagination {
+	flex-shrink: 0;
+}
+
+/* Result toolbar: count | (spacer) | filter input | page-size select. */
+.dashboard-dataview-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+	padding: 2px 0;
+}
+.dashboard-dataview-toolbar-spacer {
+	flex: 1;
+}
+
 .dashboard-dataview-count {
 	display: flex;
 	align-items: center;
@@ -15050,20 +15110,236 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 	padding: 0 2px;
+	white-space: nowrap;
 }
+
+.dashboard-dataview-search {
+	width: 110px;
+	flex-shrink: 1;
+	padding: 3px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+	font-size: 11.5px;
+	outline: none;
+}
+.dashboard-dataview-search:focus {
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-dataview-search::placeholder {
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+/* TABLE header sort: clickable th with a direction indicator. */
+.dashboard-dataview-table th.is-sortable {
+	cursor: pointer;
+	user-select: none;
+}
+.dashboard-dataview-table th.is-sortable:hover {
+	color: var(--db-text, var(--text-normal));
+}
+.dashboard-dataview-sort-ind {
+	display: inline-flex;
+	vertical-align: middle;
+	margin-left: 4px;
+	opacity: 0.45;
+}
+.dashboard-dataview-sort-ind svg {
+	width: 11px;
+	height: 11px;
+}
+.dashboard-dataview-table th.is-sorted-asc .dashboard-dataview-sort-ind,
+.dashboard-dataview-table th.is-sorted-desc .dashboard-dataview-sort-ind {
+	opacity: 1;
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+/* Sticky table header: stays pinned while the result body scrolls. The theme's
+   section bg can be translucent (rgba) in some themes, which lets rows bleed
+   through — so it is layered over the opaque page bg (--db-bg), giving an
+   opaque result that still looks exactly like the section. Inset bottom
+   shadow replaces the border (collapse + sticky drops borders in some
+   browsers). No backdrop-filter (mobile GPU). */
+.dashboard-dataview-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background:
+		linear-gradient(var(--db-bg-section, var(--background-secondary)), var(--db-bg-section, var(--background-secondary))),
+		var(--db-bg, var(--background-primary));
+	box-shadow: inset 0 -1px 0 var(--db-border, rgba(255, 255, 255, 0.08));
+}
+
+/* Numeric cells right-aligned (classic database layout). */
+.dashboard-dataview-table td.is-numeric {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Row-number column: narrow, muted, right-aligned. */
+.dashboard-dataview-rownum-head,
+.dashboard-dataview-rownum {
+	width: 34px;
+	min-width: 34px;
+	max-width: 34px;
+	padding-left: 4px;
+	padding-right: 8px;
+	text-align: right;
+	color: var(--db-text-faint, var(--text-faint));
+	font-variant-numeric: tabular-nums;
+	cursor: default;
+}
+
+/* Zebra stripes (opt-in): even rows tinted; hover wins over stripes. */
+.dashboard-dataview-table.is-striped tbody tr:nth-child(even) {
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.03));
+}
+.dashboard-dataview-table.is-striped tbody tr:hover,
+.dashboard-dataview-table tbody tr:hover {
+	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.10));
+}
+.dashboard-dataview-list.is-striped > .dashboard-dataview-list-item:nth-child(even) {
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.03));
+}
+.dashboard-dataview-tasklist.is-striped > .dashboard-dataview-task:nth-child(even) {
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.03));
+}
+
+/* Compact density: halved vertical paddings. */
+.dashboard-dataview-table.is-compact td {
+	padding-top: 3px;
+	padding-bottom: 3px;
+}
+.dashboard-dataview-table.is-compact th {
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+.dashboard-dataview-list.is-compact > .dashboard-dataview-list-item {
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+.dashboard-dataview-tasklist.is-compact > .dashboard-dataview-task {
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+
+/* Density chips in the config modal (reuses the sample-chip look). */
+.dashboard-dataview-density-chips {
+	display: flex;
+	gap: 6px;
+}
+.dashboard-dataview-density-chip.active {
+	background: var(--db-accent, var(--interactive-accent));
+	color: var(--db-bg, var(--text-on-accent));
+	border-color: transparent;
+}
+
+/* TASK checkbox column: narrow fixed slot at the table's start. */
+.dashboard-dataview-check-col {
+	width: 30px;
+	min-width: 30px;
+	max-width: 30px;
+	padding: 4px 0 4px 6px;
+	vertical-align: top;
+}
+.dashboard-dataview-table thead th.dashboard-dataview-check-head {
+	width: 30px;
+	min-width: 30px;
+	max-width: 30px;
+	padding: 4px 0 4px 6px;
+}
+
+/* Source-note columns (table mode): muted path/date, note keeps link styling. */
+.dashboard-dataview-table th.is-source-col {
+	cursor: default;
+}
+.dashboard-dataview-src-path,
+.dashboard-dataview-src-created {
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 11.5px;
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Source summary line under each list item (list mode). */
+.dashboard-dataview-list-item {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 2px;
+}
+.dashboard-dataview-list-main {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+.dashboard-dataview-list-main.dashboard-dataview-task-row {
+	align-items: center;
+}
+.dashboard-dataview-list-source {
+	font-size: 10.5px;
+	color: var(--db-text-faint, var(--text-faint));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding-left: 2px;
+}
+.dashboard-dataview-list-sep {
+	color: var(--db-text-faint, var(--text-faint));
+	margin: 0 2px;
+}
+
+/* View-mode segmented toggle in the dataview toolbar (reuses library classes;
+   tightened for the compact toolbar). */
+.dashboard-dataview-view-toggle {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+/* Result count header */
 .dashboard-dataview-capped {
 	text-transform: none;
 	letter-spacing: 0;
 	opacity: 0.7;
 }
 
-/* TABLE — extends the library table look. Allow wrapping in cells since DQL
-   values can be long strings or lists. */
+/* TABLE — extends the library table look.
+   Fixed layout: column widths are deterministic instead of content-driven, so
+   a long path or title can never squeeze the date column into wrapping.
+   Narrow utility columns (rownum, checkbox) get fixed px; source columns get
+   capped widths; value columns share the remainder equally. */
+.dashboard-dataview-table {
+	table-layout: fixed;
+	word-break: break-word;
+}
 .dashboard-dataview-table td {
 	white-space: normal;
 	max-width: none;
 	vertical-align: top;
 	line-height: 1.5;
+}
+/* Two-line clamp lives on an INNER div — td must stay display:table-cell or
+   the fixed table layout breaks (cells stop aligning to <col> widths). */
+.dashboard-dataview-table td .dashboard-dataview-cell {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
+}
+/* Created-date column: single line, never wraps (dates break ugly). Left-
+   aligned like the other text columns; tabular-nums keeps digits even. */
+.dashboard-dataview-table td.dashboard-dataview-src-created,
+.dashboard-dataview-table th.is-datetime {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-variant-numeric: tabular-nums;
 }
 .dashboard-dataview-table th {
 	cursor: default;

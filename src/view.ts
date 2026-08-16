@@ -1,7 +1,8 @@
-import { Events, HoverParent, HoverPopover, ItemView, Modal, moment, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, Modal, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
+import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote } from './types';
+import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, DataviewConfig } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
@@ -209,6 +210,16 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (name) {
 			void this.sync.addColumn(name);
 		}
+	}
+
+	/** Flip the banner between poster & quotes and the stats dashboard.
+	 *  updateBanner persists the new mode and re-renders via the sync callback. */
+	async toggleBannerMode(): Promise<void> {
+		const data = this.sync.getData();
+		if (!data) return;
+		const nextMode = data.banner.mode === 'stats' ? 'quote' : 'stats';
+		await this.sync.updateBanner({ mode: nextMode });
+		new Notice(nextMode === 'stats' ? t('main.bannerModeStats') : t('main.bannerModeQuote'));
 	}
 
 	private render(data: DashboardData): void {
@@ -874,6 +885,12 @@ export class DashboardView extends ItemView implements HoverParent {
 					this.refreshSectionInPlace(columnName);
 				});
 			},
+				onDataviewConfigChange: (columnName: string, config: DataviewConfig) => {
+					this.suppressNextRender = true;
+					void this.sync.updateDataviewConfig(columnName, config).then(() => {
+						this.refreshSectionInPlace(columnName);
+					});
+				},
 		};
 	}
 
@@ -977,7 +994,7 @@ export class DashboardView extends ItemView implements HoverParent {
 
 			const folder = (options.folder || '').trim().replace(/^\/+|\/+$/g, '');
 			const format = options.format || 'YYYY-MM-DD';
-			const dateStr = moment().format(format);
+			const dateStr = nowMoment().format(format);
 			const fileName = `${dateStr}.md`;
 			const path = folder ? `${folder}/${fileName}` : fileName;
 

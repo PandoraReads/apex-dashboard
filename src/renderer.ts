@@ -1,5 +1,5 @@
-import { App, Platform, setIcon } from 'obsidian';
-import type { HoverParent, TFile, EventRef } from 'obsidian';
+import { App, Platform, TFile, setIcon } from 'obsidian';
+import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
 import { renderLibrarySection } from './library-section';
@@ -160,7 +160,7 @@ function ensureBasenameIndex(app: App): Map<string, TFile> {
 		// old key (derived from oldPath) if this file owned it, then re-index.
 		const oldBasename = oldPath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
 		if (basenameIndex?.get(oldBasename) === file) basenameIndex?.delete(oldBasename);
-		indexFile(file as TFile);
+		if (file instanceof TFile) indexFile(file);
 	}));
 	return idx;
 }
@@ -784,17 +784,6 @@ function showPomodoroStats(doc: Document, service: PomodoroService): void {
 	// ranking, heatmap, recent records + tag management entry).
 	openWidePomodoroStats(doc, service);
 }
-
-function formatMinutes(minutes: number): string {
-	if (minutes < 60) {
-		return t('pomodoro.minutes', { count: minutes });
-	}
-	const hours = Math.floor(minutes / 60);
-	const mins = minutes % 60;
-	if (mins === 0) return t('pomodoro.hours', { count: hours });
-	return t('pomodoro.hours', { count: hours }) + ' ' + t('pomodoro.minutes', { count: mins });
-}
-
 
 function formatTime(seconds: number): string {
 	if (seconds >= 3600) {
@@ -1937,7 +1926,8 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			callbacks.onColumnDelete(column.name);
 		});
 
-		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover ?? null, (fn) => { reload = fn; });
+		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover ?? null, (fn) => { reload = fn; },
+			(cfg) => callbacks.onDataviewConfigChange(column.name, cfg));
 		return el;
 	}
 

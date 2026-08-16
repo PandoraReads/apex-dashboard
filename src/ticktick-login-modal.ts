@@ -1,7 +1,12 @@
 import { App, Modal, Platform, setIcon } from 'obsidian';
 import { t } from './i18n';
 
-/* eslint-disable no-undef, @typescript-eslint/no-require-imports -- Electron's BrowserWindow and session.cookie APIs are loaded via require() without bundled typings, so require/no-undef can't be avoided in this desktop-only login interop */
+/** Type `require` locally instead of relying on ambient `@types/node`
+ *  declarations, which the community plugin scanner may not resolve — an
+ *  unresolved `require` degrades to `any` and trips no-unsafe-call on every
+ *  call site. `declare` is type-only: the emitted code (and the runtime
+ *  module-scoped CJS `require`) is unchanged. */
+declare const require: (id: string) => unknown;
 
 /** Minimal Electron typings — only the surface this login helper touches (Electron's own types aren't bundled with Obsidian). */
 interface ElectronCookie {
@@ -100,7 +105,6 @@ export function loginViaBrowser(region: 'dida365' | 'ticktick'): Promise<{ token
 		win.on('closed', () => { if (!done) reject(new Error('WINDOW_CLOSED')); });
 	});
 }
-/* eslint-enable no-undef, @typescript-eslint/no-require-imports -- end of the Electron login interop block */
 
 /**
  * Guided authorization modal for TickTick. Primary flow: email + password login

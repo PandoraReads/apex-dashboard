@@ -1,7 +1,7 @@
 import { setIcon } from 'obsidian';
 import { t } from './i18n';
 import {
-	PomodoroService, PomodoroRecord,
+	PomodoroService,
 	activityColor,
 } from './pomodoro-service';
 import { openPomodoroTagManager } from './pomodoro-tag-manager';
@@ -106,9 +106,8 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		if (e.target === overlay) close();
 	});
 
-	// Activity-filter chip row (visible while a filter is active)
+	// Activity-filter chip row (hidden by default via CSS; shown when a filter is active)
 	const filterBar = modal.createDiv({ cls: 'dashboard-pomodoro-filterbar' });
-	filterBar.style.display = 'none';
 
 	// ===== Body grid =====
 	const body = modal.createDiv({ cls: 'dashboard-pomodoro-stats-body' });
@@ -277,7 +276,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		incBtn.addEventListener('click', () => apply(settings.pomodoroDailyGoal + 1));
 
 		// Dismiss on outside click
-		setTimeout(() => {
+		window.setTimeout(() => {
 			const onDown = (e: MouseEvent) => {
 				if (!editor.contains(e.target as Node)) {
 					editor.remove();
@@ -415,7 +414,6 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		// 270° gauge from 135° to 405°
 		const startAngle = 135;
 		const sweep = 270;
-		const arcLen = (sweep / 360) * 2 * Math.PI * gaugeR;
 
 		const wrap = donutContainer.createDiv({ cls: 'dashboard-pomodoro-donut-wrap' });
 		const svg = wrap.createSvg('svg', {
@@ -671,10 +669,10 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	function renderFilterBar(): void {
 		filterBar.empty();
 		if (!activityFilter) {
-			filterBar.style.display = 'none';
+			filterBar.removeClass('dashboard-pomodoro-filterbar--visible');
 			return;
 		}
-		filterBar.style.display = 'flex';
+		filterBar.addClass('dashboard-pomodoro-filterbar--visible');
 		const chip = filterBar.createDiv({ cls: 'dashboard-pomodoro-filterbar-chip' });
 		const dot = chip.createDiv({ cls: 'dashboard-pomodoro-donut-legend-dot' });
 		dot.style.backgroundColor = activityColor(activityFilter);
@@ -839,7 +837,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 			}
 		}
 		// Click outside closes
-		setTimeout(() => {
+		window.setTimeout(() => {
 			const onDown = (e: MouseEvent) => {
 				if (!panel.contains(e.target as Node)) {
 					panel.remove();

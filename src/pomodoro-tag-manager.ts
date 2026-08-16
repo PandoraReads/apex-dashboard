@@ -153,7 +153,7 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 			input = promptRow.createEl('input', {
 				cls: 'dashboard-pomodoro-tagmanager-prompt-input',
 				attr: { type: 'text', placeholder: options.placeholder ?? '' },
-			}) as HTMLInputElement;
+			});
 			if (options.initial) input.value = options.initial;
 		}
 
@@ -166,15 +166,17 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 			cls: 'dashboard-pomodoro-tagmanager-prompt-ok' + (options.danger ? ' dashboard-pomodoro-tagmanager-prompt-ok--danger' : ''),
 			text: options.confirmLabel,
 		});
-		ok.addEventListener('click', async () => {
-			try {
-				await onConfirm((input as HTMLInputElement).value.trim());
-				closePrompt();
-				render();
-				onChange();
-			} catch (msg) {
-				err.textContent = String(msg);
-			}
+		ok.addEventListener('click', () => {
+			void (async () => {
+				try {
+					await onConfirm(input.value.trim());
+					closePrompt();
+					render();
+					onChange();
+				} catch (msg) {
+					err.textContent = msg instanceof Error ? msg.message : String(msg);
+				}
+			})();
 		});
 		input.focus();
 	}
@@ -186,7 +188,7 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 			async (value) => {
 				if (!value) return;
 				const ok = await service.renameTag(name, value);
-				if (!ok) throw t('pomodoro.tagExists');
+				if (!ok) throw new Error(t('pomodoro.tagExists'));
 			},
 		);
 	}
@@ -200,7 +202,7 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 			async (dest) => {
 				if (!dest) return;
 				const ok = await service.mergeTags(name, dest);
-				if (!ok) throw t('pomodoro.tagExists');
+				if (!ok) throw new Error(t('pomodoro.tagExists'));
 			},
 		);
 	}
