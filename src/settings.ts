@@ -324,6 +324,10 @@ export class DashboardSettingTab extends PluginSettingTab {
 								widgetWeatherCity: value.trim(),
 							};
 							await this.plugin.saveSettings();
+							// The suggestion click path updates lat/lon and refreshes
+							// itself; manual typing only changes the display label, so
+							// refresh here to redraw the widget with the new name.
+							this.plugin.refreshAllDashboards();
 						});
 					this.attachCitySuggest(text.inputEl);
 				});
@@ -904,7 +908,13 @@ export class DashboardSettingTab extends PluginSettingTab {
 		close();
 		if (results.length === 0) return dropdown;
 
-		const next = inputEl.ownerDocument.createDiv({ cls: 'dashboard-city-suggest' });
+		// Create the dropdown natively: ownerDocument.createDiv routes through
+		// Obsidian's Node.createEl patch, which appendChild's the element to the
+		// Document itself (parent = this) — that throws HierarchyRequestError,
+		// which killed this dropdown before it ever rendered. We append to body
+		// explicitly below.
+		const next = inputEl.ownerDocument.createElement('div');
+		next.className = 'dashboard-city-suggest';
 		Object.assign(next.style, {
 			position: 'absolute',
 			zIndex: '100',
