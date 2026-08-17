@@ -1,19 +1,21 @@
 import { App, Modal, setIcon } from 'obsidian';
 import type DashboardPlugin from './main';
-import type { PinnedNote, QuickNotePreset } from './types';
+import type { PinnedNote, QuickCommand, QuickNotePreset } from './types';
 import { IconPickerModal } from './icon-picker-modal';
+import type { AppWithCommands } from './obsidian-internal';
 import { t } from './i18n';
 
 /**
- * Configuration modal for the Quick Notes region: CRUD for create-presets and
- * pinned-note shortcuts, plus capture (target/folder) and "today" toggles.
- * All edits live in local copies until Save, which commits to global settings,
- * persists, and refreshes open dashboards.
+ * Configuration modal for the Quick Notes region: CRUD for create-presets,
+ * pinned-note shortcuts and quick commands, plus capture (target/folder) and
+ * "today" toggles. All edits live in local copies until Save, which commits to
+ * global settings, persists, and refreshes open dashboards.
  */
 export class QuickNoteConfigModal extends Modal {
 	private plugin: DashboardPlugin;
 	private presets: QuickNotePreset[];
 	private pinned: PinnedNote[];
+	private commands: QuickCommand[];
 	private captureEnabled: boolean;
 	private captureTarget: string;
 	private captureFolder: string;
@@ -21,7 +23,7 @@ export class QuickNoteConfigModal extends Modal {
 	private dailyEnabled: boolean;
 	/** Index + list of the row currently being dragged (null when idle). */
 	private dragIndex: number | null = null;
-	private dragKind: 'preset' | 'pinned' | null = null;
+	private dragKind: 'preset' | 'pinned' | 'command' | null = null;
 
 	constructor(app: App, plugin: DashboardPlugin) {
 		super(app);
@@ -29,6 +31,7 @@ export class QuickNoteConfigModal extends Modal {
 		const s = plugin.settings;
 		this.presets = s.quickNotePresets.map(p => ({ ...p }));
 		this.pinned = s.pinnedNotes.map(p => ({ ...p }));
+		this.commands = (s.quickCommands ?? []).map(c => ({ ...c }));
 		this.captureEnabled = s.quickCaptureEnabled;
 		this.captureTarget = s.quickCaptureTarget;
 		this.captureFolder = s.quickCaptureFolder;
@@ -56,6 +59,7 @@ export class QuickNoteConfigModal extends Modal {
 		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
 		this.renderPresets(form);
 		this.renderPinned(form);
+		this.renderCommands(form);
 		this.renderCapture(form);
 		this.renderDaily(form);
 		this.renderActions(form);
@@ -130,6 +134,42 @@ export class QuickNoteConfigModal extends Modal {
 		this.pinned = this.pinned.map((p, idx) => idx === i ? { ...p, ...patch } : p);
 	}
 
+	// ── Commands ───────────────────────────────────────────────────────────
+
+	private renderCommands(form: HTMLElement): void {
+		const section = this.section(form, t('quickNote.commands'), t('quickNote.commandsDesc'));
+		const list = section.createDiv({ cls: 'dashboard-quicknote-cfg-list' });
+		this.commands.forEach((_, i) => this.renderCommandRow(list, i));
+
+		this.addBtn(section, t('quickNote.addCommand'), () => {
+			new CommandSearchModal(this.app, this.plugin.settings.stylePreset, (entry) => {
+				this.commands = [...this.commands, {
+					id: uid(), label: entry.name, icon: 'terminal', commandId: entry.id,
+				}];
+				this.renderBody();
+			}).open();
+		});
+	}
+
+	private renderCommandRow(list: HTMLElement, i: number): void {
+		const cmd = this.commands[i]!;
+		const card = list.createDiv({ cls: 'dashboard-quicknote-cfg-item' });
+		const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
+		this.wireDrag(top, card, i, 'command', (from, to) => {
+			this.commands = this.reorderArray(this.commands, from, to);
+			this.renderBody();
+		});
+		this.iconPickBtn(top, cmd.icon || 'terminal', (name) => this.updateCommand(i, { icon: name }));
+		this.textInput(top, cmd.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updateCommand(i, { label: v }));
+		this.delBtn(top, () => { this.commands = this.commands.filter((_, idx) => idx !== i); this.renderBody(); });
+		// Read-only command id under the top bar (picked via search, not typed).
+		card.createDiv({ cls: 'dashboard-quicknote-cfg-cmd-id', text: cmd.commandId });
+	}
+
+	private updateCommand(i: number, patch: Partial<QuickCommand>): void {
+		this.commands = this.commands.map((c, idx) => idx === i ? { ...c, ...patch } : c);
+	}
+
 	// ── Capture ────────────────────────────────────────────────────────────
 
 	private renderCapture(form: HTMLElement): void {
@@ -171,6 +211,7 @@ export class QuickNoteConfigModal extends Modal {
 			...this.plugin.settings,
 			quickNotePresets: this.presets.filter(p => p.label.trim()),
 			pinnedNotes: this.pinned.filter(p => p.label.trim() && p.path.trim()),
+			quickCommands: this.commands.filter(c => c.commandId.trim() && c.label.trim()),
 			quickCaptureEnabled: this.captureEnabled,
 			quickCaptureTarget: this.captureTarget.trim(),
 			quickCaptureFolder: this.captureFolder.trim(),
@@ -251,7 +292,7 @@ export class QuickNoteConfigModal extends Modal {
 		topBar: HTMLElement,
 		card: HTMLElement,
 		index: number,
-		kind: 'preset' | 'pinned',
+		kind: 'preset' | 'pinned' | 'command',
 		onReorder: (from: number, to: number) => void,
 	): void {
 		card.draggable = false;
@@ -332,4 +373,86 @@ export class QuickNoteConfigModal extends Modal {
 
 function uid(): string {
 	return `qn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
+ * Live-filtered picker over the vault command registry (core + plugins).
+ * Clicking a row invokes `onPick` with the command id + name; label and icon
+ * are edited inline in the config row afterwards. Stacks over the config
+ * modal the same way IconPickerModal does.
+ */
+class CommandSearchModal extends Modal {
+	private readonly stylePreset: string;
+	private readonly onPick: (entry: { id: string; name: string }) => void;
+
+	constructor(app: App, stylePreset: string, onPick: (entry: { id: string; name: string }) => void) {
+		super(app);
+		this.stylePreset = stylePreset;
+		this.onPick = onPick;
+	}
+
+	onOpen(): void {
+		const { contentEl, containerEl } = this;
+		containerEl.dataset.theme = this.stylePreset;
+		containerEl.addClass('modal--dashboard');
+		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		contentEl.addClass('dashboard-modal');
+		contentEl.createEl('h2', { text: t('quickNote.commandSearchTitle') });
+
+		const wrap = contentEl.createDiv({ cls: 'dashboard-docsearch' });
+		const input = wrap.createEl('input', {
+			cls: 'dashboard-modal-input dashboard-docsearch-input',
+			attr: { type: 'text', placeholder: t('quickNote.commandSearchPh'), autofocus: 'true' },
+		});
+		const results = wrap.createDiv({ cls: 'dashboard-docsearch-results' });
+
+		const renderResults = (query: string) => {
+			results.empty();
+			const q = query.toLowerCase().trim();
+			if (!q) {
+				results.createDiv({ cls: 'dashboard-docsearch-hint', text: t('quickActions.typeToSearchCmd') });
+				return;
+			}
+			const commands = (this.app as AppWithCommands).commands.commands;
+			if (!commands) {
+				results.createDiv({ cls: 'dashboard-docsearch-hint', text: t('quickActions.noResults') });
+				return;
+			}
+			// Registry can hold hundreds of entries; filter → sort → top-30
+			// matches the shipped quick-actions command search cost.
+			const entries = Object.entries(commands)
+				.map(([id, cmd]) => ({ id, name: cmd.name ?? id }))
+				.filter(e => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q))
+				.sort((a, b) => a.name.localeCompare(b.name))
+				.slice(0, 30);
+			if (entries.length === 0) {
+				results.createDiv({ cls: 'dashboard-docsearch-hint', text: t('quickActions.noResults') });
+				return;
+			}
+			for (const e of entries) {
+				const item = results.createDiv({ cls: 'dashboard-docsearch-item' });
+				setIcon(item.createSpan({ cls: 'dashboard-docsearch-icon' }), 'terminal');
+				const info = item.createDiv({ cls: 'dashboard-docsearch-info' });
+				info.createDiv({ cls: 'dashboard-docsearch-name', text: e.name });
+				info.createDiv({ cls: 'dashboard-docsearch-path', text: e.id });
+				item.addEventListener('click', () => {
+					this.onPick(e);
+					this.close();
+				});
+			}
+		};
+
+		input.addEventListener('input', () => renderResults(input.value));
+		renderResults(input.value);
+		input.focus();
+
+		contentEl.createEl('button', {
+			cls: 'dashboard-docsearch-cancel',
+			text: t('common.cancel'),
+		}).addEventListener('click', () => this.close());
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
 }

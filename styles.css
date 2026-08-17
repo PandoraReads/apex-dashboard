@@ -14687,6 +14687,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-quicknote-cfg-add { font-size: 0.85em; }
 .dashboard-quicknote-cfg-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .dashboard-quicknote-cfg-toggle label { font-size: 0.88em; cursor: pointer; }
+.dashboard-quicknote-cfg-cmd-id {
+	font-size: 0.78em;
+	color: var(--db-text-muted);
+	word-break: break-all;
+	margin-top: 2px;
+}
 
 /* ==========================================================================
    Banner — Statistics mode (three-column data panel)

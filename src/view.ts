@@ -2,7 +2,7 @@ import { Events, HoverParent, HoverPopover, ItemView, Modal, Notice, setIcon, Se
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, DataviewConfig } from './types';
+import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, DataviewConfig } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
@@ -861,6 +861,15 @@ export class DashboardView extends ItemView implements HoverParent {
 			onQuickNoteCreate: (preset: QuickNotePreset) => void createNoteFromPreset(this.app, preset),
 			onQuickNoteCapture: (text: string) => void captureThought(this.app, this.plugin.settings, text),
 			onOpenPinnedNote: (note: PinnedNote) => openPinnedNote(this.app, note),
+			onQuickCommand: (cmd: QuickCommand) => {
+				const commands = (this.app as AppWithCommands).commands;
+				// Stale id (plugin disabled/uninstalled): warn instead of silently no-op'ing.
+				if (!commands.commands[cmd.commandId]) {
+					new Notice(t('quickNote.commandNotFound'));
+					return;
+				}
+				commands.executeCommandById(cmd.commandId);
+			},
 			onQuickNoteDaily: () => void openTodayNote(this.app),
 			onQuickNoteConfig: () => new QuickNoteConfigModal(this.app, this.plugin).open(),
 			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.handleMoveCard(cardId, targetCol, targetIdx),

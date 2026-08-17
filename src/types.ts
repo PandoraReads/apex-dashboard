@@ -73,6 +73,8 @@ export interface DashboardSettings {
 	quickCaptureTemplate: string;
 	/** Pinned-note shortcuts rendered as one-click open buttons. */
 	pinnedNotes: PinnedNote[];
+	/** Quick-command shortcuts rendered as one-click execute buttons. */
+	quickCommands: QuickCommand[];
 	/** Show a "Today" button that creates/opens the core Daily Notes note. */
 	quickDailyEnabled: boolean;
 	/** Last plugin version that showed the Quick Notes first-run guide. Empty = never shown. */
@@ -156,6 +158,17 @@ export interface PinnedNote {
 	path: string;
 }
 
+/** A quick-command shortcut in the Common Actions bar: one-click execute. */
+export interface QuickCommand {
+	id: string;
+	/** Button label. */
+	label: string;
+	/** Lucide icon name. */
+	icon: string;
+	/** Obsidian command id (e.g. 'editor:toggle-pin'). */
+	commandId: string;
+}
+
 export const DEFAULT_SETTINGS: DashboardSettings = {
 	dashboardFile: 'dashboard',
 	recentDocCount: 5,
@@ -200,6 +213,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickCaptureFolder: '',
 	quickCaptureTemplate: '',
 	pinnedNotes: [] as PinnedNote[],
+	quickCommands: [] as QuickCommand[],
 	quickDailyEnabled: false,
 	quickNoteGuideShownVersion: '',
 	dataviewGuideShownVersion: '',
@@ -536,6 +550,7 @@ export interface RenderCallbacks {
 	onQuickNoteCreate(preset: QuickNotePreset): void;
 	onQuickNoteCapture(text: string): void;
 	onOpenPinnedNote(note: PinnedNote): void;
+	onQuickCommand(cmd: QuickCommand): void;
 	onQuickNoteDaily(): void;
 	onQuickNoteConfig(): void;
 }

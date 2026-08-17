@@ -20,9 +20,10 @@ export function renderQuickNoteRegion(
 
 	const presets = settings.quickNotePresets ?? [];
 	const pinned = settings.pinnedNotes ?? [];
+	const commands = settings.quickCommands ?? [];
 	const captureOn = !!settings.quickCaptureEnabled;
 	const dailyOn = !!settings.quickDailyEnabled;
-	const hasChips = presets.length > 0 || pinned.length > 0 || dailyOn;
+	const hasChips = presets.length > 0 || pinned.length > 0 || commands.length > 0 || dailyOn;
 
 	// Scrollable nav of chips — sits on the left.
 	const nav = region.createDiv({ cls: 'dashboard-quicknote-nav' });
@@ -41,6 +42,9 @@ export function renderQuickNoteRegion(
 		}
 		for (const note of pinned) {
 			chip(nav, 'dashboard-quicknote-chip dashboard-quicknote-pin', note.icon || 'pin', note.label, () => callbacks.onOpenPinnedNote(note));
+		}
+		for (const cmd of commands) {
+			chip(nav, 'dashboard-quicknote-chip', cmd.icon || 'terminal', cmd.label, () => callbacks.onQuickCommand(cmd));
 		}
 	}
 

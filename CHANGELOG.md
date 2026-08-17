@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.5 (2026-08-17)
+
+### Added
+- **Quick commands in the Common Actions bar** — A fourth chip type on the pinned top bar: one-click execution of any Obsidian command (core or plugin). In the bar's config modal, a new "Quick commands" section lets you add commands via a live-filtered search over the vault's entire command registry (match by name or id), then rename, re-icon (fuzzy icon picker), and drag-reorder each row. Clicking a command chip runs it through Obsidian's command system; a stale id (plugin disabled or removed) shows a notice instead of failing silently. Commands persist in global plugin settings, and the bar's chip order is Today → create buttons → pinned notes → commands.
+
 ## 1.8.4 (2026-08-16)
 
 ### Fixed

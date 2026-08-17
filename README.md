@@ -111,6 +111,12 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.8.5
+- **Quick commands in the Common Actions bar** — A fourth chip type on the pinned top bar: one-click execution of any Obsidian command (core or plugin). Add commands via a live-filtered search over the vault's entire command registry, then rename, re-icon, and drag-reorder each one in the bar's config modal. A stale command (plugin disabled or removed) shows a notice instead of failing silently
+
+### 1.8.4
+- **Fix: settings tab layout broken on Obsidian 1.13+** — The settings bridge exposed each module as a navigable sub-page, so the new Obsidian settings UI scattered them into separate pages and squeezed setting rows sideways. The tab is now a single vertical page, identical to the pre-1.13 layout, and a double-render bug is gone
+
 ### 1.8.2
 - **Dataview announcement + community group** — A one-time popup on update introduces the new Dataview section and invites you to the WeChat user group (QR code included; if the invite has expired, add WeChat contact `PandoraReads`)
 - **Fix: wikilinks with heading/block subpaths** — `[[note#heading]]` and `[[note#^block]]` in memos and Dataview sections now jump to the anchor itself, not just open the note: the tab path resolves via native link text, the note popover scrolls with `setEphemeralState`, and hover previews show the anchor position
