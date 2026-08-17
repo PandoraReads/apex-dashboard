@@ -118,7 +118,9 @@ export function renderSidebarCalendar(
 	const next = nav.createDiv({ cls: 'dashboard-calendar-nav-btn' });
 	setIcon(next, 'chevron-right');
 
-	// Month | Week view toggle
+	// Single month/week toggle: shows the view you'd switch TO. One button
+	// (instead of a two-segment control) keeps room for the expand button in
+	// the narrow sidebar.
 	const viewToggle = nav.createDiv({ cls: 'dashboard-library-view-toggle dashboard-calendar-view-toggle' });
 
 	const now = new Date();
@@ -129,19 +131,24 @@ export function renderSidebarCalendar(
 
 	const buildViewToggle = (): void => {
 		viewToggle.empty();
-		(['month', 'week'] as const).forEach((v) => {
-			const btn = viewToggle.createDiv({
-				cls: 'dashboard-library-view-btn' + (v === view ? ' active' : ''),
-				attr: { 'aria-label': v === 'month' ? t('calendar.viewMonth') : t('calendar.viewWeek') },
-			});
-			setIcon(btn, v === 'month' ? 'calendar' : 'calendar-range');
-			btn.addEventListener('click', () => {
-				if (view === v) return;
-				view = v;
-				if (v === 'week') weekStart = mondayOf(new Date());
-				buildViewToggle();
-				void load();
-			});
+		const next: 'month' | 'week' = view === 'month' ? 'week' : 'month';
+		const btn = viewToggle.createDiv({
+			cls: 'dashboard-library-view-btn dashboard-calendar-view-btn',
+			attr: { 'aria-label': next === 'week' ? t('calendar.switchToWeek') : t('calendar.switchToMonth') },
+		});
+		setIcon(btn, next === 'week' ? 'calendar-range' : 'calendar');
+		btn.addEventListener('click', (e) => {
+			// The click swaps the icon by emptying this node, detaching `btn`
+			// from the DOM before the event bubbles further. A detached target
+			// fails the sidebar's `contains(e.target)` check on `root`, so the
+			// "click outside collapses" handler would fold an unpinned sidebar.
+			// Stop the bubble here; the button's action is self-contained.
+			e.stopPropagation();
+			if (view === next) return;
+			view = next;
+			if (next === 'week') weekStart = mondayOf(new Date());
+			buildViewToggle();
+			void load();
 		});
 	};
 	buildViewToggle();
@@ -200,6 +207,17 @@ export function renderSidebarCalendar(
 
 	prev.addEventListener('click', () => { shift(-1); });
 	next.addEventListener('click', () => { shift(1); });
+	fullBtn.addEventListener('click', (e) => {
+		// Keep the bubble inside the sidebar (same rationale as the view toggle).
+		e.stopPropagation();
+		// Phones defer the vault scan: the first tap loads the grid, then opens
+		// fullscreen; later taps go straight to fullscreen.
+		if (Platform.isPhone && !hasLoaded) {
+			void load().then(openFullscreen);
+		} else {
+			void openFullscreen();
+		}
+	});
 
 	async function openFullscreen(): Promise<void> {
 		const tasks = (await collectVaultTasks(app, excludeFolders)).filter(isCalendarRelevant);
@@ -242,17 +260,7 @@ export function renderSidebarCalendar(
 			e.stopPropagation();
 			void load();
 		});
-		let loadedOnce = false;
-		fullBtn.addEventListener('click', () => {
-			if (!loadedOnce) {
-				loadedOnce = true;
-				void load().then(openFullscreen);
-			} else {
-				void openFullscreen();
-			}
-		});
 	} else {
-		fullBtn.addEventListener('click', () => { void openFullscreen(); });
 		if (!hasLoaded) {
 			void render();
 		}

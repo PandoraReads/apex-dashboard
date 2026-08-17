@@ -146,6 +146,11 @@ export class QuickNoteConfigModal extends Modal {
 				this.commands = [...this.commands, {
 					id: uid(), label: entry.name, icon: 'terminal', commandId: entry.id,
 				}];
+				// Commands are committed immediately (unlike presets/pinned, which
+				// wait for Save): picking one from the search list is an explicit
+				// "add this" action, and the chip should survive closing the modal
+				// without Save (e.g. via Esc or the X).
+				void this.commitCommands();
 				this.renderBody();
 			}).open();
 		});
@@ -157,13 +162,29 @@ export class QuickNoteConfigModal extends Modal {
 		const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
 		this.wireDrag(top, card, i, 'command', (from, to) => {
 			this.commands = this.reorderArray(this.commands, from, to);
+			void this.commitCommands();
 			this.renderBody();
 		});
 		this.iconPickBtn(top, cmd.icon || 'terminal', (name) => this.updateCommand(i, { icon: name }));
 		this.textInput(top, cmd.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updateCommand(i, { label: v }));
-		this.delBtn(top, () => { this.commands = this.commands.filter((_, idx) => idx !== i); this.renderBody(); });
+		this.delBtn(top, () => {
+			this.commands = this.commands.filter((_, idx) => idx !== i);
+			void this.commitCommands();
+			this.renderBody();
+		});
 		// Read-only command id under the top bar (picked via search, not typed).
 		card.createDiv({ cls: 'dashboard-quicknote-cfg-cmd-id', text: cmd.commandId });
+	}
+
+	/** Persist the quick-command list right away (add/delete/reorder are
+	 *  immediate actions; only label/icon edits still ride on Save). */
+	private async commitCommands(): Promise<void> {
+		this.plugin.settings = {
+			...this.plugin.settings,
+			quickCommands: this.commands.filter(c => c.commandId.trim() && c.label.trim()),
+		};
+		await this.plugin.saveSettings();
+		this.plugin.refreshAllDashboards();
 	}
 
 	private updateCommand(i: number, patch: Partial<QuickCommand>): void {

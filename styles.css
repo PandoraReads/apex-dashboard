@@ -4866,6 +4866,10 @@
 	height: 14px;
 }
 
+/* Icon-only button (maximize): strip Obsidian's default `button` chrome —
+   background-color + inset box-shadow read as a filled, bordered chip next to
+   the div-based view toggle, which never receives that chrome. Same
+   !important reset pattern as .dashboard-qa-pin-btn / .dashboard-qa-add-btn. */
 .dashboard-sidebar-calendar .dashboard-calendar-today-btn {
 	flex-shrink: 0;
 	display: flex;
@@ -4874,8 +4878,10 @@
 	width: 22px;
 	height: 22px;
 	padding: 0;
-	background: transparent;
-	border: none;
+	background: none !important;
+	background-color: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
 	cursor: pointer;
 	border-radius: var(--db-radius-sm, 6px);
 	color: var(--db-text-muted);
@@ -4883,7 +4889,9 @@
 }
 
 .dashboard-sidebar-calendar .dashboard-calendar-today-btn:hover {
-	background: var(--db-bg-hover);
+	/* !important to clear the base rule's !important reset, keeping the same
+	   hover tint as the nav/view buttons. */
+	background: var(--db-bg-hover) !important;
 	color: var(--db-accent);
 }
 
@@ -4923,7 +4931,8 @@
 	height: 14px;
 }
 
-/* Compact the segmented month/week toggle for the narrow sidebar */
+/* Compact the month/week toggle for the narrow sidebar. Single switch button:
+   shows the view you'd switch TO (no active state needed). */
 .dashboard-sidebar-calendar .dashboard-calendar-view-toggle {
 	flex-shrink: 0;
 }
@@ -14447,9 +14456,36 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	gap: 6px;
 	flex-wrap: nowrap;
 	overflow-x: auto;
+	/* Scrollbar mirrors the .dashboard-section-cards recipe (~line 8076):
+	   standard props take over on Chromium 121+, which both renders the slim
+	   native pill AND neutralizes theme-level ::-webkit-scrollbar hijacks
+	   (e.g. Border) — those rules simply stop applying to this element.
+	   ::-webkit rules below are the old-engine fallback, same as sections.
+	   Invisible at rest, accent-tinted on hover. */
 	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
 }
-.dashboard-quicknote-nav::-webkit-scrollbar { height: 4px; }
+.dashboard-quicknote-nav:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent) 18%, transparent) transparent;
+}
+.dashboard-quicknote-nav::-webkit-scrollbar {
+	width: 0;
+	height: 4px;
+}
+.dashboard-quicknote-nav::-webkit-scrollbar-track {
+	background: transparent;
+}
+.dashboard-quicknote-nav::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 3px;
+	transition: background 0.2s ease;
+}
+.dashboard-quicknote-nav:hover::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent) 18%, transparent);
+}
+.dashboard-quicknote-nav::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--db-accent) 30%, transparent);
+}
 .dashboard-quicknote-empty {
 	display: flex;
 	align-items: center;

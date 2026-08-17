@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.6 (2026-08-17)
+
+### Fixed
+- **"New section: Dataview" popup on every Obsidian launch** — The announcement had its version gate removed during 1.8.2 verification and never got it back, so it appeared (and wrote settings) on every startup. The gate is restored: it now shows once per plugin version — on install/update or a plugin reload, not on each vault launch.
+- **Quick commands lost after restart** — Commands added in the Common Actions config modal only reached disk when "Save" was clicked; closing the modal via Esc or the X silently discarded them. Adding, deleting, or drag-reordering a command now persists immediately (label/icon tweaks still ride on Save).
+- **Sidebar collapsing when switching the calendar widget between week/month** — The toggle rebuilt its own buttons inside the click handler, detaching the clicked button from the DOM before the click bubbled out; the sidebar's "click outside to collapse" check no longer recognized the detached target and folded an unpinned sidebar. The toggle's clicks now stay inside the sidebar (same for the expand button).
+- **Calendar expand button pushed out of view** — The two-segment week/month control is now a single toggle button (icon shows the view you'd switch to), leaving room for the expand button. The expand button is also restyled as a bare icon — no background or border — matching the toggle and nav arrows (hover still tints it).
+
 ## 1.8.5 (2026-08-17)
 
 ### Added

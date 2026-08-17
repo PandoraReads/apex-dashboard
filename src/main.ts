@@ -139,17 +139,20 @@ export default class DashboardPlugin extends Plugin {
 	}
 
 	/**
-	 * Announcement for the Dataview section + community group. While in
-	 * 1.8.2 the popup intentionally shows on EVERY plugin load (per author
-	 * request) — no version gate — so it can be verified at each restart.
+	 * Announcement for the Dataview section + community group. Shown once per
+	 * plugin version on startup (after layout ready) — i.e. on install/update
+	 * of the plugin, not on every Obsidian launch.
 	 */
 	private maybeShowDataviewGuide(): void {
+		if (this.settings.dataviewGuideShownVersion === this.manifest.version) {
+			return;
+		}
 		this.app.workspace.onLayoutReady(() => {
 			new DataviewGuideModal(this.app, () => { void this.markDataviewGuideSeen(); }).open();
 		});
 	}
 
-	/** Record the announcement as shown (kept for when the version gate returns). */
+	/** Record the current version as having shown the dataview announcement. */
 	private async markDataviewGuideSeen(): Promise<void> {
 		this.settings = { ...this.settings, dataviewGuideShownVersion: this.manifest.version };
 		await this.saveSettings();
