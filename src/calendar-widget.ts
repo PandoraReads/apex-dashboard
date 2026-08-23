@@ -22,6 +22,25 @@ let hoverPopup: HTMLElement | null = null;
 const HOVER_DELAY_MS = 350;
 const PREVIEW_MAX_TASKS = 8;
 
+/** Per-widget reload functions keyed by the widget's root element, so vault task
+ *  changes can refresh the grid in place (re-scan + re-render into the live
+ *  gridHost) without rebuilding the whole widget - and without losing the user's
+ *  month/week navigation. WeakMap: discarded widget DOM releases its entry. */
+const widgetReloaders = new WeakMap<HTMLElement, (resetToToday: boolean) => Promise<void>>();
+
+/** Re-scan tasks and re-render the live sidebar task calendar's grid in place.
+ *  Returns false when the widget is absent (disabled) or not yet loaded (phones
+ *  defer the initial scan). `resetToToday` also snaps navigation back to the
+ *  current month - used by the day-rollover path. */
+export function refreshSidebarTaskCalendar(root: HTMLElement, resetToToday = false): boolean {
+	const el = root.querySelector<HTMLElement>('.dashboard-sidebar-calendar');
+	if (!el || !el.isConnected) return false;
+	const reload = widgetReloaders.get(el);
+	if (!reload) return false;
+	void reload(resetToToday);
+	return true;
+}
+
 /** Close and discard the active hover preview, cancelling any pending show. */
 export function closeDayPreview(): void {
 	if (hoverTimer !== null) { window.clearTimeout(hoverTimer); hoverTimer = null; }
@@ -265,4 +284,21 @@ export function renderSidebarCalendar(
 			void render();
 		}
 	}
+
+	// In-place reload entry point for vault task changes: re-scan and re-render
+	// the grid only. Guarded by hasLoaded so phones keep their deferred-scan
+	// placeholder until the user explicitly loads the grid.
+	widgetReloaders.set(widget, async (resetToToday: boolean): Promise<void> => {
+		if (!hasLoaded) return;
+		if (resetToToday) {
+			const now2 = new Date();
+			year = now2.getFullYear();
+			month = now2.getMonth();
+			view = 'month';
+			weekStart = mondayOf(now2);
+		}
+		// The hover preview anchors to day cells that are about to be replaced.
+		closeDayPreview();
+		await render();
+	});
 }

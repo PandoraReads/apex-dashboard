@@ -16,6 +16,7 @@ export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
 	{ value: 'projects', icon: 'layout-grid', labelKey: 'renderer.typeNotes' },
 	{ value: 'todo', icon: 'check-square', labelKey: 'renderer.typeTodo' },
 	{ value: 'memo', icon: 'sticky-note', labelKey: 'renderer.typeMemo' },
+	{ value: 'sticky', icon: 'layers', labelKey: 'renderer.typeSticky' },
 	{ value: 'notes', icon: 'file-text', labelKey: 'renderer.typeNotesPlain' },
 	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
 	{ value: 'library', icon: 'database', labelKey: 'renderer.typeLibrary' },
@@ -53,9 +54,6 @@ export class AddSectionModal extends Modal {
 
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
 		header.createDiv({ cls: 'dashboard-modal-title', text: t('section.addTitle') });
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		setIcon(closeBtn, 'x');
-		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 

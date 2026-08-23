@@ -19,6 +19,16 @@ export const CUSTOM_COLOR_TOKENS: Readonly<Record<keyof CustomColors, string>> =
 
 const DEFAULT_DIM = 40;
 
+/** Root font-size multipliers per fontScale option. em-based sizes across the
+    dashboard cascade from the root, so one multiplier scales titles, body,
+    banner, sidebar and widget labels proportionally while keeping their
+    relative differences. 'medium' clears the override (inherited base size). */
+const FONT_SCALE_SIZES: Readonly<Record<DashboardSettings['fontScale'], string>> = {
+	small: '0.85em',
+	medium: '',
+	large: '1.15em',
+};
+
 /** Surface tokens whose alpha surfaceOpacity scales (read computed, re-emit rgba). */
 const SURFACE_TOKENS = ['--db-bg-card', '--db-bg-section', '--db-bg-sidebar'] as const;
 /** Radius tokens driven by radiusScale (md = base, sm = base-4, lg = base+4). */
@@ -127,9 +137,17 @@ function applyAdvanced(root: HTMLElement, settings: DashboardSettings): void {
 		root.style.setProperty(RADIUS_TOKENS.sm, `${Math.max(0, md - 4)}px`);
 		root.style.setProperty(RADIUS_TOKENS.lg, `${md + 4}px`);
 	}
+	applyFontScale(root, settings.fontScale);
 	if (settings.surfaceOpacity != null) {
 		applySurfaceOpacity(root, settings.surfaceOpacity);
 	}
+}
+
+/** Scale the dashboard's base font size ('' clears back to the inherited default). */
+function applyFontScale(root: HTMLElement, scale: DashboardSettings['fontScale']): void {
+	const size = FONT_SCALE_SIZES[scale] ?? '';
+	if (size) root.style.fontSize = size;
+	else root.style.removeProperty('font-size');
 }
 
 /** Re-emit surface tokens as rgba(rgb, alpha), preserving the effective color. */
@@ -147,6 +165,7 @@ function applySurfaceOpacity(root: HTMLElement, opacity: number): void {
 /** Remove the `--db-*` overrides applyAdvanced may have set (surface tokens + blur + radii). */
 export function clearAdvanced(root: HTMLElement): void {
 	root.style.removeProperty('--db-backdrop-blur');
+	root.style.removeProperty('font-size');
 	root.style.removeProperty(RADIUS_TOKENS.sm);
 	root.style.removeProperty(RADIUS_TOKENS.md);
 	root.style.removeProperty(RADIUS_TOKENS.lg);

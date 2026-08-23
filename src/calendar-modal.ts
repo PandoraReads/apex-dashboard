@@ -97,10 +97,6 @@ export class CalendarMonthModal extends Modal {
 			this.render();
 		});
 
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		setIcon(closeBtn, 'x');
-		closeBtn.addEventListener('click', () => this.close());
-
 		const body = container.createDiv({ cls: 'dashboard-modal-body dashboard-calendar-fullscreen-body' });
 		const gridOpts = {
 			compact: false as const,
@@ -170,9 +166,6 @@ export class DayAgendaModal extends Modal {
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
 		header.createDiv({ cls: 'dashboard-modal-title', text: `${this.iso} · ${t('calendar.dayAgenda')}` });
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		setIcon(closeBtn, 'x');
-		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 

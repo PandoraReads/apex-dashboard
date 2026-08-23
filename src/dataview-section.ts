@@ -282,14 +282,14 @@ function renderResult(
 		drawPage(newSize);
 	});
 
-	// View-mode toggle: table vs list presentation (persisted preference).
+	// View-mode toggle: table / list / auto presentation (persisted preference).
 	// Mirrors the library section's segmented view toggle. `config` is treated
 	// read-only; the current mode is held in a local override merged on draw.
-	const currentViewMode = config.viewMode ?? 'table';
-	let viewModeOverride: 'table' | 'list' | null = null;
+	const currentViewMode = config.viewMode ?? 'auto';
+	let viewModeOverride: 'table' | 'list' | 'auto' | null = null;
 	const effectiveConfig = (): DataviewConfig => viewModeOverride ? { ...config, viewMode: viewModeOverride } : config;
 	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-dataview-view-toggle' });
-	const setViewMode = (mode: 'table' | 'list'): void => {
+	const setViewMode = (mode: 'table' | 'list' | 'auto'): void => {
 		viewModeOverride = mode;
 		if (onConfigChange) onConfigChange({ ...config, viewMode: mode });
 		viewToggle.querySelectorAll('.dashboard-library-view-btn').forEach(b => b.removeClass('active'));
@@ -298,13 +298,20 @@ function renderResult(
 		currentPage = 1;
 		drawPage();
 	};
-	for (const mode of ['table', 'list'] as const) {
+	const VIEW_MODE_ICONS: Record<'table' | 'list' | 'auto', string> = {
+		table: 'table',
+		list: 'list',
+		auto: 'sparkles',
+	};
+	for (const mode of ['table', 'list', 'auto'] as const) {
 		const btn = viewToggle.createDiv({
 			cls: 'dashboard-library-view-btn' + (mode === currentViewMode ? ' active' : ''),
 		});
 		btn.dataset.view = mode;
-		setIcon(btn, mode === 'table' ? 'table' : 'list');
-		btn.title = mode === 'table' ? t('dataview.viewTable') : t('dataview.viewList');
+		setIcon(btn, VIEW_MODE_ICONS[mode]);
+		btn.title = mode === 'table' ? t('dataview.viewTable')
+			: mode === 'list' ? t('dataview.viewList')
+				: t('dataview.viewAuto');
 		btn.addEventListener('click', () => setViewMode(mode));
 	}
 
@@ -352,10 +359,12 @@ function renderResult(
 }
 
 /** Render one page of rows into the scrolling body. For the paginated types
- *  the persisted viewMode decides the presentation: TABLE queries can render
- *  as a list, and LIST/TASK queries as a table — the underlying row data is
- *  the same; only the layout differs. TASK keeps its interactive checkboxes in
- *  both modes (the table mode renders them in the first cell). */
+ *  the persisted viewMode decides the presentation: 'auto' renders each query
+ *  type in its native Dataview shape (TABLE -> compact source-free table,
+ *  LIST/TASK -> bullet list); 'table'/'list' force one layout across all query
+ *  shapes - the underlying row data is the same, only the layout differs.
+ *  TASK keeps its interactive checkboxes in every mode (the table mode renders
+ *  them in the first cell). */
 function renderResultBody(
 	container: HTMLElement,
 	result: QueryResult,
@@ -375,9 +384,17 @@ function renderResultBody(
 		case 'TABLE':
 		case 'LIST':
 		case 'TASK': {
-			const mode = config?.viewMode ?? 'table';
+			const mode = config?.viewMode ?? 'auto';
 			if (mode === 'list') {
 				renderList(container, result, rows, config, rerender);
+			} else if (mode === 'auto' && result.queryType !== 'TABLE') {
+				// Native LIST/TASK shape: bullet list with bold group headers.
+				renderFreeList(container, result, rows, rerender);
+			} else if (mode === 'auto') {
+				// Native TABLE look: keep the sortable header, drop the database
+				// furniture (source columns) - the query's implicit file column
+				// becomes the "File" column, exactly like Dataview's own tables.
+				renderTable(container, result, rows, view, { ...(config ?? { query: '' }), showSource: false }, onSortChange, rowOffset, rerender);
 			} else {
 				renderTable(container, result, rows, view, config, onSortChange, rowOffset, rerender);
 			}
@@ -680,7 +697,7 @@ function renderList(container: HTMLElement, result: QueryResult, rows: readonly 
 			main.addClass('dashboard-dataview-task-row');
 			renderTaskCell(main, row.task, appRef, () => rerender?.());
 			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
-			renderTextWithDvLinks(label, formatValue(row.values[0] ?? null));
+			renderDvInline(label, formatValue(row.values[0] ?? null));
 		} else {
 			// First projected value as the primary line. For a bare LIST (or
 			// TABLE's implicit file column) values[0] IS the note link — render it
@@ -705,6 +722,78 @@ function renderList(container: HTMLElement, result: QueryResult, rows: readonly 
 				});
 			}
 		}
+	}
+	container.appendChild(list);
+}
+
+/* ----------------------------- FREE (native Dataview shape) ----------------------------- */
+
+/** Auto ("free") mode for LIST/TASK queries: the presentation Dataview itself
+ *  would produce. Each row is a bullet whose main line is the note link with
+ *  the projected value after an en-dash (`- [[Note]] - value`); TASK rows keep
+ *  their interactive checkbox and render the full task line as inline
+ *  markdown. GROUP BY rows become a bold group header with a nested bullet
+ *  list beneath, mirroring Dataview's grouped LIST output. */
+function renderFreeList(
+	container: HTMLElement,
+	result: QueryResult,
+	rows: readonly ResultRow[],
+	rerender?: () => void,
+): void {
+	const list = container.createEl('ul', { cls: 'dashboard-dataview-free-list' });
+	const dc = displayColumns(result);
+
+	const renderFreeItem = (host: HTMLElement, row: ResultRow): void => {
+		const li = host.createEl('li', { cls: 'dashboard-dataview-free-item' });
+		const main = li.createDiv({ cls: 'dashboard-dataview-free-main' });
+
+		if (result.queryType === 'TASK' && row.task) {
+			main.addClass('dashboard-dataview-task-row');
+			renderTaskCell(main, row.task, appRef, () => rerender?.());
+			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
+			renderDvInline(label, row.task.text);
+			return;
+		}
+
+		// Bare LIST: values[0] IS the file link - the link alone is the bullet
+		// line, remaining values follow after an en-dash. LIST with a projection:
+		// Dataview renders `- [[Note]] - value`, so re-attach the source link
+		// unless the query explicitly asked `WITHOUT ID`.
+		if (result.queryType === 'TASK') {
+			// Synthetic TASK row with no payload: plain text fallback.
+			renderDvInline(main, formatValue(row.values[0] ?? null));
+			return;
+		}
+		const bareList = dc.hasImplicitFileCol;
+		const withoutId = result.withoutId === true;
+		if (!bareList && !withoutId) {
+			const src = sourceInfoOf(row);
+			if (src) renderValueCell(main, { kind: 'link', path: src.path });
+		}
+		if (bareList) renderValueCell(main, row.values[0] ?? null, true);
+		const from = bareList ? 1 : 0;
+		for (let i = from; i < row.values.length; i++) {
+			// Separator only between items (a leading dash before the very first
+			// value would look like a stray bullet marker).
+			if (main.childElementCount > 0) main.createSpan({ cls: 'dashboard-dataview-free-sep', text: '–' });
+			renderValueCell(main, row.values[i]!, true);
+		}
+	};
+
+	for (const row of rows) {
+		if (result.grouped && row.groupKey !== undefined) {
+			const li = list.createEl('li', { cls: 'dashboard-dataview-free-group' });
+			const title = li.createDiv({ cls: 'dashboard-dataview-free-group-title' });
+			renderValueCell(title, row.groupKey);
+			const nested = li.createEl('ul', { cls: 'dashboard-dataview-free-list is-nested' });
+			if (row.rows && row.rows.length > 0) {
+				for (const member of row.rows) renderFreeItem(nested, member);
+			} else {
+				renderFreeItem(nested, row);
+			}
+			continue;
+		}
+		renderFreeItem(list, row);
 	}
 	container.appendChild(list);
 }
@@ -999,21 +1088,53 @@ function renderValueCell(container: HTMLElement, value: DqlValue, asLink = false
 		return;
 	}
 	const text = formatValue(value);
-	if (/\[\[[^\]]+\]\]|\[[^\]]+\]\([^)]+\)/.test(text)) {
-		renderTextWithDvLinks(container, text);
-		return;
-	}
-	container.createSpan({ text });
+	// Strings render as inline markdown (links, emphasis, code, highlight) -
+	// the same shape Dataview itself produces for field values.
+	renderDvInline(container.createSpan({ cls: 'dashboard-dataview-text' }), text);
 	void asLink;
 }
 
-/** Render a string that may contain [[wikilinks]] or markdown links, routing
- *  note links through the section's opener + hover preview. */
-function renderTextWithDvLinks(container: HTMLElement, text: string): void {
-	const parts = text.split(/(\[\[[^\]]+?\]\]|\[[^\]]+\]\([^)]+\))/g);
+/** One combined scanner for inline markdown + links, matching Dataview's value
+ *  rendering: note links and external links first (so `[[a|b]]` / `[t](u)` win
+ *  over emphasis), then bold/italic/code/highlight/strikethrough wraps. */
+const INLINE_TOKEN_RE = /(\[\[[^\]]+?\]\]|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|\*[^*\s][^*]*?\*|`[^`]+`|==[^=]+==|~~[^~]+~~)/g;
+
+/** Render a string as inline markdown: wikilinks/external links route through
+ *  the section's openers; **bold** / *italic* / `code` / ==highlight== /
+ *  ~~strike~~ become semantic elements. Pure DOM construction (never
+ *  innerHTML), so user-authored query output cannot inject markup. */
+function renderDvInline(container: HTMLElement, text: string): void {
+	const parts = text.split(INLINE_TOKEN_RE);
 	for (const part of parts) {
-		const wiki = part.match(/^\[\[([^\]]+)\]\]$/);
-		if (wiki) { renderDvLink(container, wiki[1]!); continue; }
+		if (!part) continue;
+		if (part.startsWith('[[') && part.endsWith(']]')) {
+			renderDvLink(container, part.slice(2, -2));
+			continue;
+		}
+		if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+			renderDvInline(container.createEl('strong'), part.slice(2, -2));
+			continue;
+		}
+		if (part.startsWith('__') && part.endsWith('__') && part.length > 4) {
+			renderDvInline(container.createEl('strong'), part.slice(2, -2));
+			continue;
+		}
+		if (part.startsWith('==') && part.endsWith('==') && part.length > 4) {
+			renderDvInline(container.createEl('mark', { cls: 'dashboard-dataview-mark' }), part.slice(2, -2));
+			continue;
+		}
+		if (part.startsWith('~~') && part.endsWith('~~') && part.length > 4) {
+			renderDvInline(container.createEl('s'), part.slice(2, -2));
+			continue;
+		}
+		if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+			renderDvInline(container.createEl('em'), part.slice(1, -1));
+			continue;
+		}
+		if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+			container.createEl('code', { cls: 'dashboard-dataview-code', text: part.slice(1, -1) });
+			continue;
+		}
 		const ext = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
 		if (ext) {
 			const a = container.createEl('a', { cls: 'dashboard-dataview-extlink', text: ext[1]! });
@@ -1022,7 +1143,7 @@ function renderTextWithDvLinks(container: HTMLElement, text: string): void {
 			a.rel = 'noopener';
 			continue;
 		}
-		if (part) container.appendChild(document.createTextNode(part));
+		container.appendChild(document.createTextNode(part));
 	}
 }
 

@@ -193,6 +193,9 @@ export interface QueryResult {
 	readonly rows: readonly ResultRow[];
 	/** True when GROUP BY was applied (rows then carry `groupKey`/`rows`). */
 	readonly grouped: boolean;
+	/** True when the query used `WITHOUT ID` (no implicit link/name column).
+	 *  Lets renderers reproduce Dataview's native shape for LIST output. */
+	readonly withoutId?: boolean;
 	/** CALENDAR's resolved date field, if applicable. */
 	readonly calendarField?: Expression;
 	/** HEATMAP's numeric value expression, if applicable. */

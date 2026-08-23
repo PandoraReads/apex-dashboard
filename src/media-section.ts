@@ -7,7 +7,7 @@ import { MediaLightboxModal } from './media-lightbox-modal';
 import { MediaTagEditModal } from './media-tag-editor-modal';
 import type { MediaTagService } from './media-tags';
 import { renderPagination, renderTagsSelector } from './library-section';
-import { FolderSuggestModal } from './folder-config-modal';
+import { MultiFolderSelectModal } from './folder-config-modal';
 import {
 	type MediaFileResult,
 	renderMediaGrid,
@@ -368,7 +368,13 @@ export function renderMediaSection(
 		const folderInput = folderAddRow.createEl('input', { cls: 'dashboard-media-filter-folder', attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder') } });
 		const folderBrowseBtn = folderAddRow.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
 		folderBrowseBtn.addEventListener('click', () => {
-			new FolderSuggestModal(app, (folder) => { folderInput.value = folder.path; addFilterFolder(); }).open();
+			// Multi-select: pick every filter folder at once. Filter folders are OR
+			// unions, so parents/children stay independently tickable.
+			new MultiFolderSelectModal(app, filterFolders, (folders) => {
+				filterFolders = folders;
+				refreshMedia();
+				renderFolderChips();
+			}).open();
 		});
 		const renderFolderChips = (): void => {
 			folderChipsHost.empty();

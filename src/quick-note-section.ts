@@ -55,22 +55,46 @@ export function renderQuickNoteRegion(
 	if (captureOn) {
 		const capture = actions.createDiv({ cls: 'dashboard-quicknote-capture' });
 		setIcon(capture.createSpan({ cls: 'dashboard-quicknote-capture-icon' }), 'pencil');
-		const input = capture.createEl('input', {
+		// Auto-growing capture field: empty it looks exactly like the old
+		// one-line pill; once the text wraps, the box grows smoothly (CSS height
+		// transition) to fit every line so long thoughts stay fully readable.
+		// Enter still captures instantly - Shift+Enter breaks the line instead -
+		// and IME composition Enter (confirming a Chinese candidate) is ignored,
+		// keeping the "type anywhere, hit Enter, done" flow intact.
+		const input = capture.createEl('textarea', {
 			cls: 'dashboard-quicknote-capture-input',
 			attr: {
-				type: 'text',
+				rows: '1',
+				spellcheck: 'false',
 				placeholder: t('quickNote.capturePlaceholder'),
 				'aria-label': t('quickNote.capture'),
 			},
 		});
+		// Cap the growth so a runaway thought scrolls inside the box instead of
+		// stretching the whole quick-note bar off-screen.
+		const MAX_CAPTURE_HEIGHT = 160;
+		const resize = () => {
+			input.style.height = 'auto';
+			const target = Math.max(26, Math.min(input.scrollHeight, MAX_CAPTURE_HEIGHT));
+			// Assigning 'auto' and the target height in the same frame keeps the
+			// CSS transition running from the previous height to the new one
+			// instead of snapping through the intermediate auto layout.
+			input.style.height = `${target}px`;
+			capture.toggleClass('dashboard-quicknote-capture--expanded', target > 30);
+		};
+		input.addEventListener('input', resize);
+		const submit = () => {
+			const text = input.value.trim();
+			if (text) {
+				callbacks.onQuickNoteCapture(text);
+				input.value = '';
+			}
+			resize();
+		};
 		input.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') {
+			if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
 				e.preventDefault();
-				const text = input.value.trim();
-				if (text) {
-					callbacks.onQuickNoteCapture(text);
-					input.value = '';
-				}
+				submit();
 			}
 		});
 	}

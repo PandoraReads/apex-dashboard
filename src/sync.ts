@@ -381,9 +381,22 @@ export class SyncEngine {
 	async addColumn(name: string, sectionType?: string): Promise<void> {
 		if (!this.data) return;
 
+		// New library sections default to a rolling "last 7 days" window (by
+		// modified date, matching the default modified-desc sort) so the grid
+		// opens focused on recent files. The quick filter can clear or change it.
+		const libraryConfig = sectionType === 'library'
+			? {
+				filters: [] as import('./types').PropertyFilter[],
+				viewMode: 'grid' as import('./types').LibraryViewMode,
+				sortBy: 'modified',
+				sortDesc: true,
+				quickDateFilter: { property: 'modified' as const, start: '', end: '', days: 7 },
+			}
+			: undefined;
+
 		this.data = {
 			...this.data,
-			columns: [...this.data.columns, { name, color: '#6366f1', sectionType, cards: [] }],
+			columns: [...this.data.columns, { name, color: '#6366f1', sectionType, cards: [], libraryConfig }],
 		};
 		await this.writeToDisk();
 	}
@@ -734,7 +747,7 @@ export class SyncEngine {
 
 	private getDefaultCardTitle(columnName: string, sectionType?: string): string {
 		const effective = sectionType?.toLowerCase();
-		if (effective === 'memo' || (!effective && columnName.toLowerCase() === 'memo')) {
+		if (effective === 'memo' || effective === 'sticky' || (!effective && columnName.toLowerCase() === 'memo')) {
 			const now = new Date();
 			const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 			return t('sync.memoTitle', { date });
@@ -749,6 +762,9 @@ export class SyncEngine {
 		const effective = sectionType?.toLowerCase();
 		if (effective === 'todo' || (!effective && columnName.toLowerCase() === 'todo')) return 'task';
 		if (effective === 'memo' || (!effective && columnName.toLowerCase() === 'memo')) return 'generic';
+		// Sticky sections pick the type per card via StickyCardTypeModal; a bare
+		// addCard (no overrides) falls back to a memo card.
+		if (effective === 'sticky') return 'generic';
 		if (effective === 'dashboard' || (!effective && columnName.toLowerCase() === 'dashboard')) return 'weather';
 		return 'project';
 	}

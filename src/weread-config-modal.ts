@@ -42,9 +42,6 @@ export class WereadConfigModal extends Modal {
 
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
 		header.createDiv({ cls: 'dashboard-modal-title', text: t('weread.configure') });
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		setIcon(closeBtn, 'x');
-		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 		body.createDiv({ cls: 'dashboard-library-config-section-title', text: t('weread.widgetsLabel') });

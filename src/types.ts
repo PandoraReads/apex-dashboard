@@ -59,6 +59,10 @@ export interface DashboardSettings {
 	glassBlur: number | null;
 	/** Corner-radius base in px 0-22 (drives sm/md/lg). null = theme default. */
 	radiusScale: number | null;
+	/** Global dashboard text size. 'medium' (default) keeps the inherited
+	    base size; 'small'/'large' scale it (em-based sizes cascade from the
+	    root, so titles/body/banner/widgets grow or shrink together). */
+	fontScale: 'small' | 'medium' | 'large';
 	/** Quick Notes region master toggle (pinned top of the kanban). */
 	quickNotesEnabled: boolean;
 	/** Quick-create presets (template + folder + filename). Global (Layer 1). */
@@ -206,6 +210,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	surfaceOpacity: null,
 	glassBlur: null,
 	radiusScale: null,
+	fontScale: 'medium',
 	quickNotesEnabled: false,
 	quickNotePresets: [] as QuickNotePreset[],
 	quickCaptureEnabled: false,
@@ -403,7 +408,10 @@ export interface LibraryConfig {
 	showProperties?: boolean;
 	/** Grid card view: max number of property badges per card. Defaults to 6. */
 	propertyLimit?: number;
-	quickDateFilter?: { property: 'created' | 'modified'; start: string; end: string };
+	/** Quick date filter. When `days` is set it is a rolling "last N days"
+	    window evaluated relative to today (start/end ignored); otherwise the
+	    fixed start/end date range applies. */
+	quickDateFilter?: { property: 'created' | 'modified'; start: string; end: string; days?: number };
 	/** Folder section: scan scope. A file shows if it lives under any of these folders (recursive). Legacy single `folder` is normalized into this array on parse. */
 	folders?: string[];
 	/** Library/folder funnel: persistent folder-prefix filter (OR across entries). */
@@ -461,9 +469,11 @@ export interface DataviewConfig {
 	title?: string;
 	/** Rows per page for TABLE/LIST/TASK results (default 50). */
 	pageSize?: number;
-	/** Presentation mode: 'table' (columns incl. source) or 'list' (rows with
-	 *  source summary). Only affects rendering, never the query. Default 'table'. */
-	viewMode?: 'table' | 'list';
+	/** Presentation mode: 'auto' renders each query type in its native Dataview
+	 *  shape (TABLE -> compact table, LIST -> bullet list with bold group
+	 *  headers, TASK -> checkbox list); 'table'/'list' force one layout across
+	 *  all query shapes. Only affects rendering, never the query. Default 'auto'. */
+	viewMode?: 'table' | 'list' | 'auto';
 	/** Show the source-note columns/summary (title, path, created date).
 	 *  Default on. */
 	showSource?: boolean;

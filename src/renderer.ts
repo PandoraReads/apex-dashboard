@@ -31,7 +31,10 @@ import { Chart, LineController, LineElement, PointElement, BarController, BarEle
 Chart.register(LineController, LineElement, PointElement, BarController, BarElement, LinearScale, CategoryScale, Filler, Tooltip);
 
 const chartInstances = new Map<string, Chart>();
-const countdownTimers = new Set<number>();
+/** Countdown tick timers keyed by their timer id, mapped to the widget content
+ *  they animate. destroyAllCharts skips entries still inside a preserved widget
+ *  area, so re-attaching the sidebar widgets DOM keeps them running. */
+const countdownTimers = new Map<number, HTMLElement>();
 
 function destroyChart(cardId: string): void {
 	const chart = chartInstances.get(cardId);
@@ -41,15 +44,21 @@ function destroyChart(cardId: string): void {
 	}
 }
 
-export function destroyAllCharts(): void {
+/** Destroy chart instances and idle countdown timers ahead of a re-render.
+ *  `preserveWidgets` is the detached-but-reused sidebar widgets element from the
+ *  previous render (see renderSidebarWidgets): timers animating its countdowns
+ *  survive so the re-attached DOM keeps ticking. Timers are also self-cleaning
+ *  (they check isConnected), so any survivors of a discarded DOM unwind themselves. */
+export function destroyAllCharts(preserveWidgets?: HTMLElement | null): void {
 	for (const [, chart] of chartInstances) {
 		chart.destroy();
 	}
 	chartInstances.clear();
-	for (const t of countdownTimers) {
-		window.clearInterval(t);
+	for (const [id, content] of countdownTimers) {
+		if (preserveWidgets && preserveWidgets.contains(content)) continue;
+		window.clearInterval(id);
+		countdownTimers.delete(id);
 	}
-	countdownTimers.clear();
 }
 
 function getCSSVar(name: string): string {
@@ -235,14 +244,45 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 	}
 }
 
-// Returns true if the live sidebar week calendar was re-rendered, false if it isn't in the DOM.
-export function refreshSidebarWeekCalendar(root: HTMLElement): boolean {
-	const scroll = root.querySelector<HTMLElement>('.dashboard-sidebar-scroll');
-	if (!scroll) return false;
-	renderSidebarWeekCalendar(scroll);
-	return true;
+/** Fingerprint of every input the sidebar widgets depend on. The view compares
+ *  it across full re-renders: when unchanged, the previous widgets DOM is
+ *  re-attached instead of rebuilt (see renderSidebarWidgets), so dashboard data
+ *  mutations (card moves, section edits, ...) never churn the widgets. */
+export function sidebarWidgetSignature(
+	settings: import('./types').DashboardSettings,
+	hasPomodoro: boolean,
+	hasReading: boolean,
+	hasHolidayData: boolean,
+): string {
+	return JSON.stringify({
+		weatherEnabled: settings.widgetWeatherEnabled,
+		weatherCity: settings.widgetWeatherCity,
+		weatherLat: settings.widgetWeatherLat,
+		weatherLon: settings.widgetWeatherLon,
+		pomodoroEnabled: settings.pomodoroEnabled,
+		pomodoroLongBreakInterval: settings.pomodoroLongBreakInterval,
+		lunarEnabled: settings.widgetLunarEnabled,
+		yearProgressEnabled: settings.widgetYearProgressEnabled,
+		calendarEnabled: settings.widgetCalendarEnabled,
+		calendarExcludeFolders: settings.calendarExcludeFolders,
+		countdownEnabled: settings.countdownEnabled,
+		countdowns: settings.countdowns,
+		readingEnabled: settings.readingEnabled,
+		widgetOrder: settings.widgetOrder,
+		hasPomodoro,
+		hasReading,
+		hasHolidayData,
+		lang: getLanguage(),
+	});
 }
 
+/** Render the sidebar widgets area. When `reuse` carries the widgets element
+ *  detached from a previous render AND the widget signature is unchanged (the
+ *  caller's responsibility), that element is re-attached as-is - listeners,
+ *  countdown timers, pomodoro/reading service wiring and the task calendar's
+ *  navigation state all survive the surrounding full re-render.
+ *  Returns the widgets area element (reused or fresh), or null when no widget
+ *  is enabled. */
 export function renderSidebarWidgets(
 	container: HTMLElement,
 	settings: import('./types').DashboardSettings,
@@ -251,9 +291,16 @@ export function renderSidebarWidgets(
 	readingService?: ReadingService,
 	holidayData?: Record<string, HolidayInfo>,
 	onWidgetReorder?: (order: string[]) => void,
-): void {
+	reuse?: HTMLElement | null,
+): HTMLElement | null {
 	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
-	if (!anyEnabled) return;
+	if (!anyEnabled) return null;
+
+	// Unchanged inputs: keep the previous DOM (and its live timers/listeners).
+	if (reuse && reuse.isConnected === false && reuse.childElementCount > 0) {
+		container.appendChild(reuse);
+		return reuse;
+	}
 
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
 
@@ -299,6 +346,7 @@ export function renderSidebarWidgets(
 	if (onWidgetReorder) {
 		setupWidgetDnD(widgetArea, ordered.map(e => e.key), onWidgetReorder);
 	}
+	return widgetArea;
 }
 
 type WidgetEntry = { key: string; render: () => void };
@@ -389,6 +437,13 @@ function setupWidgetDnD(
 
 function renderSidebarWeather(container: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-weather' });
+	renderSidebarWeatherInto(widget, settings, app);
+}
+
+/** Render weather content into an existing widget element (fresh or preserved).
+ *  Reads through the weather cache, so a periodic call only refetches once the
+ *  30-minute TTL has lapsed. */
+function renderSidebarWeatherInto(widget: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
 	const cityName = settings.widgetWeatherCity || '';
 
 	widget.createDiv({ cls: 'dashboard-sidebar-weather-loading', text: '...' });
@@ -413,6 +468,16 @@ function renderSidebarWeather(container: HTMLElement, settings: import('./types'
 		widget.empty();
 		widget.createDiv({ cls: 'dashboard-sidebar-weather-error', text: '--' });
 	});
+}
+
+/** Refresh the live sidebar weather widget in place. The widgets DOM survives
+ *  full re-renders (signature-guarded reuse), so the periodic weather timer
+ *  refreshes it here instead of relying on a re-render happening to occur. */
+export function refreshSidebarWeatherWidget(root: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
+	const el = root.querySelector<HTMLElement>('.dashboard-sidebar-weather');
+	if (!el) return;
+	el.empty();
+	renderSidebarWeatherInto(el, settings, app);
 }
 
 function renderSidebarWeatherContent(el: HTMLElement, data: import('./types').WeatherData, cityName: string): void {
@@ -766,8 +831,7 @@ export function renderSidebarCountdown(
 			content.empty();
 			content.createDiv({ cls: 'dashboard-sidebar-countdown-expired', text: t('countdown.expired') });
 			return;
-		}
-		const diff = target.getTime() - now2.getTime();
+		}		const diff = target.getTime() - now2.getTime();
 		const newVal = displayMode === 'minutes' ? Math.ceil(diff / (1000 * 60)) : displayMode === 'hours' ? Math.ceil(diff / (1000 * 60 * 60)) : Math.ceil(diff / (1000 * 60 * 60 * 24));
 		if (newVal !== prevVal) {
 			prevVal = newVal;
@@ -776,7 +840,7 @@ export function renderSidebarCountdown(
 			window.setTimeout(() => valueEl.removeClass('dashboard-sidebar-countdown-value--flip'), 400);
 		}
 	}, 60000);
-	countdownTimers.add(timer);
+	countdownTimers.set(timer, content);
 }
 
 function showPomodoroStats(doc: Document, service: PomodoroService): void {
@@ -1585,6 +1649,9 @@ function saveCollapsedSections(app: App, collapsed: Set<string>): void {
 
 function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, callbacks: RenderCallbacks): void {
 	if (Platform.isMobile) return;
+	// Memo sections are driven by a fixed CSS height, so the drag must write
+	// inline height as well; other types only clamp via max-height.
+	const isFixedHeight = getSectionType(column) === 'memo';
 	const handle = el.createDiv({ cls: 'dashboard-section-resize-handle' });
 	handle.addEventListener('mousedown', (e) => {
 		e.preventDefault();
@@ -1597,6 +1664,7 @@ function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, cal
 			const delta = ev.clientY - startY;
 			const newHeight = Math.max(160, Math.min(2000, startHeight + delta));
 			el.style.maxHeight = `${newHeight}px`;
+			if (isFixedHeight) el.style.height = `${newHeight}px`;
 		};
 		const onUp = (ev: MouseEvent) => {
 			activeDocument.removeEventListener('mousemove', onMove);
@@ -1627,6 +1695,12 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	// Apply user-dragged height (desktop). Overrides the per-type max-height.
 	if (typeof column.height === 'number' && column.height > 0) {
 		el.style.maxHeight = `${column.height}px`;
+		// Memo sections have a fixed CSS height (aligned with Quick Links), so
+		// max-height alone can only shrink them. Write the inline height too so
+		// the drag-resized value can also grow the section past the default.
+		if (sectionType === 'memo') {
+			el.style.height = `${column.height}px`;
+		}
 	}
 
 	attachSectionResizeHandle(el, column, callbacks);
@@ -1704,14 +1778,19 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 
 		const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
 
-	if (sectionType === 'todo') {
+	// Sticky ("便利贴") sections mix memo and todo cards: they get the one-click
+	// archive button like todo sections, but NOT the task-template button — cards
+	// are always created through the type chooser (onCardAdd -> StickyCardTypeModal).
+	if (sectionType === 'todo' || sectionType === 'sticky') {
 		const archiveBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('renderer.archiveTasks') },
 		});
 		setIcon(archiveBtn, 'archive');
 		archiveBtn.addEventListener('click', () => callbacks.onArchiveTasks(column.name));
+	}
 
+	if (sectionType === 'todo') {
 		const templateBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('template.addFromTemplate') },
@@ -1975,7 +2054,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		el.style.setProperty('--db-card-accent', card.color);
 	}
 
-	const isMemo = sectionType === 'memo';
+	const isMemo = isMemoCard(sectionType, card);
 	const isTask = card.type === 'task' || sectionType === 'todo';
 	const isWeather = card.type === 'weather';
 	const isTracker = card.type === 'tracker';
@@ -2261,6 +2340,16 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 	return el;
 }
 
+/**
+ * Whether a card renders as a memo card. In memo sections every card does;
+ * in sticky ("便利贴") sections only the generic/note cards do — task cards
+ * stay todo cards (checked before memo via `card.type === 'task'`).
+ */
+function isMemoCard(sectionType: string, card: DashboardCard): boolean {
+	if (sectionType === 'memo') return true;
+	return sectionType === 'sticky' && (card.type === 'generic' || card.type === 'note');
+}
+
 function renderCardBody(container: HTMLElement, card: DashboardCard, columnName: string, sectionType: string, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): void {
 	if (card.type === 'weather') {
 		renderWeatherBody(container, card, app);
@@ -2272,7 +2361,7 @@ function renderCardBody(container: HTMLElement, card: DashboardCard, columnName:
 		return;
 	}
 
-	const isMemo = sectionType === 'memo';
+	const isMemo = isMemoCard(sectionType, card);
 	const isTaskCard = card.type === 'task' || sectionType === 'todo';
 
 	if (isTaskCard) {
@@ -2666,6 +2755,18 @@ function renderTaskItem(
 	}
 }
 
+/**
+ * Completion of a single task as a 0..1 fraction: a leaf is 0 or 1 by its
+ * checkbox; a task with subtasks takes the average of its subtasks'
+ * completion (recursively). Card progress is the average over top-level
+ * tasks: 1 done task + 1 task with 2/5 subtasks done = (1 + 0.4) / 2 = 70%.
+ */
+function taskCompletion(task: TaskItem): number {
+	if (!task.children || task.children.length === 0) return task.checked ? 1 : 0;
+	const sum = task.children.reduce((acc, child) => acc + taskCompletion(child), 0);
+	return sum / task.children.length;
+}
+
 function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: RenderCallbacks, app: App): void {
 	const list = container.createDiv({ cls: 'dashboard-task-list' });
 	list.dataset.cardId = card.id;
@@ -2710,9 +2811,8 @@ function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: 
 	});
 
 	if (card.tasks.length > 0) {
-		const checkedCount = card.tasks.filter(t => t.checked).length;
-		const total = card.tasks.length;
-		const percent = Math.round((checkedCount / total) * 100);
+		const sum = card.tasks.reduce((acc, task) => acc + taskCompletion(task), 0);
+		const percent = Math.round((sum / card.tasks.length) * 100);
 
 		const progressWrap = container.createDiv({ cls: 'dashboard-progress' });
 		const bar = progressWrap.createDiv({ cls: 'dashboard-progress-bar' });
@@ -3034,6 +3134,7 @@ function getSectionType(column: DashboardColumn): string {
 	const lower = column.name.toLowerCase();
 	if (lower === 'memo') return 'memo';
 	if (lower === 'todo') return 'todo';
+	if (lower === 'sticky') return 'sticky';
 	if (lower === 'projects') return 'projects';
 	if (lower === 'notes') return 'notes';
 	if (lower === 'dashboard') return 'dashboard';

@@ -1,4 +1,4 @@
-import { App, Modal, Platform, setIcon } from 'obsidian';
+import { App, Modal, Platform } from 'obsidian';
 import { t } from './i18n';
 
 /** Type `require` locally instead of relying on ambient `@types/node`
@@ -135,9 +135,6 @@ export class TickTickLoginModal extends Modal {
 
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
 		header.createDiv({ cls: 'dashboard-modal-title', text: t('ticktick.loginTitle') });
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		setIcon(closeBtn, 'x');
-		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 

@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig, type Ba
 import { t, setLanguage, type Language } from './i18n';
 import { geocodeCity } from './weather-service';
 import { CountdownSettingsModal } from './countdown-modal';
-import { FolderSuggestModal } from './folder-config-modal';
+import { MultiFolderSelectModal } from './folder-config-modal';
 import { TickTickLoginModal } from './ticktick-login-modal';
 import { ThemeStudioModal } from './theme-studio-modal';
 import { QuickNoteConfigModal } from './quick-note-config-modal';
@@ -766,7 +766,19 @@ export class DashboardSettingTab extends PluginSettingTab {
 		const browseBtn = addControl.createEl('button', { cls: 'dashboard-settings-folder-browse' });
 		setIcon(browseBtn, 'folder');
 		browseBtn.addEventListener('click', () => {
-			new FolderSuggestModal(this.app, (folder) => { input.value = folder.path; }).open();
+			// Multi-select picker: manage the whole excluded set in one place.
+			// Manual typing above stays for paths outside the folder tree.
+			new MultiFolderSelectModal(this.app, this.plugin.settings.calendarExcludeFolders ?? [], (folders) => {
+				void (async () => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarExcludeFolders: folders,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					renderChips();
+				})();
+			}, { parentCoversChildren: true }).open();
 		});
 		const addBtn = addControl.createEl('button', { cls: 'dashboard-settings-folder-add-btn', text: t('common.add') });
 		const addFolder = async (): Promise<void> => {

@@ -3,7 +3,7 @@ import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
 import { t, getLanguage } from './i18n';
 import { attachNoteHover } from './hover-preview';
-import { FolderSuggestModal } from './folder-config-modal';
+import { MultiFolderSelectModal } from './folder-config-modal';
 import { showConfirmDialog } from './confirm-dialog';
 
 // Set once per render by renderLibrarySection so the grid/list/table/kanban
@@ -200,6 +200,16 @@ function evaluateFilter(
 function str(v: unknown): string {
 	if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
 	return '';
+}
+
+/** Local-time YYYY-MM-DD for a timestamp. Local dates keep "last N days"
+    windows and calendar-picked ranges consistent for timezone offsets where
+    UTC would shift the day (e.g. late-evening edits in UTC+8). */
+function localDateKey(ts: number): string {
+	const d = new Date(ts);
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${d.getFullYear()}-${m}-${day}`;
 }
 
 async function loadPreview(app: App, file: TFile): Promise<string> {
@@ -505,6 +515,8 @@ export function renderLibrarySection(
 		let quickProp: 'created' | 'modified' = config.quickDateFilter?.property ?? 'created';
 		let quickStart = config.quickDateFilter?.start ?? '';
 		let quickEnd = config.quickDateFilter?.end ?? '';
+		// Rolling "last N days" window (0 = off). Takes precedence over fixed dates.
+		let quickDays = config.quickDateFilter?.days ?? 0;
 
 		// Popup
 		let filterPopup: HTMLElement | null = null;
@@ -512,7 +524,15 @@ export function renderLibrarySection(
 
 
 		function applyQuickFilter(): void {
-			config.quickDateFilter = (quickStart || quickEnd) ? { property: quickProp, start: quickStart, end: quickEnd } : undefined;
+			config.quickDateFilter = (quickStart || quickEnd || quickDays > 0)
+				? {
+					property: quickProp,
+					// A rolling window owns the range; fixed dates only apply when it is off.
+					start: quickDays > 0 ? '' : quickStart,
+					end: quickDays > 0 ? '' : quickEnd,
+					...(quickDays > 0 ? { days: quickDays } : {}),
+				}
+				: undefined;
 			onConfigChange({ ...config });
 			currentPage = 1;
 			renderContent(config);
@@ -582,6 +602,7 @@ export function renderLibrarySection(
 				ev.stopPropagation();
 				showCalendarPopup(startBtn, quickStart, (date) => {
 					quickStart = date;
+					quickDays = 0; // an explicit range replaces the rolling window
 					applyQuickFilter();
 					if (activeDocument.body.contains(filterBtn)) openPopup();
 				});
@@ -590,10 +611,35 @@ export function renderLibrarySection(
 				ev.stopPropagation();
 				showCalendarPopup(endBtn, quickEnd, (date) => {
 					quickEnd = date;
+					quickDays = 0; // an explicit range replaces the rolling window
 					applyQuickFilter();
 					if (activeDocument.body.contains(filterBtn)) openPopup();
 				});
 			});
+
+			// Quick rolling-window presets: "last N days". Evaluated relative to
+			// today on every render, so a preset chosen last week still means
+			// "recently" instead of pointing at a stale fixed range. Clicking an
+			// active preset again turns it off.
+			const rangeRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
+			rangeRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('library.quickRange') });
+			const rangeChips = rangeRow.createDiv({ cls: 'dashboard-library-filter-popup-dates' });
+			for (const days of [3, 7, 30]) {
+				const chip = rangeChips.createEl('button', {
+					cls: 'dashboard-library-filter-date-btn' + (quickDays === days ? ' has-value' : ''),
+					text: t('library.lastNDays', { n: days }),
+				});
+				chip.addEventListener('click', (ev) => {
+					ev.stopPropagation();
+					quickDays = quickDays === days ? 0 : days;
+					if (quickDays > 0) {
+						quickStart = '';
+						quickEnd = '';
+					}
+					applyQuickFilter();
+					if (activeDocument.body.contains(filterBtn)) openPopup();
+				});
+			}
 
 			// Folder filter
 			const folderRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
@@ -606,7 +652,13 @@ export function renderLibrarySection(
 			});
 			const folderBrowseBtn = folderAddRow.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
 			folderBrowseBtn.addEventListener('click', () => {
-				new FolderSuggestModal(app, (folder) => { folderInput.value = folder.path; addFunnelFolder(); }).open();
+				// Multi-select: pick every funnel folder at once. Funnel folders are OR
+				// unions, so parents/children stay independently tickable.
+				new MultiFolderSelectModal(app, funnelFolders, (folders) => {
+					funnelFolders = folders;
+					applyFunnelFolders();
+					renderFolderChips();
+				}).open();
 			});
 			const renderFolderChips = (): void => {
 				folderChipsHost.empty();
@@ -638,7 +690,7 @@ export function renderLibrarySection(
 			renderFolderChips();
 
 			// Clear button
-			if (quickStart || quickEnd || funnelFolders.length > 0) {
+			if (quickStart || quickEnd || quickDays > 0 || funnelFolders.length > 0) {
 				const clearBtn = filterPopup.createEl('button', {
 					cls: 'dashboard-library-filter-popup-clear',
 					text: t('reminder.clearReminder'),
@@ -647,6 +699,7 @@ export function renderLibrarySection(
 					ev.stopPropagation();
 					quickStart = '';
 					quickEnd = '';
+					quickDays = 0;
 					funnelFolders = [];
 					applyQuickFilter();
 					applyFunnelFolders();
@@ -664,7 +717,18 @@ export function renderLibrarySection(
 
 		function renderFilterTag(): void {
 			filterTag.empty();
-			if (quickStart && quickEnd) {
+			if (quickDays > 0) {
+				const propLabel = t(quickProp === 'modified' ? 'library.modified' : 'library.created');
+				const tag = filterTag.createDiv({
+					cls: 'dashboard-library-filter-tag',
+					text: `${propLabel} · ${t('library.lastNDays', { n: quickDays })}`,
+				});
+				const x = tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' });
+				x.addEventListener('click', () => {
+					quickDays = 0;
+					applyQuickFilter();
+				});
+			} else if (quickStart || quickEnd) {
 				const start = quickStart || '...';
 				const end = quickEnd || '...';
 				const tag = filterTag.createDiv({
@@ -692,7 +756,7 @@ export function renderLibrarySection(
 		}
 
 		function updateFilterBtnState(): void {
-			filterBtn.classList.toggle('active', !!(quickStart || quickEnd || (config.folderFilter?.length ?? 0) > 0));
+			filterBtn.classList.toggle('active', !!(quickStart || quickEnd || quickDays > 0 || (config.folderFilter?.length ?? 0) > 0));
 		}
 
 		filterBtn.addEventListener('click', (e) => {
@@ -784,13 +848,21 @@ export function renderLibrarySection(
 			// Apply quick date filter
 			if (currentConfig.quickDateFilter) {
 				const qdf = currentConfig.quickDateFilter;
-				results = results.filter(r => {
-					const ts = qdf.property === 'modified' ? r.mtime : r.ctime;
-					const dateStr = new Date(ts).toISOString().slice(0, 10);
-					if (qdf.start && dateStr < qdf.start) return false;
-					if (qdf.end && dateStr > qdf.end) return false;
-					return true;
-				});
+				// A rolling "last N days" window is computed against today at
+				// render time, so the preset never goes stale; otherwise the
+				// fixed calendar range applies. Both compare in local dates.
+				const days = typeof qdf.days === 'number' && qdf.days > 0 ? qdf.days : 0;
+				const startStr = days > 0 ? localDateKey(Date.now() - (days - 1) * 86400000) : qdf.start;
+				const endStr = days > 0 ? localDateKey(Date.now()) : qdf.end;
+				if (startStr || endStr) {
+					results = results.filter(r => {
+						const ts = qdf.property === 'modified' ? r.mtime : r.ctime;
+						const dateStr = localDateKey(ts);
+						if (startStr && dateStr < startStr) return false;
+						if (endStr && dateStr > endStr) return false;
+						return true;
+					});
+				}
 			}
 
 			// Apply folder funnel filter (OR across selected folders)

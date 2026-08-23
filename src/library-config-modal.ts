@@ -37,9 +37,6 @@ export class LibraryConfigModal extends Modal {
 		// Header
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
 		header.createDiv({ cls: 'dashboard-modal-title', text: t('library.configTitle') });
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		setIcon(closeBtn, 'x');
-		closeBtn.addEventListener('click', () => this.close());
 
 		// Body
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
@@ -55,13 +52,15 @@ export class LibraryConfigModal extends Modal {
 
 			for (let i = 0; i < this.config.filters.length; i++) {
 				const filter = this.config.filters[i]!;
-				if (filter.property === 'tags') continue; // managed by the dedicated Tags section
 				const row = filtersContainer.createDiv({ cls: 'dashboard-library-filter-row' });
 				const header = row.createDiv({ cls: 'dashboard-library-filter-header' });
 
 				// Property selector (left of the search box in the header row)
 				const propSelect = header.createEl('select', { cls: 'dashboard-library-filter-property' });
-				const propKeys = [...this.availableProps.keys()].sort().filter(k => k !== 'tags');
+				// 'tags' is intentionally listed: evaluateFilter has a dedicated
+				// tags branch (frontmatter + inline tags) and the property
+				// extractor collects tag values, so it filters like any property.
+				const propKeys = [...this.availableProps.keys()].sort();
 				propSelect.createEl('option', { text: t('library.selectProperty'), attr: { value: '' } });
 				for (const key of propKeys) {
 					const opt = propSelect.createEl('option', { text: key, attr: { value: key } });

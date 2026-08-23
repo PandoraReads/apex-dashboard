@@ -1,6 +1,6 @@
 import { App, FuzzySuggestModal, Modal, setIcon } from 'obsidian';
 import type DashboardPlugin from './main';
-import type { BgSize, CustomColors } from './types';
+import type { BgSize, CustomColors, DashboardSettings } from './types';
 import { CUSTOM_COLOR_TOKENS, refreshAppearanceLive } from './appearance';
 import { showConfirmDialog } from './confirm-dialog';
 import { t } from './i18n';
@@ -47,6 +47,7 @@ export class ThemeStudioModal extends Modal {
 	private surfaceOpacity: number | null;
 	private glassBlur: number | null;
 	private radiusScale: number | null;
+	private fontScale: DashboardSettings['fontScale'];
 	private readonly themeDefaults: Partial<Record<keyof CustomColors, string>>;
 	private readonly advancedDefaults: AdvancedDefaults;
 	private readonly colorInputs = new Map<keyof CustomColors, HTMLInputElement>();
@@ -64,6 +65,7 @@ export class ThemeStudioModal extends Modal {
 		this.surfaceOpacity = s.surfaceOpacity;
 		this.glassBlur = s.glassBlur;
 		this.radiusScale = s.radiusScale;
+		this.fontScale = s.fontScale ?? 'medium';
 		this.themeDefaults = readThemeDefaults();
 		this.advancedDefaults = readAdvancedDefaults();
 	}
@@ -280,6 +282,53 @@ export class ThemeStudioModal extends Modal {
 			displayDefault: this.advancedDefaults.radius,
 			onChange: (v) => { this.radiusScale = v; this.scheduleApply(); },
 		});
+		this.renderFontScaleRow(section);
+	}
+
+	/** Segmented Small / Medium / Large text-size picker plus a one-click
+	 *  reset back to the default ('medium' = inherited base size). */
+	private renderFontScaleRow(section: HTMLElement): void {
+		const row = section.createDiv({ cls: 'dashboard-theme-studio-fontscale-row' });
+		row.createSpan({ cls: 'dashboard-theme-studio-color-label', text: t('themeStudio.fontSize') });
+
+		const seg = row.createDiv({ cls: 'dashboard-theme-studio-fontscale' });
+		const options: Array<{ value: DashboardSettings['fontScale']; labelKey: string }> = [
+			{ value: 'small', labelKey: 'themeStudio.fontSizeSmall' },
+			{ value: 'medium', labelKey: 'themeStudio.fontSizeMedium' },
+			{ value: 'large', labelKey: 'themeStudio.fontSizeLarge' },
+		];
+		const renderSeg = (): void => {
+			seg.empty();
+			for (const opt of options) {
+				const btn = seg.createEl('button', {
+					cls: 'dashboard-theme-studio-fontscale-btn' + (this.fontScale === opt.value ? ' active' : ''),
+					text: t(opt.labelKey),
+				});
+				btn.addEventListener('click', () => {
+					if (this.fontScale === opt.value) return;
+					this.fontScale = opt.value;
+					renderSeg();
+					this.scheduleApply();
+				});
+			}
+		};
+		renderSeg();
+
+		// One-click restore to the default size.
+		const resetBtn = row.createEl('button', {
+			cls: 'dashboard-theme-studio-color-clear',
+			attr: {
+				'aria-label': t('themeStudio.fontSizeReset'),
+				title: t('themeStudio.fontSizeReset'),
+			},
+		});
+		setIcon(resetBtn, 'rotate-ccw');
+		resetBtn.addEventListener('click', () => {
+			if (this.fontScale === 'medium') return;
+			this.fontScale = 'medium';
+			renderSeg();
+			this.scheduleApply();
+		});
 	}
 
 	/** Slider for a nullable numeric override. null shows the theme-default
@@ -375,6 +424,7 @@ export class ThemeStudioModal extends Modal {
 		this.surfaceOpacity = null;
 		this.glassBlur = null;
 		this.radiusScale = null;
+		this.fontScale = 'medium';
 		this.scheduleApply();
 		this.contentEl.empty();
 		this.renderBody();
@@ -394,6 +444,7 @@ export class ThemeStudioModal extends Modal {
 			surfaceOpacity: this.surfaceOpacity,
 			glassBlur: this.glassBlur,
 			radiusScale: this.radiusScale,
+			fontScale: this.fontScale,
 		};
 		refreshAppearanceLive(this.app, this.plugin.settings);
 		if (this.saveTimer !== null) window.clearTimeout(this.saveTimer);

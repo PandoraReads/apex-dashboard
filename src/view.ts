@@ -4,7 +4,8 @@ import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, DataviewConfig } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, renderSidebarWeekCalendar, refreshSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
+import { refreshSidebarTaskCalendar } from './calendar-widget';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { refreshBannerStats } from './banner-stats';
 import { applyAppearance } from './appearance';
@@ -21,6 +22,7 @@ import { clearWeatherCache } from './weather-service';
 import { renderSidebarLunarWidget, loadHolidayData } from './lunar-widget';
 import type { HolidayInfo } from './holiday-service';
 import { WidgetTypeModal, type WidgetType } from './widget-type-modal';
+import { StickyCardTypeModal } from './sticky-card-type-modal';
 import { AddSectionModal } from './add-section-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
@@ -111,6 +113,13 @@ export class DashboardView extends ItemView implements HoverParent {
 	private static readonly DAY_ROLLOVER_CHECK_MS = 60 * 1000; // 1 minute
 	private dayRolloverTimer: number | null = null;
 	private lastRenderedDay = new Date().toDateString();
+	/** Sidebar widgets DOM detached from the previous render, re-attached when the
+	 *  widget signature (see sidebarWidgetSignature) is unchanged - so dashboard
+	 *  data mutations never rebuild the widgets. Null right after consumption. */
+	private sidebarWidgetsEl: HTMLElement | null = null;
+	private sidebarWidgetsSig: string | null = null;
+	private sidebarCalendarTimer: number | null = null;
+	private readonly SIDEBAR_CALENDAR_DEBOUNCE = 500;
 
 	// HoverParent contract: Obsidian assigns/clears this when showing a Page
 	// Preview popover over a dashboard link. Declared so the dashboard can act as
@@ -223,9 +232,29 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private render(data: DashboardData): void {
-		this.runCleanup();
+		// Detach the sidebar widgets before tearing the rest down. If their inputs
+		// (signature below) are unchanged, this exact node is re-attached in
+		// renderSidebar instead of being rebuilt - dashboard data mutations then
+		// cost nothing for the widgets (calendar keeps its month navigation,
+		// countdowns keep ticking, no vault re-scan).
+		const prevRoot = this.containerEl.children[1] as HTMLElement | undefined;
+		const oldWidgets = prevRoot?.querySelector('.dashboard-sidebar-widgets');
+		if (oldWidgets instanceof HTMLElement) {
+			oldWidgets.remove();
+			this.sidebarWidgetsEl = oldWidgets;
+		}
+		const widgetSig = sidebarWidgetSignature(
+			this.plugin.settings,
+			!!this.pomodoroService,
+			!!this.readingService,
+			!!this.holidayData && Object.keys(this.holidayData).length > 0,
+		);
+		const preserveWidgets = !!this.sidebarWidgetsEl && this.sidebarWidgetsSig === widgetSig;
+
+		this.runCleanup(preserveWidgets);
 		this.data = data;
 		this.firedReminders.clear();
+		this.sidebarWidgetsSig = widgetSig;
 
 		// Save scroll positions before re-render
 		const root = this.containerEl.children[1] as HTMLElement;
@@ -296,7 +325,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		} else {
 			sidebar.addClass('dashboard-sidebar--collapsed');
 		}
-		this.renderSidebar(sidebar, container);
+		this.renderSidebar(sidebar, container, preserveWidgets ? this.sidebarWidgetsEl : null);
 		this.setupSidebarBehavior(sidebar, container);
 
 		const kanban = mainLayout.createDiv({ cls: 'dashboard-kanban-wrapper' });
@@ -694,23 +723,34 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (existing) existing.remove();
 	}
 
-	private renderSidebar(sidebar: HTMLElement, root: HTMLElement): void {
+	private renderSidebar(sidebar: HTMLElement, root: HTMLElement, reuseWidgets: HTMLElement | null): void {
 		if (!this.data) return;
 
 		const scroll = sidebar.createDiv({ cls: 'dashboard-sidebar-scroll' });
 
 		renderSidebarWeekCalendar(scroll);
 
-		renderSidebarWidgets(scroll, this.plugin.settings, this.app, this.pomodoroService ?? undefined, this.readingService ?? undefined, this.holidayData, (order) => {
-			void (async () => {
-				this.plugin.settings = {
-					...this.plugin.settings,
-					widgetOrder: order,
-				};
-				await this.plugin.saveSettings();
-				this.render(this.data!);
-			})();
-		});
+		// Preserve: reuse the detached widgets DOM when the signature matched.
+		// Either way, track the live element for the next render's detach step.
+		this.sidebarWidgetsEl = renderSidebarWidgets(
+			scroll,
+			this.plugin.settings,
+			this.app,
+			this.pomodoroService ?? undefined,
+			this.readingService ?? undefined,
+			this.holidayData,
+			(order) => {
+				void (async () => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetOrder: order,
+					};
+					await this.plugin.saveSettings();
+					this.render(this.data!);
+				})();
+			},
+			reuseWidgets,
+		);
 
 		renderQuickActions(
 			scroll,
@@ -835,6 +875,9 @@ export class DashboardView extends ItemView implements HoverParent {
 				const effectiveType = column?.sectionType ?? colName.toLowerCase();
 				if (effectiveType === 'dashboard') {
 					this.openWidgetTypeModal(colName);
+				} else if (effectiveType === 'sticky') {
+					// Sticky sections mix memo and todo cards: ask which one to create.
+					this.openStickyCardTypeModal(colName);
 				} else if (effectiveType === 'memo' || effectiveType === 'todo') {
 					this.pendingScrollToLastCardOfColumn = colName;
 					void this.sync.addCard(colName);
@@ -918,7 +961,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (cardType === 'weather' || cardType === 'tracker') return;
 			if (cardType === 'task' || sectionType === 'todo') {
 			void this.sync.addTask(cardId, `[[${filePath}]]`);
-		} else if (sectionType === 'memo') {
+		} else if (sectionType === 'memo' || (sectionType === 'sticky' && (cardType === 'generic' || cardType === 'note'))) {
 			void this.sync.addFileLinkToMemo(cardId, filePath);
 		} else {
 			void this.sync.addDocToCard(cardId, filePath);
@@ -1153,6 +1196,22 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openWeatherConfigModal(colName);
 			} else if (type === 'tracker') {
 				this.openTrackerConfigModal(colName);
+			}
+		}, this.plugin.settings.stylePreset);
+		modal.open();
+	}
+
+	/** Sticky ("便利贴") sections: choose memo or todo before the card is created. */
+	private openStickyCardTypeModal(colName: string): void {
+		const modal = new StickyCardTypeModal(this.app, (kind) => {
+			this.pendingScrollToLastCardOfColumn = colName;
+			if (kind === 'todo') {
+				void this.sync.addCard(colName, { type: 'task', title: t('sync.todoTitle') });
+			} else {
+				const now = new Date();
+				const pad = (n: number) => String(n).padStart(2, '0');
+				const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+				void this.sync.addCard(colName, { type: 'generic', title: t('sync.memoTitle', { date }) });
 			}
 		}, this.plugin.settings.stylePreset);
 		modal.open();
@@ -1520,6 +1579,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const handler = (structure: boolean): void => {
 			this.debouncedRefreshRecentDocs();
 			this.debouncedRefreshSections(structure);
+			this.debouncedRefreshSidebarCalendar();
 			this.debouncedRefreshBannerStats();
 		};
 
@@ -1553,6 +1613,23 @@ export class DashboardView extends ItemView implements HoverParent {
 			window.clearTimeout(this.bannerStatsTimer);
 			this.bannerStatsTimer = null;
 		}
+		if (this.sidebarCalendarTimer) {
+			window.clearTimeout(this.sidebarCalendarTimer);
+			this.sidebarCalendarTimer = null;
+		}
+	}
+
+	/** Re-scan the sidebar task calendar when vault notes change (task dots).
+	 *  In-place: only the calendar grid re-renders - the widget DOM is preserved
+	 *  across full re-renders, so without this the dots would never update. */
+	private debouncedRefreshSidebarCalendar(): void {
+		if (!this.plugin.settings.widgetCalendarEnabled) return;
+		if (this.sidebarCalendarTimer) window.clearTimeout(this.sidebarCalendarTimer);
+		this.sidebarCalendarTimer = window.setTimeout(() => {
+			this.sidebarCalendarTimer = null;
+			const root = this.containerEl.children[1] as HTMLElement | undefined;
+			if (root) refreshSidebarTaskCalendar(root);
+		}, this.SIDEBAR_CALENDAR_DEBOUNCE);
 	}
 
 	/** Recompute the stats banner in place (only when in stats mode). Vault
@@ -1634,14 +1711,20 @@ export class DashboardView extends ItemView implements HoverParent {
 		renderRecentDocs(parent, docs, (path) => { void this.navigateToPath(path); });
 	}
 
-	private runCleanup(): void {
-		destroyAllCharts();
-		if (this.pomodoroService) {
-			this.pomodoroService.setOnTick(null);
-			this.pomodoroService.setOnComplete(null);
-		}
-		if (this.readingService) {
-			this.readingService.setOnTick(null);
+	/** Tear down per-render resources. With `preserveSidebarWidgets`, the sidebar
+	 *  widgets DOM is being re-attached (signature unchanged): its countdown
+	 *  timers and the pomodoro/reading services' onTick wiring (which reference
+	 *  live DOM inside it) must survive; a fresh widgets render re-wires them. */
+	private runCleanup(preserveSidebarWidgets = false): void {
+		destroyAllCharts(preserveSidebarWidgets ? this.sidebarWidgetsEl : null);
+		if (!preserveSidebarWidgets) {
+			if (this.pomodoroService) {
+				this.pomodoroService.setOnTick(null);
+				this.pomodoroService.setOnComplete(null);
+			}
+			if (this.readingService) {
+				this.readingService.setOnTick(null);
+			}
 		}
 		for (const fn of this.cleanupFns) fn();
 		this.cleanupFns = [];
@@ -1725,14 +1808,20 @@ export class DashboardView extends ItemView implements HoverParent {
 			const hasWeather = this.data.columns.some(col =>
 				col.cards.some(c => c.type === 'weather')
 			);
-			if (hasWeather) {
-				// Refresh weather cards in place instead of rebuilding the whole
-				// dashboard. Full render() here was the main source of periodic
-				// jank on mobile — it emptied and rebuilt every card/section.
-				clearWeatherCache();
-				const root = this.containerEl.children[1] as HTMLElement | undefined;
-				if (root) refreshWeatherCards(root, this.data);
-			}
+			// The sidebar weather widget DOM is preserved across re-renders, so it
+			// no longer refreshes as a side effect of re-renders - pull it into the
+			// same periodic refresh. The widget renders through the weather cache,
+			// so this only refetches once the TTL has lapsed.
+			const hasSidebarWeather = this.plugin.settings.widgetWeatherEnabled;
+			if (!hasWeather && !hasSidebarWeather) return;
+			// Refresh in place instead of rebuilding the whole dashboard. Full
+			// render() here was the main source of periodic jank on mobile - it
+			// emptied and rebuilt every card/section.
+			clearWeatherCache();
+			const root = this.containerEl.children[1] as HTMLElement | undefined;
+			if (!root) return;
+			if (hasWeather) refreshWeatherCards(root, this.data);
+			if (hasSidebarWeather) refreshSidebarWeatherWidget(root, this.plugin.settings, this.app);
 		}, DashboardView.WEATHER_REFRESH_MS);
 	}
 
@@ -1761,10 +1850,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (todayKey === this.lastRenderedDay) return;
 
 		this.lastRenderedDay = todayKey;
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		if (root && refreshSidebarWeekCalendar(root)) {
-			return;
-		}
+		// Invalidate the widget signature so the preserved widgets DOM is rebuilt:
+		// date-dependent widgets (lunar, year progress, countdown values, task
+		// calendar) must recompute for the new day.
+		this.sidebarWidgetsSig = null;
 		this.render(this.data);
 	}
 

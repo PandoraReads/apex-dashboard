@@ -111,6 +111,14 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.8.7
+- **Sticky Notes section (便利贴)** — Memos and todos side by side in one section: the add button opens a type chooser (icon + description); memo cards keep palette color, save-as-note and inline editing, todo cards keep the task list and progress — plus a one-click archive for completed tasks. Section styling follows the todo section
+- **Global text size** — Small / Medium / Large in Theme Studio scales the whole dashboard proportionally
+- **Library quick date filter** — "Within N days" rolling-window chips beside the fixed date range
+- **Calendar excluded folders via a multi-select folder picker** — parent selection covers all subfolders
+- **Dataview `WITHOUT ID` and "Free view"** — drop the file column in `LIST`, and let each query type render in its native shape
+- **Sidebar widgets survive dashboard edits** — the widget strip is re-attached instead of rebuilt, so the calendar stays on the opened month and countdowns keep ticking
+
 ### 1.8.5
 - **Quick commands in the Common Actions bar** — A fourth chip type on the pinned top bar: one-click execution of any Obsidian command (core or plugin). Add commands via a live-filtered search over the vault's entire command registry, then rename, re-icon, and drag-reorder each one in the bar's config modal. A stale command (plugin disabled or removed) shows a notice instead of failing silently
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.7 (2026-08-24)
+
+### Added
+- **Sticky Notes ("便利贴") section — memos and todos in one section** — A new section type that mixes free-form memo cards and checkable todo cards in the same horizontal row. Clicking the add button opens a type chooser (icon + label + description) before the card is created. Memo cards behave exactly like memo-section cards (inline textarea editing, palette color, save-as-note, drag-to-resize); todo cards behave exactly like todo-section cards (task list with progress, save-to-daily). The section header keeps the one-click archive button for completed tasks but drops the task-template button — each card is chosen explicitly. Section layout follows the todo section (scrollable row, 260px cards); the type persists as `type: sticky` in the dashboard file and round-trips with mixed card types
+- **Global text size** — A Small / Medium / Large segmented control in Theme Studio scales the whole dashboard proportionally (titles, body, banner, sidebar, widgets) through one root font-size multiplier; Medium keeps the inherited default
+- **Library quick date filter** — "Within N days" rolling-window chips next to the fixed date range, evaluated relative to today (by created or modified date)
+- **Calendar excluded folders: multi-select picker** — Manage the whole exclusion set from a searchable folder tree in one place; selecting a parent folder covers all of its subfolders (rows show "via parent"). Manual path input remains for paths outside the vault tree
+- **Dataview `WITHOUT ID` + Free view** — `LIST WITHOUT ID ...` drops the file-link column. A third "Free view" mode (sparkles icon) renders each query type in its native Dataview shape — TABLE → compact table, LIST → bullet list, TASK → checkbox list — instead of forcing one layout across all queries
+
+### Changed
+- **Sidebar widgets survive dashboard edits** — Widgets (calendar, countdown, weather, pomodoro, reading) are detached and re-attached by signature instead of rebuilt on every dashboard data mutation: month navigation stays on the opened month, countdowns keep ticking, no re-scans — cards re-render around them. The sidebar week calendar also refreshes in place (debounced) on vault task changes instead of triggering a full dashboard rebuild
+- **Calendar / all-tasks typography** — Calendar grids, event times, and all-tasks list labels move to em-based sizes so they follow the new text-size setting
+
 ## 1.8.6 (2026-08-17)
 
 ### Fixed

@@ -23,7 +23,7 @@ import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
-const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick']);
+const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
 // does not register them as tags. Restore the '#' here; legacy '#xxxxxx' values
@@ -192,6 +192,9 @@ export function serialize(data: DashboardData): string {
 					lines.push(`        property: "${lc.quickDateFilter.property}"`);
 					lines.push(`        start: "${lc.quickDateFilter.start}"`);
 					lines.push(`        end: "${lc.quickDateFilter.end}"`);
+					if (lc.quickDateFilter.days != null) {
+						lines.push(`        days: ${lc.quickDateFilter.days}`);
+					}
 				}
 			if (lc.filters.length > 0) {
 				lines.push('      filters:');
@@ -777,7 +780,13 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			// the parser lifted into `docs` would be invisible (and lost on round-trip).
 			// Fold them back into the body so they display as clickable links and stay
 			// stable across save/reload. Project/notes/etc. sections keep using `docs`.
-			cards: resolvedType === 'memo' ? cards.map(foldDocsIntoBody) : cards,
+			// Sticky ("便利贴") sections mix memo and todo cards; only their memo-ish
+			// cards (generic/note) get the same folding — todo cards keep `docs` intact.
+			cards: resolvedType === 'memo'
+				? cards.map(foldDocsIntoBody)
+				: resolvedType === 'sticky'
+					? cards.map(c => (c.type === 'generic' || c.type === 'note') ? foldDocsIntoBody(c) : c)
+					: cards,
 			libraryConfig: def?.libraryConfig,
 			wereadConfig: def?.wereadConfig,
 			ticktickConfig: def?.ticktickConfig,
@@ -864,8 +873,12 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		taskGroupBy: ['date', 'priority', 'none'].includes(str(raw.taskGroupBy ?? '')) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {
 				property: (raw.quickDateFilter as Record<string, unknown>).property === 'modified' ? 'modified' as const : 'created' as const,
-			start: str((raw.quickDateFilter as Record<string, unknown>).start ?? ''),
+				start: str((raw.quickDateFilter as Record<string, unknown>).start ?? ''),
 				end: str((raw.quickDateFilter as Record<string, unknown>).end ?? ''),
+				days: (() => {
+					const d = (raw.quickDateFilter as Record<string, unknown>).days;
+					return typeof d === 'number' && d > 0 ? d : undefined;
+				})(),
 			} : undefined,
 		};
 	}

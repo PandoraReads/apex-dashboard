@@ -1,4 +1,4 @@
-import { App, Modal, setIcon } from 'obsidian';
+import { App, Modal } from 'obsidian';
 import type { DataviewConfig } from './types';
 import { t } from './i18n';
 import { checkSyntax } from './dql';
@@ -69,9 +69,6 @@ export class DataviewConfigModal extends Modal {
 
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
 		header.createDiv({ cls: 'dashboard-modal-title', text: t('dataview.configure') });
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		setIcon(closeBtn, 'x');
-		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 

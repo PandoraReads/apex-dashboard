@@ -1,7 +1,7 @@
 import { App, Modal } from 'obsidian';
 import type { LibraryConfig } from './types';
 import { t } from './i18n';
-import { FolderSuggestModal } from './folder-config-modal';
+import { MultiFolderSelectModal } from './folder-config-modal';
 
 /**
  * Configuration modal for the calendar section: only the excluded-folders list
@@ -34,8 +34,6 @@ export class CalendarConfigModal extends Modal {
 
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
 		header.createDiv({ cls: 'dashboard-modal-title', text: t('calendar.configTitle') });
-		const closeBtn = header.createDiv({ cls: 'dashboard-modal-close' });
-		closeBtn.addEventListener('click', () => this.close());
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
@@ -51,7 +49,12 @@ export class CalendarConfigModal extends Modal {
 		});
 		const browseBtn = addRow.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
 		browseBtn.addEventListener('click', () => {
-			new FolderSuggestModal(this.app, (folder) => { pathInput.value = folder.path; }).open();
+			// Multi-select picker: manage the whole excluded set in one place.
+			// Manual typing above stays for paths outside the folder tree.
+			new MultiFolderSelectModal(this.app, this.config.excludeFolders ?? [], (folders) => {
+				this.config = { ...this.config, excludeFolders: folders };
+				renderChips();
+			}, { parentCoversChildren: true }).open();
 		});
 		const addBtn = addRow.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('alltasks.addExclude') });
 

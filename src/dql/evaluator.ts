@@ -477,6 +477,7 @@ function project(query: Query, rows: readonly Row[], grouped: boolean): QueryRes
 		columns,
 		rows: resultRows,
 		grouped,
+		withoutId: query.withoutId,
 		calendarField: query.calendarField,
 		heatmapValueField: query.heatmapValueField,
 		heatmapDateField: query.heatmapDateField,
