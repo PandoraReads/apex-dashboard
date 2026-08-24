@@ -24,7 +24,7 @@ export interface LibraryFileResult {
 }
 
 const DEFAULT_PAGE_SIZE = 20;
-const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 export function extractFrontmatterProperties(app: App): Map<string, Set<string>> {
 	const props = new Map<string, Set<string>>();
