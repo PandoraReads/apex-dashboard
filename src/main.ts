@@ -177,7 +177,7 @@ export default class DashboardPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		const loaded = await this.loadData();
+		const loaded: unknown = await this.loadData();
 		const raw = (loaded ?? {}) as Record<string, unknown> & Partial<DashboardSettings>;
 		// Migrate old widgetTheme combo to individual flags
 		if ('widgetTheme' in raw && typeof raw.widgetTheme === 'string') {

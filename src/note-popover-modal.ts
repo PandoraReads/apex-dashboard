@@ -17,15 +17,17 @@ export class NotePopoverModal extends Modal {
 	private readonly file: TFile;
 	private readonly theme: string;
 	private readonly subpath?: string;
+	private readonly line?: number;
 	private leaf: WorkspaceLeaf | null = null;
 	private toggleBtn: HTMLElement | null = null;
 	private mode: NoteViewMode;
 
-	constructor(app: App, file: TFile, theme = 'earth', subpath?: string) {
+	constructor(app: App, file: TFile, theme = 'earth', subpath?: string, line?: number) {
 		super(app);
 		this.file = file;
 		this.theme = theme;
 		this.subpath = subpath;
+		this.line = line;
 		this.mode = (this.app.loadLocalStorage(MODE_STORAGE_KEY) as string | null) === 'preview' ? 'preview' : 'source';
 	}
 
@@ -91,6 +93,14 @@ export class NotePopoverModal extends Modal {
 				}
 			}, 100);
 		}
+
+		// Bare line target (calendar task jumps): reveal the line the same way,
+		// once the editor has geometry.
+		if (this.line !== undefined && leaf.view instanceof MarkdownView) {
+			const view = leaf.view;
+			const line = this.line;
+			window.setTimeout(() => { revealMarkdownLine(view, line); }, 100);
+		}
 	}
 
 	private async toggleMode(): Promise<void> {
@@ -123,5 +133,33 @@ export class NotePopoverModal extends Modal {
 			// Best-effort flush; detach regardless so nothing leaks.
 		}
 		leaf.detach();
+	}
+}
+
+/**
+ * Best-effort reveal of a 0-based source line in a MarkdownView: set the cursor
+ * and scroll the line into view. `setEphemeralState({line})` first (the same
+ * channel Obsidian's own line-based navigation uses — it also covers reading
+ * mode on builds that support it), then an explicit editor scroll as the
+ * source-mode fallback. Both attempts are guarded: a line past the buffer just
+ * leaves the note where it is.
+ */
+export function revealMarkdownLine(view: MarkdownView, line: number): void {
+	if (line < 0) return;
+	try {
+		view.setEphemeralState({ line });
+	} catch {
+		// Unsupported build: fall through to the editor operations.
+	}
+	try {
+		const editor = view.editor;
+		if (editor && line < editor.lineCount()) {
+			const from = { line, ch: 0 };
+			const to = { line, ch: editor.getLine(line).length };
+			editor.setCursor(from);
+			editor.scrollIntoView({ from, to }, true);
+		}
+	} catch {
+		// Best-effort reveal; a stale line index must never break the open.
 	}
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.9 (2026-08-25)
+
+### Added
+- **Calendar: click a task to jump to its source** — Tasks in the day-agenda popup (whole row, not just the file chip), the full-screen month grid, the week time grid (timed events and all-day chips) now open the containing note and scroll straight to the task's line. Works in both the in-dashboard note popover and the tab path (when the popover is disabled): the line is revealed and the cursor placed on it. Checkbox, source-chip, and inline-link clicks are never hijacked.
+- **Calendar: new tasks land where you'd expect** — Adding a task from the day agenda inserts it at the top of that day's daily note (right below frontmatter) instead of appending to the bottom. When the day has no daily note yet, the task goes to the dashboard file's first checkbox list (appended at its end, matching the list's indentation; end-of-file when the dashboard has no list yet). Only when neither exists does it fall back to creating the daily note — so the core Daily Notes plugin being disabled is no longer a dead end. The success Notice says where the task landed.
+
+### Fixed
+- **Lint: unsafe `any` from `loadData()`** — The settings loader's `loadData()` result (typed `any` in the Obsidian API) is now held as `unknown` before the settings cast, restoring a clean `eslint .` run.
+
 ## 1.8.8 (2026-08-24)
 
 ### Fixed

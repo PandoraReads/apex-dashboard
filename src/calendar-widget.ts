@@ -109,6 +109,8 @@ function showDayPreview(anchor: HTMLElement, tasks: VaultTask[], app: App): void
  * opens the full-screen calendar modal. Clicking a day opens its agenda (view /
  * add / toggle tasks). Excluded folders come from the global `calendarExcludeFolders`
  * setting. This is the sidebar replacement for the old calendar *section*.
+ * `onOpenNote` (when wired) lets agenda/full-screen task clicks jump to the
+ * task's source note, scrolled to its line.
  *
  * Pure presentation: no timer — cross-day refresh is handled by the view's
  * day-rollover full re-render (same approach as the lunar / year-progress widgets).
@@ -117,7 +119,7 @@ export function renderSidebarCalendar(
 	container: HTMLElement,
 	settings: DashboardSettings,
 	app: App,
-	onOpenNote?: (file: TFile) => void,
+	onOpenNote?: (file: TFile, line?: number) => void,
 ): void {
 	const excludeFolders = settings.calendarExcludeFolders ?? [];
 
@@ -196,7 +198,7 @@ export function renderSidebarCalendar(
 		const tasks = (await collectVaultTasks(app, excludeFolders)).filter(isCalendarRelevant);
 		const byDay = indexTasksByDay(tasks);
 		const onDayClick = (iso: string): void => {
-			new DayAgendaModal(app, iso, byDay.get(iso) ?? [], { onToggle, onOpenNote }).open();
+			new DayAgendaModal(app, iso, byDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile).open();
 		};
 		// Hover preview only on desktop (no hover on touch). Shows the day's task
 		// list next to the cell after a short delay; cancelled if the pointer moves on.

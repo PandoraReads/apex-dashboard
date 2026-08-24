@@ -139,6 +139,121 @@ export async function appendTaskToDailyNote(app: App, iso: string, taskLine: str
 	return await app.vault.create(path, content);
 }
 
+/** Where a calendar-added task line landed — drives the success Notice wording
+ *  and the optimistic row's click-to-jump target. */
+export interface TaskInsertTarget {
+	file: TFile;
+	/** 0-based line index the task was written to. */
+	line: number;
+	/** The exact line as written (e.g. with the dashboard list's indentation) —
+	 *  the optimistic row's originalLine so an immediate toggle can match it. */
+	writtenLine: string;
+	kind: 'daily-top' | 'dashboard-list' | 'daily-created';
+}
+
+/** A checkbox task item line (same shape the vault scanner recognizes). */
+const TASK_ITEM_REGEX = /^(\s*)- \[[ xX]\]\s/;
+
+/** Line index just past YAML frontmatter (or 0 when the content has none). */
+function topInsertIndex(lines: string[]): number {
+	if (lines[0]?.trim() !== '---') return 0;
+	for (let i = 1; i < lines.length; i++) {
+		if (lines[i]?.trim() === '---') return i + 1;
+	}
+	return 0;
+}
+
+/**
+ * Splice `taskLine` into `content` right after the last item of its FIRST
+ * checkbox list, matching the list's indentation (so it renders as part of
+ * that list). Blank lines between items and indented continuation lines are
+ * treated as part of the list. Returns null when no checkbox list exists.
+ */
+function appendToFirstTaskList(content: string, taskLine: string): { content: string; line: number; writtenLine: string } | null {
+	const lines = content.split('\n');
+	const first = lines.findIndex(l => TASK_ITEM_REGEX.test(l));
+	if (first === -1) return null;
+	const indent = lines[first]!.match(TASK_ITEM_REGEX)![1] ?? '';
+	let end = first;
+	for (let i = first + 1; i < lines.length; i++) {
+		const l = lines[i]!;
+		if (TASK_ITEM_REGEX.test(l)) { end = i; continue; }
+		// A blank line only continues the list when another item follows it.
+		if (l.trim() === '' && TASK_ITEM_REGEX.test(lines[i + 1] ?? '')) continue;
+		// Indented non-blank lines continue the current item (sub-content).
+		if (l.trim() !== '' && /^\s+/.test(l)) { end = i; continue; }
+		break;
+	}
+	const written = `${indent}${taskLine}`;
+	const out = [...lines.slice(0, end + 1), written, ...lines.slice(end + 1)];
+	return { content: out.join('\n'), line: end + 1, writtenLine: written };
+}
+
+/** Splice `taskLine` onto the end of `content` as a new list (blank-line
+ *  separated). Returns the rewritten content and the task's 0-based line. */
+function appendAtFileEnd(content: string, taskLine: string): { content: string; line: number; writtenLine: string } {
+	let out = content;
+	if (out.trim() !== '') {
+		if (!out.endsWith('\n')) out += '\n';
+		out += '\n';
+	}
+	out += `${taskLine}\n`;
+	return { content: out, line: out.split('\n').length - 2, writtenLine: taskLine };
+}
+
+/**
+ * Write a calendar-added task line for `iso`:
+ *
+ *  1. the day's daily note exists -> insert at its TOP (right below frontmatter);
+ *  2. otherwise -> the dashboard file's first checkbox list (appended at its
+ *     end; end-of-file when the file has no checkbox list yet);
+ *  3. last resort (no dashboard file either) -> create the daily note (template
+ *     -seeded) with the task, matching the classic behavior.
+ *
+ * Returns null only when the core Daily Notes plugin is disabled AND the
+ * dashboard file is missing — callers surface the enable-hint Notice.
+ */
+export async function insertTaskForDay(
+	app: App,
+	iso: string,
+	taskLine: string,
+	dashboardFile?: string,
+): Promise<TaskInsertTarget | null> {
+	// 1. Existing daily note: insert at the top, below frontmatter.
+	const notePath = dailyNotePathFor(app, iso);
+	if (notePath) {
+		const existing = app.vault.getAbstractFileByPath(notePath);
+		if (existing instanceof TFile) {
+			const raw = await app.vault.read(existing);
+			const lines = raw.split('\n');
+			const at = topInsertIndex(lines);
+			const out = [...lines.slice(0, at), taskLine, ...lines.slice(at)].join('\n');
+			await app.vault.modify(existing, out);
+			return { file: existing, line: at, writtenLine: taskLine, kind: 'daily-top' };
+		}
+	}
+
+	// 2. No daily note for the day: the dashboard file's first checkbox list.
+	const rawPath = (dashboardFile ?? '').trim();
+	if (rawPath) {
+		const dashPath = rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`;
+		const dash = app.vault.getFileByPath(dashPath);
+		if (dash) {
+			const raw = await app.vault.read(dash);
+			const spliced = appendToFirstTaskList(raw, taskLine) ?? appendAtFileEnd(raw, taskLine);
+			await app.vault.modify(dash, spliced.content);
+			return { file: dash, line: spliced.line, writtenLine: spliced.writtenLine, kind: 'dashboard-list' };
+		}
+	}
+
+	// 3. Last resort: create the day's daily note with the task (classic path).
+	const created = await appendTaskToDailyNote(app, iso, taskLine);
+	if (!created) return null;
+	const raw = await app.vault.read(created);
+	const line = Math.max(raw.split('\n').indexOf(taskLine), 0);
+	return { file: created, line, writtenLine: taskLine, kind: 'daily-created' };
+}
+
 /**
  * Get today's (or `iso`'s) daily note, creating it from the core Daily Notes
  * plugin's template (with `{{date}}`/`{{time}}` substituted) if it doesn't

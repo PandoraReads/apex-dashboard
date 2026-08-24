@@ -13463,6 +13463,11 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calendar-event.is-multi .dashboard-calendar-multi-mark svg { width: 9px; height: 9px; }
 .dashboard-calendar-check { width: 11px; height: 11px; flex-shrink: 0; margin: 0; accent-color: var(--db-accent, var(--interactive-accent)); }
 .dashboard-calendar-more { font-size: 0.5625em; color: var(--db-text-muted, var(--text-muted)); padding: 0 4px; }
+/* Click-to-jump affordances (calendar task rows/chips wired to onOpenNote) */
+.dashboard-calendar-event.is-jumpable { cursor: pointer; }
+.dashboard-calgrid-allday-chip.is-jumpable { cursor: pointer; }
+.dashboard-calgrid-allday-chip.is-jumpable:hover { background: var(--db-bg-card-hover, rgba(255,255,255,0.14)); }
+.dashboard-alltasks-row.is-jumpable { cursor: pointer; }
 
 /* Fullscreen modal */
 .dashboard-calendar-fullscreen-modal { width: 92vw; max-width: 1100px; height: 88vh; }

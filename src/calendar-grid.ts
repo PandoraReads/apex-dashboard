@@ -13,7 +13,8 @@ export interface MonthGridOptions {
 	compact: boolean;
 	app: App;
 	onToggle?: (task: VaultTask, nextChecked: boolean) => void;
-	onOpenNote?: (file: TFile) => void;
+	/** Open a task's source note, optionally scrolling to the task's line. */
+	onOpenNote?: (file: TFile, line?: number) => void;
 	/** Compact mode: clicking a day cell opens its agenda. */
 	onDayClick?: (iso: string) => void;
 	/** Dot mode: show a single dot when the day has tasks (no task text). Implies
@@ -284,14 +285,18 @@ export function renderWeekTimeGrid(
 		h.createDiv({ cls: 'dashboard-calgrid-dayhead-date', text: `${date.getMonth() + 1}/${date.getDate()}` });
 	}
 
-	// All-day strip: untimed tasks of each day as chips.
+	// All-day strip: untimed tasks of each day as chips (click jumps to source).
 	const allDay = wrap.createDiv({ cls: 'dashboard-calgrid-allday' });
 	allDay.createDiv({ cls: 'dashboard-calgrid-allday-corner', text: t('calendar.allDay') });
 	for (const { iso } of days) {
 		const cell = allDay.createDiv({ cls: 'dashboard-calgrid-allday-cell' });
 		const allDayTasks = (byDay.get(iso) ?? []).filter(task => !taskTime(task));
 		for (const task of allDayTasks.slice(0, 3)) {
-			cell.createDiv({ cls: 'dashboard-calgrid-allday-chip' + (task.checked ? ' is-done' : ''), text: task.text });
+			const chip = cell.createDiv({ cls: 'dashboard-calgrid-allday-chip' + (task.checked ? ' is-done' : ''), text: task.text });
+			if (opts.onOpenNote) {
+				chip.addClass('is-jumpable');
+				chip.addEventListener('click', () => opts.onOpenNote?.(task.file, task.line));
+			}
 		}
 		if (allDayTasks.length > 3) {
 			cell.createDiv({ cls: 'dashboard-calgrid-allday-more', text: `+${allDayTasks.length - 3}` });
@@ -339,9 +344,10 @@ export function renderWeekTimeGrid(
 				check.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); opts.onToggle?.(task, !task.checked); });
 			}
 			if (opts.onOpenNote) {
+				ev.addClass('is-jumpable');
 				ev.addEventListener('click', (e) => {
-					if ((e.target as HTMLElement).tagName === 'INPUT') return;
-					opts.onOpenNote?.(task.file);
+					if ((e.target as HTMLElement).closest('input, a')) return;
+					opts.onOpenNote?.(task.file, task.line);
 				});
 			}
 		}
@@ -389,11 +395,13 @@ function renderDayTask(task: VaultTask, opts: MonthGridOptions): HTMLElement {
 	if (opts.compact) {
 		// nothing else; the cell-level click handler opens the day agenda
 	} else if (opts.onOpenNote) {
+		row.addClass('is-jumpable');
 		row.addEventListener('click', (e) => {
 			const target = e.target as HTMLElement;
-			if (target.tagName === 'INPUT') return;
+			// Leave checkboxes (their own handler) and inline links alone.
+			if (target.tagName === 'INPUT' || target.closest('a')) return;
 			e.stopPropagation();
-			opts.onOpenNote?.(task.file);
+			opts.onOpenNote?.(task.file, task.line);
 		});
 	}
 

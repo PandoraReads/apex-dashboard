@@ -4,11 +4,12 @@ import { t } from './i18n';
 import { renderTextWithLinks } from './renderer';
 import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskTime, byTaskTime } from './calendar-grid';
 import { toIsoDate, type VaultTask } from './alltasks-scan';
-import { appendTaskToDailyNote } from './daily-notes';
+import { insertTaskForDay, type TaskInsertTarget } from './daily-notes';
 
 interface CalendarModalCallbacks {
 	onToggle: (task: VaultTask, nextChecked: boolean) => Promise<void> | void;
-	onOpenNote?: (file: TFile) => void;
+	/** Open a task's source note, optionally scrolling to the task's line. */
+	onOpenNote?: (file: TFile, line?: number) => void;
 }
 
 /**
@@ -142,12 +143,16 @@ export class DayAgendaModal extends Modal {
 	private readonly iso: string;
 	private tasks: VaultTask[];
 	private readonly cb: CalendarModalCallbacks;
+	/** Vault path (no .md required) of the dashboard file, used as the fallback
+	 *  destination when the day has no daily note yet. */
+	private readonly dashboardFile?: string;
 
-	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks) {
+	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks, dashboardFile?: string) {
 		super(app);
 		this.iso = iso;
 		this.tasks = tasks;
 		this.cb = cb;
+		this.dashboardFile = dashboardFile;
 	}
 
 	onOpen(): void {
@@ -169,8 +174,10 @@ export class DayAgendaModal extends Modal {
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
-		// Add-task row: optional time (HH:MM) + title + Add. Writes to the daily
-		// note for this day (created from the Daily Notes template/path if absent).
+		// Add-task row: optional time (HH:MM) + title + Add. Goes to the top of
+		// this day's daily note (created from the Daily Notes template/path when
+		// absent — or, when the day has no daily note, to the dashboard file's
+		// first checkbox list; see insertTaskForDay).
 		const addRow = body.createDiv({ cls: 'dashboard-cal-day-add' });
 		const timeInput = addRow.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-cal-day-add-time',
@@ -226,11 +233,24 @@ export class DayAgendaModal extends Modal {
 		const chip = source.createDiv({ cls: 'dashboard-alltasks-chip', text: task.file.basename });
 		chip.title = task.path;
 		chip.setAttribute('role', 'button');
-		chip.addEventListener('click', (e) => { e.stopPropagation(); this.cb.onOpenNote?.(task.file); });
+		chip.addEventListener('click', (e) => { e.stopPropagation(); this.cb.onOpenNote?.(task.file, task.line); });
+
+		// Whole-row jump (when wired): click anywhere except the checkbox, the
+		// source chip, or an inline link to open the note at the task's line.
+		if (this.cb.onOpenNote) {
+			row.addClass('is-jumpable');
+			row.addEventListener('click', (e) => {
+				const target = e.target as HTMLElement;
+				if (target.tagName === 'INPUT' || target.closest('a') || target.closest('.dashboard-alltasks-chip')) return;
+				this.cb.onOpenNote?.(task.file, task.line);
+			});
+		}
 		return row;
 	}
 
-	/** Add the entered task (optional time + title) to this day's daily note. */
+	/** Add the entered task (optional time + title) for this day: to the top of
+	 *  the day's daily note, or — when that day has no daily note — to the
+	 *  dashboard file's first checkbox list. */
 	private async addTask(titleInput: HTMLInputElement, timeInput: HTMLInputElement): Promise<void> {
 		const title = titleInput.value.trim();
 		if (!title) return;
@@ -241,24 +261,27 @@ export class DayAgendaModal extends Modal {
 		// be calendar-relevant and would never show up).
 		const line = reminder ? `- [ ] ${title} ⏰ ${reminder}` : `- [ ] ${title} 📅 ${this.iso}`;
 
-		let file: TFile | null = null;
+		let target: TaskInsertTarget | null = null;
 		try {
-			file = await appendTaskToDailyNote(this.app, this.iso, line);
+			target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile);
 		} catch (err) {
-			console.error('[Dashboard] add task to daily note failed:', err);
+			console.error('[Dashboard] add task failed:', err);
 			new Notice(t('calendar.taskAddFailed'), 4000);
 			return;
 		}
-		if (!file) {
+		if (!target) {
 			new Notice(t('calendar.dailyNotesDisabled'), 5000);
 			return;
 		}
-		new Notice(t('calendar.taskAdded', { path: file.path }), 3000);
+		new Notice(t(
+			target.kind === 'dashboard-list' ? 'calendar.taskAddedDashboard' : 'calendar.taskAddedDaily',
+			{ path: target.file.path },
+		), 3000);
 
 		// Optimistic: show the new task immediately at its time slot. The
 		// calendar section also re-scans automatically on the vault write event.
 		this.tasks = [...this.tasks, {
-			file, path: file.path, line: 0, originalLine: line, checked: false,
+			file: target.file, path: target.file.path, line: target.line, originalLine: target.writtenLine, checked: false,
 			text: title, reminder, due: this.iso, time: time || undefined,
 			priority: undefined, mtime: Date.now(), ctime: Date.now(),
 		}].sort(byTaskTime);

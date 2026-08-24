@@ -1,4 +1,4 @@
-import { Events, HoverParent, HoverPopover, ItemView, Modal, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Modal, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
@@ -15,7 +15,7 @@ import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
 import { setupDragAndDrop } from './dnd';
 import { CardEditModal } from './card-edit-modal';
-import { NotePopoverModal } from './note-popover-modal';
+import { NotePopoverModal, revealMarkdownLine } from './note-popover-modal';
 import { showConfirmDialog } from './confirm-dialog';
 import { showPromptDialog } from './prompt-dialog';
 import { clearWeatherCache } from './weather-service';
@@ -750,6 +750,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				})();
 			},
 			reuseWidgets,
+			(file, line) => this.openNote(file, undefined, line),
 		);
 
 		renderQuickActions(
@@ -1143,11 +1144,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	private openNotePopover(file: TFile, subpath?: string): void {
+	private openNotePopover(file: TFile, subpath?: string, line?: number): void {
 		// Close any previously open popover so its embedded leaf is detached
 		// before we open a fresh one.
 		this.popoverModal?.close();
-		const modal = new NotePopoverModal(this.app, file, this.plugin.settings.stylePreset, subpath);
+		const modal = new NotePopoverModal(this.app, file, this.plugin.settings.stylePreset, subpath, line);
 		this.popoverModal = modal;
 		modal.open();
 	}
@@ -1157,17 +1158,26 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *
 	 *  subpath is the raw `#heading` / `#^block` fragment of a wikilink; the
 	 *  tab path resolves it via openLinkText, the popover scrolls to it after
-	 *  the embedded view is ready.
+	 *  the embedded view is ready. line is a 0-based source line (calendar
+	 *  task jumps): the note is revealed at that line in either path.
 	 *
 	 *  Non-markdown files (canvas whiteboards, base databases, pdf, media) are
 	 *  always opened in a real tab — the in-dashboard popover only hosts a
 	 *  MarkdownView and would render them broken. */
-	private openNote(file: TFile, subpath?: string): void {
+	private openNote(file: TFile, subpath?: string, line?: number): void {
 		if (this.plugin.settings.disableNotePopover || file.extension !== 'md') {
-			void this.app.workspace.openLinkText(subpath ? `${file.path}${subpath}` : file.path, '');
+			void this.openNoteInTab(file, subpath, line);
 			return;
 		}
-		this.openNotePopover(file, subpath);
+		this.openNotePopover(file, subpath, line);
+	}
+
+	/** Tab-path open with an optional line reveal once the view is active. */
+	private async openNoteInTab(file: TFile, subpath?: string, line?: number): Promise<void> {
+		await this.app.workspace.openLinkText(subpath ? `${file.path}${subpath}` : file.path, '');
+		if (line === undefined) return;
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view && view.file?.path === file.path) revealMarkdownLine(view, line);
 	}
 
 	private async addColumnWithType(name: string, sectionType?: string): Promise<void> {

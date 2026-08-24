@@ -292,6 +292,7 @@ export function renderSidebarWidgets(
 	holidayData?: Record<string, HolidayInfo>,
 	onWidgetReorder?: (order: string[]) => void,
 	reuse?: HTMLElement | null,
+	onOpenNote?: (file: TFile, line?: number) => void,
 ): HTMLElement | null {
 	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
 	if (!anyEnabled) return null;
@@ -316,7 +317,7 @@ export function renderSidebarWidgets(
 		enabled.push({ key: 'yearProgress', render: () => renderSidebarYearProgress(widgetArea) });
 	}
 	if (settings.widgetCalendarEnabled) {
-		enabled.push({ key: 'calendar', render: () => renderSidebarCalendar(widgetArea, settings, app) });
+		enabled.push({ key: 'calendar', render: () => renderSidebarCalendar(widgetArea, settings, app, onOpenNote) });
 	}
 	if (settings.widgetWeatherEnabled) {
 		enabled.push({ key: 'weather', render: () => renderSidebarWeather(widgetArea, settings, app) });
