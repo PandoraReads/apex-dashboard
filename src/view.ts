@@ -6,6 +6,8 @@ import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConf
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
 import { refreshSidebarTaskCalendar } from './calendar-widget';
+import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
+import { getHabitService } from './habit-service';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { refreshBannerStats } from './banner-stats';
 import { applyAppearance } from './appearance';
@@ -105,8 +107,9 @@ export class DashboardView extends ItemView implements HoverParent {
 	private pendingScrollToLastCardOfColumn: string | null = null;
 	private pomodoroService: PomodoroService | null = null;
 	private readingService: ReadingService | null = null;
+	private habitUnsubscribe: (() => void) | null = null;
 	private holidayData: Record<string, HolidayInfo> = {};
-	private mobileWidgetExpanded: 'pomodoro' | 'reading' | 'lunar' | null = null;
+	private mobileWidgetExpanded: 'pomodoro' | 'reading' | 'lunar' | 'habit' | null = null;
 	private mobileWidgetTabsOpen: boolean = false;
 	private static readonly WEATHER_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 	private weatherRefreshTimer: number | null = null;
@@ -178,6 +181,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		await this.pomodoroService.loadSessions();
 		this.readingService = new ReadingService(this.plugin);
 		await this.readingService.loadSessions();
+		// Habit data is plugin-level: every open view subscribes so a check-in
+		// in one view refreshes the widget and banner in all of them.
+		this.habitUnsubscribe = getHabitService()?.subscribe(() => this.onHabitChanged()) ?? null;
 		void loadHolidayData(this.app).then(data => {
 			this.holidayData = data;
 			const currentData = this.sync.getData();
@@ -197,6 +203,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.pomodoroService = null;
 		this.readingService?.destroy();
 		this.readingService = null;
+		this.habitUnsubscribe?.();
+		this.habitUnsubscribe = null;
 		this.sync.destroy();
 	}
 
@@ -486,10 +494,13 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Tab row: hidden by default, revealed by tapping strip
 		const tabs = bar.createDiv({ cls: 'dashboard-mobile-widget-tabs' });
 
-		const widgets: Array<{ key: 'pomodoro' | 'reading' | 'lunar'; label: string; icon: string }> = [
+		const widgets: Array<{ key: 'pomodoro' | 'reading' | 'lunar' | 'habit'; label: string; icon: string }> = [
 			{ key: 'pomodoro', label: t('mobile.pomodoro'), icon: 'hourglass' },
 			{ key: 'reading', label: t('mobile.reading'), icon: 'book-open' },
 			{ key: 'lunar', label: t('mobile.lunar'), icon: 'moon' },
+			...(this.plugin.settings.widgetHabitEnabled
+				? [{ key: 'habit' as const, label: t('mobile.habit'), icon: 'check-circle-2' }]
+				: []),
 		];
 
 		bar.createDiv({ cls: 'dashboard-mobile-widget-panel' });
@@ -551,6 +562,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			renderSidebarReading(panel, this.readingService);
 		} else if (this.mobileWidgetExpanded === 'lunar') {
 			renderSidebarLunarWidget(panel, this.holidayData, this.app);
+		} else if (this.mobileWidgetExpanded === 'habit') {
+			renderSidebarHabitWidget(panel, this.app);
 		}
 	}
 
@@ -1640,6 +1653,20 @@ export class DashboardView extends ItemView implements HoverParent {
 			const root = this.containerEl.children[1] as HTMLElement | undefined;
 			if (root) refreshSidebarTaskCalendar(root);
 		}, this.SIDEBAR_CALENDAR_DEBOUNCE);
+	}
+
+	/** Habit data changed (toggle/add/rename/remove from any view or overlay):
+	 *  refresh the habit widget in place + the mobile habit panel, and let the
+	 *  banner debounce recompute when it shows the habit heatmap. */
+	private onHabitChanged(): void {
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		if (root) refreshHabitWidget(root);
+		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
+		if (panel && this.mobileWidgetExpanded === 'habit') {
+			panel.empty();
+			renderSidebarHabitWidget(panel, this.app);
+		}
+		this.debouncedRefreshBannerStats();
 	}
 
 	/** Recompute the stats banner in place (only when in stats mode). Vault

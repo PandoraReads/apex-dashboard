@@ -492,93 +492,6 @@
 		--db-aurora-speed: 14s;
 }
 
-/* ----- 8. HAZE (薄雾 — Neon clone, transparent sections) ----- */
-.apex-dashboard-root[data-theme="haze"] {
-	--db-bg: #0a0d14;
-	--db-bg-section: transparent;
-	--db-bg-card: transparent;
-	--db-bg-card-hover: rgba(0, 240, 255, 0.03);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(0, 240, 255, 0.05);
-	--db-bg-btn: rgba(0, 240, 255, 0.08);
-	--db-bg-btn-hover: rgba(0, 240, 255, 0.15);
-	--db-bg-banner: rgba(0, 240, 255, 0.06);
-	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 100%);
-	--db-bg-hover: rgba(0, 240, 255, 0.05);
-	--db-bg-hover-strong: rgba(0, 240, 255, 0.1);
-	--db-bg-add-section: rgba(0, 240, 255, 0.02);
-	--db-bg-drop-indicator: rgba(0, 240, 255, 0.1);
-
-	--db-border: rgba(0, 240, 255, 0.12);
-	--db-border-card: rgba(0, 240, 255, 0.15);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(0, 240, 255, 0.12);
-	--db-border-input-focus: #00f0ff;
-	--db-border-btn: rgba(0, 240, 255, 0.2);
-	--db-border-add-section: rgba(0, 240, 255, 0.15);
-
-	--db-text: #e0f0f0;
-	--db-text-muted: #80a0a8;
-	--db-text-faint: #506870;
-	--db-text-inverse: #e0f0f0;
-	--db-text-inverse-muted: rgba(224, 240, 240, 0.6);
-
-	--db-accent: #00f0ff;
-	--db-accent-light: #ff00aa;
-	--db-danger: #ff3366;
-
-	--db-shadow-card: 0 0 1px rgba(0, 240, 255, 0.3);
-		--db-shadow-card-hover: 0 0 12px rgba(0, 240, 255, 0.15), 0 4px 16px rgba(0, 0, 0, 0.2);
-	--db-backdrop-blur: none;
-
-	--db-radius-sm: 2px;
-	--db-radius-md: 4px;
-	--db-radius-lg: 6px;
-
-		--db-font: 'JetBrains Mono', 'Noto Serif SC', 'Songti SC', 'SimSun', var(--font-interface);
-	--db-progress-from: #00f0ff;
-	--db-progress-to: #ff00aa;
-	--db-checkbox: #00f0ff;
-	--db-quote-border: #ff00aa;
-	--db-link: #00f0ff;
-}
-.theme-light .apex-dashboard-root[data-theme="haze"] {
-	--db-bg: #e8ecf2;
-	--db-bg-section: transparent;
-	--db-bg-card: transparent;
-	--db-bg-card-hover: rgba(0, 100, 120, 0.03);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(0, 100, 120, 0.04);
-	--db-bg-btn: rgba(0, 100, 120, 0.06);
-	--db-bg-btn-hover: rgba(0, 100, 120, 0.12);
-	--db-bg-banner: rgba(0, 100, 120, 0.06);
-	--db-bg-overlay: linear-gradient(135deg, rgba(0,20,30,0.5) 0%, rgba(0,20,30,0.2) 100%);
-	--db-bg-hover: rgba(0, 100, 120, 0.04);
-	--db-bg-hover-strong: rgba(0, 100, 120, 0.08);
-	--db-bg-add-section: rgba(0, 100, 120, 0.02);
-	--db-border: rgba(0, 100, 120, 0.12);
-	--db-border-card: rgba(0, 100, 120, 0.15);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(0, 100, 120, 0.12);
-	--db-border-input-focus: #0088a0;
-	--db-border-btn: rgba(0, 100, 120, 0.2);
-	--db-text: #051218;
-	--db-text-muted: #f0f4f8;
-	--db-text-faint: #d0dce8;
-	--db-accent: #0088a0;
-	--db-accent-light: #cc0088;
-	--db-danger: #cc2244;
-	--db-shadow-card: 0 1px 4px rgba(0, 0, 0, 0.08);
-	--db-shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
-	--db-progress-from: #0088a0;
-	--db-progress-to: #cc0088;
-	--db-checkbox: #0088a0;
-	--db-quote-border: #cc0088;
-	--db-link: #0088a0;
-}
-
 /* ----- 9. BLOSSOM (花漾 — Prism clone, transparent sections) ----- */
 .apex-dashboard-root[data-theme="blossom"] {
 	--db-bg: #12081a;
@@ -705,27 +618,8 @@
 	will-change: background-position;
 }
 
-/* Haze: smoky mist gradient — white top, blue bottom */
-.apex-dashboard-root[data-theme="haze"] {
-	background:
-		radial-gradient(ellipse at 20% 10%, rgba(220, 230, 245, 0.6) 0%, transparent 50%),
-		radial-gradient(ellipse at 75% 5%, rgba(200, 215, 240, 0.4) 0%, transparent 45%),
-		radial-gradient(ellipse at 40% 85%, rgba(10, 13, 20, 0.9) 0%, transparent 50%),
-		radial-gradient(ellipse at 85% 75%, rgba(15, 20, 35, 0.7) 0%, transparent 45%),
-		linear-gradient(180deg, #e8ecf2 0%, #c8d4e8 30%, #6882a8 70%, #0a0d14 100%);
-	transition: color 0.3s ease;
-}
-.theme-dark .apex-dashboard-root[data-theme="haze"] {
-	background:
-		radial-gradient(ellipse at 30% 15%, rgba(60, 80, 120, 0.15) 0%, transparent 50%),
-		radial-gradient(ellipse at 70% 10%, rgba(50, 70, 110, 0.10) 0%, transparent 45%),
-		radial-gradient(ellipse at 50% 80%, rgba(5, 8, 18, 0.6) 0%, transparent 50%),
-		linear-gradient(180deg, #1a2030 0%, #0f1520 40%, #0a0d14 100%);
-}
-
-/* ===== Shared: transparent sections for tundra, haze, blossom, matcha, lilac ===== */
+/* ===== Shared: transparent sections for tundra, blossom, matcha, lilac ===== */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section-row,
-.apex-dashboard-root[data-theme="haze"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="lilac"] .dashboard-section-row {
@@ -737,7 +631,6 @@
 }
 
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section,
-.apex-dashboard-root[data-theme="haze"] .dashboard-section,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section,
 .apex-dashboard-root[data-theme="lilac"] .dashboard-section {
@@ -749,7 +642,6 @@
 
 /* Tighter kanban gap for transparent-section themes */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-kanban,
-.apex-dashboard-root[data-theme="haze"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="lilac"] .dashboard-kanban {
@@ -758,119 +650,16 @@
 
 /* Allow card hover translate without clipping top border */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section-cards,
-.apex-dashboard-root[data-theme="haze"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="lilac"] .dashboard-section-cards,
-.apex-dashboard-root[data-theme="jade"] .dashboard-section-cards,
-.apex-dashboard-root[data-theme="carbon"] .dashboard-section-cards,
+.apex-dashboard-root[data-theme="neon"] .dashboard-section-cards,
+.apex-dashboard-root[data-theme="volt"] .dashboard-section-cards,
+.apex-dashboard-root[data-theme="magma"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="mono"] .dashboard-section-cards {
 	overflow: visible;
 }
-
-/* ----- 12. JADE (翡翠) — Green bamboo mist, cloned from Haze ----- */
-.apex-dashboard-root[data-theme="jade"] {
-	--db-bg: #f0f5f2;
-	--db-bg-section: transparent;
-	--db-bg-card: transparent;
-	--db-bg-card-hover: rgba(16, 185, 129, 0.06);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(16, 185, 129, 0.05);
-	--db-bg-btn: rgba(16, 185, 129, 0.08);
-	--db-bg-btn-hover: rgba(16, 185, 129, 0.14);
-	--db-bg-banner: rgba(16, 185, 129, 0.06);
-	--db-bg-overlay: linear-gradient(135deg, rgba(10,40,30,0.5) 0%, rgba(10,40,30,0.2) 100%);
-	--db-bg-hover: rgba(16, 185, 129, 0.05);
-	--db-bg-hover-strong: rgba(16, 185, 129, 0.09);
-	--db-bg-add-section: rgba(16, 185, 129, 0.04);
-	--db-bg-drop-indicator: rgba(16, 185, 129, 0.08);
-
-	--db-border: rgba(16, 185, 129, 0.10);
-	--db-border-card: rgba(16, 185, 129, 0.20);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(16, 185, 129, 0.10);
-	--db-border-input-focus: #10b981;
-	--db-border-btn: rgba(16, 185, 129, 0.12);
-	--db-border-add-section: rgba(16, 185, 129, 0.15);
-
-	--db-text: #0a1a14;
-	--db-text-muted: #e8f0ec;
-	--db-text-faint: #a0c0b0;
-	--db-text-inverse: rgba(255, 255, 255, 0.95);
-	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
-
-	--db-accent: #10b981;
-	--db-accent-light: #fbbf24;
-	--db-danger: #ef4444;
-
-	--db-shadow-card: 0 2px 8px rgba(10, 40, 30, 0.06);
-	--db-shadow-card-hover: 0 6px 20px rgba(16, 185, 129, 0.10);
-	--db-backdrop-blur: none;
-
-	--db-radius-sm: 4px;
-	--db-radius-md: 6px;
-	--db-radius-lg: 8px;
-
-	--db-font: 'DM Sans', 'Noto Sans SC', var(--font-interface);
-	--db-progress-from: #10b981;
-	--db-progress-to: #fbbf24;
-	--db-checkbox: #10b981;
-	--db-quote-border: #fbbf24;
-	--db-link: #10b981;
-}
-.theme-dark .apex-dashboard-root[data-theme="jade"] {
-	--db-bg: #0a1210;
-	--db-bg-section: transparent;
-	--db-bg-card: transparent;
-	--db-bg-card-hover: rgba(16, 185, 129, 0.08);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(16, 185, 129, 0.05);
-	--db-bg-btn: rgba(16, 185, 129, 0.08);
-	--db-bg-btn-hover: rgba(16, 185, 129, 0.14);
-	--db-bg-banner: rgba(16, 185, 129, 0.06);
-	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
-	--db-bg-hover: rgba(16, 185, 129, 0.04);
-	--db-bg-hover-strong: rgba(16, 185, 129, 0.08);
-	--db-bg-add-section: rgba(16, 185, 129, 0.04);
-	--db-border: rgba(16, 185, 129, 0.10);
-	--db-border-card: rgba(16, 185, 129, 0.18);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(16, 185, 129, 0.10);
-	--db-border-input-focus: #10b981;
-	--db-text: #d0e8dd;
-	--db-text-muted: #90b8a0;
-	--db-text-faint: #508068;
-	--db-accent: #10b981;
-	--db-accent-light: #fbbf24;
-	--db-danger: #ef4444;
-	--db-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
-	--db-shadow-card-hover: 0 6px 20px rgba(16, 185, 129, 0.12);
-	--db-progress-from: #10b981;
-	--db-progress-to: #fbbf24;
-	--db-checkbox: #10b981;
-	--db-quote-border: #fbbf24;
-	--db-link: #10b981;
-}
-/* Jade: green bamboo mist gradient */
-.apex-dashboard-root[data-theme="jade"] {
-	background:
-		radial-gradient(ellipse at 20% 10%, rgba(16, 185, 129, 0.2) 0%, transparent 50%),
-		radial-gradient(ellipse at 75% 5%, rgba(100, 200, 160, 0.15) 0%, transparent 45%),
-		radial-gradient(ellipse at 40% 85%, rgba(10, 18, 16, 0.9) 0%, transparent 50%),
-		radial-gradient(ellipse at 85% 75%, rgba(8, 20, 16, 0.7) 0%, transparent 45%),
-		linear-gradient(180deg, #f0f5f2 0%, #c8e0d4 30%, #2a6850 70%, #0a1210 100%);
-	transition: color 0.3s ease;
-}
-.theme-dark .apex-dashboard-root[data-theme="jade"] {
-	background:
-		radial-gradient(ellipse at 30% 15%, rgba(40, 120, 80, 0.12) 0%, transparent 50%),
-		radial-gradient(ellipse at 70% 10%, rgba(30, 100, 70, 0.08) 0%, transparent 45%),
-		radial-gradient(ellipse at 50% 80%, rgba(4, 8, 6, 0.6) 0%, transparent 50%),
-		linear-gradient(180deg, #101a16 0%, #0a1210 40%, #060e0a 100%);
-	}
 
 	/* ----- 13. MATCHA (抹茶) — Morandi green, solid warm ----- */
 	.apex-dashboard-root[data-theme="matcha"] {
@@ -1106,110 +895,184 @@
 		transition: color 0.3s ease;
 	}
 
-	/* ----- 15. CARBON (日食) — Industrial monochrome ----- */
-	.apex-dashboard-root[data-theme="carbon"] {
-		--db-bg: #e8e8ea;
+	/* ----- 15. NEON (霓虹) — Near-black + neon magenta, identical in light & dark ----- */
+	.apex-dashboard-root[data-theme="neon"] {
+		--db-bg: #0a0a0c;
 		--db-bg-section: transparent;
 		--db-bg-card: transparent;
-		--db-bg-card-hover: rgba(161, 161, 170, 0.06);
+		--db-bg-card-hover: rgba(255, 46, 136, 0.05);
 		--db-bg-sidebar: transparent;
-		--db-bg-input: rgba(113, 113, 122, 0.05);
-		--db-bg-btn: rgba(113, 113, 122, 0.08);
-		--db-bg-btn-hover: rgba(113, 113, 122, 0.14);
-		--db-bg-banner: rgba(113, 113, 122, 0.06);
-		--db-bg-overlay: linear-gradient(135deg, rgba(30,30,35,0.5) 0%, rgba(30,30,35,0.2) 100%);
-		--db-bg-hover: rgba(113, 113, 122, 0.05);
-		--db-bg-hover-strong: rgba(113, 113, 122, 0.09);
-		--db-bg-add-section: rgba(113, 113, 122, 0.04);
-		--db-bg-drop-indicator: rgba(161, 161, 170, 0.08);
+		--db-bg-input: rgba(255, 46, 136, 0.04);
+		--db-bg-btn: rgba(255, 46, 136, 0.06);
+		--db-bg-btn-hover: rgba(255, 46, 136, 0.12);
+		--db-bg-banner: rgba(255, 46, 136, 0.05);
+		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 100%);
+		--db-bg-hover: rgba(255, 255, 255, 0.04);
+		--db-bg-hover-strong: rgba(255, 255, 255, 0.07);
+		--db-bg-add-section: rgba(255, 46, 136, 0.03);
+		--db-bg-drop-indicator: rgba(255, 46, 136, 0.10);
 
-		--db-border: rgba(113, 113, 122, 0.12);
-		--db-border-card: rgba(161, 161, 170, 0.20);
+		--db-border: rgba(255, 255, 255, 0.08);
+		--db-border-card: rgba(255, 46, 136, 0.14);
 		--db-border-section: transparent;
 		--db-border-sidebar: transparent;
-		--db-border-input: rgba(113, 113, 122, 0.12);
-		--db-border-input-focus: #a1a1aa;
-		--db-border-btn: rgba(113, 113, 122, 0.18);
-		--db-border-add-section: rgba(113, 113, 122, 0.15);
+		--db-border-input: rgba(255, 46, 136, 0.12);
+		--db-border-input-focus: #ff2e88;
+		--db-border-btn: rgba(255, 46, 136, 0.16);
+		--db-border-add-section: rgba(255, 46, 136, 0.18);
 
-		--db-text: #18181b;
-		--db-text-muted: #e4e4e7;
-		--db-text-faint: #a1a1aa;
-		--db-text-inverse: rgba(255, 255, 255, 0.95);
-		--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
+		--db-text: #FAFAFA;
+		--db-text-muted: #A8A8A8;
+		--db-text-faint: #5C5C5C;
+		--db-text-inverse: rgba(255, 255, 255, 0.96);
+		--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
 
-		--db-accent: #a1a1aa;
-		--db-accent-light: #d4d4d8;
-		--db-danger: #ef4444;
+		--db-accent: #ff2e88;
+		--db-accent-light: #ff5ca8;
+		--db-danger: #ffb020;
 
-		--db-shadow-card: 0 1px 4px rgba(0, 0, 0, 0.08);
-		--db-shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+		--db-shadow-card: none;
+		--db-shadow-card-hover: 0 0 0 1px rgba(255, 46, 136, 0.22), 0 8px 24px rgba(0, 0, 0, 0.6);
 		--db-backdrop-blur: none;
 
-		--db-radius-sm: 2px;
-		--db-radius-md: 3px;
-		--db-radius-lg: 4px;
+		--db-radius-sm: 4px;
+		--db-radius-md: 8px;
+		--db-radius-lg: 12px;
 
-		--db-font: 'JetBrains Mono', 'Noto Sans SC', var(--font-interface);
-		--db-progress-from: #a1a1aa;
-		--db-progress-to: #71717a;
-		--db-checkbox: #a1a1aa;
-		--db-quote-border: #71717a;
-		--db-link: #a1a1aa;
+		--db-font: 'Inter', 'DM Sans', 'Noto Sans SC', var(--font-interface);
+		--db-progress-from: #ff2e88;
+		--db-progress-to: #ff5ca8;
+		--db-checkbox: #ff2e88;
+		--db-quote-border: #ff2e88;
+		--db-link: #ff2e88;
 	}
-	.theme-dark .apex-dashboard-root[data-theme="carbon"] {
-		--db-bg: #09090b;
-		--db-bg-section: transparent;
-		--db-bg-card: transparent;
-		--db-bg-card-hover: rgba(161, 161, 170, 0.06);
-		--db-bg-sidebar: transparent;
-		--db-bg-input: rgba(161, 161, 170, 0.04);
-		--db-bg-btn: rgba(161, 161, 170, 0.06);
-		--db-bg-btn-hover: rgba(161, 161, 170, 0.10);
-		--db-bg-banner: rgba(161, 161, 170, 0.04);
-		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 100%);
-		--db-bg-hover: rgba(161, 161, 170, 0.04);
-		--db-bg-hover-strong: rgba(161, 161, 170, 0.06);
-		--db-bg-add-section: rgba(161, 161, 170, 0.02);
-		--db-border: rgba(161, 161, 170, 0.08);
-		--db-border-card: rgba(161, 161, 170, 0.12);
-		--db-border-section: transparent;
-		--db-border-sidebar: transparent;
-		--db-border-input: rgba(161, 161, 170, 0.08);
-		--db-border-input-focus: #a1a1aa;
-		--db-text: #e4e4e7;
-		--db-text-muted: #a1a1aa;
-		--db-text-faint: #52525b;
-		--db-accent: #a1a1aa;
-		--db-accent-light: #d4d4d8;
-		--db-danger: #ef4444;
-		--db-shadow-card: 0 1px 2px rgba(161, 161, 170, 0.08);
-		--db-shadow-card-hover: 0 0 12px rgba(161, 161, 170, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3);
-		--db-progress-from: #a1a1aa;
-		--db-progress-to: #71717a;
-		--db-checkbox: #a1a1aa;
-		--db-quote-border: #71717a;
-		--db-link: #a1a1aa;
-	}
-	/* Carbon: industrial monochrome gradient */
-	.apex-dashboard-root[data-theme="carbon"] {
+	/* Neon: near-black with a whisper of magenta at the top — identical in light & dark */
+	.apex-dashboard-root[data-theme="neon"] {
 		background:
-			radial-gradient(ellipse at 20% 10%, rgba(212, 212, 216, 0.3) 0%, transparent 50%),
-			radial-gradient(ellipse at 75% 5%, rgba(180, 180, 185, 0.2) 0%, transparent 45%),
-			radial-gradient(ellipse at 40% 85%, rgba(9, 9, 11, 0.9) 0%, transparent 50%),
-			radial-gradient(ellipse at 85% 75%, rgba(14, 14, 18, 0.7) 0%, transparent 45%),
-			linear-gradient(180deg, #e8e8ea 0%, #c8c8cc 30%, #3a3a40 70%, #09090b 100%);
+			radial-gradient(ellipse at 50% 0%, rgba(255, 46, 136, 0.05) 0%, transparent 45%),
+			linear-gradient(180deg, #0d0a0f 0%, #0a0a0c 70%);
 		transition: color 0.3s ease;
 	}
-	.theme-dark .apex-dashboard-root[data-theme="carbon"] {
+
+	/* ----- 16. VOLT (电光) — Near-black + electric cyan, identical in light & dark ----- */
+	.apex-dashboard-root[data-theme="volt"] {
+		--db-bg: #090a0e;
+		--db-bg-section: transparent;
+		--db-bg-card: transparent;
+		--db-bg-card-hover: rgba(0, 194, 255, 0.05);
+		--db-bg-sidebar: transparent;
+		--db-bg-input: rgba(0, 194, 255, 0.04);
+		--db-bg-btn: rgba(0, 194, 255, 0.06);
+		--db-bg-btn-hover: rgba(0, 194, 255, 0.12);
+		--db-bg-banner: rgba(0, 194, 255, 0.05);
+		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 100%);
+		--db-bg-hover: rgba(255, 255, 255, 0.04);
+		--db-bg-hover-strong: rgba(255, 255, 255, 0.07);
+		--db-bg-add-section: rgba(0, 194, 255, 0.03);
+		--db-bg-drop-indicator: rgba(0, 194, 255, 0.10);
+
+		--db-border: rgba(255, 255, 255, 0.08);
+		--db-border-card: rgba(0, 194, 255, 0.14);
+		--db-border-section: transparent;
+		--db-border-sidebar: transparent;
+		--db-border-input: rgba(0, 194, 255, 0.12);
+		--db-border-input-focus: #00c2ff;
+		--db-border-btn: rgba(0, 194, 255, 0.16);
+		--db-border-add-section: rgba(0, 194, 255, 0.18);
+
+		--db-text: #FAFAFA;
+		--db-text-muted: #A8A8A8;
+		--db-text-faint: #5C5C5C;
+		--db-text-inverse: rgba(255, 255, 255, 0.96);
+		--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
+
+		--db-accent: #00c2ff;
+		--db-accent-light: #4dd6ff;
+		--db-danger: #ff5c5c;
+
+		--db-shadow-card: none;
+		--db-shadow-card-hover: 0 0 0 1px rgba(0, 194, 255, 0.22), 0 8px 24px rgba(0, 0, 0, 0.6);
+		--db-backdrop-blur: none;
+
+		--db-radius-sm: 4px;
+		--db-radius-md: 8px;
+		--db-radius-lg: 12px;
+
+		--db-font: 'Inter', 'DM Sans', 'Noto Sans SC', var(--font-interface);
+		--db-progress-from: #00c2ff;
+		--db-progress-to: #4dd6ff;
+		--db-checkbox: #00c2ff;
+		--db-quote-border: #00c2ff;
+		--db-link: #00c2ff;
+	}
+	/* Volt: cool near-black with a whisper of cyan at the top — identical in light & dark */
+	.apex-dashboard-root[data-theme="volt"] {
 		background:
-			radial-gradient(ellipse at 30% 15%, rgba(80, 80, 90, 0.08) 0%, transparent 50%),
-			radial-gradient(ellipse at 70% 10%, rgba(60, 60, 70, 0.05) 0%, transparent 45%),
-			radial-gradient(ellipse at 50% 80%, rgba(4, 4, 6, 0.6) 0%, transparent 50%),
-			linear-gradient(180deg, #111114 0%, #09090b 40%, #050507 100%);
+			radial-gradient(ellipse at 50% 0%, rgba(0, 194, 255, 0.05) 0%, transparent 45%),
+			linear-gradient(180deg, #0b0e14 0%, #090a0e 70%);
+		transition: color 0.3s ease;
 	}
 
-	/* ----- 16. ONYX (曜黑) — Pure black + lemon, identical in light & dark ----- */
+	/* ----- 17. MAGMA (熔岩) — Warm near-black + lava orange, identical in light & dark ----- */
+	.apex-dashboard-root[data-theme="magma"] {
+		--db-bg: #0c0a08;
+		--db-bg-section: transparent;
+		--db-bg-card: transparent;
+		--db-bg-card-hover: rgba(255, 107, 26, 0.05);
+		--db-bg-sidebar: transparent;
+		--db-bg-input: rgba(255, 107, 26, 0.04);
+		--db-bg-btn: rgba(255, 107, 26, 0.06);
+		--db-bg-btn-hover: rgba(255, 107, 26, 0.12);
+		--db-bg-banner: rgba(255, 107, 26, 0.05);
+		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 100%);
+		--db-bg-hover: rgba(255, 255, 255, 0.04);
+		--db-bg-hover-strong: rgba(255, 255, 255, 0.07);
+		--db-bg-add-section: rgba(255, 107, 26, 0.03);
+		--db-bg-drop-indicator: rgba(255, 107, 26, 0.10);
+
+		--db-border: rgba(255, 255, 255, 0.08);
+		--db-border-card: rgba(255, 107, 26, 0.14);
+		--db-border-section: transparent;
+		--db-border-sidebar: transparent;
+		--db-border-input: rgba(255, 107, 26, 0.12);
+		--db-border-input-focus: #ff6b1a;
+		--db-border-btn: rgba(255, 107, 26, 0.16);
+		--db-border-add-section: rgba(255, 107, 26, 0.18);
+
+		--db-text: #FAFAFA;
+		--db-text-muted: #A8A8A8;
+		--db-text-faint: #5C5C5C;
+		--db-text-inverse: rgba(255, 255, 255, 0.96);
+		--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
+
+		--db-accent: #ff6b1a;
+		--db-accent-light: #ff9448;
+		--db-danger: #ff5c5c;
+
+		--db-shadow-card: none;
+		--db-shadow-card-hover: 0 0 0 1px rgba(255, 107, 26, 0.22), 0 8px 24px rgba(0, 0, 0, 0.6);
+		--db-backdrop-blur: none;
+
+		--db-radius-sm: 4px;
+		--db-radius-md: 8px;
+		--db-radius-lg: 12px;
+
+		--db-font: 'Inter', 'DM Sans', 'Noto Sans SC', var(--font-interface);
+		--db-progress-from: #ff6b1a;
+		--db-progress-to: #ff9448;
+		--db-checkbox: #ff6b1a;
+		--db-quote-border: #ff6b1a;
+		--db-link: #ff6b1a;
+	}
+	/* Magma: warm near-black with a whisper of lava glow at the top — identical in light & dark */
+	.apex-dashboard-root[data-theme="magma"] {
+		background:
+			radial-gradient(ellipse at 50% 0%, rgba(255, 107, 26, 0.05) 0%, transparent 45%),
+			linear-gradient(180deg, #120d09 0%, #0c0a08 70%);
+		transition: color 0.3s ease;
+	}
+
+	/* ----- 18. ONYX (曜黑) — Pure black + lemon, identical in light & dark ----- */
 	.apex-dashboard-root[data-theme="onyx"] {
 		--db-bg: #000000;
 		--db-bg-section: transparent;
@@ -1268,7 +1131,7 @@
 		transition: color 0.3s ease;
 	}
 
-	/* ----- 17. MONO (墨白) — Pure black/white minimal, system-adaptive ----- */
+	/* ----- 19. MONO (墨白) — Pure black/white minimal, system-adaptive ----- */
 	.apex-dashboard-root[data-theme="mono"] {
 		--db-bg: #ffffff;
 		--db-bg-section: transparent;
@@ -1369,9 +1232,10 @@
 		transition: color 0.3s ease;
 	}
 
-	/* ===== Shared: transparent sections for jade, carbon, onyx, mono ===== */
-.apex-dashboard-root[data-theme="jade"] .dashboard-section-row,
-.apex-dashboard-root[data-theme="carbon"] .dashboard-section-row,
+	/* ===== Shared: transparent sections for neon, volt, magma, onyx, mono ===== */
+.apex-dashboard-root[data-theme="neon"] .dashboard-section-row,
+.apex-dashboard-root[data-theme="volt"] .dashboard-section-row,
+.apex-dashboard-root[data-theme="magma"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="mono"] .dashboard-section-row {
 	background: transparent;
@@ -1381,8 +1245,9 @@
 	padding: 6px;
 }
 
-.apex-dashboard-root[data-theme="jade"] .dashboard-section,
-.apex-dashboard-root[data-theme="carbon"] .dashboard-section,
+.apex-dashboard-root[data-theme="neon"] .dashboard-section,
+.apex-dashboard-root[data-theme="volt"] .dashboard-section,
+.apex-dashboard-root[data-theme="magma"] .dashboard-section,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-section,
 .apex-dashboard-root[data-theme="mono"] .dashboard-section {
 	background: transparent;
@@ -1391,9 +1256,10 @@
 	-webkit-backdrop-filter: none;
 }
 
-/* Tighter kanban gap for jade, carbon */
-.apex-dashboard-root[data-theme="jade"] .dashboard-kanban,
-.apex-dashboard-root[data-theme="carbon"] .dashboard-kanban,
+/* Tighter kanban gap for neon, volt, magma, onyx */
+.apex-dashboard-root[data-theme="neon"] .dashboard-kanban,
+.apex-dashboard-root[data-theme="volt"] .dashboard-kanban,
+.apex-dashboard-root[data-theme="magma"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="onyx"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="mono"] .dashboard-kanban {
 	gap: 8px;
@@ -1875,12 +1741,27 @@
 }
 
 .dashboard-sidebar-habit-title {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 	font-size: 0.7em;
 	font-weight: 600;
 	letter-spacing: 0.08em;
 	color: var(--db-accent);
 	user-select: none;
 	white-space: nowrap;
+}
+
+.dashboard-sidebar-habit-title-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	opacity: 0.85;
+}
+
+.dashboard-sidebar-habit-title-icon svg {
+	width: 12px;
+	height: 12px;
 }
 
 .dashboard-sidebar-habit-count {
@@ -5899,7 +5780,7 @@
 	color: #fff;
 }
 
-/* On light accents (e.g. 墨白/mono, carbon) white text is unreadable, so use the
+/* On light accents (e.g. 墨白/mono, 曜黑/onyx) white text is unreadable, so use the
    theme's body text color for contrast instead. */
 .dashboard-sidebar-week-cell--today-on-light .dashboard-sidebar-week-day {
 	color: rgba(0, 0, 0, 0.55);
@@ -8942,6 +8823,57 @@
 	border: 2px solid #b5d4b0;
 }
 
+/* Neon: banner — solid dark frame + scrim so the image and white quote read clearly */
+.apex-dashboard-root[data-theme="neon"] .dashboard-banner {
+	background-color: #0a0a0c;
+	border: 1px solid rgba(255, 46, 136, 0.16);
+}
+.apex-dashboard-root[data-theme="neon"] .dashboard-banner-overlay {
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.30) 0%, rgba(0, 0, 0, 0.55) 100%);
+}
+.apex-dashboard-root[data-theme="neon"] .dashboard-banner-quote {
+	color: #ffffff;
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 0, 0, 0.4);
+}
+.apex-dashboard-root[data-theme="neon"] .dashboard-banner-author {
+	color: rgba(255, 255, 255, 0.82);
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Volt: banner — solid dark frame + scrim so the image and white quote read clearly */
+.apex-dashboard-root[data-theme="volt"] .dashboard-banner {
+	background-color: #090a0e;
+	border: 1px solid rgba(0, 194, 255, 0.16);
+}
+.apex-dashboard-root[data-theme="volt"] .dashboard-banner-overlay {
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.30) 0%, rgba(0, 0, 0, 0.55) 100%);
+}
+.apex-dashboard-root[data-theme="volt"] .dashboard-banner-quote {
+	color: #ffffff;
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 0, 0, 0.4);
+}
+.apex-dashboard-root[data-theme="volt"] .dashboard-banner-author {
+	color: rgba(255, 255, 255, 0.82);
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Magma: banner — solid dark frame + scrim so the image and white quote read clearly */
+.apex-dashboard-root[data-theme="magma"] .dashboard-banner {
+	background-color: #0c0a08;
+	border: 1px solid rgba(255, 107, 26, 0.16);
+}
+.apex-dashboard-root[data-theme="magma"] .dashboard-banner-overlay {
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.30) 0%, rgba(0, 0, 0, 0.55) 100%);
+}
+.apex-dashboard-root[data-theme="magma"] .dashboard-banner-quote {
+	color: #ffffff;
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 0, 0, 0.4);
+}
+.apex-dashboard-root[data-theme="magma"] .dashboard-banner-author {
+	color: rgba(255, 255, 255, 0.82);
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
 /* Onyx: banner — solid dark frame + scrim so the image and white quote read clearly */
 .apex-dashboard-root[data-theme="onyx"] .dashboard-banner {
 	background-color: #0a0a0a;
@@ -9072,115 +9004,6 @@
 	background: rgba(245, 158, 11, 0.12);
 	color: #f59e0b;
 	border-color: rgba(245, 158, 11, 0.25);
-}
-
-/* -- Haze: sharp edges, neon glow (cloned from Neon) -- */
-.apex-dashboard-root[data-theme="haze"] .dashboard-card:hover {
-	border-color: rgba(0, 240, 255, 0.4);
-		box-shadow: 0 0 12px rgba(0, 240, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.2);
-}
-
-.apex-dashboard-root[data-theme="haze"] .dashboard-memo-textarea:focus {
-	border-color: rgba(0, 240, 255, 0.6);
-	box-shadow: 0 0 8px rgba(0, 240, 255, 0.15);
-}
-
-.apex-dashboard-root[data-theme="haze"] .dashboard-modal-input:focus {
-	border-color: rgba(0, 240, 255, 0.6);
-	box-shadow: 0 0 8px rgba(0, 240, 255, 0.15);
-}
-
-.apex-dashboard-root[data-theme="haze"] .dashboard-section-row--drag-over {
-	border-color: rgba(0, 240, 255, 0.6);
-	box-shadow: 0 0 8px rgba(0, 240, 255, 0.1);
-}
-
-.apex-dashboard-root[data-theme="haze"] .dashboard-note-quote {
-	border-left-color: #ff00aa;
-}
-
-.apex-dashboard-root[data-theme="haze"] .dashboard-add-section {
-	border-radius: 2px;
-	border-style: solid;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-}
-
-.apex-dashboard-root[data-theme="haze"] .dashboard-add-section:hover {
-	border-color: rgba(0, 240, 255, 0.5);
-	box-shadow: 0 0 8px rgba(0, 240, 255, 0.1);
-}
-
-/* Haze: modal — sharp, cyberpunk */
-[data-theme="haze"] .dashboard-modal {
-	border-radius: 2px;
-	border: 1px solid rgba(0, 240, 255, 0.15);
-	background: rgba(14, 18, 30, 0.85) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-.theme-light [data-theme="haze"] .dashboard-modal {
-	background: rgba(240, 248, 250, 0.88) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border-color: rgba(0, 180, 200, 0.15);
-}
-[data-theme="haze"] .dashboard-modal h2 {
-	color: #00f0ff;
-	border-bottom-color: rgba(0, 240, 255, 0.15);
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	font-weight: 700;
-}
-.theme-light [data-theme="haze"] .dashboard-modal h2 {
-	color: #0891b2;
-	border-bottom-color: rgba(0, 180, 200, 0.12);
-}
-[data-theme="haze"] .dashboard-modal-form label {
-	color: #a0b8c0;
-}
-.theme-light [data-theme="haze"] .dashboard-modal-form label {
-	color: #334155;
-}
-[data-theme="haze"] .dashboard-modal-input {
-	background: rgba(0, 240, 255, 0.04);
-	border-color: rgba(0, 240, 255, 0.12);
-	color: #e0f0f0;
-	border-radius: 2px;
-}
-.theme-light [data-theme="haze"] .dashboard-modal-input {
-	background: rgba(0, 200, 220, 0.04);
-	border-color: rgba(0, 180, 200, 0.12);
-	color: #1e293b;
-}
-[data-theme="haze"] .dashboard-modal-input:focus {
-	border-color: rgba(0, 240, 255, 0.5);
-	box-shadow: 0 0 8px rgba(0, 240, 255, 0.1);
-}
-.theme-light [data-theme="haze"] .dashboard-modal-input:focus {
-	border-color: rgba(0, 180, 200, 0.5);
-	box-shadow: 0 0 8px rgba(0, 180, 200, 0.06);
-}
-[data-theme="haze"] .dashboard-modal-actions button {
-	border-radius: 2px;
-}
-[data-theme="haze"] .dashboard-modal-actions .mod-cta {
-	background: rgba(0, 240, 255, 0.15);
-	color: #00f0ff;
-	border: 1px solid rgba(0, 240, 255, 0.3);
-}
-.theme-light [data-theme="haze"] .dashboard-modal-actions .mod-cta {
-	background: rgba(8, 145, 178, 0.1);
-	color: #0891b2;
-	border-color: rgba(8, 145, 178, 0.3);
-}
-[data-theme="haze"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(0, 240, 255, 0.25);
-	box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
-}
-.theme-light [data-theme="haze"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(8, 145, 178, 0.18);
-	box-shadow: 0 0 8px rgba(8, 145, 178, 0.08);
 }
 
 /* -- Blossom: rose glass glow (cloned from Prism) -- */
@@ -9461,146 +9284,266 @@
 
 /* -- Dusk: dreamy cloud-soft modal -- */
 
-/* -- Jade: crisp sharp modal -- */
-[data-theme="jade"] .dashboard-modal {
-	border-radius: 8px;
-	border: 1px solid rgba(16, 185, 129, 0.15);
-	background: rgba(12, 20, 18, 0.90) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-.theme-light [data-theme="jade"] .dashboard-modal {
-	background: rgba(240, 245, 242, 0.90) !important;
-	border-color: rgba(16, 185, 129, 0.12);
-}
-[data-theme="jade"] .dashboard-modal h2 {
-	color: #10b981;
-	border-bottom-color: rgba(16, 185, 129, 0.12);
-	font-weight: 600;
-}
-.theme-light [data-theme="jade"] .dashboard-modal h2 {
-	color: #0a8a60;
-}
-[data-theme="jade"] .dashboard-modal-form label {
-	color: #90b8a0;
-}
-.theme-light [data-theme="jade"] .dashboard-modal-form label {
-	color: #2a5040;
-}
-[data-theme="jade"] .dashboard-modal-input {
-	background: rgba(16, 185, 129, 0.04);
-	border-color: rgba(16, 185, 129, 0.10);
-	color: #d0e8dd;
-	border-radius: 6px;
-}
-.theme-light [data-theme="jade"] .dashboard-modal-input {
-	background: rgba(16, 185, 129, 0.04);
-	border-color: rgba(16, 185, 129, 0.10);
-	color: #0a1a14;
-}
-[data-theme="jade"] .dashboard-modal-input:focus {
-	border-color: rgba(16, 185, 129, 0.45);
-	box-shadow: 0 0 10px rgba(16, 185, 129, 0.08);
-}
-[data-theme="jade"] .dashboard-modal-actions button {
-	border-radius: 6px;
-}
-[data-theme="jade"] .dashboard-modal-actions .mod-cta {
-	background: rgba(16, 185, 129, 0.12);
-	color: #10b981;
-	border: 1px solid rgba(16, 185, 129, 0.25);
-}
-.theme-light [data-theme="jade"] .dashboard-modal-actions .mod-cta {
-	background: rgba(10, 138, 96, 0.10);
-	color: #0a8a60;
-	border-color: rgba(10, 138, 96, 0.22);
-}
-[data-theme="jade"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(16, 185, 129, 0.22);
-	box-shadow: 0 0 10px rgba(16, 185, 129, 0.10);
-}
-[data-theme="jade"] .dashboard-add-section {
-	border-radius: 6px;
-	border-color: rgba(16, 185, 129, 0.12);
-}
-[data-theme="jade"] .dashboard-add-section:hover {
-	border-color: rgba(16, 185, 129, 0.30);
-	box-shadow: 0 0 8px rgba(16, 185, 129, 0.06);
-}
-
 /* -- Sakura: soft petal glow modal -- */
 
 /* -- Moonlight: ethereal silver modal -- */
 
-/* -- Carbon: sharp industrial modal -- */
-[data-theme="carbon"] .dashboard-modal {
-	border-radius: 3px;
-	border: 1px solid rgba(161, 161, 170, 0.15);
-	background: rgba(14, 14, 16, 0.90) !important;
+/* -- Neon: near-black + neon magenta modal (same in light & dark) -- */
+[data-theme="neon"] .dashboard-modal {
+	border-radius: 8px;
+	border: 1px solid rgba(255, 46, 136, 0.18);
+	background: rgba(10, 10, 12, 0.92) !important;
 	backdrop-filter: blur(24px);
 	-webkit-backdrop-filter: blur(24px);
 }
-.theme-light [data-theme="carbon"] .dashboard-modal {
-	background: rgba(232, 232, 234, 0.90) !important;
-	border-color: rgba(113, 113, 122, 0.12);
-}
-[data-theme="carbon"] .dashboard-modal h2 {
-	color: #a1a1aa;
-	border-bottom-color: rgba(161, 161, 170, 0.12);
+[data-theme="neon"] .dashboard-modal h2 {
+	color: #ff2e88;
+	border-bottom-color: rgba(255, 46, 136, 0.15);
 	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: 0.02em;
 }
-.theme-light [data-theme="carbon"] .dashboard-modal h2 {
-	color: #52525b;
+[data-theme="neon"] .dashboard-modal-form label {
+	color: #A8A8A8;
 }
-[data-theme="carbon"] .dashboard-modal-form label {
-	color: #a1a1aa;
+[data-theme="neon"] .dashboard-modal-input {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: rgba(255, 255, 255, 0.10);
+	color: #FAFAFA;
+	border-radius: 6px;
 }
-.theme-light [data-theme="carbon"] .dashboard-modal-form label {
-	color: #3f3f46;
+[data-theme="neon"] .dashboard-modal-input:focus {
+	border-color: rgba(255, 46, 136, 0.55);
+	box-shadow: 0 0 0 3px rgba(255, 46, 136, 0.10);
 }
-[data-theme="carbon"] .dashboard-modal-input {
-	background: rgba(161, 161, 170, 0.04);
-	border-color: rgba(161, 161, 170, 0.10);
-	color: #e4e4e7;
-	border-radius: 2px;
+[data-theme="neon"] .dashboard-modal-actions button {
+	border-radius: 6px;
 }
-.theme-light [data-theme="carbon"] .dashboard-modal-input {
-	background: rgba(113, 113, 122, 0.04);
-	border-color: rgba(113, 113, 122, 0.10);
-	color: #18181b;
+[data-theme="neon"] .dashboard-modal-actions .mod-cta {
+	background: #ff2e88;
+	color: #ffffff;
+	border: 1px solid #ff2e88;
+	font-weight: 600;
 }
-[data-theme="carbon"] .dashboard-modal-input:focus {
-	border-color: rgba(161, 161, 170, 0.50);
-	box-shadow: 0 0 8px rgba(161, 161, 170, 0.08);
+[data-theme="neon"] .dashboard-modal-actions .mod-cta:hover {
+	background: #ff5ca8;
+	border-color: #ff5ca8;
+	box-shadow: 0 0 12px rgba(255, 46, 136, 0.25);
 }
-[data-theme="carbon"] .dashboard-modal-actions button {
-	border-radius: 2px;
+[data-theme="neon"] .dashboard-add-section {
+	border-radius: 6px;
+	border-color: rgba(255, 46, 136, 0.20);
+	letter-spacing: 0.02em;
 }
-[data-theme="carbon"] .dashboard-modal-actions .mod-cta {
-	background: rgba(161, 161, 170, 0.10);
-	color: #d4d4d8;
-	border: 1px solid rgba(161, 161, 170, 0.25);
+[data-theme="neon"] .dashboard-add-section:hover {
+	border-color: rgba(255, 46, 136, 0.45);
+	box-shadow: 0 0 10px rgba(255, 46, 136, 0.08);
 }
-.theme-light [data-theme="carbon"] .dashboard-modal-actions .mod-cta {
-	background: rgba(82, 82, 91, 0.08);
-	color: #52525b;
-	border-color: rgba(82, 82, 91, 0.22);
+
+/* -- Neon: high-contrast buttons (legible in both light & dark) -- */
+/* Pomodoro Start/Stop — solid magenta pill with white text */
+[data-theme="neon"] .dashboard-sidebar-pomodoro-main-btn {
+	background: #ff2e88 !important;
+	background-color: #ff2e88 !important;
+	color: #ffffff !important;
+	border: none !important;
+	box-shadow: none !important;
 }
-[data-theme="carbon"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(161, 161, 170, 0.18);
-	box-shadow: 0 0 8px rgba(161, 161, 170, 0.06);
+[data-theme="neon"] .dashboard-sidebar-pomodoro-main-btn:hover {
+	opacity: 0.85;
+	background: #ff5ca8 !important;
+	background-color: #ff5ca8 !important;
 }
-[data-theme="carbon"] .dashboard-add-section {
-	border-radius: 2px;
-	border-color: rgba(161, 161, 170, 0.12);
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
+[data-theme="neon"] .dashboard-sidebar-pomodoro-main-btn--running {
+	background: rgba(255, 255, 255, 0.10) !important;
+	background-color: rgba(255, 255, 255, 0.10) !important;
+	color: #ff2e88 !important;
+	border: 1px solid rgba(255, 46, 136, 0.40) !important;
 }
-[data-theme="carbon"] .dashboard-add-section:hover {
-	border-color: rgba(161, 161, 170, 0.35);
-	box-shadow: 0 0 6px rgba(161, 161, 170, 0.04);
+
+/* Banner modal Add-Quote / Add-Image — magenta text on a dark chip */
+[data-theme="neon"] .dashboard-modal-quote-add,
+[data-theme="neon"] .dashboard-modal-image-add {
+	background: rgba(255, 46, 136, 0.06) !important;
+	border: 1px dashed rgba(255, 46, 136, 0.30) !important;
+	color: #ff2e88 !important;
+}
+[data-theme="neon"] .dashboard-modal-quote-add:hover,
+[data-theme="neon"] .dashboard-modal-image-add:hover {
+	background: rgba(255, 46, 136, 0.14) !important;
+	border-color: rgba(255, 46, 136, 0.55) !important;
+	color: #ff5ca8 !important;
+}
+
+/* -- Volt: near-black + electric cyan modal (same in light & dark) -- */
+[data-theme="volt"] .dashboard-modal {
+	border-radius: 8px;
+	border: 1px solid rgba(0, 194, 255, 0.18);
+	background: rgba(9, 10, 14, 0.92) !important;
+	backdrop-filter: blur(24px);
+	-webkit-backdrop-filter: blur(24px);
+}
+[data-theme="volt"] .dashboard-modal h2 {
+	color: #00c2ff;
+	border-bottom-color: rgba(0, 194, 255, 0.15);
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+[data-theme="volt"] .dashboard-modal-form label {
+	color: #A8A8A8;
+}
+[data-theme="volt"] .dashboard-modal-input {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: rgba(255, 255, 255, 0.10);
+	color: #FAFAFA;
+	border-radius: 6px;
+}
+[data-theme="volt"] .dashboard-modal-input:focus {
+	border-color: rgba(0, 194, 255, 0.55);
+	box-shadow: 0 0 0 3px rgba(0, 194, 255, 0.10);
+}
+[data-theme="volt"] .dashboard-modal-actions button {
+	border-radius: 6px;
+}
+[data-theme="volt"] .dashboard-modal-actions .mod-cta {
+	background: #00c2ff;
+	color: #001018;
+	border: 1px solid #00c2ff;
+	font-weight: 600;
+}
+[data-theme="volt"] .dashboard-modal-actions .mod-cta:hover {
+	background: #4dd6ff;
+	border-color: #4dd6ff;
+	box-shadow: 0 0 12px rgba(0, 194, 255, 0.25);
+}
+[data-theme="volt"] .dashboard-add-section {
+	border-radius: 6px;
+	border-color: rgba(0, 194, 255, 0.20);
+	letter-spacing: 0.02em;
+}
+[data-theme="volt"] .dashboard-add-section:hover {
+	border-color: rgba(0, 194, 255, 0.45);
+	box-shadow: 0 0 10px rgba(0, 194, 255, 0.08);
+}
+
+/* -- Volt: high-contrast buttons (legible in both light & dark) -- */
+/* Pomodoro Start/Stop — solid cyan pill with black text */
+[data-theme="volt"] .dashboard-sidebar-pomodoro-main-btn {
+	background: #00c2ff !important;
+	background-color: #00c2ff !important;
+	color: #001018 !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+[data-theme="volt"] .dashboard-sidebar-pomodoro-main-btn:hover {
+	opacity: 0.85;
+	background: #4dd6ff !important;
+	background-color: #4dd6ff !important;
+}
+[data-theme="volt"] .dashboard-sidebar-pomodoro-main-btn--running {
+	background: rgba(255, 255, 255, 0.10) !important;
+	background-color: rgba(255, 255, 255, 0.10) !important;
+	color: #00c2ff !important;
+	border: 1px solid rgba(0, 194, 255, 0.40) !important;
+}
+
+/* Banner modal Add-Quote / Add-Image — cyan text on a dark chip */
+[data-theme="volt"] .dashboard-modal-quote-add,
+[data-theme="volt"] .dashboard-modal-image-add {
+	background: rgba(0, 194, 255, 0.06) !important;
+	border: 1px dashed rgba(0, 194, 255, 0.30) !important;
+	color: #00c2ff !important;
+}
+[data-theme="volt"] .dashboard-modal-quote-add:hover,
+[data-theme="volt"] .dashboard-modal-image-add:hover {
+	background: rgba(0, 194, 255, 0.14) !important;
+	border-color: rgba(0, 194, 255, 0.55) !important;
+	color: #4dd6ff !important;
+}
+
+/* -- Magma: warm near-black + lava orange modal (same in light & dark) -- */
+[data-theme="magma"] .dashboard-modal {
+	border-radius: 8px;
+	border: 1px solid rgba(255, 107, 26, 0.18);
+	background: rgba(12, 10, 8, 0.92) !important;
+	backdrop-filter: blur(24px);
+	-webkit-backdrop-filter: blur(24px);
+}
+[data-theme="magma"] .dashboard-modal h2 {
+	color: #ff6b1a;
+	border-bottom-color: rgba(255, 107, 26, 0.15);
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+[data-theme="magma"] .dashboard-modal-form label {
+	color: #A8A8A8;
+}
+[data-theme="magma"] .dashboard-modal-input {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: rgba(255, 255, 255, 0.10);
+	color: #FAFAFA;
+	border-radius: 6px;
+}
+[data-theme="magma"] .dashboard-modal-input:focus {
+	border-color: rgba(255, 107, 26, 0.55);
+	box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.10);
+}
+[data-theme="magma"] .dashboard-modal-actions button {
+	border-radius: 6px;
+}
+[data-theme="magma"] .dashboard-modal-actions .mod-cta {
+	background: #ff6b1a;
+	color: #180a00;
+	border: 1px solid #ff6b1a;
+	font-weight: 600;
+}
+[data-theme="magma"] .dashboard-modal-actions .mod-cta:hover {
+	background: #ff9448;
+	border-color: #ff9448;
+	box-shadow: 0 0 12px rgba(255, 107, 26, 0.25);
+}
+[data-theme="magma"] .dashboard-add-section {
+	border-radius: 6px;
+	border-color: rgba(255, 107, 26, 0.20);
+	letter-spacing: 0.02em;
+}
+[data-theme="magma"] .dashboard-add-section:hover {
+	border-color: rgba(255, 107, 26, 0.45);
+	box-shadow: 0 0 10px rgba(255, 107, 26, 0.08);
+}
+
+/* -- Magma: high-contrast buttons (legible in both light & dark) -- */
+/* Pomodoro Start/Stop — solid lava-orange pill with black text */
+[data-theme="magma"] .dashboard-sidebar-pomodoro-main-btn {
+	background: #ff6b1a !important;
+	background-color: #ff6b1a !important;
+	color: #180a00 !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+[data-theme="magma"] .dashboard-sidebar-pomodoro-main-btn:hover {
+	opacity: 0.85;
+	background: #ff9448 !important;
+	background-color: #ff9448 !important;
+}
+[data-theme="magma"] .dashboard-sidebar-pomodoro-main-btn--running {
+	background: rgba(255, 255, 255, 0.10) !important;
+	background-color: rgba(255, 255, 255, 0.10) !important;
+	color: #ff6b1a !important;
+	border: 1px solid rgba(255, 107, 26, 0.40) !important;
+}
+
+/* Banner modal Add-Quote / Add-Image — orange text on a dark chip */
+[data-theme="magma"] .dashboard-modal-quote-add,
+[data-theme="magma"] .dashboard-modal-image-add {
+	background: rgba(255, 107, 26, 0.06) !important;
+	border: 1px dashed rgba(255, 107, 26, 0.30) !important;
+	color: #ff6b1a !important;
+}
+[data-theme="magma"] .dashboard-modal-quote-add:hover,
+[data-theme="magma"] .dashboard-modal-image-add:hover {
+	background: rgba(255, 107, 26, 0.14) !important;
+	border-color: rgba(255, 107, 26, 0.55) !important;
+	color: #ff9448 !important;
 }
 
 /* -- Onyx: pure black + lemon modal (same in light & dark) -- */

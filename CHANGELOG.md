@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0 (2026-08-25)
+
+### Added
+- **Habit tracker sidebar widget** — A new sidebar widget shows your check-in habits as tap-to-toggle rows: one tap marks today done (tap again to undo), with a live "x/y" done counter and a per-habit streak badge. The header has a `+` button to add habits (names are validated: no duplicates, 1–50 chars) and a stats button. Enabled from Settings → Widgets (on by default on fresh installs; existing installs keep their current sidebar untouched). The widget joins the drag-to-reorder system and survives day rollover automatically.
+- **Habit stats overlay** — The stats button opens an overlay with one card per habit: current streak, last-30-days completion rate (denominator capped at the habit's age so a new habit shows 100%, not 3%), all-time total, and a 12-week check-in heatmap with date tooltips. Renaming and deleting habits live here, keeping the widget itself a pure one-tap surface; deleting sweeps the habit's history and every view updates live.
+- **Stats banner: heatmap source** — The banner's stats settings gained a "Heatmap source" option: note activity (default) or habit check-ins. Habit mode plots either one chosen habit (two-tone grid) or the all-habits rollup (daily completion count on the existing gradient scale), and the center sub-label switches to habit copy ("2/3 done today" / "85% last 30 days") so the text always matches the chart. If the referenced habit is deleted or none exist, the heatmap silently falls back to note activity instead of blanking.
+- Habit data is stored in the plugin folder as `habits.json` (pomodoro.json pattern): versioned, validated on load, records pruned after 730 days, and shared across every open dashboard view — a check-in in one view refreshes the widget and banner in all of them.
+- **Three new dark themes: Neon (霓虹), Volt (电光), Magma (熔岩)** — A family of near-black themes built on the Onyx pattern: one high-impact accent color over a dark background with light text, and deliberately zero light/dark-mode overrides so the dashboard looks identical whether Obsidian is in light or dark mode. Neon pairs near-black with neon magenta, Volt with electric cyan, Magma with a warm near-black and lava orange. Each theme ships the full set of companion overrides: banner scrim, modal styling, and solid-accent Pomodoro buttons, with the button text color chosen per accent brightness for legibility (black on the bright cyan/orange, white on magenta).
+- **Theme picker slims from 14 to 13** — Haze (薄雾), Jade (翡翠), and Eclipse (日食) are removed; existing installs migrate automatically to the closest surviving theme (Haze → Volt, Jade → Matcha, Eclipse → Mono; the legacy Ember preset now maps to Magma), so no one falls back to the default after updating.
+
 ## 1.8.10 (2026-08-25)
 
 ### Fixed

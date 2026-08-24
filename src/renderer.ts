@@ -23,6 +23,7 @@ import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
 import { renderSidebarYearProgress } from './year-progress-widget';
 import { renderSidebarCalendar } from './calendar-widget';
+import { renderSidebarHabitWidget } from './habit-widget';
 import { SUPPORTED_FILE_EXTS, iconForExtension } from './file-types';
 import type { HolidayInfo } from './holiday-service';
 import { CountdownSettingsModal } from './countdown-modal';
@@ -68,7 +69,7 @@ function getCSSVar(name: string): string {
 }
 
 // Determine whether the dashboard accent is light enough that white text on it
-// would be unreadable (e.g. the mono/墨白 and carbon themes in dark mode).
+// would be unreadable (e.g. the mono/墨白 and onyx themes).
 function isAccentLight(): boolean {
 	const el = activeDocument.querySelector('.apex-dashboard-root');
 	if (!el) return false;
@@ -265,6 +266,7 @@ export function sidebarWidgetSignature(
 		yearProgressEnabled: settings.widgetYearProgressEnabled,
 		calendarEnabled: settings.widgetCalendarEnabled,
 		calendarExcludeFolders: settings.calendarExcludeFolders,
+		habitEnabled: settings.widgetHabitEnabled,
 		countdownEnabled: settings.countdownEnabled,
 		countdowns: settings.countdowns,
 		readingEnabled: settings.readingEnabled,
@@ -294,7 +296,7 @@ export function renderSidebarWidgets(
 	reuse?: HTMLElement | null,
 	onOpenNote?: (file: TFile, line?: number) => void,
 ): HTMLElement | null {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
 	if (!anyEnabled) return null;
 
 	// Unchanged inputs: keep the previous DOM (and its live timers/listeners).
@@ -305,7 +307,7 @@ export function renderSidebarWidgets(
 
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
 
-	const DEFAULT_ORDER = ['lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar'];
+	const DEFAULT_ORDER = ['lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit'];
 	const order = settings.widgetOrder?.length ? settings.widgetOrder : DEFAULT_ORDER;
 
 	type WidgetEntry = { key: string; render: () => void };
@@ -327,6 +329,9 @@ export function renderSidebarWidgets(
 	}
 	if (settings.readingEnabled && readingService) {
 		enabled.push({ key: 'reading', render: () => renderSidebarReading(widgetArea, readingService) });
+	}
+	if (settings.widgetHabitEnabled) {
+		enabled.push({ key: 'habit', render: () => renderSidebarHabitWidget(widgetArea, app) });
 	}
 	if (settings.countdownEnabled) {
 		for (const cd of settings.countdowns ?? []) {

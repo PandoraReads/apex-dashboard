@@ -2,6 +2,7 @@ import { App, setIcon } from 'obsidian';
 import type { BannerCenterStat, BannerLeftStat, BannerRightStat, BannerStatsConfig } from './types';
 import { momentOf, nowMoment, parseStrict } from './datetime';
 import { getDailyNotesConfig } from './daily-notes';
+import { getHabitService } from './habit-service';
 import { t } from './i18n';
 
 export const DEFAULT_STATS_CONFIG: BannerStatsConfig = {
@@ -37,12 +38,28 @@ export function resolveStatsConfig(config?: BannerStatsConfig): BannerStatsConfi
 		rightStats: config?.rightStats && config.rightStats.length > 0
 			? [...config.rightStats]
 			: ['taskCompletion', 'connectivity', 'avgLinksPerNote'],
+		heatmapSource: config?.heatmapSource,
+		heatmapHabitId: config?.heatmapHabitId,
 	};
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Heatmap spans this many days, laid out as a wrapping horizontal strip. */
 const HEATMAP_DAYS = 98; // ≈ 14 weeks
+
+/** Habit-sourced heatmap series (oldest→today, `days` long), or null when the
+ *  habit source is unusable (no service / no habits / dangling habit id) —
+ *  callers fall back to the note-activity series so the strip never blanks. */
+function habitHeatmapSeries(config: BannerStatsConfig, days: number): number[] | null {
+	if (config.heatmapSource !== 'habit') return null;
+	const service = getHabitService();
+	if (!service) return null;
+	const habits = service.getHabits();
+	if (habits.length === 0) return null;
+	const target = config.heatmapHabitId ?? 'all';
+	if (target !== 'all' && !habits.some(h => h.id === target)) return null;
+	return service.getHeatmapDays(target, days);
+}
 
 const LEFT_ICONS: Record<BannerLeftStat, string> = {
 	totalNotes: 'file-text', tagsCount: 'hash', totalLinks: 'link',
@@ -343,10 +360,31 @@ function renderCenterColumn(container: HTMLElement, config: BannerStatsConfig, r
 	hero.createDiv({ cls: 'dashboard-banner-stat-label dashboard-banner-stat-label--inline', text: t(labelKey) });
 
 	if (config.showDetails !== false) {
-		col.createDiv({ cls: 'dashboard-banner-stat-sub', text: centerSub(stat, r) });
+		// When the heatmap plots habit check-ins, the note-semantic sub-label
+		// would contradict the chart — swap it for habit copy instead.
+		const habitSeries = habitHeatmapSeries(config, HEATMAP_DAYS);
+		const subText = habitSeries
+			? habitCenterSub(config)
+			: centerSub(stat, r);
+		col.createDiv({ cls: 'dashboard-banner-stat-sub', text: subText });
 		const chart = col.createDiv({ cls: 'dashboard-banner-stat-chart' });
-		renderHeatmap(chart, r.activity);
+		renderHeatmap(chart, habitSeries ?? r.activity);
 	}
+}
+
+/** Sub-label under the center hero when the heatmap source is habits:
+ *  "x/y done today" for the all-habits rollup, "n% last 30 days" for one. */
+function habitCenterSub(config: BannerStatsConfig): string {
+	const service = getHabitService();
+	if (!service) return '';
+	const habits = service.getHabits();
+	const target = config.heatmapHabitId ?? 'all';
+	if (target === 'all') {
+		const today = nowMoment().format('YYYY-MM-DD');
+		const done = service.getDoneOn(today).length;
+		return t('habit.centerSubToday', { done: String(done), total: String(habits.length) });
+	}
+	return t('habit.centerSubRate', { rate: String(service.getRate30(target)) });
 }
 
 /** Right (flex 1) — Productivity: rows of [icon+label ... value] + progress bar. */

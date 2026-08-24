@@ -4,6 +4,7 @@ import { t } from './i18n';
 import { renderBannerStats, resolveStatsConfig, LEFT_STAT_OPTIONS, CENTER_STAT_OPTIONS, RIGHT_STAT_OPTIONS } from './banner-stats';
 import { getDailyNotesConfig } from './daily-notes';
 import { MultiFolderSelectModal } from './folder-config-modal';
+import { getHabitService } from './habit-service';
 
 export function getActiveQuote(banner: BannerData): QuoteItem {
 	if (banner.quotes && banner.quotes.length > 0) {
@@ -349,6 +350,51 @@ export class BannerEditModal extends Modal {
 			lab.createSpan({ text: t(`banner.stats.${key}`) });
 		}
 
+		// === Heatmap source: note activity or habit check-ins (center column) ===
+		const heatSection = this.form.createDiv({ cls: 'dashboard-modal-stats-cols' });
+		heatSection.createEl('label', { text: t('banner.stats.heatSource'), cls: 'dashboard-modal-stats-label' });
+
+		const heatRow = heatSection.createDiv({ cls: 'dashboard-modal-stats-col-row' });
+		const sourceSelect = heatRow.createEl('select', { cls: 'dropdown dashboard-modal-stats-select' });
+		const SOURCE_KEYS: Array<['notes' | 'habit', string]> = [
+			['notes', 'banner.stats.heatSourceNotes'],
+			['habit', 'banner.stats.heatSourceHabit'],
+		];
+		for (const [value, key] of SOURCE_KEYS) {
+			const o = sourceSelect.createEl('option', { value, text: t(key) });
+			if ((this.statsDraft.heatmapSource ?? 'notes') === value) o.selected = true;
+		}
+
+		const habitSelect = heatRow.createEl('select', { cls: 'dropdown dashboard-modal-stats-select' });
+		const heatHint = heatSection.createDiv({ cls: 'dashboard-modal-stats-hint' });
+
+		const renderHabitOptions = (): void => {
+			const habits = getHabitService()?.getHabits() ?? [];
+			habitSelect.empty();
+			habitSelect.createEl('option', { value: 'all', text: t('banner.stats.heatHabitAll') });
+			for (const h of habits) {
+				habitSelect.createEl('option', { value: h.id, text: h.name });
+			}
+			// Dangling id (saved habit deleted since): fall back to the rollup.
+			const current = this.statsDraft.heatmapHabitId ?? 'all';
+			const valid = current === 'all' || habits.some(h => h.id === current);
+			if (!valid) this.statsDraft.heatmapHabitId = 'all';
+			habitSelect.value = valid ? current : 'all';
+
+			const isHabit = this.statsDraft.heatmapSource === 'habit';
+			habitSelect.disabled = !isHabit || habits.length === 0;
+			heatHint.setText(isHabit && habits.length === 0 ? t('banner.stats.heatHabitNone') : '');
+		};
+
+		sourceSelect.addEventListener('change', () => {
+			this.statsDraft.heatmapSource = sourceSelect.value === 'habit' ? 'habit' : undefined;
+			renderHabitOptions();
+		});
+		habitSelect.addEventListener('change', () => {
+			this.statsDraft.heatmapHabitId = habitSelect.value;
+		});
+		renderHabitOptions();
+
 		// === Appearance: blur / darkness / accent ===
 		const appearSection = this.form.createDiv({ cls: 'dashboard-modal-stats-appear' });
 		appearSection.createEl('label', { text: t('banner.stats.appearance'), cls: 'dashboard-modal-stats-label' });
@@ -528,6 +574,11 @@ export class BannerEditModal extends Modal {
 				leftStat: this.statsDraft.leftStat,
 				centerStat: this.statsDraft.centerStat,
 				rightStats: this.statsDraft.rightStats ? [...this.statsDraft.rightStats] : undefined,
+				// Notes (default) omits both keys so the frontmatter stays clean.
+				heatmapSource: this.statsDraft.heatmapSource === 'habit' ? 'habit' : undefined,
+				heatmapHabitId: this.statsDraft.heatmapSource === 'habit'
+					? (this.statsDraft.heatmapHabitId ?? 'all')
+					: undefined,
 			};
 		} else {
 			const validQuotes = this.quotes.filter(q => q.quote.trim());

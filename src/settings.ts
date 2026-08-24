@@ -57,7 +57,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					{
 						name: t('settings.widgetTheme'),
 						desc: t('settings.widgetWeatherEnabledDesc'),
-						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion')],
+						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion'), t('settings.widgetHabitEnabled')],
 						render: (setting) => {
 							asBlock(setting);
 							this.renderWidgetSettings(setting.settingEl);
@@ -180,9 +180,9 @@ export class DashboardSettingTab extends PluginSettingTab {
 					blossom: t('settings.styleBlossom'),
 					matcha: t('settings.styleMatcha'),
 					lilac: t('settings.styleLilac'),
-					haze: t('settings.styleHaze'),
-					jade: t('settings.styleJade'),
-					carbon: t('settings.styleCarbon'),
+					neon: t('settings.styleNeon'),
+					volt: t('settings.styleVolt'),
+					magma: t('settings.styleMagma'),
 					onyx: t('settings.styleOnyx'),
 					mono: t('settings.styleMono'),
 				})
@@ -497,6 +497,23 @@ export class DashboardSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}));
 		}
+
+		// --- Habit card ---
+		const habitCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(habitCard)
+			.setName(t('settings.widgetHabitEnabled'))
+			.setDesc(t('settings.widgetHabitEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetHabitEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetHabitEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
 
 		// --- Weread (WeChat Read) card ---
 		const wereadCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });

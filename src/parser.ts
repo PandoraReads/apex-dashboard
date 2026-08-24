@@ -116,6 +116,8 @@ export function serialize(data: DashboardData): string {
 		if (sc.showRight !== undefined) lines.push(`    showRight: ${sc.showRight}`);
 		if (sc.leftStat) lines.push(`    leftStat: ${sc.leftStat}`);
 		if (sc.centerStat) lines.push(`    centerStat: ${sc.centerStat}`);
+		if (sc.heatmapSource) lines.push(`    heatmapSource: ${sc.heatmapSource}`);
+		if (sc.heatmapHabitId) lines.push(`    heatmapHabitId: "${escapeYamlString(sc.heatmapHabitId)}"`);
 		if (sc.rightStats && sc.rightStats.length > 0) {
 			lines.push('    rightStats:');
 			for (const rs of sc.rightStats) lines.push(`      - ${rs}`);
@@ -702,6 +704,8 @@ function parseStatsConfig(raw: unknown): BannerStatsConfig | undefined {
 	if (typeof r.showRight === 'boolean') cfg.showRight = r.showRight;
 	if (typeof r.leftStat === 'string') cfg.leftStat = r.leftStat as BannerLeftStat;
 	if (typeof r.centerStat === 'string') cfg.centerStat = r.centerStat as BannerCenterStat;
+	if (r.heatmapSource === 'notes' || r.heatmapSource === 'habit') cfg.heatmapSource = r.heatmapSource;
+	if (typeof r.heatmapHabitId === 'string' && r.heatmapHabitId) cfg.heatmapHabitId = r.heatmapHabitId;
 	if (Array.isArray(r.rightStats)) {
 		const stats = r.rightStats.filter((s): s is BannerRightStat => typeof s === 'string');
 		if (stats.length > 0) cfg.rightStats = stats;

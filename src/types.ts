@@ -26,6 +26,8 @@ export interface DashboardSettings {
 	widgetCalendarEnabled: boolean;
 	/** Folders whose tasks are excluded from the calendar widget/section. */
 	calendarExcludeFolders: string[];
+	/** Habit check-in widget: boolean daily check-offs tracked per habit. */
+	widgetHabitEnabled: boolean;
 	widgetOrder: string[];
 	/** Weread (WeChat Read) official API key (wrk-...), shared account-wide. */
 	wereadApiKey: string;
@@ -194,7 +196,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	widgetYearProgressEnabled: false,
 	widgetCalendarEnabled: false,
 	calendarExcludeFolders: [],
-	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar'],
+	widgetHabitEnabled: false,
+	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit'],
 	wereadApiKey: '',
 	wereadImportPath: 'Weread/划线',
 	ticktickRegion: 'dida365',
@@ -282,6 +285,12 @@ export interface BannerStatsConfig {
 	centerStat?: BannerCenterStat;
 	/** Progress metrics shown in the right column, in order. */
 	rightStats?: BannerRightStat[];
+	/** Center heatmap data source: vault note activity (default) or habit
+	 *  check-ins from the habit widget. */
+	heatmapSource?: 'notes' | 'habit';
+	/** Which habit feeds the center heatmap when heatmapSource === 'habit'.
+	 *  'all' = daily count of completed habits; otherwise a habit id. */
+	heatmapHabitId?: string;
 }
 
 export interface BannerData {

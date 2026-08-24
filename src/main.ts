@@ -7,9 +7,10 @@ import { setLanguage, t } from './i18n';
 import { DataviewGuideModal } from './dataview-guide-modal';
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
+import { HabitService, registerHabitService } from './habit-service';
 
 /** All valid style preset keys — single source of truth for migration. */
-const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'jade', 'carbon', 'onyx', 'mono'] as const;
+const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'neon', 'volt', 'magma', 'onyx', 'mono'] as const;
 
 /** Removed or renamed presets mapped to a sensible replacement. */
 const DEPRECATED_STYLE_PRESETS: Readonly<Record<string, string>> = {
@@ -18,7 +19,10 @@ const DEPRECATED_STYLE_PRESETS: Readonly<Record<string, string>> = {
 	dusk: 'lilac',      // purple twilight -> Lilac (Morandi purple)
 	sakura: 'blossom',  // cherry blossom pink -> Blossom
 	moonlight: 'nordic',// silver blue -> Nordic (blue minimal)
-	ember: 'carbon',    // warm smoke -> Eclipse (dark warm)
+	ember: 'magma',      // warm smoke -> Magma (dark + warm orange)
+	haze: 'volt',       // dark cyan glow -> Volt (dark + electric cyan)
+	jade: 'matcha',     // green bamboo -> Matcha (Morandi green)
+	carbon: 'mono',     // industrial monochrome -> Mono (b/w minimal)
 };
 
 /**
@@ -55,6 +59,7 @@ export default class DashboardPlugin extends Plugin {
 	settings!: DashboardSettings;
 	backupService!: BackupService;
 	mediaTagService!: MediaTagService;
+	habitService!: HabitService;
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
@@ -69,6 +74,11 @@ export default class DashboardPlugin extends Plugin {
 		this.mediaTagService.load();
 		registerMediaTagService(this.mediaTagService);
 
+		// Await the load so habits.json is ready before any view first renders.
+		this.habitService = new HabitService(this);
+		await this.habitService.load();
+		registerHabitService(this.habitService);
+
 		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
 
 		this.addCommand({
@@ -81,7 +91,7 @@ export default class DashboardPlugin extends Plugin {
 			id: 'cycle-theme',
 			name: t('main.cycleTheme'),
 			callback: async () => {
-				const themes = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'haze', 'jade', 'carbon', 'onyx', 'mono'];
+				const themes = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'neon', 'volt', 'magma', 'onyx', 'mono'];
 				const idx = themes.indexOf(this.settings.stylePreset);
 				const next = themes[(idx + 1) % themes.length] ?? 'earth';
 				this.settings = { ...this.settings, stylePreset: next };
@@ -164,6 +174,8 @@ export default class DashboardPlugin extends Plugin {
 		registerMediaTagService(null);
 		void this.mediaTagService.flush();
 		this.mediaTagService.destroy();
+		registerHabitService(null);
+		this.habitService.destroy();
 	}
 
 	private async openDashboard(): Promise<void> {
@@ -204,7 +216,7 @@ export default class DashboardPlugin extends Plugin {
 		// instead of DEFAULT_SETTINGS so users upgrading from older versions —
 		// whose data.json may lack these keys — keep their current state.
 		if (loaded === null) {
-			this.settings = { ...this.settings, quickNotesEnabled: true };
+			this.settings = { ...this.settings, quickNotesEnabled: true, widgetHabitEnabled: true };
 			this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', 'true');
 			await this.saveSettings();
 		}
