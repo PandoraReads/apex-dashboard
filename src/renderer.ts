@@ -1735,7 +1735,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		const finish = (save: boolean) => {
 			const newName = input.value.trim();
 			if (save && newName && newName !== currentName) {
-				callbacks.onColumnRename(currentName, newName);
+				callbacks.onColumnRename(currentName, newName, data ? data.columns.indexOf(column) : -1);
 			} else {
 				titleEl.empty();
 				titleEl.setText(currentName);
@@ -1829,7 +1829,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		setIcon(deleteSectionBtn, 'trash-2');
 		deleteSectionBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
 		});
 
 		if (folderUnconfigured) {
@@ -1852,7 +1852,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		setIcon(deleteSectionBtn, 'trash-2');
 		deleteSectionBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
 		});
 
 		renderMediaSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover, getMediaTagService() ?? undefined);
@@ -1893,7 +1893,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		setIcon(deleteSectionBtn, 'trash-2');
 		deleteSectionBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
 		});
 
 		const apiKey = (settings?.wereadApiKey ?? '').trim();
@@ -1953,7 +1953,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		setIcon(deleteSectionBtn, 'trash-2');
 		deleteSectionBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
 		});
 
 		const region = settings?.ticktickRegion === 'ticktick' ? 'ticktick' : 'dida365';
@@ -2002,7 +2002,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		setIcon(deleteSectionBtn, 'trash-2');
 		deleteSectionBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			callbacks.onColumnDelete(column.name);
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
 		});
 
 		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover ?? null, (fn) => { reload = fn; },
@@ -2024,7 +2024,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	setIcon(deleteSectionBtn, 'trash-2');
 	deleteSectionBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		callbacks.onColumnDelete(column.name);
+		callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
 	});
 
 	const cardsContainer = el.createDiv({ cls: 'dashboard-section-cards' });
@@ -3173,7 +3173,7 @@ export function renderTextWithLinks(container: HTMLElement, text: string, app: A
 			continue;
 		}
 		if (part) {
-			container.appendChild(activeDocument.createTextNode(part));
+			container.appendText(part);
 		}
 	}
 }

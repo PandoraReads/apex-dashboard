@@ -31,7 +31,6 @@ export class AddSectionModal extends Modal {
 	private selectedType: string;
 	private readonly onAdd: (name: string, sectionType: string) => void;
 	private nameInput: HTMLInputElement | null = null;
-	private confirmBtn: HTMLElement | null = null;
 
 	constructor(
 		app: import('obsidian').App,
@@ -65,9 +64,8 @@ export class AddSectionModal extends Modal {
 		nameRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('section.nameLabel') });
 		this.nameInput = nameRow.createEl('input', {
 			cls: 'dashboard-task-input dashboard-section-name-input',
-			attr: { type: 'text', placeholder: t('renderer.sectionName') },
+			attr: { type: 'text', placeholder: t('section.namePlaceholder') },
 		});
-		this.nameInput.addEventListener('input', () => this.updateConfirm());
 		this.nameInput.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter') {
 				e.preventDefault();
@@ -80,13 +78,12 @@ export class AddSectionModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
 			text: t('common.cancel'),
 		}).addEventListener('click', () => this.close());
-		this.confirmBtn = footer.createEl('button', {
+		const confirmBtn = footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		});
-		this.confirmBtn.addEventListener('click', () => this.tryConfirm());
+		confirmBtn.addEventListener('click', () => this.tryConfirm());
 
-		this.updateConfirm();
 		window.setTimeout(() => this.nameInput?.focus(), 0);
 	}
 
@@ -107,15 +104,14 @@ export class AddSectionModal extends Modal {
 		}
 	}
 
-	private updateConfirm(): void {
-		if (!this.confirmBtn) return;
-		const name = this.nameInput?.value.trim() ?? '';
-		this.confirmBtn.toggleClass('is-disabled', name.length === 0);
+	/** Localized label of the currently selected type, used as the default section name. */
+	private defaultName(): string {
+		const opt = SECTION_TYPE_OPTIONS.find((o) => o.value === this.selectedType);
+		return opt ? t(opt.labelKey) : this.selectedType;
 	}
 
 	private tryConfirm(): void {
-		const name = this.nameInput?.value.trim() ?? '';
-		if (!name) return;
+		const name = this.nameInput?.value.trim() || this.defaultName();
 		this.onAdd(name, this.selectedType);
 		this.close();
 	}

@@ -74,12 +74,12 @@ export function renderQuickNoteRegion(
 		// stretching the whole quick-note bar off-screen.
 		const MAX_CAPTURE_HEIGHT = 160;
 		const resize = () => {
-			input.style.height = 'auto';
+			input.setCssStyles({ height: 'auto' });
 			const target = Math.max(26, Math.min(input.scrollHeight, MAX_CAPTURE_HEIGHT));
 			// Assigning 'auto' and the target height in the same frame keeps the
 			// CSS transition running from the previous height to the new one
 			// instead of snapping through the intermediate auto layout.
-			input.style.height = `${target}px`;
+			input.setCssStyles({ height: `${target}px` });
 			capture.toggleClass('dashboard-quicknote-capture--expanded', target > 30);
 		};
 		input.addEventListener('input', resize);

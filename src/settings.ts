@@ -731,6 +731,10 @@ export class DashboardSettingTab extends PluginSettingTab {
 			.setName(t('settings.widgetCalendarExclude'))
 			.setDesc(t('settings.widgetCalendarExcludeDesc'));
 		const excludeRow = excludeSetting.controlEl.createDiv({ cls: 'dashboard-settings-folder-chips' });
+		// The add row is a SIBLING of excludeRow, not a child: renderChips()
+		// empties excludeRow on every change, which used to wipe the manual
+		// input + browse controls along with the chips.
+		const addControl = excludeSetting.controlEl.createDiv({ cls: 'dashboard-settings-folder-add' });
 
 		const removeFolder = async (folder: string): Promise<void> => {
 			this.plugin.settings = {
@@ -758,7 +762,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 		};
 		renderChips();
 
-		const addControl = excludeRow.createDiv({ cls: 'dashboard-settings-folder-add' });
 		const input = addControl.createEl('input', {
 			cls: 'dashboard-settings-folder-input',
 			attr: { type: 'text', placeholder: t('folder.selectFolder') },
@@ -920,13 +923,12 @@ export class DashboardSettingTab extends PluginSettingTab {
 		close();
 		if (results.length === 0) return dropdown;
 
-		// Create the dropdown natively: ownerDocument.createDiv routes through
-		// Obsidian's Node.createEl patch, which appendChild's the element to the
-		// Document itself (parent = this) — that throws HierarchyRequestError,
-		// which killed this dropdown before it ever rendered. We append to body
-		// explicitly below.
-		const next = inputEl.ownerDocument.createElement('div');
-		next.className = 'dashboard-city-suggest';
+		// Global createDiv(), NOT inputEl.ownerDocument.createDiv: the
+		// Node.createEl extension appends the new element to its receiver —
+		// on a Document that throws HierarchyRequestError, which killed this
+		// dropdown before it ever rendered. The global helper stays detached;
+		// we append to body explicitly below.
+		const next = createDiv({ cls: 'dashboard-city-suggest' });
 		Object.assign(next.style, {
 			position: 'absolute',
 			zIndex: '100',

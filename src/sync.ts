@@ -380,6 +380,7 @@ export class SyncEngine {
 
 	async addColumn(name: string, sectionType?: string): Promise<void> {
 		if (!this.data) return;
+		const uniqueName = this.uniqueColumnName(name);
 
 		// New library sections default to a rolling "last 7 days" window (by
 		// modified date, matching the default modified-desc sort) so the grid
@@ -396,7 +397,7 @@ export class SyncEngine {
 
 		this.data = {
 			...this.data,
-			columns: [...this.data.columns, { name, color: '#6366f1', sectionType, cards: [], libraryConfig }],
+			columns: [...this.data.columns, { name: uniqueName, color: '#6366f1', sectionType, cards: [], libraryConfig }],
 		};
 		await this.writeToDisk();
 	}
@@ -475,23 +476,62 @@ export class SyncEngine {
 	}
 
 
-	async renameColumn(oldName: string, newName: string): Promise<void> {
-		if (!this.data || !newName || oldName === newName) return;
+	/** Resolve a column to a single index. Prefers the UI-provided index (the
+	 *  exact section the user clicked) when its name still matches — with
+	 *  duplicate names that targets only THIS section — and falls back to the
+	 *  first name match. The name guard rejects stale indexes from an
+	 *  out-of-date render. */
+	private resolveColumnIndex(columnName: string, columnIndex?: number): number {
+		if (!this.data) return -1;
+		const idx = typeof columnIndex === 'number' ? columnIndex : -1;
+		if (idx >= 0 && idx < this.data.columns.length
+			&& this.data.columns[idx]!.name === columnName) {
+			return idx;
+		}
+		return this.data.columns.findIndex(col => col.name === columnName);
+	}
 
+	/** Names are the column key in the markdown format (## heading), so
+	 *  duplicates break every name-keyed operation (delete/rename used to hit
+	 *  ALL same-named sections). Creation and rename therefore always resolve
+	 *  to a unique name. `exceptIndex` exempts the column being renamed. */
+	private uniqueColumnName(base: string, exceptIndex?: number): string {
+		if (!this.data) return base;
+		const taken = new Set(
+			this.data.columns
+				.filter((_, i) => i !== exceptIndex)
+				.map(col => col.name),
+		);
+		if (!taken.has(base)) return base;
+		for (let n = 2; ; n++) {
+			const candidate = `${base} ${n}`;
+			if (!taken.has(candidate)) return candidate;
+		}
+	}
+
+	async renameColumn(oldName: string, newName: string, columnIndex?: number): Promise<void> {
+		const trimmed = newName.trim();
+		if (!this.data || !trimmed || oldName === trimmed) return;
+		const idx = this.resolveColumnIndex(oldName, columnIndex);
+		if (idx < 0) return;
+
+		const uniqueNew = this.uniqueColumnName(trimmed, idx);
 		this.data = {
 			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === oldName ? { ...col, name: newName } : col
+			columns: this.data.columns.map((col, i) =>
+				i === idx ? { ...col, name: uniqueNew } : col
 			),
 		};
 		await this.writeToDisk();
 	}
 
-	async deleteColumn(columnName: string): Promise<void> {
+	async deleteColumn(columnName: string, columnIndex?: number): Promise<void> {
 		if (!this.data) return;
+		const idx = this.resolveColumnIndex(columnName, columnIndex);
+		if (idx < 0) return;
 		this.data = {
 			...this.data,
-			columns: this.data.columns.filter(col => col.name !== columnName),
+			columns: this.data.columns.filter((_, i) => i !== idx),
 		};
 		await this.writeToDisk();
 	}

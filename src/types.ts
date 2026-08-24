@@ -259,6 +259,12 @@ export interface BannerStatsConfig {
 	 *  the core Daily notes plugin. */
 	dailyFolder?: string;
 	dailyFormat?: string;
+	/** Whether the center streak counts daily notes (default) or any note
+	 *  creation activity across the vault. */
+	streakFromDaily?: boolean;
+	/** Folders excluded from all stats (matched by path prefix,
+	 *  case-insensitive). */
+	excludeFolders?: string[];
 	/** Accent color override; undefined = follow theme. */
 	accent?: string;
 	/** Background blur in px (0–16). */
@@ -546,8 +552,10 @@ export interface RenderCallbacks {
 	onCardGridChange(cardId: string, gridCols: number, gridRows: number): void;
 	onCardGridMove(cardId: string, gridCol: number, gridRow: number): void;
 	onFileDrop(cardId: string, filePath: string): void;
-	onColumnRename(oldName: string, newName: string): void;
-	onColumnDelete(columnName: string): void;
+	/** columnIndex is the identity of the exact section the user acted on; with
+	 *  duplicate names it disambiguates which same-named column is meant. */
+	onColumnRename(oldName: string, newName: string, columnIndex?: number): void;
+	onColumnDelete(columnName: string, columnIndex?: number): void;
 	onTaskReminderEdit(cardId: string, taskPath: number[], reminder: string | undefined): void;
 	onTaskNest(cardId: string, taskPath: number[]): void;
 	onTaskNestInto(cardId: string, srcPath: number[], destPath: number[]): void;

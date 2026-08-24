@@ -1143,7 +1143,7 @@ function renderDvInline(container: HTMLElement, text: string): void {
 			a.rel = 'noopener';
 			continue;
 		}
-		container.appendChild(document.createTextNode(part));
+		container.appendText(part);
 	}
 }
 

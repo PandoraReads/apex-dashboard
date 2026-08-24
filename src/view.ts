@@ -924,8 +924,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				onCardGridChange: (cardId: string, gridCols: number, gridRows: number) => this.sync.updateCardGrid(cardId, gridCols, gridRows),
 				onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => this.sync.updateCardGridMove(cardId, gridCol, gridRow),
 				onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
-				onColumnRename: (oldName: string, newName: string) => this.sync.renameColumn(oldName, newName),
-				onColumnDelete: (columnName: string) => this.deleteColumn(columnName),
+				onColumnRename: (oldName: string, newName: string, columnIndex?: number) => { void this.sync.renameColumn(oldName, newName, columnIndex); },
+				onColumnDelete: (columnName: string, columnIndex?: number) => this.deleteColumn(columnName, columnIndex),
 				onColumnMove: (fromIndex: number, toIndex: number) => { void this.sync.moveColumn(fromIndex, toIndex); },
 				onColumnHeightChange: (name: string, height: number) => { void this.sync.updateColumnHeight(name, height); },
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
@@ -1501,13 +1501,13 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	private async deleteColumn(columnName: string): Promise<void> {
+	private async deleteColumn(columnName: string, columnIndex?: number): Promise<void> {
 		const confirmed = await showConfirmDialog(this.app, {
 			title: t('common.confirmDelete'),
 			message: t('renderer.confirmDeleteSection', { column: columnName }),
 		});
 		if (!confirmed) return;
-		await this.sync.deleteColumn(columnName);
+		await this.sync.deleteColumn(columnName, columnIndex);
 		new Notice(t('renderer.sectionDeleted'));
 	}
 

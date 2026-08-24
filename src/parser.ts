@@ -102,6 +102,11 @@ export function serialize(data: DashboardData): string {
 		const sc = data.banner.statsConfig;
 		if (sc.dailyFolder) lines.push(`    dailyFolder: "${escapeYamlString(sc.dailyFolder)}"`);
 		if (sc.dailyFormat) lines.push(`    dailyFormat: "${escapeYamlString(sc.dailyFormat)}"`);
+		if (typeof sc.streakFromDaily === 'boolean') lines.push(`    streakFromDaily: ${sc.streakFromDaily}`);
+		if (sc.excludeFolders && sc.excludeFolders.length > 0) {
+			lines.push('    excludeFolders:');
+			for (const folder of sc.excludeFolders) lines.push(`      - "${escapeYamlString(folder)}"`);
+		}
 		if (sc.accent) lines.push(`    accent: "${sc.accent}"`); // quoted: '#' starts a YAML comment
 		if (sc.blur !== undefined) lines.push(`    blur: ${sc.blur}`);
 		if (sc.darkness !== undefined) lines.push(`    darkness: ${sc.darkness}`);
@@ -430,11 +435,11 @@ export function generateDefaultMarkdown(): string {
 					gridRow: 0,
 					},
 					{
-						id: 'demo-memo-delete',
-						title: t('default.memoDeleteTitle'),
+						id: 'demo-memo-rename',
+						title: t('default.memoRenameTitle'),
 						type: 'generic',
 						column: 'Memo',
-						body: t('default.memoDeleteBody'),
+						body: t('default.memoRenameBody'),
 						tasks: [],
 						docs: [],
 						url: '',
@@ -683,6 +688,11 @@ function parseStatsConfig(raw: unknown): BannerStatsConfig | undefined {
 	const cfg: BannerStatsConfig = {};
 	if (typeof r.dailyFolder === 'string' && r.dailyFolder) cfg.dailyFolder = r.dailyFolder;
 	if (typeof r.dailyFormat === 'string' && r.dailyFormat) cfg.dailyFormat = r.dailyFormat;
+	if (typeof r.streakFromDaily === 'boolean') cfg.streakFromDaily = r.streakFromDaily;
+	if (Array.isArray(r.excludeFolders)) {
+		const folders = r.excludeFolders.filter((f): f is string => typeof f === 'string' && f.trim() !== '');
+		if (folders.length > 0) cfg.excludeFolders = folders;
+	}
 	if (typeof r.accent === 'string' && r.accent) cfg.accent = r.accent;
 	if (typeof r.blur === 'number') cfg.blur = r.blur;
 	if (typeof r.darkness === 'number') cfg.darkness = r.darkness;

@@ -177,7 +177,8 @@ export default class DashboardPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		const raw = (await this.loadData() ?? {}) as Record<string, unknown> & Partial<DashboardSettings>;
+		const loaded = await this.loadData();
+		const raw = (loaded ?? {}) as Record<string, unknown> & Partial<DashboardSettings>;
 		// Migrate old widgetTheme combo to individual flags
 		if ('widgetTheme' in raw && typeof raw.widgetTheme === 'string') {
 			const theme = raw.widgetTheme;
@@ -198,6 +199,15 @@ export default class DashboardPlugin extends Plugin {
 			countdowns,
 			mediaTags,
 		};
+		// First install only (no data.json has ever existed): start with the
+		// Common Actions bar enabled and the sidebar pinned open. Applied here
+		// instead of DEFAULT_SETTINGS so users upgrading from older versions —
+		// whose data.json may lack these keys — keep their current state.
+		if (loaded === null) {
+			this.settings = { ...this.settings, quickNotesEnabled: true };
+			this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', 'true');
+			await this.saveSettings();
+		}
 		setLanguage(this.settings.language);
 	}
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.8.8 (2026-08-24)
+
+### Fixed
+- **Community-plugin review compliance (re-submission)** — Style and DOM helper usages flagged by the Obsidian linter are resolved: the quick-note capture box's auto-grow assigns height through `setCssStyles` instead of direct `element.style` writes; the detached weather city-suggest dropdown is built with the global `createDiv()` helper instead of `ownerDocument.createElement`; plain-text rendering goes through `appendText()` instead of `appendChild(createTextNode(...))`
+- **Deleting one section deleted every same-named section** — Deletion and rename matched columns purely by name, so two sections sharing a title (easy to hit now that a blank name falls back to the type name) meant the trash button removed all of them at once and rename edited all of them together. Delete and rename now carry the exact section's identity (index with a name guard) from the UI into the data layer, so only the section you clicked is affected; creating or renaming into an existing name auto-suffixes it ("名称 2", "名称 3") so duplicates can no longer be created in the first place.
+- **Calendar excluded-folders: manual add row vanished after removing a chip** — The chip re-render emptied the container that also held the input/browse controls, so the add row disappeared after any chip removal or multi-select confirm. The add row is now a sibling of the chip list and survives every update.
+
+### Added
+- **Stats banner: streak source toggle** — A checkbox under the daily-notes folder setting chooses whether the center streak counts daily notes (default) or any note creation across the vault. When counting notes the metric label switches to "Active days", keeping the number's meaning unambiguous.
+- **Stats banner: excluded folders** — Folders chosen in the stats settings (searchable multi-select tree with parent-covers-children, or manual path entry for folders outside the vault tree) are excluded from every statistic — totals, heatmap, activity streak, tasks, tags — and link stats are filtered on both ends so connectivity, orphan rate, and average links per note stay consistent with the filtered file set.
+
+### Changed
+- **Section name is now optional** — Leaving the name blank in the "Add section" modal uses the localized type name as the section title; the confirm button no longer stays disabled on an empty input
+- **First install opens discoverable** — A brand-new install (no settings data yet) starts with the sidebar pinned open and the Common Actions bar enabled, and the sample guide card reads "unpin the sidebar" accordingly. Existing installs keep their current state untouched.
+- **Default guide card teaches renaming instead of file editing** — The memo-section tip card no longer tells users to edit dashboard.md to delete sections (the section menu already covers that); it now demonstrates double-clicking a section title to rename it.
+
 ## 1.8.7 (2026-08-24)
 
 ### Added

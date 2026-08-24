@@ -1675,27 +1675,42 @@
 		transition: opacity 0.15s ease;
 	}
 
-	/* Bookmark tab: anchors at top edge, extends downward */
+	/* Bookmark tab: anchors at top edge, extends downward. The bottom point
+	   is a border-triangle ::after instead of a polygon cut, which the
+	   marketplace checker flags as only partially supported on 1.7.4. */
 	.dashboard-banner--collapsed .dashboard-banner-pin-btn {
 		top: 0;
 		left: auto;
 		right: 16px;
 		width: 28px;
-		height: 30px;
+		height: 25px;
 		padding: 0;
 		opacity: 1;
+		--dashboard-pin-tail: var(--db-bg-card);
 		background: var(--db-bg-card) !important;
 		border: none !important;
 		border-radius: 4px 4px 6px 6px;
 		color: var(--db-text-faint);
-		/* stylelint-disable-next-line */
-		clip-path: polygon(0% 0%, 100% 0%, 100% 82%, 55% 100%, 45% 100%, 0% 82%);
 		transition: opacity 0.2s ease, color 0.2s ease, transform 0.15s ease;
+	}
+
+	.dashboard-banner--collapsed .dashboard-banner-pin-btn::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		bottom: -5px;
+		width: 0;
+		height: 0;
+		margin-left: -3px;
+		border-left: 3px solid transparent;
+		border-right: 3px solid transparent;
+		border-top: 5px solid var(--dashboard-pin-tail);
 	}
 
 	.dashboard-banner--collapsed .dashboard-banner-pin-btn:hover {
 		opacity: 1;
 		color: var(--db-text);
+		--dashboard-pin-tail: var(--db-bg-hover);
 		background: var(--db-bg-hover) !important;
 		transform: scaleY(1.06);
 	}
@@ -15778,7 +15793,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	border: 1px solid var(--db-border-card, var(--background-modifier-border));
 	background: var(--db-bg, var(--background-secondary));
 	color: var(--db-text, var(--text-normal));
-	font-family: var(--font-monospace, ui-monospace, monospace);
+	font-family: var(--font-monospace, monospace);
 	font-size: 12.5px;
 	line-height: 1.6;
 	resize: vertical;

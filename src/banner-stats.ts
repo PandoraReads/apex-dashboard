@@ -23,6 +23,8 @@ export function resolveStatsConfig(config?: BannerStatsConfig): BannerStatsConfi
 	return {
 		dailyFolder: config?.dailyFolder,
 		dailyFormat: config?.dailyFormat,
+		streakFromDaily: config?.streakFromDaily,
+		excludeFolders: config?.excludeFolders ? [...config.excludeFolders] : undefined,
 		accent: config?.accent,
 		blur: config?.blur,
 		darkness: config?.darkness,
@@ -87,7 +89,18 @@ export interface BannerStatsResult {
 /** Compute every banner statistic in a single vault pass (no file reads — uses
  *  `file.stat`, the metadata cache, and the prebuilt `resolvedLinks` map). */
 export function computeBannerStats(app: App, config?: BannerStatsConfig): BannerStatsResult {
-	const files = app.vault.getMarkdownFiles();
+	// Excluded folders are matched by path prefix (case-insensitive), same
+	// semantics as the calendar widget's exclusions — a checked parent covers
+	// its whole subtree.
+	const excludeFolders = (config?.excludeFolders ?? [])
+		.map(f => f.trim().toLowerCase())
+		.filter(f => f !== '' && f !== '/');
+	const isExcluded = (path: string): boolean => {
+		if (excludeFolders.length === 0) return false;
+		const lower = path.toLowerCase();
+		return excludeFolders.some(f => lower === f || lower.startsWith(f + '/'));
+	};
+	const files = app.vault.getMarkdownFiles().filter(f => !isExcluded(f.path));
 	const now = nowMoment();
 	const startOfMonth = now.clone().startOf('month').valueOf();
 	const weekAgoMs = now.clone().subtract(6, 'days').startOf('day').valueOf();
@@ -107,11 +120,17 @@ export function computeBannerStats(app: App, config?: BannerStatsConfig): Banner
 	const hasIncoming = new Set<string>();
 	let totalLinks = 0;
 	for (const [src, targets] of Object.entries(resolved)) {
-		const targetKeys = Object.keys(targets);
-		if (targetKeys.length === 0) continue;
-		hasOutgoing.add(src);
-		for (const tgt of targetKeys) hasIncoming.add(tgt);
-		for (const count of Object.values(targets)) totalLinks += count;
+		if (isExcluded(src)) continue;
+		// Links touching excluded folders on either end do not count, so
+		// connectivity/orphan stats stay consistent with the filtered file set.
+		let kept = 0;
+		for (const [tgt, count] of Object.entries(targets)) {
+			if (isExcluded(tgt)) continue;
+			hasIncoming.add(tgt);
+			totalLinks += count;
+			kept++;
+		}
+		if (kept > 0) hasOutgoing.add(src);
 	}
 
 	let totalTasks = 0;
@@ -174,9 +193,11 @@ export function computeBannerStats(app: App, config?: BannerStatsConfig): Banner
 	// daily-note streak one load, a large all-vault streak the next). Instead
 	// we record whether a daily source was usable; the renderer swaps the LABEL
 	// (连续记录 vs 活跃天数) so the number's meaning is always unambiguous.
+	// `streakFromDaily: false` opts out of the daily source entirely: the
+	// streak then counts any note creation (the 活跃天数 semantics).
 	let streak = 0;
 	let hasDailySource = false;
-	if (dailyCfg) {
+	if (config?.streakFromDaily !== false && dailyCfg) {
 		const dailyDates = collectDailyNoteDates(app, dailyCfg.folder, dailyCfg.format);
 		if (dailyDates.size > 0) {
 			streak = computeDateStreak(dailyDates);

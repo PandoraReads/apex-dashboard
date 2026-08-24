@@ -3,6 +3,7 @@ import type { BannerData, BannerStatsConfig, QuoteItem } from './types';
 import { t } from './i18n';
 import { renderBannerStats, resolveStatsConfig, LEFT_STAT_OPTIONS, CENTER_STAT_OPTIONS, RIGHT_STAT_OPTIONS } from './banner-stats';
 import { getDailyNotesConfig } from './daily-notes';
+import { MultiFolderSelectModal } from './folder-config-modal';
 
 export function getActiveQuote(banner: BannerData): QuoteItem {
 	if (banner.quotes && banner.quotes.length > 0) {
@@ -384,6 +385,77 @@ export class BannerEditModal extends Modal {
 		});
 		dailySection.createDiv({ cls: 'dashboard-modal-stats-hint', text: t('banner.stats.dailyFolderHint') });
 
+		const useDailyLabel = dailySection.createEl('label', { cls: 'dashboard-modal-stats-checkbox' });
+		const useDailyCheck = useDailyLabel.createEl('input', { attr: { type: 'checkbox' } });
+		useDailyCheck.checked = this.statsDraft.streakFromDaily !== false;
+		useDailyCheck.addEventListener('change', () => {
+			this.statsDraft.streakFromDaily = useDailyCheck.checked;
+		});
+		useDailyLabel.createSpan({ text: t('banner.stats.streakFromDaily') });
+
+		// === Excluded folders ===
+		const excludeSection = this.form.createDiv({ cls: 'dashboard-modal-stats-daily' });
+		excludeSection.createEl('label', { text: t('banner.stats.excludeFolders'), cls: 'dashboard-modal-stats-label' });
+		excludeSection.createDiv({ cls: 'dashboard-modal-stats-hint', text: t('banner.stats.excludeFoldersHint') });
+
+		// Chips host is separate from the add row so re-rendering chips on
+		// remove never wipes the manual input/browse controls.
+		const chipsHost = excludeSection.createDiv({ cls: 'dashboard-settings-folder-chips' });
+		const renderExcludeChips = (): void => {
+			chipsHost.empty();
+			for (const folder of this.statsDraft.excludeFolders ?? []) {
+				const chip = chipsHost.createDiv({ cls: 'dashboard-settings-folder-chip' });
+				chip.createSpan({ text: folder });
+				const removeBtn = chip.createEl('button', {
+					cls: 'dashboard-settings-folder-chip-remove',
+					attr: { 'aria-label': t('common.remove', { name: folder }) },
+				});
+				setIcon(removeBtn, 'x');
+				removeBtn.addEventListener('click', () => {
+					this.statsDraft = {
+						...this.statsDraft,
+						excludeFolders: (this.statsDraft.excludeFolders ?? []).filter(f => f !== folder),
+					};
+					renderExcludeChips();
+				});
+			}
+		};
+		renderExcludeChips();
+
+		const addControl = excludeSection.createDiv({ cls: 'dashboard-settings-folder-add' });
+		const excludeFolderInput = addControl.createEl('input', {
+			cls: 'dashboard-settings-folder-input',
+			attr: { type: 'text', placeholder: t('folder.selectFolder') },
+		});
+		const addExcludedFolder = (): void => {
+			const folder = excludeFolderInput.value.trim();
+			if (!folder) return;
+			const folders = this.statsDraft.excludeFolders ?? [];
+			if (!folders.includes(folder)) {
+				this.statsDraft = { ...this.statsDraft, excludeFolders: [...folders, folder] };
+			}
+			excludeFolderInput.value = '';
+			renderExcludeChips();
+		};
+		const browseBtn = addControl.createEl('button', { cls: 'dashboard-settings-folder-browse' });
+		setIcon(browseBtn, 'folder');
+		browseBtn.addEventListener('click', () => {
+			// Multi-select picker: manage the whole excluded set in one place.
+			// Manual typing above stays for paths outside the folder tree.
+			new MultiFolderSelectModal(this.app, this.statsDraft.excludeFolders ?? [], (folders) => {
+				this.statsDraft = { ...this.statsDraft, excludeFolders: folders };
+				renderExcludeChips();
+			}, { parentCoversChildren: true }).open();
+		});
+		const addBtn = addControl.createEl('button', { cls: 'dashboard-settings-folder-add-btn', text: t('common.add') });
+		addBtn.addEventListener('click', addExcludedFolder);
+		excludeFolderInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				addExcludedFolder();
+			}
+		});
+
 		// === Details ===
 		const subSection = this.form.createDiv({ cls: 'dashboard-modal-stats-sub' });
 		const subLabel = subSection.createEl('label', { cls: 'dashboard-modal-stats-checkbox' });
@@ -444,6 +516,8 @@ export class BannerEditModal extends Modal {
 			updates.statsConfig = {
 				dailyFolder: this.statsDraft.dailyFolder,
 				dailyFormat: this.statsDraft.dailyFormat,
+				streakFromDaily: this.statsDraft.streakFromDaily,
+				excludeFolders: this.statsDraft.excludeFolders,
 				accent: this.statsDraft.accent,
 				blur: this.statsDraft.blur,
 				darkness: this.statsDraft.darkness,
