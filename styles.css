@@ -1865,6 +1865,125 @@
 	border-bottom: 2px solid var(--db-accent) !important;
 }
 
+/* Habit Widget */
+.dashboard-sidebar-habit-top {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	margin-bottom: 6px;
+}
+
+.dashboard-sidebar-habit-title {
+	font-size: 0.7em;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	color: var(--db-accent);
+	user-select: none;
+	white-space: nowrap;
+}
+
+.dashboard-sidebar-habit-count {
+	font-size: 0.65em;
+	color: var(--db-text-muted);
+	user-select: none;
+}
+
+.dashboard-sidebar-habit-top-spacer {
+	flex: 1;
+}
+
+.dashboard-sidebar-habit-icon-btn {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	opacity: 0.3;
+	color: var(--db-text-muted);
+	transition: opacity 0.15s;
+	flex-shrink: 0;
+}
+
+.dashboard-sidebar-habit-icon-btn:hover {
+	opacity: 0.75;
+}
+
+.dashboard-sidebar-habit-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.dashboard-sidebar-habit-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 5px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+
+.dashboard-sidebar-habit-item:hover {
+	background: var(--db-bg-hover);
+}
+
+.dashboard-sidebar-habit-check {
+	width: 16px;
+	height: 16px;
+	border: 1.5px solid var(--db-text-muted);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	transition: border-color 0.15s, background 0.15s;
+}
+
+.dashboard-sidebar-habit-check--done {
+	background: var(--db-accent);
+	border-color: var(--db-accent);
+	/* Check glyph tinted with the panel base so it contrasts with both
+	   bright (dark themes) and deep (light themes) accents. */
+	color: var(--db-bg);
+}
+
+.dashboard-sidebar-habit-check--done svg {
+	width: 10px;
+	height: 10px;
+}
+
+.dashboard-sidebar-habit-name {
+	flex: 1;
+	font-size: 0.75em;
+	color: var(--db-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-sidebar-habit-item--done .dashboard-sidebar-habit-name {
+	color: var(--db-text-muted);
+	text-decoration: line-through;
+}
+
+.dashboard-sidebar-habit-streak {
+	font-size: 0.62em;
+	color: var(--db-text-muted);
+	flex-shrink: 0;
+	user-select: none;
+}
+
+.dashboard-sidebar-habit-empty {
+	font-size: 0.68em;
+	color: var(--db-text-muted);
+	text-align: center;
+	padding: 8px 0;
+	opacity: 0.7;
+}
+
 /* Countdown Widget */
 .dashboard-sidebar-countdown {
 	position: relative;
@@ -2972,6 +3091,236 @@
 }
 .dashboard-pomodoro-recent-container::-webkit-scrollbar {
 	display: none;
+}
+
+/* ===== Habit stats modal ===== */
+.dashboard-habit-stats-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
+.dashboard-habit-stats-modal {
+	background: var(--background-primary, var(--db-bg));
+	border: 1px solid var(--db-border-card);
+	border-radius: 12px;
+	padding: 20px;
+	max-width: 480px;
+	width: 90%;
+	max-height: 80vh;
+	overflow-y: auto;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-habit-stats-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 14px;
+}
+
+.dashboard-habit-stats-title {
+	font-size: 1.2em;
+	font-weight: 700;
+	color: var(--db-text);
+}
+
+.dashboard-habit-stats-close {
+	cursor: pointer;
+	color: var(--db-text-muted);
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	transition: background 0.15s;
+}
+
+.dashboard-habit-stats-close:hover {
+	background: var(--db-bg-hover);
+}
+
+.dashboard-habit-stats-body {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.dashboard-habit-stats-empty {
+	font-size: 0.85em;
+	color: var(--db-text-muted);
+	text-align: center;
+	padding: 24px 0;
+	opacity: 0.75;
+}
+
+.dashboard-habit-stats-card {
+	background: var(--db-bg-hover);
+	border: 1px solid var(--db-border-card);
+	border-radius: 8px;
+	padding: 12px;
+}
+
+.dashboard-habit-stats-card-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+.dashboard-habit-stats-card-name {
+	font-size: 0.9em;
+	font-weight: 600;
+	color: var(--db-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-habit-stats-card-head-spacer {
+	flex: 1;
+}
+
+.dashboard-habit-stats-icon-btn {
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	opacity: 0.3;
+	color: var(--db-text-muted);
+	transition: opacity 0.15s;
+	flex-shrink: 0;
+}
+
+.dashboard-habit-stats-icon-btn:hover {
+	opacity: 0.75;
+}
+
+.dashboard-habit-stats-icon-btn--danger:hover {
+	color: var(--text-error, #e5484d);
+	opacity: 0.9;
+}
+
+.dashboard-habit-stats-chips {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.dashboard-habit-stats-chip {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	background: var(--db-bg-card);
+	border-radius: 7px;
+	padding: 6px 8px;
+}
+
+.dashboard-habit-stats-chip-icon {
+	display: flex;
+	align-items: center;
+	color: var(--db-accent);
+	flex-shrink: 0;
+}
+
+.dashboard-habit-stats-chip-icon svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-habit-stats-chip-value {
+	font-size: 0.82em;
+	font-weight: 700;
+	color: var(--db-text);
+	line-height: 1.15;
+}
+
+.dashboard-habit-stats-chip-label {
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	line-height: 1.15;
+}
+
+.dashboard-habit-stats-heatmap-section {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dashboard-habit-stats-heatmap-head {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.dashboard-habit-stats-heatmap-hint {
+	font-size: 0.62em;
+	color: var(--db-text-muted);
+	opacity: 0.7;
+}
+
+.dashboard-habit-stats-heatmap-wrap {
+	position: relative;
+	width: 100%;
+}
+
+.dashboard-habit-stats-heatmap-svg {
+	display: block;
+}
+
+.dashboard-habit-stats-heatmap-cell {
+	fill: rgba(128, 128, 128, 0.14);
+}
+
+.dashboard-habit-stats-heatmap-cell--done {
+	fill: var(--db-accent);
+}
+
+.dashboard-habit-stats-heatmap-empty {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.65em;
+	color: var(--db-text-muted);
+	opacity: 0.75;
+	text-align: center;
+	pointer-events: none;
+}
+
+.dashboard-habit-stats-heatmap-legend {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	justify-content: flex-end;
+}
+
+.dashboard-habit-stats-heatmap-legend-label {
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	opacity: 0.7;
+}
+
+.dashboard-habit-stats-heatmap-legend-swatch {
+	width: 9px;
+	height: 9px;
+	border-radius: 2px;
+	background: rgba(128, 128, 128, 0.14);
+}
+
+.dashboard-habit-stats-heatmap-legend-swatch--done {
+	background: var(--db-accent);
 }
 
 /* ===== Tag manager modal ===== */
@@ -14717,7 +15066,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	transform: none;
 }
 .dashboard-quicknote-capture-input {
-	width: 160px;
+	/* Responsive so a narrow window, tablet, or split pane never lets the
+	   field starve the chip zone: the full 160px from ~890px viewport up,
+	   scaling down to a 108px floor on phones. */
+	width: clamp(108px, 18vw, 160px);
 	height: 26px;
 	min-height: 26px;
 	max-height: 160px;
@@ -14774,31 +15126,25 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 .dashboard-quicknote-cog svg { width: 14px; height: 14px; }
 
-/* ── Phone only: the bar is narrow, so let the chips wrap onto their own
-   line(s) and drop the capture field + cog to a second row. Otherwise the
-   fixed-width capture input squeezes the chips off-screen.
-   Scoped to .is-phone because Obsidian sets .is-mobile on phones AND tablets;
-   tablets are wide enough to keep the desktop single-row layout. */
-.is-phone .dashboard-quicknote {
-	flex-wrap: wrap;
-	gap: 8px;
-}
-.is-phone .dashboard-quicknote-nav {
-	flex: 1 1 100%;
-	flex-wrap: wrap;
-	overflow-x: visible;
-}
-.is-phone .dashboard-quicknote-actions {
-	flex: 1 1 100%;
-}
-.is-phone .dashboard-quicknote-capture {
-	flex: 1 1 auto;
-}
-.is-phone .dashboard-quicknote-capture-input {
-	width: auto;
-	flex: 1 1 auto;
-	min-width: 0;
-}
+/* ── Mobile bar corrections ────────────────────────────────────────────
+   Phones and tablets keep the single-row layout: crowded chips scroll
+   sideways inside the nav (the base .dashboard-quicknote-nav already sets
+   flex-wrap: nowrap + overflow-x: auto) instead of wrapping the bar onto
+   multiple lines. The capture field's responsive width (clamp above) keeps
+   the chip zone a usable share of a narrow screen, so no phone-specific
+   overrides are needed anymore.
+
+   Tablet-only reset: Obsidian's own stylesheet ships `.is-tablet
+   button:not(.clickable-icon) { padding: 4px 20px }` — specificity 0,2,1,
+   since :not() counts its argument — which beats the chips' plain
+   `padding: 3px 0` (0,1,0) and the cog's `padding: 0`, inflating every chip
+   into a ~40px-wider pill that starves the row down to a couple of buttons.
+   Same trap as the scroll-top / task-button fix earlier in this file:
+   qualify with `button` to tie at 0,2,1 and win by source order (plugin
+   styles load after app.css). Phones have no .is-tablet class and desktop
+   matches neither — both stay on the base styles. */
+.is-tablet button.dashboard-quicknote-chip { padding: 3px 0; }
+.is-tablet button.dashboard-quicknote-cog { padding: 0; }
 
 /* Quick Notes config modal */
 .dashboard-quicknote-config { max-width: 540px; }
@@ -15953,6 +16299,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	.is-mobile .dashboard-banner--stats::before,
 	.is-mobile .dashboard-heatmap-stats-popup,
 	.is-mobile .dashboard-pomodoro-stats-overlay,
+	.is-mobile .dashboard-habit-stats-overlay,
 	.is-mobile .dashboard-confirm-overlay,
 	.is-mobile .file-suggest-container,
 	.is-mobile .suggestion-container {

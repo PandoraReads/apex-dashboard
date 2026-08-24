@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.10 (2026-08-25)
+
+### Fixed
+- **Common Actions bar on phones: chips scroll instead of wrapping** — With many buttons the bar used to wrap onto several lines (a deliberate phone-only layout from when the capture field had a fixed width). The bar now stays a single row everywhere and crowded buttons scroll sideways inside the chip zone.
+- **Common Actions bar on tablets: buttons squeezed to ~2 visible** — Two stacked causes, both fixed: Obsidian's own tablet stylesheet (`.is-tablet button:not(.clickable-icon) { padding: 4px 20px }`) out-specified the plugin's chip/cog padding, inflating every chip into a ~40px-wider pill; and the Fleeting Capture field had a hard-coded 160px width. The chips/cog now reset the tablet padding inflation (same qualification trick as the earlier scroll-top fix), and the capture field's width is responsive — full 160px from ~890px viewport up, scaling down to a 108px floor on phones, so the field can no longer starve the button zone on any screen.
+
 ## 1.8.9 (2026-08-25)
 
 ### Added
