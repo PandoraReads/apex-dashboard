@@ -2962,17 +2962,26 @@
 }
 
 .dashboard-pomodoro-heatmap-container {
+	/* Holds the wrapping div grid (banner heatmap pattern): cells fill the
+	   column width at a fixed pitch — replaces the fixed-canvas SVG whose
+	   width:100% + aspect-ratio dance could still collapse on first paint
+	   and whose 168px drawing huddled mid-column. */
 	line-height: 0;
-	/* Fixed aspect ratio: the SVG's width:100% must not participate in the
-	   grid row-height cycle or the first paint collapses to 0. */
-	aspect-ratio: 168 / 98;
+}
+
+/* Wrapping cell strip: oldest→today, fills the right column's width. */
+.dashboard-pomodoro-heatmap-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, 12px);
+	grid-auto-rows: 12px;
+	gap: 3px;
+	justify-content: center;
+	width: 100%;
 }
 
 .dashboard-pomodoro-heatmap-cell {
-	fill: var(--db-bg-hover);
-}
-.dashboard-pomodoro-heatmap-cell--active {
-	cursor: pointer;
+	border-radius: 3px;
+	background: var(--db-bg-hover);
 }
 
 .dashboard-pomodoro-recent-container {
@@ -3187,16 +3196,24 @@
 	width: 100%;
 }
 
-.dashboard-habit-stats-heatmap-svg {
-	display: block;
+/* Wrapping cell strip (banner heatmap pattern): cells flow oldest→today and
+   fill the card width — no fixed-canvas center-huddle, no SVG sizing traps. */
+.dashboard-habit-stats-heatmap-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, 12px);
+	grid-auto-rows: 12px;
+	gap: 3px;
+	justify-content: center;
+	width: 100%;
 }
 
 .dashboard-habit-stats-heatmap-cell {
-	fill: rgba(128, 128, 128, 0.14);
+	border-radius: 3px;
+	background: rgba(128, 128, 128, 0.14);
 }
 
 .dashboard-habit-stats-heatmap-cell--done {
-	fill: var(--db-accent);
+	background: var(--db-accent);
 }
 
 .dashboard-habit-stats-heatmap-empty {
@@ -3497,6 +3514,7 @@
 
 /* Hero goal card */
 .dashboard-pomodoro-kpi-hero {
+	position: relative;
 	background: var(--db-bg-hover);
 	border-radius: 10px;
 	padding: 12px 10px;
@@ -3545,19 +3563,27 @@
 	text-align: center;
 }
 
-/* Inline goal editor (pencil on the hero card) */
+/* Goal editor entry: a small pencil pinned to the hero card's top-right
+   corner (was an oversized inline button beside the "/ N" denominator that
+   pushed the centered numbers off balance). */
 .dashboard-pomodoro-kpi-hero-edit {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	cursor: pointer;
 	color: var(--db-text-faint);
-	display: flex;
-	padding: 2px;
-	border-radius: 4px;
-	margin-left: 2px;
+	border-radius: 5px;
 	transition: color 0.15s, background 0.15s;
 }
+.dashboard-pomodoro-kpi-hero-edit svg { width: 11px; height: 11px; }
 .dashboard-pomodoro-kpi-hero-edit:hover {
 	color: var(--db-accent);
-	background: var(--db-bg-hover);
+	background: var(--db-bg);
 }
 
 .dashboard-pomodoro-goal-editor {
