@@ -13620,8 +13620,23 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calendar.is-compact .dashboard-calendar-cell.has-tasks { cursor: pointer; }
 .dashboard-calendar.is-compact .dashboard-calendar-cell.has-tasks:hover { background: var(--db-bg-card-hover, rgba(255,255,255,0.08)); }
 
-/* Full (modal) sizing */
-.dashboard-calendar.is-full .dashboard-calendar-cell { min-height: 108px; }
+/* Full (modal) sizing. Every cell gets an explicit light border (mixed from the
+   theme's text color, so it stays light-on-dark and dark-on-light across
+   palettes); today's cell takes an accent-tinted background with an
+   accent-colored, bolder date number. The --db-* vars resolve via the copy onto
+   the modal box in calendar-modal.ts (the modal sits outside the theme root). */
+.dashboard-calendar.is-full .dashboard-calendar-cell {
+	min-height: 108px;
+	border-color: color-mix(in srgb, var(--db-text, rgba(232, 240, 248, 0.9)) 16%, transparent);
+}
+.dashboard-calendar.is-full .dashboard-calendar-cell.is-today {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 16%, transparent);
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-calendar.is-full .dashboard-calendar-cell.is-today .dashboard-calendar-cell-num {
+	color: var(--db-accent, var(--text-accent));
+	font-weight: 700;
+}
 
 /* Week view: vertical list of 7 day rows (distinct from the month grid) */
 .dashboard-calendar.dashboard-calendar--week { display: flex; flex-direction: column; gap: 4px; }
@@ -15785,7 +15800,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-dataview-src-path,
 .dashboard-dataview-src-created {
 	color: var(--db-text-muted, var(--text-muted));
-	font-size: 11.5px;
+	font-size: 12.5px;
 	max-width: 220px;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -15809,7 +15824,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	align-items: center;
 }
 .dashboard-dataview-list-source {
-	font-size: 10.5px;
+	font-size: 11px;
 	color: var(--db-text-faint, var(--text-faint));
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -15845,6 +15860,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-dataview-table {
 	table-layout: fixed;
 	word-break: break-word;
+	/* Lift cells off the inherited library-table 0.75em: that sat a step below
+	   every other section's row text (0.85em typical). Scoped to the dataview
+	   table so the library section's own table keeps its size. */
+	font-size: 0.85em;
 }
 .dashboard-dataview-table td {
 	white-space: normal;
@@ -15871,6 +15890,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 .dashboard-dataview-table th {
 	cursor: default;
+	/* Library headers compound their ratio against the table base (0.6875em x
+	   0.75em = ~8px here). Keep the muted-uppercase look but at a legible size
+	   relative to the larger cell font. */
+	font-size: 0.75em;
 }
 .dashboard-dataview-table tr:not(.is-clickable) {
 	cursor: default;
@@ -15900,7 +15923,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	padding: 5px 8px;
 	border-radius: var(--db-radius-sm, 6px);
 	color: var(--db-text, var(--text-normal));
-	font-size: 0.8125em;
+	font-size: 0.85em;
 	transition: background 0.1s ease;
 }
 .dashboard-dataview-list-item:hover {
@@ -15931,7 +15954,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	flex-direction: column;
 	gap: 3px;
 	color: var(--db-text, var(--text-normal));
-	font-size: 0.8125em;
+	font-size: 0.85em;
 }
 .dashboard-dataview-free-list.is-nested {
 	padding-left: 14px;
@@ -16019,7 +16042,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	transform: translateY(1px);
 }
 .dashboard-dataview-task-text {
-	font-size: 0.8125em;
+	font-size: 0.85em;
 	color: var(--db-text, var(--text-normal));
 }
 

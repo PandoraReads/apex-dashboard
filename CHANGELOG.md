@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.1 (2026-08-25)
+
+### Fixed
+- **Full-screen calendar rendered unthemed (no cell borders or colors)** — The expanded calendar and the day-agenda popup live in Obsidian's modal layer, outside the dashboard's theme root, so every `--db-*` variable fell back to its near-invisible generic default: day cells had no visible border or background, and today's cell had no accent. The modals now copy the live theme variables from the dashboard root onto the modal box (same mechanism as the reminder popup and the library/media popovers), so the whole grid picks up the real theme. The full-screen month view additionally gives every day cell a light theme-adaptive border (mixed from the theme's text color, so it reads light-on-dark and dark-on-light) and today's cell an accent-tinted background with an accent-colored, bolder date number.
+- **Dataview text sat a size below every other section** — Table cells inherited the library table's 0.75em with headers compounding down to ~8px, and list/free/task text sat at 0.8125em. All four views now render their primary text at the dashboard's common 0.85em row-text size, with table headers and source metadata (path/created columns, list source lines) scaled up proportionally. The library section's own table is unchanged.
+
 ## 1.9.0 (2026-08-25)
 
 ### Added
