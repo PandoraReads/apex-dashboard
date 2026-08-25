@@ -195,7 +195,12 @@ export function renderSidebarCalendar(
 
 	async function render(): Promise<void> {
 		hasLoaded = true;
-		const tasks = (await collectVaultTasks(app, excludeFolders)).filter(isCalendarRelevant);
+		// Always include the dashboard file itself: its checkbox lists are the
+		// user's live todos AND the day-agenda's fallback write destination. An
+		// exclusion covering the dashboard's folder (e.g. 'assets') would
+		// otherwise hide dashboard tasks and erase calendar-added ones on the
+		// next re-scan.
+		const tasks = (await collectVaultTasks(app, excludeFolders, settings.dashboardFile)).filter(isCalendarRelevant);
 		const byDay = indexTasksByDay(tasks);
 		const onDayClick = (iso: string): void => {
 			new DayAgendaModal(app, iso, byDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile).open();
@@ -241,7 +246,7 @@ export function renderSidebarCalendar(
 	});
 
 	async function openFullscreen(): Promise<void> {
-		const tasks = (await collectVaultTasks(app, excludeFolders)).filter(isCalendarRelevant);
+		const tasks = (await collectVaultTasks(app, excludeFolders, settings.dashboardFile)).filter(isCalendarRelevant);
 		const byDay = indexTasksByDay(tasks);
 		new CalendarMonthModal(app, byDay, { onToggle, onOpenNote }, view, view === 'week' ? weekStart : undefined).open();
 	}

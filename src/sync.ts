@@ -824,6 +824,10 @@ export class SyncEngine {
 
 	private deferredWriteTimer: number | null = null;
 	private renameEventRef: ReturnType<typeof this.app.vault.on> | null = null;
+	/** Depth of writes currently queued/executing. `onFileModify` uses this to
+	 *  decide whether an external change can be ingested immediately: while our
+	 *  own writes are draining, a load() could race them (see onFileModify). */
+	private writeQueuePending = 0;
 
 	private registerFileWatcher(): void {
 		const filePath = this.file?.path;
@@ -904,6 +908,20 @@ export class SyncEngine {
 
 	private onFileModify(): void {
 		if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
+		// External writers (the calendar's day-agenda insert, task toggles, other
+		// devices via file sync) bypass this engine and write the file directly.
+		// They must be ingested into `this.data` BEFORE the next engine write
+		// serializes over them — otherwise a stale in-memory copy clobbers the
+		// external change (observed: a whole section vanishing ~a minute after
+		// it was created). When our write queue is idle we reload right away;
+		// our own write echoes are cheap no-ops thanks to load()'s
+		// serialize-equality check. While writes are draining we fall back to
+		// the debounce — serialize-at-execution in writeToDisk picks up the
+		// freshest `this.data` anyway.
+		if (this.writeQueuePending === 0 && this.deferredWriteTimer === null) {
+			void this.load();
+			return;
+		}
 		this.debounceTimer = window.setTimeout(() => {
 			void this.load();
 		}, this.debounceMs);
@@ -936,11 +954,16 @@ export class SyncEngine {
 	private async writeToDisk(silent = false): Promise<void> {
 		if (!this.data || !this.file) return;
 
-		const content = serialize(this.data);
-
 		const fileRef = this.file;
+		this.writeQueuePending++;
 		this.writeQueue = this.writeQueue.then(async () => {
 			try {
+				// Serialize at EXECUTION time, not enqueue time: content captured
+				// earlier can be stale by the time earlier queued writes drain,
+				// and writing it would silently revert everything that changed in
+				// between (external inserts included).
+				const content = serialize(this.data!);
+
 				const current = await this.app.vault.read(fileRef);
 
 				// Safety: skip write if new content is drastically smaller
@@ -955,6 +978,8 @@ export class SyncEngine {
 				await this.app.vault.modify(fileRef, content);
 			} catch (err) {
 				console.error('Dashboard sync write failed:', err);
+			} finally {
+				this.writeQueuePending--;
 			}
 		});
 

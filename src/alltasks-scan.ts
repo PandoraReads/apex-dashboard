@@ -166,9 +166,22 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 /**
  * Collect every checkbox task across the vault, skipping excluded folders,
  * using an mtime-keyed cache so unchanged files are not re-parsed each render.
+ *
+ * `alwaysIncludePath` (with or without `.md`) is exempt from the exclusion
+ * check: pass the dashboard file, whose checkbox tasks are the user's live
+ * todo list and the destination the calendar's day-agenda writes into. Without
+ * the exemption, excluding the dashboard's parent folder (e.g. 'assets') hides
+ * the dashboard's tasks from the calendar AND makes every calendar-added task
+ * vanish on the next re-scan.
  */
-export async function collectVaultTasks(app: App, excludeFolders: string[] = []): Promise<VaultTask[]> {
+export async function collectVaultTasks(
+	app: App,
+	excludeFolders: string[] = [],
+	alwaysIncludePath?: string,
+): Promise<VaultTask[]> {
 	const normalized = normalizeExcludeFolders(excludeFolders);
+	const rawAlways = (alwaysIncludePath ?? '').trim().toLowerCase();
+	const alwaysFile = rawAlways ? (rawAlways.endsWith('.md') ? rawAlways : `${rawAlways}.md`) : '';
 	const files = app.vault.getMarkdownFiles();
 	const stale = new Set(moduleCache.keys());
 	const all: VaultTask[] = [];
@@ -182,7 +195,8 @@ export async function collectVaultTasks(app: App, excludeFolders: string[] = [])
 		if (i > 0 && i % 50 === 0) await new Promise<void>(r => window.setTimeout(r, 0));
 
 		if (file.path.startsWith('.')) { stale.delete(file.path); continue; }
-		if (isUnderExcludedFolder(file.path, normalized)) { stale.delete(file.path); continue; }
+		const exempt = alwaysFile !== '' && file.path.toLowerCase() === alwaysFile;
+		if (!exempt && isUnderExcludedFolder(file.path, normalized)) { stale.delete(file.path); continue; }
 		stale.delete(file.path);
 
 		const cached = moduleCache.get(file.path);
