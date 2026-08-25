@@ -12,6 +12,7 @@ import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
+import { applyModalTheme } from './modal-theme';
 import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, computeStreak } from './tracker-service';
@@ -1041,6 +1042,7 @@ function openEndReadingModal(
 ): void {
 	const overlay = doc.body.createDiv({ cls: 'dashboard-reading-end-overlay' });
 	const modal = overlay.createDiv({ cls: 'dashboard-reading-end-modal' });
+	applyModalTheme(modal);
 
 	function close() {
 		doc.removeEventListener('keydown', onKey);
@@ -1218,6 +1220,7 @@ function openEditBookInfo(
 ): void {
 	const overlay = doc.body.createDiv({ cls: 'dashboard-reading-end-overlay' });
 	const modal = overlay.createDiv({ cls: 'dashboard-reading-end-modal' });
+	applyModalTheme(modal);
 
 	function close() {
 		doc.removeEventListener('keydown', onKey);
@@ -1311,6 +1314,7 @@ function openBookSearch(
 ): void {
 	const overlay = doc.body.createDiv({ cls: 'dashboard-reading-book-overlay' });
 	const modal = overlay.createDiv({ cls: 'dashboard-reading-book-modal' });
+	applyModalTheme(modal);
 
 	function close() {
 		doc.removeEventListener('keydown', onKey);
@@ -1426,6 +1430,7 @@ function openBookSearch(
 function showReadingStats(doc: Document, service: ReadingService): void {
 	const overlay = doc.body.createDiv({ cls: 'dashboard-pomodoro-stats-overlay' });
 	const modal = overlay.createDiv({ cls: 'dashboard-pomodoro-stats-modal' });
+	applyModalTheme(modal);
 
 	function close() {
 		doc.removeEventListener('keydown', onKey);
@@ -1699,7 +1704,10 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	}
 
 	// Apply user-dragged height (desktop). Overrides the per-type max-height.
-	if (typeof column.height === 'number' && column.height > 0) {
+	// Desktop-only: the resize handle that sets it never runs on mobile, and a px
+	// value tuned on a big screen would clamp phone rows far below the mobile
+	// CSS sizing (50vh-family), shrinking card bodies to a sliver.
+	if (!Platform.isMobile && typeof column.height === 'number' && column.height > 0) {
 		el.style.maxHeight = `${column.height}px`;
 		// Memo sections have a fixed CSS height (aligned with Quick Links), so
 		// max-height alone can only shrink them. Write the inline height too so

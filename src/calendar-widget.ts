@@ -12,6 +12,7 @@ import {
 } from './alltasks-scan';
 import { renderMonthGrid, renderWeekGrid, mondayOf, taskTime, byTaskTime } from './calendar-grid';
 import { CalendarMonthModal, DayAgendaModal } from './calendar-modal';
+import { applyModalTheme } from './modal-theme';
 import { renderTextWithLinks } from './renderer';
 
 /** Module-level hover-preview state, so only one popup ever exists and it can be
@@ -71,6 +72,9 @@ function showDayPreview(anchor: HTMLElement, tasks: VaultTask[], app: App): void
 
 	closeDayPreview();
 	const popup = activeDocument.body.createDiv({ cls: 'dashboard-calendar-day-preview' });
+	// Body-level popup: mirror the dashboard's --db-* tokens so it follows the
+	// active theme instead of falling back to Obsidian's native surface.
+	applyModalTheme(popup);
 	hoverPopup = popup;
 
 	const list = popup.createDiv({ cls: 'dashboard-calendar-day-preview-list' });

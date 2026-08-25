@@ -21,6 +21,7 @@ const MODAL_THEME_VARS: readonly string[] = [
 	'--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-bg-hover', '--db-bg-hover-strong',
 	'--db-bg-section', '--db-bg-sidebar', '--db-bg-input', '--db-bg-banner',
 	'--db-bg-btn', '--db-bg-btn-hover', '--db-bg-add-section', '--db-bg-overlay',
+	'--db-bg-modal', '--db-bg-modal-raised',
 	'--db-bg-drop-indicator',
 	'--db-text', '--db-text-muted', '--db-text-faint',
 	'--db-text-inverse', '--db-text-inverse-muted',

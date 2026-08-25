@@ -80,7 +80,12 @@ export function renderQuickNoteRegion(
 			// CSS transition running from the previous height to the new one
 			// instead of snapping through the intermediate auto layout.
 			input.setCssStyles({ height: `${target}px` });
-			capture.toggleClass('dashboard-quicknote-capture--expanded', target > 30);
+			const expanded = target > 30;
+			capture.toggleClass('dashboard-quicknote-capture--expanded', expanded);
+			// Mirror on the bar: at rest it vertically centers its single-line
+			// content; once the field grows past one line it re-anchors to the
+			// top so the box extends downward and the chips row stays put.
+			region.toggleClass('dashboard-quicknote--capture-expanded', expanded);
 		};
 		input.addEventListener('input', resize);
 		const submit = () => {

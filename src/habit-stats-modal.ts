@@ -6,6 +6,15 @@ import { showPromptDialog } from './prompt-dialog';
 
 /** Heatmap window shown per habit in the stats overlay (12 weeks). */
 const HEATMAP_DAYS = 84;
+/** Long-press before a touch drag arms (matches the card DnD threshold). */
+const TOUCH_DRAG_MS = 200;
+/** Finger travel that cancels a pending touch drag (scroll intent). */
+const TOUCH_CANCEL_PX = 10;
+
+/** Shared state for card reordering inside one open overlay. */
+interface HabitDragState {
+	index: number | null;
+}
 
 /**
  * Mount point for the stats overlay. The `--db-*` theme variables live on
@@ -21,9 +30,9 @@ function mountOverlay(doc: Document): HTMLElement {
 
 /**
  * Habit statistics overlay: one card per habit with streak / 30-day rate /
- * total count chips and a 12-week check-in heatmap. Rename & delete live here
- * (the widget stays tap-to-toggle only); every mutation re-renders through
- * the service's subscribe fan-out.
+ * total count chips and a 12-week check-in heatmap. Rename, delete and
+ * drag-to-reorder live here (the widget stays tap-to-toggle only); every
+ * mutation re-renders through the service's subscribe fan-out.
  */
 export function showHabitStats(doc: Document): void {
 	const service = getHabitService();
@@ -58,6 +67,8 @@ export function showHabitStats(doc: Document): void {
 		if (e.target === overlay) close();
 	});
 
+	const drag: HabitDragState = { index: null };
+
 	const renderAll = (): void => {
 		body.empty();
 		const habits = service.getHabits();
@@ -65,9 +76,9 @@ export function showHabitStats(doc: Document): void {
 			body.createDiv({ cls: 'dashboard-habit-stats-empty', text: t('habit.statsEmpty') });
 			return;
 		}
-		for (const habit of habits) {
-			renderHabitCard(body, service, habit);
-		}
+		habits.forEach((habit, index) => {
+			renderHabitCard(body, service, habit, index, drag);
+		});
 	};
 
 	// Live re-render on any habit data change (check-in, rename, delete...).
@@ -84,10 +95,24 @@ export function showHabitStats(doc: Document): void {
 	renderAll();
 }
 
-function renderHabitCard(body: HTMLElement, service: HabitService, habit: Habit): void {
-	const card = body.createDiv({ cls: 'dashboard-habit-stats-card' });
+function renderHabitCard(
+	body: HTMLElement,
+	service: HabitService,
+	habit: Habit,
+	index: number,
+	drag: HabitDragState,
+): void {
+	const card = body.createDiv({
+		cls: 'dashboard-habit-stats-card',
+		attr: { 'data-index': String(index) },
+	});
 
 	const head = card.createDiv({ cls: 'dashboard-habit-stats-card-head' });
+	const grip = head.createDiv({
+		cls: 'dashboard-habit-stats-grip',
+		attr: { 'aria-label': t('common.drag'), title: t('common.drag') },
+	});
+	setIcon(grip, 'grip-vertical');
 	head.createDiv({ cls: 'dashboard-habit-stats-card-name', text: habit.name });
 	head.createDiv({ cls: 'dashboard-habit-stats-card-head-spacer' });
 
@@ -131,6 +156,226 @@ function renderHabitCard(body: HTMLElement, service: HabitService, habit: Habit)
 	appendChip(chips, 'check-circle-2', String(service.getTotal(habit.id)), t('habit.totalCount'));
 
 	renderHabitHeatmap(card, service, habit);
+
+	wireCardDrag(body, card, grip, index, drag, service);
+	wireCardTouchDrag(body, card, index, service);
+}
+
+// ── Drag-to-reorder (quick-note config modal pattern) ─────────────────────
+
+/** Which half of `card` the pointer sits in — decides insert-before vs -after. */
+function dropHalf(e: { clientY: number }, card: HTMLElement): 'top' | 'bottom' {
+	const rect = card.getBoundingClientRect();
+	return e.clientY < rect.top + rect.height / 2 ? 'top' : 'bottom';
+}
+
+function indicateDrop(body: HTMLElement, card: HTMLElement, half: 'top' | 'bottom'): void {
+	clearDropIndicators(body);
+	card.addClass(half === 'top'
+		? 'dashboard-habit-stats-card--drop-before'
+		: 'dashboard-habit-stats-card--drop-after');
+}
+
+function clearDropIndicators(body: HTMLElement): void {
+	body
+		.querySelectorAll('.dashboard-habit-stats-card--drop-before, .dashboard-habit-stats-card--drop-after')
+		.forEach(el => el.classList.remove('dashboard-habit-stats-card--drop-before', 'dashboard-habit-stats-card--drop-after'));
+}
+
+/**
+ * Grip-gated HTML5 drag (desktop): dragging arms only while the grip is held,
+ * so rename/delete stay clickable; the hovered card's half decides the insert
+ * slot. Committing calls service.moveHabit, whose notify fan-out re-renders
+ * the overlay — the same path rename and delete already take.
+ */
+function wireCardDrag(
+	body: HTMLElement,
+	card: HTMLElement,
+	grip: HTMLElement,
+	index: number,
+	drag: HabitDragState,
+	service: HabitService,
+): void {
+	card.draggable = false;
+	// Only the grip arms dragging; releasing without a drag disarms it again.
+	grip.addEventListener('pointerdown', () => { card.draggable = true; });
+	grip.addEventListener('pointerup', () => { card.draggable = false; });
+
+	card.addEventListener('dragstart', (e: DragEvent) => {
+		if (!card.draggable) return;
+		drag.index = index;
+		card.addClass('dashboard-habit-stats-card--dragging');
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', 'habit-card');
+		}
+	});
+	card.addEventListener('dragend', () => {
+		card.removeClass('dashboard-habit-stats-card--dragging');
+		card.draggable = false;
+		clearDropIndicators(body);
+		drag.index = null;
+	});
+	card.addEventListener('dragover', (e: DragEvent) => {
+		if (drag.index === null || drag.index === index) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+		indicateDrop(body, card, dropHalf(e, card));
+	});
+	card.addEventListener('drop', (e: DragEvent) => {
+		if (drag.index === null) return;
+		e.preventDefault();
+		const from = drag.index;
+		const to = dropHalf(e, card) === 'top' ? index : index + 1;
+		clearDropIndicators(body);
+		// Reset before the move: the notify re-render detaches the source
+		// card before its dragend can fire (quick-note wireDrag lesson).
+		drag.index = null;
+		if (from !== to) service.moveHabit(from, to);
+	});
+}
+
+/** First non-source card whose rect contains the point (touch hit-testing). */
+function cardAtPoint(body: HTMLElement, x: number, y: number): HTMLElement | null {
+	const cards = Array.from(body.querySelectorAll<HTMLElement>('.dashboard-habit-stats-card'));
+	for (const c of cards) {
+		if (c.hasClass('dashboard-habit-stats-card--dragging')) continue;
+		const rect = c.getBoundingClientRect();
+		if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return c;
+	}
+	return null;
+}
+
+/** Clone following the dragged card under the finger (mobile). Appended to
+ *  the overlay — not doc.body — so the clone keeps the theme's --db-* vars. */
+function createCardGhost(card: HTMLElement, x: number, y: number): HTMLElement {
+	const ghost = card.cloneNode(true) as HTMLElement;
+	ghost.addClass('dashboard-habit-stats-card--ghost');
+	ghost.setCssProps({
+		position: 'fixed',
+		width: `${card.offsetWidth}px`,
+		left: `${x - card.offsetWidth / 2}px`,
+		top: `${y - card.offsetHeight / 2}px`,
+		zIndex: '9999',
+		pointerEvents: 'none',
+		opacity: '0.85',
+		transform: 'rotate(2deg)',
+	});
+	const host = card.closest('.dashboard-habit-stats-overlay') ?? card.ownerDocument.body;
+	host.appendChild(ghost);
+	return ghost;
+}
+
+/**
+ * Long-press drag on the card head (mobile): HTML5 DnD never fires from a
+ * touch, so the grip-less path reuses the card-DnD ghost convention. A short
+ * press stays a plain tap; moving TOUCH_CANCEL_PX before the timer fires is
+ * read as a scroll and cancels the drag before it starts.
+ */
+function wireCardTouchDrag(
+	body: HTMLElement,
+	card: HTMLElement,
+	index: number,
+	service: HabitService,
+): void {
+	let ghost: HTMLElement | null = null;
+	let startX = 0;
+	let startY = 0;
+	let isDragging = false;
+	let timer: number | null = null;
+
+	const cleanupDrag = (): void => {
+		if (ghost) {
+			ghost.remove();
+			ghost = null;
+		}
+		card.removeClass('dashboard-habit-stats-card--dragging');
+		clearDropIndicators(body);
+		isDragging = false;
+	};
+
+	const onTouchStart = (e: TouchEvent) => {
+		const t0 = e.touches[0];
+		if (!t0) return;
+		// Only the head row starts a drag; icon buttons handle their own taps.
+		const target = e.target as HTMLElement;
+		if (!target.closest('.dashboard-habit-stats-card-head')) return;
+		if (target.closest('.dashboard-habit-stats-icon-btn')) return;
+
+		startX = t0.clientX;
+		startY = t0.clientY;
+		isDragging = false;
+
+		timer = window.setTimeout(() => {
+			isDragging = true;
+			ghost = createCardGhost(card, startX, startY);
+			card.addClass('dashboard-habit-stats-card--dragging');
+		}, TOUCH_DRAG_MS);
+	};
+
+	const onTouchMove = (e: TouchEvent) => {
+		if (!isDragging) {
+			if (timer) {
+				const t = e.touches[0];
+				if (!t) return;
+				if (Math.abs(t.clientX - startX) > TOUCH_CANCEL_PX || Math.abs(t.clientY - startY) > TOUCH_CANCEL_PX) {
+					window.clearTimeout(timer);
+					timer = null;
+				}
+			}
+			return;
+		}
+
+		e.preventDefault();
+		const t = e.touches[0];
+		if (!t) return;
+
+		if (ghost) {
+			ghost.style.left = `${t.clientX - ghost.offsetWidth / 2}px`;
+			ghost.style.top = `${t.clientY - ghost.offsetHeight / 2}px`;
+		}
+
+		const target = cardAtPoint(body, t.clientX, t.clientY);
+		if (target) {
+			indicateDrop(body, target, dropHalf(t, target));
+		} else {
+			clearDropIndicators(body);
+		}
+	};
+
+	const onTouchEnd = (e: TouchEvent) => {
+		if (timer) {
+			window.clearTimeout(timer);
+			timer = null;
+		}
+		if (!isDragging) return;
+
+		const t = e.changedTouches[0];
+		cleanupDrag();
+		if (!t) return;
+
+		const target = cardAtPoint(body, t.clientX, t.clientY);
+		if (!target) return;
+		const toIndex = Number(target.dataset.index ?? '-1');
+		if (toIndex < 0) return;
+		const to = dropHalf(t, target) === 'top' ? toIndex : toIndex + 1;
+		if (index !== to) service.moveHabit(index, to);
+	};
+
+	// touchcancel fires on system interruptions (edge gestures, scroll hijack,
+	// notifications) instead of touchend; without it the ghost strands on screen.
+	const onTouchCancel = () => {
+		if (timer) {
+			window.clearTimeout(timer);
+			timer = null;
+		}
+		cleanupDrag();
+	};
+
+	card.addEventListener('touchstart', onTouchStart, { passive: true });
+	card.addEventListener('touchmove', onTouchMove, { passive: false });
+	card.addEventListener('touchend', onTouchEnd, { passive: true });
+	card.addEventListener('touchcancel', onTouchCancel, { passive: true });
 }
 
 function appendChip(parent: HTMLElement, icon: string, value: string, label: string): void {
@@ -142,8 +387,10 @@ function appendChip(parent: HTMLElement, icon: string, value: string, label: str
 	text.createDiv({ cls: 'dashboard-habit-stats-chip-label', text: label });
 }
 
-/** 12-week × 7-day check-in grid, one square per day (oldest→today), boolean
- *  two-step fill: empty base color vs accent. Native <title> tooltips. */
+/** 12-week check-in grid, oldest→today, boolean two-step fill (empty base vs
+ *  accent). A wrapping div grid (banner heatmap pattern), not SVG: cells fill
+ *  the card width at a fixed pitch — no fixed-canvas center-huddle, and none
+ *  of the SVG first-paint collapse pitfalls. Native <title> tooltips. */
 function renderHabitHeatmap(card: HTMLElement, service: HabitService, habit: Habit): void {
 	const section = card.createDiv({ cls: 'dashboard-habit-stats-heatmap-section' });
 	const head = section.createDiv({ cls: 'dashboard-habit-stats-heatmap-head' });
@@ -152,37 +399,17 @@ function renderHabitHeatmap(card: HTMLElement, service: HabitService, habit: Hab
 	const wrap = section.createDiv({ cls: 'dashboard-habit-stats-heatmap-wrap' });
 	const series = service.getHeatmapDays(habit.id, HEATMAP_DAYS);
 
-	const cell = 11;
-	const gap = 3;
-	const cols = 12;
-	const rows = 7;
-	const width = cols * (cell + gap);
-	const height = rows * (cell + gap);
-
-	const svg = wrap.createSvg('svg', {
-		cls: 'dashboard-habit-stats-heatmap-svg',
-		// Explicit height (viewBox ratio): a width:100% SVG inside an
-		// overflow-auto grid collapses to 0 height on first paint otherwise.
-		attr: { viewBox: `0 0 ${width} ${height}`, width: '100%', height: String(height) },
-	});
-
-	const start = new Date();
-	start.setDate(start.getDate() - (HEATMAP_DAYS - 1));
+	const grid = wrap.createDiv({ cls: 'dashboard-habit-stats-heatmap-grid' });
 	series.forEach((done, i) => {
-		const col = Math.floor(i / rows);
-		const row = i % rows;
-		const rect = svg.createSvg('rect', {
-			cls: 'dashboard-habit-stats-heatmap-cell'
-				+ (done > 0 ? ' dashboard-habit-stats-heatmap-cell--done' : ''),
-			attr: { x: col * (cell + gap), y: row * (cell + gap), width: cell, height: cell, rx: 2.5 },
-		});
-		const d = new Date(start);
-		d.setDate(start.getDate() + i);
-		const title = svg.createSvg('title');
-		title.textContent = done > 0
+		const cell = grid.createDiv({ cls: 'dashboard-habit-stats-heatmap-cell' });
+		if (done > 0) cell.addClass('dashboard-habit-stats-heatmap-cell--done');
+		// Tooltips still carry the date — the wrapping strip has no calendar
+		// axes, so the <title> is the only per-cell label.
+		const d = new Date();
+		d.setDate(d.getDate() - (HEATMAP_DAYS - 1 - i));
+		cell.setAttribute('title', done > 0
 			? `${habitFormatDate(d)} · ${t('habit.heatDone')}`
-			: habitFormatDate(d);
-		rect.appendChild(title);
+			: habitFormatDate(d));
 	});
 
 	// Empty-grid guidance for habits with no check-ins yet.

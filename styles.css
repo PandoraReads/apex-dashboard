@@ -898,6 +898,11 @@
 	/* ----- 15. NEON (霓虹) — Near-black + neon magenta, identical in light & dark ----- */
 	.apex-dashboard-root[data-theme="neon"] {
 		--db-bg: #0a0a0c;
+		/* Opaque modal-layer surface: dialogs render outside this root where the
+		   near-black gradient behind doesn't exist, so --db-bg-card (transparent)
+		   would leave them floating on the scrim alone. */
+		--db-bg-modal: #130f17;
+		--db-bg-modal-raised: rgba(255, 255, 255, 0.06);
 		--db-bg-section: transparent;
 		--db-bg-card: transparent;
 		--db-bg-card-hover: rgba(255, 46, 136, 0.05);
@@ -957,6 +962,8 @@
 	/* ----- 16. VOLT (电光) — Near-black + electric cyan, identical in light & dark ----- */
 	.apex-dashboard-root[data-theme="volt"] {
 		--db-bg: #090a0e;
+		--db-bg-modal: #0e1218;
+		--db-bg-modal-raised: rgba(255, 255, 255, 0.06);
 		--db-bg-section: transparent;
 		--db-bg-card: transparent;
 		--db-bg-card-hover: rgba(0, 194, 255, 0.05);
@@ -1016,6 +1023,8 @@
 	/* ----- 17. MAGMA (熔岩) — Warm near-black + lava orange, identical in light & dark ----- */
 	.apex-dashboard-root[data-theme="magma"] {
 		--db-bg: #0c0a08;
+		--db-bg-modal: #161009;
+		--db-bg-modal-raised: rgba(255, 255, 255, 0.06);
 		--db-bg-section: transparent;
 		--db-bg-card: transparent;
 		--db-bg-card-hover: rgba(255, 107, 26, 0.05);
@@ -1075,6 +1084,8 @@
 	/* ----- 18. ONYX (曜黑) — Pure black + lemon, identical in light & dark ----- */
 	.apex-dashboard-root[data-theme="onyx"] {
 		--db-bg: #000000;
+		--db-bg-modal: #0e0e0e;
+		--db-bg-modal-raised: rgba(255, 255, 255, 0.06);
 		--db-bg-section: transparent;
 		--db-bg-card: transparent;
 		--db-bg-card-hover: rgba(233, 255, 64, 0.05);
@@ -2330,7 +2341,7 @@
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: 100;
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal, var(--background-primary, var(--db-bg)));
 	border: 1px solid var(--db-border-card);
 	border-radius: 8px;
 	padding: 8px;
@@ -2502,7 +2513,7 @@
 }
 
 .dashboard-pomodoro-stats-modal {
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal, var(--background-primary, var(--db-bg)));
 	border: 1px solid var(--db-border-card);
 	border-radius: var(--db-radius-lg, 12px);
 	padding: 20px;
@@ -2604,7 +2615,7 @@
 }
 
 .dashboard-pomodoro-range-btn--active {
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal-raised, var(--background-primary, var(--db-bg)));
 	color: var(--db-accent);
 	font-weight: 700;
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
@@ -2989,7 +3000,7 @@
 }
 
 .dashboard-habit-stats-modal {
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal, var(--background-primary, var(--db-bg)));
 	border: 1px solid var(--db-border-card);
 	border-radius: var(--db-radius-lg, 12px);
 	padding: 20px;
@@ -3069,6 +3080,27 @@
 .dashboard-habit-stats-card-head-spacer {
 	flex: 1;
 }
+
+/* Drag handle: arms reordering only when grabbed, so the head buttons and
+   name stay clickable (quick-note cfg grip pattern). */
+.dashboard-habit-stats-grip {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	width: 16px;
+	cursor: grab;
+	color: var(--db-text-muted);
+	opacity: 0.45;
+	touch-action: none;
+	transition: opacity 0.15s ease, color 0.15s ease;
+}
+.dashboard-habit-stats-grip:hover { opacity: 1; color: var(--db-text); }
+.dashboard-habit-stats-grip:active { cursor: grabbing; }
+.dashboard-habit-stats-grip svg { width: 14px; height: 14px; display: block; }
+.dashboard-habit-stats-card--dragging { opacity: 0.4; }
+.dashboard-habit-stats-card--drop-before { box-shadow: 0 -2px 0 0 var(--db-accent); }
+.dashboard-habit-stats-card--drop-after { box-shadow: 0 2px 0 0 var(--db-accent); }
+.dashboard-habit-stats-card--ghost { pointer-events: none; }
 
 .dashboard-habit-stats-icon-btn {
 	width: 22px;
@@ -3289,7 +3321,7 @@
 	padding: 5px 11px;
 	border-radius: 999px;
 	border: 1px solid var(--db-border-card);
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal-raised, var(--background-primary, var(--db-bg)));
 	font-size: 0.68em;
 	font-weight: 500;
 	color: var(--db-text-muted);
@@ -3332,7 +3364,7 @@
 
 .dashboard-pomodoro-tagmanager-prompt-input,
 .dashboard-pomodoro-tagmanager-prompt-select {
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal-raised, var(--background-primary, var(--db-bg)));
 	border: 1px solid var(--db-border-card);
 	border-radius: 6px;
 	color: var(--db-text);
@@ -3553,7 +3585,7 @@
 
 .dashboard-pomodoro-goal-editor-step {
 	border: 1px solid var(--db-border-card);
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal-raised, var(--background-primary, var(--db-bg)));
 	color: var(--db-text);
 	width: 26px;
 	height: 26px;
@@ -3904,7 +3936,7 @@
 	width: min(420px, 90%);
 	max-height: 60%;
 	overflow-y: auto;
-	background: var(--background-primary, var(--db-bg));
+	background: var(--db-bg-modal, var(--background-primary, var(--db-bg)));
 	border: 1px solid var(--db-border-card);
 	border-radius: var(--db-radius-lg, 12px);
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
@@ -4218,7 +4250,7 @@
 }
 
 .dashboard-reading-book-modal {
-	background: var(--background-secondary, #fff);
+	background: var(--db-bg-modal, var(--background-secondary, #fff));
 	border-radius: var(--db-radius-lg, 12px);
 	width: 90%;
 	max-width: 400px;
@@ -4260,7 +4292,7 @@
 	padding: 8px 12px;
 	border-radius: 8px;
 	border: 1px solid var(--db-border, rgba(0,0,0,0.15));
-	background: var(--background-primary, #fff);
+	background: var(--db-bg-modal-raised, var(--background-primary, #fff));
 	color: var(--db-text);
 	font-size: 0.85em;
 	outline: none;
@@ -4359,7 +4391,7 @@
 	padding: 4px 8px;
 	border-radius: 6px;
 	border: 1px solid var(--db-border, rgba(0,0,0,0.15));
-	background: var(--background-primary, #fff);
+	background: var(--db-bg-modal-raised, var(--background-primary, #fff));
 	color: var(--db-text);
 	font-size: 0.75em;
 	outline: none;
@@ -4495,7 +4527,7 @@
 }
 
 .dashboard-reading-end-modal {
-	background: var(--background-secondary, #fff);
+	background: var(--db-bg-modal, var(--background-secondary, #fff));
 	border-radius: var(--db-radius-lg, 14px);
 	width: 88%;
 	max-width: 380px;
@@ -4582,7 +4614,7 @@
 }
 
 .dashboard-reading-end-mode-btn--active {
-	background: var(--background-primary, #fff);
+	background: var(--db-bg-modal-raised, var(--background-primary, #fff));
 	color: var(--db-text);
 	font-weight: 500;
 	box-shadow: 0 1px 3px rgba(0,0,0,0.08);
@@ -4627,7 +4659,7 @@
 	padding: 8px 10px;
 	border-radius: 8px;
 	border: 1px solid var(--db-border, rgba(0,0,0,0.15));
-	background: var(--background-primary, #fff);
+	background: var(--db-bg-modal-raised, var(--background-primary, #fff));
 	color: var(--db-text);
 	font-size: 0.85em;
 	text-align: center;
@@ -4772,7 +4804,7 @@
 	align-items: center;
 	padding: 8px 4px;
 	border-radius: 8px;
-	background: var(--background-primary, #fff);
+	background: var(--db-bg-modal-raised, var(--background-primary, #fff));
 	gap: 2px;
 }
 
@@ -4791,7 +4823,7 @@
 .dashboard-reading-stats-range {
 	display: flex;
 	gap: 2px;
-	background: var(--background-primary, #fff);
+	background: var(--db-bg-modal-raised, var(--background-primary, #fff));
 	border-radius: 6px;
 	padding: 2px;
 	margin-bottom: 8px;
@@ -5258,13 +5290,16 @@
 	   (cards float over a bg image) and color-mix with it still let the dashboard
 	   bg bleed through, making the text unreadable. --background-primary is
 	   Obsidian's own opaque editor surface, so it stays solid regardless of theme
-	   or user background image. We avoid backdrop-filter here (crash-prone on iOS,
+	   or user background image. Themes whose --db-bg-card is transparent
+	   (neon/volt/magma/onyx) define an opaque --db-bg-modal for exactly this
+	   case; it reaches this body-level popup via applyModalTheme mirroring.
+	   We avoid backdrop-filter here (crash-prone on iOS,
 	   and this popup is desktop-only anyway). */
-	background: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
+	background: var(--db-bg-modal, var(--background-primary));
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
 	border-radius: var(--db-radius-md);
 	box-shadow: 0 10px 32px rgba(0, 0, 0, 0.38);
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 	font-size: 1em;
 	line-height: 1.45;
 	overflow: hidden;
@@ -5312,7 +5347,7 @@
 .dashboard-calendar-day-preview-list .dashboard-calendar-event-time {
 	font-size: 0.92em;
 	font-weight: 600;
-	color: var(--text-muted);
+	color: var(--db-text-muted, var(--text-muted));
 	flex-shrink: 0;
 	font-variant-numeric: tabular-nums;
 }
@@ -5328,7 +5363,7 @@
 .dashboard-calendar-day-preview-more {
 	padding: 4px 6px 2px;
 	font-size: 0.85em;
-	color: var(--text-muted);
+	color: var(--db-text-muted, var(--text-muted));
 	text-align: center;
 }
 
@@ -7271,6 +7306,13 @@
 
 .dashboard-task-input {
 	width: 100%;
+	/* Kill the native input chrome: iOS WKWebView draws its own rounded field
+	   background from -webkit-appearance even when background/border are none
+	   (desktop Chromium doesn't), which turned the mobile add-task input into
+	   a rounded box. Any author-side appearance declaration beats the UA sheet,
+	   so no !important needed here. */
+	-webkit-appearance: none;
+	appearance: none;
 	background: none !important;
 	border: none !important;
 	box-shadow: none !important;
@@ -7629,7 +7671,10 @@
 .dashboard-modal {
 	border-radius: var(--db-radius-lg, 12px);
 	border: 1px solid var(--db-border-card, var(--background-modifier-border));
-	background: var(--db-bg-card, var(--background-secondary)) !important;
+	/* --db-bg-modal is the opaque dialog surface for themes whose --db-bg-card
+	   is transparent (neon/volt/magma/onyx rely on the root's near-black
+	   gradient, which doesn't exist behind body-level dialogs). */
+	background: var(--db-bg-modal, var(--db-bg-card, var(--background-secondary))) !important;
 	backdrop-filter: var(--db-backdrop-blur, blur(24px));
 	-webkit-backdrop-filter: var(--db-backdrop-blur, blur(24px));
 	color: var(--db-text, var(--text-normal));
@@ -9438,6 +9483,13 @@
 		max-width: 60vw !important;
 	}
 
+	/* Sticky: mixed memo/todo cards — todo lists need a bit less than the
+	   generic 50vh (compact memo cards dominate), tuned to 45vh. Desktop drag
+	   heights don't clamp it here; renderSection skips them on mobile. */
+	.dashboard-section-row[data-section-type="sticky"] {
+		height: 45vh;
+	}
+
 	/* Cards: compact */
 	.dashboard-card {
 		padding: 12px;
@@ -9617,47 +9669,48 @@
 	color: var(--db-text, var(--text-normal));
 }
 
-/* Countdown calendar popup (outside apex-dashboard-root, use Obsidian theme vars) */
+/* Countdown calendar popup — body-level, themed via applyModalTheme mirroring
+   (see countdown-modal.ts), so --db-* tokens resolve on it. */
 .dashboard-countdown-calendar-popup {
-	background: var(--background-primary);
-	color: var(--text-normal);
-	border-color: var(--background-modifier-border);
+	background: var(--db-bg-modal, var(--background-primary));
+	color: var(--db-text, var(--text-normal));
+	border-color: var(--db-border-card, var(--background-modifier-border));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-day {
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-day--today {
-	color: var(--interactive-accent);
+	color: var(--db-accent, var(--interactive-accent));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-day--selected {
-	background: var(--interactive-accent) !important;
-	color: var(--text-on-accent) !important;
+	background: var(--db-accent, var(--interactive-accent)) !important;
+	color: var(--db-text-inverse, var(--text-on-accent)) !important;
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-day--other-month {
-	color: var(--text-faint);
+	color: var(--db-text-faint, var(--text-faint));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-nav span {
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-nav button {
-	color: var(--text-muted);
+	color: var(--db-text-muted, var(--text-muted));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-nav button:hover {
-	color: var(--text-normal);
-	background: var(--background-modifier-hover);
+	color: var(--db-text, var(--text-normal));
+	background: var(--db-bg-hover, var(--background-modifier-hover));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-popup-btns button {
-	color: var(--text-normal);
-	background: var(--background-secondary);
-	border-color: var(--background-modifier-border);
+	color: var(--db-text, var(--text-normal));
+	background: var(--db-bg-modal-raised, var(--background-secondary));
+	border-color: var(--db-border, var(--background-modifier-border));
 }
 
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-popup-btns button:hover {
@@ -9890,25 +9943,27 @@
 	text-align: center;
 	/* Opaque theme-aware background guarantees readable text. The previous
 	   rgba(255,255,255,0.06) glass relied entirely on backdrop-filter and became
-	   an unreadable transparent card wherever blur is unavailable/disabled. */
-	background: var(--background-secondary, #1e1e1e);
-	border: 1px solid var(--background-modifier-border, rgba(255, 255, 255, 0.1));
+	   an unreadable transparent card wherever blur is unavailable/disabled.
+	   --db-bg-modal is the opaque dialog surface the dark constant themes
+	   (neon/volt/magma/onyx) define; other themes keep Obsidian's surface. */
+	background: var(--db-bg-modal, var(--background-secondary, #1e1e1e));
+	border: 1px solid var(--db-border-card, var(--background-modifier-border, rgba(255, 255, 255, 0.1)));
 	border-radius: var(--db-radius-lg, 12px);
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
 .dashboard-confirm-title {
 	margin: 0 0 8px;
 	font-size: 1.1em;
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 	border-bottom: none;
 }
 
 .dashboard-confirm-message {
 	margin: 0 0 20px;
 	font-size: 0.9em;
-	color: var(--text-muted, var(--text-normal));
+	color: var(--db-text-muted, var(--text-muted, var(--text-normal)));
 	line-height: 1.5;
 }
 
@@ -9928,13 +9983,13 @@
 }
 
 .dashboard-confirm-cancel {
-	background: var(--background-modifier-hover, rgba(255, 255, 255, 0.06));
-	border: 1px solid var(--background-modifier-border, rgba(255, 255, 255, 0.10));
-	color: var(--text-normal);
+	background: var(--db-bg-modal-raised, var(--background-modifier-hover, rgba(255, 255, 255, 0.06)));
+	border: 1px solid var(--db-border, var(--background-modifier-border, rgba(255, 255, 255, 0.10)));
+	color: var(--db-text, var(--text-normal));
 }
 
 .dashboard-confirm-cancel:hover {
-	background: var(--background-modifier-border-hover, var(--background-modifier-hover));
+	background: var(--db-bg-hover-strong, var(--background-modifier-border-hover, var(--background-modifier-hover)));
 }
 
 .dashboard-confirm-delete {
@@ -10270,8 +10325,8 @@
 .tracker-key-tag {
 	padding: 1px 8px;
 	border-radius: 10px;
-	background: var(--background-modifier-hover);
-	color: var(--text-muted);
+	background: var(--db-bg-modal-raised, var(--background-modifier-hover));
+	color: var(--db-text-muted, var(--text-muted));
 	font-size: 0.6875em;
 	cursor: pointer;
 	border: none;
@@ -14158,11 +14213,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
    accent-tinted hover, so chips and the capture pill read as one family. */
 .dashboard-quicknote {
 	display: flex;
-	/* Top-anchored so the auto-growing capture field extends DOWNWARD only:
-	   its top edge (and the chips row) stay put while it expands, instead of
-	   the centered layout pushing everything up as the box grows. Single-line
-	   items fill the bar height anyway, so the resting look is unchanged. */
-	align-items: flex-start;
+	/* Vertically centered at rest so the capture pill sits mid-bar beside the
+	   chips (on phones the bar's em-based min-height outgrows the fixed 26px
+	   pill, and top-anchoring left the pill floating at the bar's upper edge).
+	   While the capture field auto-grows past one line, the JS-toggled
+	   --capture-expanded class re-anchors to flex-start: the box then extends
+	   DOWNWARD only and the chips row stays put, instead of the centered
+	   layout pushing everything up as the box grows. */
+	align-items: center;
 	gap: 10px;
 	padding: 5px 8px;
 	min-height: calc(1.6em + 18px);
@@ -14173,10 +14231,25 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	backdrop-filter: var(--db-backdrop-blur);
 	-webkit-backdrop-filter: var(--db-backdrop-blur);
 }
-/* Left zone: chip group — fills remaining width and scrolls when crowded. */
+/* Auto-grow state (mirrored from the capture field by resize()): top-anchor
+   so the growing box extends downward and the first line keeps its place. */
+.dashboard-quicknote--capture-expanded {
+	align-items: flex-start;
+}
+/* Size container for the capture field's cqw widths: they must track the
+   PANE (this bar's width — split panes, sidebars, tablets), not the viewport
+   that vw tracks. inline-size only, so the auto-growing block axis still
+   depends on content. Old engines without container queries simply keep the
+   vw fallback row below. */
+.dashboard-quicknote {
+	container-type: inline-size;
+}
+/* Left zone: chip group — fills remaining width and scrolls when crowded.
+   basis 0 + a 104px floor: the chips never fully vanish, and when the bar is
+   squeezed it is the capture field that yields first (see the chain below). */
 .dashboard-quicknote-nav {
-	flex: 1;
-	min-width: 0;
+	flex: 1 1 0;
+	min-width: 104px;
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -14264,9 +14337,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-quicknote-pin .dashboard-quicknote-icon svg { color: var(--db-text-muted) !important; }
 
 /* Right zone: groups the capture field and the config cog. Top-anchored so
-   the cog stays beside the FIRST line when the capture field grows tall. */
+   the cog stays beside the FIRST line when the capture field grows tall.
+   Shrinkable (was flex-shrink: 0): under squeeze this zone yields before the
+   chips' 104px floor, via the chain actions → capture → input. */
 .dashboard-quicknote-actions {
-	flex-shrink: 0;
+	flex-shrink: 1;
+	min-width: 0;
 	display: flex;
 	align-items: flex-start;
 	gap: 4px;
@@ -14277,11 +14353,15 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	margin-top: 2px;
 }
 /* Capture field — no wrapper chrome: the pencil sits *inside* the input
-   (absolutely positioned over its left padding), so the field is one box. */
+   (absolutely positioned over its left padding), so the field is one box.
+   flex chain: won't grow past its content, but yields (down to the input's
+   26px pencil-only floor) when the bar is narrower than everything at rest. */
 .dashboard-quicknote-capture {
 	position: relative;
 	display: inline-flex;
 	align-items: center;
+	flex: 0 1 auto;
+	min-width: 0;
 }
 .dashboard-quicknote-capture-icon {
 	position: absolute;
@@ -14302,10 +14382,19 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	transform: none;
 }
 .dashboard-quicknote-capture-input {
-	/* Responsive so a narrow window, tablet, or split pane never lets the
-	   field starve the chip zone: the full 160px from ~890px viewport up,
-	   scaling down to a 108px floor on phones. */
+	/* Two-row width (vw fallback first, cqw override second): old engines
+	   without container queries keep the viewport-relative row and behave as
+	   before; modern engines size the field against the PANE (cqw resolves
+	   against .dashboard-quicknote's inline size), so a tablet split pane or
+	   dashboard sidebar no longer keeps a viewport-wide field starving the
+	   chip zone. Full 160px from ~890px of PANE width up; 96px floor on
+	   narrow panes before the flex chain below takes over. */
 	width: clamp(108px, 18vw, 160px);
+	width: clamp(96px, 18cqw, 160px);
+	/* Extreme-squeeze floor: flex shrink (capture box min-width: 0) can push
+	   the field down to a bare 26px pencil — still tappable; focusing expands
+	   it again via the :focus width below. Never shrinks to nothing. */
+	min-width: 26px;
 	height: 26px;
 	min-height: 26px;
 	max-height: 160px;
@@ -14327,8 +14416,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-quicknote-capture-input:focus {
 	outline: none;
 	/* Widen while typing so wrapped lines stay readable; height itself is driven
-	   by JS (auto-grow) and animates via the height transition above. */
+	   by JS (auto-grow) and animates via the height transition above. Same
+	   vw-then-cqw two-row pattern as the resting width. */
 	width: min(300px, 40vw);
+	width: min(320px, 60cqw);
 	background: color-mix(in srgb, var(--db-accent) 12%, var(--db-bg-input, rgba(255, 255, 255, 0.05)));
 	box-shadow: 0 0 0 1px color-mix(in srgb, var(--db-accent) 42%, transparent);
 }
@@ -14731,8 +14822,8 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
    ========================================================================== */
 /* Mode header — explains the toggle below it. */
 .dashboard-modal-mode-header { margin-bottom: 8px; }
-.dashboard-modal-mode-title { font-weight: 600; font-size: 0.95em; color: var(--text-normal); }
-.dashboard-modal-mode-hint { font-size: 0.8em; color: var(--text-faint); margin-top: 2px; }
+.dashboard-modal-mode-title { font-weight: 600; font-size: 0.95em; color: var(--db-text, var(--text-normal)); }
+.dashboard-modal-mode-hint { font-size: 0.8em; color: var(--db-text-faint, var(--text-faint)); margin-top: 2px; }
 
 .dashboard-modal-mode-toggle {
 	display: flex;
@@ -14752,14 +14843,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	border: none;
 	border-radius: 7px;
 	background: transparent;
-	color: var(--text-muted);
+	color: var(--db-text-muted, var(--text-muted));
 	cursor: pointer;
 	font-size: 0.92em;
 	transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 .dashboard-modal-mode-btn svg { width: 16px; height: 16px; }
 .dashboard-modal-mode-btn.active {
-	background: var(--db-bg-card, var(--background-primary));
+	background: var(--db-bg-modal-raised, var(--db-bg-card, var(--background-primary)));
 	color: var(--db-accent, var(--text-normal));
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 	font-weight: 600;
@@ -14775,12 +14866,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	display: block;
 	font-weight: 600;
 	margin-bottom: 8px;
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 }
 .dashboard-modal-stats-inline-label {
 	flex: 0 0 auto;
 	font-size: 0.88em;
-	color: var(--text-muted);
+	color: var(--db-text-muted, var(--text-muted));
 	min-width: 48px;
 }
 
@@ -14798,7 +14889,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	gap: 6px;
 	cursor: pointer;
 	font-size: 0.9em;
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 	flex: 0 0 auto;
 	min-width: 56px;
 }
@@ -14812,7 +14903,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 .dashboard-modal-stats-right-title {
 	font-size: 0.8em;
-	color: var(--text-faint);
+	color: var(--db-text-faint, var(--text-faint));
 	margin-bottom: 2px;
 }
 
@@ -14834,7 +14925,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	text-align: right;
 	font-size: 0.82em;
 	font-variant-numeric: tabular-nums;
-	color: var(--text-muted);
+	color: var(--db-text-muted, var(--text-muted));
 }
 .dashboard-modal-stats-accent-row {
 	display: flex;
@@ -14844,7 +14935,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-modal-stats-hint {
 	margin-top: 6px;
 	font-size: 0.8em;
-	color: var(--text-faint);
+	color: var(--db-text-faint, var(--text-faint));
 }
 .dashboard-modal-stats-checkbox {
 	display: flex;
@@ -14852,7 +14943,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	gap: 8px;
 	cursor: pointer;
 	font-size: 0.92em;
-	color: var(--text-normal);
+	color: var(--db-text, var(--text-normal));
 }
 .dashboard-modal-stats-checkbox input { margin: 0; }
 

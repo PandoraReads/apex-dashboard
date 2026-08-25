@@ -194,8 +194,10 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		const heroValue = hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value-row' });
 		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value', text: `${goal.completed}` });
 		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-goal', text: `/ ${goal.goal}` });
-		// Inline goal editor: click the "/ N" denominator to adjust the target.
-		const goalEditBtn = heroValue.createDiv({
+		// Goal editor entry: a small pencil pinned to the card's top-right
+		// corner (it used to sit inline after "/ N", oversized and pushing
+		// the centered numbers off balance).
+		const goalEditBtn = hero.createDiv({
 			cls: 'dashboard-pomodoro-kpi-hero-edit',
 			attr: { role: 'button', tabindex: '0', 'aria-label': t('pomodoro.editGoal') },
 		});
@@ -553,11 +555,14 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 			const h = Math.round((b.minutes / maxMin) * (height - 10));
 			const x = i * step + (step - barW) / 2;
 			const rect = svg.createSvg('rect', {
-				cls: 'dashboard-pomodoro-trend-bar' + (b.date ? ' dashboard-pomodoro-trend-bar--clickable' : ''),
+				// Single-token cls only — createSvg feeds it to classList.add on
+				// some Obsidian builds and a space throws (see habit heatmap).
+				cls: 'dashboard-pomodoro-trend-bar',
 				attr: {
 					x, y: height - h, width: barW, height: Math.max(b.minutes > 0 ? 2 : 0, h), rx: 2,
 				},
 			});
+			if (b.date) rect.addClass('dashboard-pomodoro-trend-bar--clickable');
 			rect.style.fill = activityFilter ? activityColor(activityFilter) : 'var(--db-accent)';
 
 			const title = svg.createSvg('title');
@@ -702,37 +707,19 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		heatLegend.empty();
 		const daily = service.getHeatmapMinutes();
 
-		const cell = 11;
-		const gap = 3;
-		const cols = 12;
-		const rows = 7;
-		const width = cols * (cell + gap);
-		const height = rows * (cell + gap);
-
-		const svg = heatContainer.createSvg('svg', {
-			cls: 'dashboard-pomodoro-heatmap-svg',
-			// Explicit height (viewBox ratio): a width:100% SVG inside an
-			// overflow-auto grid collapses to 0 height on first paint, which
-			// blanked the right column until a re-render resized the tracks.
-			attr: { viewBox: `0 0 ${width} ${height}`, width: '100%', height: String(height) },
-		});
-
+		// Wrapping div grid (banner heatmap pattern) instead of SVG: cells flow
+		// oldest→today at a fixed pitch and FILL the column width — the old
+		// fixed-168px SVG canvas huddled in the middle of a ~300px column, and
+		// a width:100% SVG inside the scrollable body could still collapse to
+		// 0 height on the first paint (blank right column until a re-render).
+		const grid = heatContainer.createDiv({ cls: 'dashboard-pomodoro-heatmap-grid' });
 		let activeInLastWeek = 0;
 		daily.forEach((d, i) => {
-			const col = Math.floor(i / rows);
-			const row = i % rows;
-			if (col === cols - 1 && d.minutes > 0) activeInLastWeek++;
-			const rect = svg.createSvg('rect', {
-				cls: 'dashboard-pomodoro-heatmap-cell'
-					+ (d.minutes > 0 ? ' dashboard-pomodoro-heatmap-cell--active' : ''),
-				attr: { x: col * (cell + gap), y: row * (cell + gap), width: cell, height: cell, rx: 2.5 },
-			});
+			if (i >= daily.length - 7 && d.minutes > 0) activeInLastWeek++;
+			const cell = grid.createDiv({ cls: 'dashboard-pomodoro-heatmap-cell' });
+			cell.setAttribute('title', `${d.date} · ${formatMinutes(d.minutes)}`);
 			const color = heatColor(d.minutes);
-			if (color) rect.style.fill = color;
-
-			const title = svg.createSvg('title');
-			title.textContent = `${d.date} · ${formatMinutes(d.minutes)}`;
-			rect.appendChild(title);
+			if (color) cell.style.backgroundColor = color;
 		});
 
 		// Empty-week guidance: a wall of faint cells frustrates new users.
@@ -760,7 +747,11 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 
 	// --- Today timeline (work → break rhythm) ---
 	const timelineSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-	timelineSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.todayTimeline') });
+	const timelineHead = timelineSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
+	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.todayTimeline') });
+	// What this section means, right in the header — "why is it empty" is the
+	// most common question when the day has no completed pomodoros yet.
+	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.todayTimelineHint') });
 	const timelineContainer = timelineSection.createDiv({ cls: 'dashboard-pomodoro-timeline-container' });
 
 	function renderTimeline(): void {

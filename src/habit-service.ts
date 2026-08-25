@@ -27,6 +27,32 @@ function emptyData(): HabitData {
 	return { version: 1, habits: [], records: {} };
 }
 
+/** Union of two datasets, `session` winning per-habit-id conflicts. Used when
+ *  a load that failed at startup succeeds on a later retry: the disk copy and
+ *  everything changed in-session are merged so neither side is lost. */
+function mergeData(disk: HabitData, session: HabitData): HabitData {
+	const byId = new Map(disk.habits.map(h => [h.id, h] as const));
+	for (const h of session.habits) byId.set(h.id, h);
+	const habits = [...byId.values()];
+	const ids = new Set(habits.map(h => h.id));
+	const seen = new Map<string, Set<string>>();
+	for (const source of [disk, session]) {
+		for (const [date, idList] of Object.entries(source.records)) {
+			if (!DATE_RE.test(date)) continue;
+			const set = seen.get(date) ?? new Set<string>();
+			seen.set(date, set);
+			for (const id of idList) {
+				if (ids.has(id)) set.add(id);
+			}
+		}
+	}
+	const records: Record<string, string[]> = {};
+	for (const [date, set] of seen) {
+		if (set.size > 0) records[date] = [...set];
+	}
+	return { version: 1, habits, records };
+}
+
 /** Normalize a parsed habits.json: keep only well-formed habits and record
  *  entries so a hand-edited or corrupted file degrades to partial data. */
 function normalizeData(raw: unknown): HabitData {
@@ -137,8 +163,22 @@ export class HabitService {
 		this.pruneOldRecords();
 	}
 
-	private async save(): Promise<void> {
-		if (this.loadFailed) return;
+	/** Serialized write queue — at most one write is ever in flight. The old
+	 *  fire-and-forget saves raced on the same file: an earlier-serialized
+	 *  snapshot completing after a newer write silently reverted every mutation
+	 *  made in between (observed: habits created in quick succession shrinking
+	 *  back to one after a reload). Content serializes at execution time, so a
+	 *  write delayed behind earlier ones still persists the freshest state. */
+	private saveQueue: Promise<void> = Promise.resolve();
+
+	private save(): void {
+		this.saveQueue = this.saveQueue.then(() => this.persist());
+	}
+
+	private async persist(): Promise<void> {
+		// A non-parse load failure must not brick persistence for the whole
+		// session; re-attempt the read and merge before deciding to skip.
+		if (this.loadFailed && !(await this.retryFailedLoad())) return;
 		try {
 			const adapter = this.plugin.app.vault.adapter;
 			const dir = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}`;
@@ -149,6 +189,32 @@ export class HabitService {
 			await adapter.write(path, JSON.stringify(this.data));
 		} catch {
 			// silent fail: an unwriteable habits.json must not break check-ins in-session
+		}
+	}
+
+	/** Re-attempt the initial read after a non-parse load failure (iCloud file
+	 *  not yet downloaded, transient mobile file lock). One such error used to
+	 *  disable saving for the entire session — every habit added then silently
+	 *  vanished on the next reload. On success the disk state merges with the
+	 *  in-session state (union by habit id and by record id). Returns false
+	 *  while the file is still unreadable: saving stays skipped rather than
+	 *  clobbering a file we cannot see. */
+	private async retryFailedLoad(): Promise<boolean> {
+		try {
+			const adapter = this.plugin.app.vault.adapter;
+			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
+			let disk = emptyData();
+			if (await adapter.exists(path)) {
+				disk = normalizeData(JSON.parse(await adapter.read(path)));
+			}
+			this.data = mergeData(disk, this.data);
+			this.loadFailed = false;
+			// The merge may resurrect habits the UI has not seen yet.
+			this.notify();
+			return true;
+		} catch (error) {
+			this.loadFailed = !(error instanceof SyntaxError);
+			return !this.loadFailed;
 		}
 	}
 
@@ -192,7 +258,7 @@ export class HabitService {
 		if (this.data.habits.some(h => h.name.toLowerCase() === trimmed.toLowerCase())) return null;
 		const habit: Habit = { id: makeHabitId(), name: trimmed, createdAt: todayStr() };
 		this.data = { ...this.data, habits: [...this.data.habits, habit] };
-		void this.save();
+		this.save();
 		this.notify();
 		return habit;
 	}
@@ -207,7 +273,7 @@ export class HabitService {
 			...this.data,
 			habits: this.data.habits.map(h => h.id === id ? { ...h, name: trimmed } : h),
 		};
-		void this.save();
+		this.save();
 		this.notify();
 		return true;
 	}
@@ -226,7 +292,23 @@ export class HabitService {
 			habits: this.data.habits.filter(h => h.id !== id),
 			records,
 		};
-		void this.save();
+		this.save();
+		this.notify();
+	}
+
+	/** Move the habit at index `from` to insert slot `to` (wireDrag convention:
+	 *  both pre-removal indexes — dropping on the bottom half of a later card
+	 *  passes that card's index + 1). The order drives the sidebar widget's
+	 *  list and the stats overlay's cards alike. */
+	moveHabit(from: number, to: number): void {
+		const habits = this.data.habits;
+		if (from < 0 || from >= habits.length || to < 0 || to > habits.length || from === to) return;
+		const next = [...habits];
+		const moved = next.splice(from, 1)[0];
+		if (!moved) return;
+		next.splice(to > from ? to - 1 : to, 0, moved);
+		this.data = { ...this.data, habits: next };
+		this.save();
 		this.notify();
 	}
 
@@ -251,7 +333,7 @@ export class HabitService {
 			delete records[key];
 		}
 		this.data = { ...this.data, records };
-		void this.save();
+		this.save();
 		this.notify();
 	}
 
