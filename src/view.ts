@@ -5,9 +5,11 @@ import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, DataviewConfig } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
-import { refreshSidebarTaskCalendar } from './calendar-widget';
+import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
+import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
 import { getHabitService } from './habit-service';
+import { getExpenseService } from './expense-service';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
 import { refreshBannerStats } from './banner-stats';
 import { applyAppearance } from './appearance';
@@ -110,8 +112,9 @@ export class DashboardView extends ItemView implements HoverParent {
 	private pomodoroService: PomodoroService | null = null;
 	private readingService: ReadingService | null = null;
 	private habitUnsubscribe: (() => void) | null = null;
+	private expenseUnsubscribe: (() => void) | null = null;
 	private holidayData: Record<string, HolidayInfo> = {};
-	private mobileWidgetExpanded: 'pomodoro' | 'reading' | 'lunar' | 'habit' | null = null;
+	private mobileWidgetExpanded: 'pomodoro' | 'reading' | 'lunar' | 'calendar' | 'habit' | 'expense' | null = null;
 	private mobileWidgetTabsOpen: boolean = false;
 	private static readonly WEATHER_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 	private weatherRefreshTimer: number | null = null;
@@ -186,6 +189,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Habit data is plugin-level: every open view subscribes so a check-in
 		// in one view refreshes the widget and banner in all of them.
 		this.habitUnsubscribe = getHabitService()?.subscribe(() => this.onHabitChanged()) ?? null;
+		this.expenseUnsubscribe = getExpenseService()?.subscribe(() => this.onExpenseChanged()) ?? null;
 		void loadHolidayData(this.app).then(data => {
 			this.holidayData = data;
 			const currentData = this.sync.getData();
@@ -207,6 +211,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.readingService = null;
 		this.habitUnsubscribe?.();
 		this.habitUnsubscribe = null;
+		this.expenseUnsubscribe?.();
+		this.expenseUnsubscribe = null;
 		this.sync.destroy();
 	}
 
@@ -498,13 +504,19 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Tab row: hidden by default, revealed by tapping strip
 		const tabs = bar.createDiv({ cls: 'dashboard-mobile-widget-tabs' });
 
-		const widgets: Array<{ key: 'pomodoro' | 'reading' | 'lunar' | 'habit'; label: string; icon: string }> = [
-			{ key: 'pomodoro', label: t('mobile.pomodoro'), icon: 'hourglass' },
-			{ key: 'reading', label: t('mobile.reading'), icon: 'book-open' },
+		const widgets: Array<{ key: 'pomodoro' | 'reading' | 'lunar' | 'calendar' | 'habit' | 'expense'; label: string; icon: string }> = [
 			{ key: 'lunar', label: t('mobile.lunar'), icon: 'moon' },
+			...(this.plugin.settings.widgetCalendarEnabled
+				? [{ key: 'calendar' as const, label: t('mobile.calendar'), icon: 'calendar' }]
+				: []),
+			{ key: 'pomodoro', label: t('mobile.pomodoro'), icon: 'hourglass' },
 			...(this.plugin.settings.widgetHabitEnabled
 				? [{ key: 'habit' as const, label: t('mobile.habit'), icon: 'check-circle-2' }]
 				: []),
+			...(this.plugin.settings.widgetExpenseEnabled
+				? [{ key: 'expense' as const, label: t('mobile.expense'), icon: 'wallet' }]
+				: []),
+			{ key: 'reading', label: t('mobile.reading'), icon: 'book-open' },
 		];
 
 		bar.createDiv({ cls: 'dashboard-mobile-widget-panel' });
@@ -566,8 +578,20 @@ export class DashboardView extends ItemView implements HoverParent {
 			renderSidebarReading(panel, this.readingService);
 		} else if (this.mobileWidgetExpanded === 'lunar') {
 			renderSidebarLunarWidget(panel, this.holidayData, this.app);
+		} else if (this.mobileWidgetExpanded === 'calendar') {
+			// The tab tap is explicit intent: autoLoad skips the phone deferred-scan
+			// placeholder so the grid (and its dots) appear without a second tap.
+			renderSidebarCalendar(
+				panel,
+				this.plugin.settings,
+				this.app,
+				(file, line) => this.openNote(file, undefined, line),
+				{ autoLoad: true },
+			);
 		} else if (this.mobileWidgetExpanded === 'habit') {
 			renderSidebarHabitWidget(panel, this.app);
+		} else if (this.mobileWidgetExpanded === 'expense') {
+			renderSidebarExpenseWidget(panel, this.app);
 		}
 	}
 
@@ -1495,10 +1519,12 @@ export class DashboardView extends ItemView implements HoverParent {
 					excludeFolders: result.excludeFolders.length > 0 ? result.excludeFolders : undefined,
 					filters,
 					kanbanGroupBy: result.groupBy,
+					groupMode: result.groupMode === 'folder' ? 'folder' : undefined,
 					showProperties: result.showProperties ? undefined : false,
 					propertyLimit: result.propertyLimit,
 				});
 			},
+			libraryConfig?.groupMode,
 		);
 		modal.open();
 	}
@@ -1666,6 +1692,20 @@ export class DashboardView extends ItemView implements HoverParent {
 			renderSidebarHabitWidget(panel, this.app);
 		}
 		this.debouncedRefreshBannerStats();
+	}
+
+	/** Expense data changed (entry added / record deleted from any view or
+	 *  the stats overlay): refresh the widget's derived labels in place + the
+	 *  mobile expense panel. The form inputs are never touched, so typing in
+	 *  this view survives entries made elsewhere. */
+	private onExpenseChanged(): void {
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		if (root) refreshExpenseWidget(root);
+		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
+		if (panel && this.mobileWidgetExpanded === 'expense') {
+			panel.empty();
+			renderSidebarExpenseWidget(panel, this.app);
+		}
 	}
 
 	/** Recompute the stats banner in place (only when in stats mode). Vault

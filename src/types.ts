@@ -28,6 +28,10 @@ export interface DashboardSettings {
 	calendarExcludeFolders: string[];
 	/** Habit check-in widget: boolean daily check-offs tracked per habit. */
 	widgetHabitEnabled: boolean;
+	/** Expense tracker widget: quick expense/income entry in the sidebar. */
+	widgetExpenseEnabled: boolean;
+	/** Currency symbol shown before amounts in the expense widget/stats (e.g. ¥, $). */
+	expenseCurrency: string;
 	widgetOrder: string[];
 	/** Weread (WeChat Read) official API key (wrk-...), shared account-wide. */
 	wereadApiKey: string;
@@ -197,7 +201,9 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	widgetCalendarEnabled: false,
 	calendarExcludeFolders: [],
 	widgetHabitEnabled: false,
-	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit'],
+	widgetExpenseEnabled: false,
+	expenseCurrency: '¥',
+	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense'],
 	wereadApiKey: '',
 	wereadImportPath: 'Weread/划线',
 	ticktickRegion: 'dida365',
@@ -418,6 +424,10 @@ export interface LibraryConfig {
 	sortBy: string;
 	sortDesc: boolean;
 	kanbanGroupBy?: string;
+	/** Kanban grouping mode: by frontmatter property (default, keyed by
+	 *  kanbanGroupBy) or by the file's top-level subfolder under the configured
+	 *  scan folders (folder sections). */
+	groupMode?: 'property' | 'folder';
 	pageSize?: number;
 	/** Grid card view: show note frontmatter properties as key:value badges. Defaults to true. */
 	showProperties?: boolean;

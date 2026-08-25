@@ -8,19 +8,23 @@ interface GuideFeature {
 	readonly textKey: string;
 }
 
-/** The Dataview section capabilities showcased in the announcement modal. */
+/** The capabilities showcased in the announcement modal. Content is refreshed
+ *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'table-2', textKey: 'dataviewGuide.featureDql' },
-	{ icon: 'braces', textKey: 'dataviewGuide.featureFields' },
-	{ icon: 'calendar-days', textKey: 'dataviewGuide.featureViews' },
-	{ icon: 'puzzle', textKey: 'dataviewGuide.featureNoPlugin' },
+	{ icon: 'check-circle-2', textKey: 'announce.featureHabitCheck' },
+	{ icon: 'bar-chart-2', textKey: 'announce.featureHabitStats' },
+	{ icon: 'wallet', textKey: 'announce.featureExpenseEntry' },
+	{ icon: 'pencil', textKey: 'announce.featureExpenseMeta' },
+	{ icon: 'bar-chart', textKey: 'announce.featureExpenseStats' },
+	{ icon: 'smartphone', textKey: 'announce.featureCrossDevice' },
 ];
 
 /**
- * One-time announcement for the Dataview section + WeChat community group.
- * Shown once per plugin version on startup (after layout ready). The QR code
- * is base64-bundled, so the modal works offline; a fallback line tells users
- * to add WeChat contact "PandoraReads" when the group invite has expired.
+ * One-time version announcement (what's new) + WeChat community group card.
+ * Shown once per plugin version on startup (after layout ready). The feature
+ * list comes from the `announce.*` i18n keys — refresh those per release. The
+ * QR code is base64-bundled, so the modal works offline; a fallback line tells
+ * users to add WeChat contact "PandoraReads" when the group invite has expired.
  */
 export class DataviewGuideModal extends Modal {
 	private readonly onSeen: () => void;
@@ -41,12 +45,12 @@ export class DataviewGuideModal extends Modal {
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact dashboard-dataview-guide-modal' });
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-dataview-guide-title', text: t('dataviewGuide.title') });
+		header.createDiv({ cls: 'dashboard-dataview-guide-title', text: t('announce.title') });
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
 		body.createEl('p', {
-			text: t('dataviewGuide.intro'),
+			text: t('announce.intro'),
 			cls: 'dashboard-dataview-guide-intro',
 		});
 
@@ -60,7 +64,7 @@ export class DataviewGuideModal extends Modal {
 
 		// --- Community group card: centered QR, one title, fallback below ---
 		const groupCard = body.createDiv({ cls: 'dashboard-dataview-guide-group' });
-		groupCard.createDiv({ cls: 'dashboard-dataview-guide-group-title', text: t('dataviewGuide.groupTitle') });
+		groupCard.createDiv({ cls: 'dashboard-dataview-guide-group-title', text: t('announce.groupTitle') });
 
 		const qrWrap = groupCard.createDiv({ cls: 'dashboard-dataview-guide-qr-wrap' });
 		const qrImg = qrWrap.createEl('img', {
@@ -72,12 +76,12 @@ export class DataviewGuideModal extends Modal {
 			// (or saved) even when the modal renders it small.
 			window.open(WECHAT_GROUP_QR_DATA_URL, '_blank');
 		});
-		qrWrap.createDiv({ cls: 'dashboard-dataview-guide-group-fallback', text: t('dataviewGuide.groupFallback') });
+		qrWrap.createDiv({ cls: 'dashboard-dataview-guide-group-fallback', text: t('announce.groupFallback') });
 
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('dataviewGuide.gotIt'),
+			text: t('announce.gotIt'),
 		}).addEventListener('click', () => this.close());
 	}
 

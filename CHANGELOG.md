@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.5 (2026-08-26)
+
+### Added
+- **Expense tracker widget** — A bookkeeping widget on the desktop sidebar and the phone widget bar: two quick-entry rows (expense / income) with amount + preset category, Enter to save, optional note, and a backfill date for entries made late (future dates rejected, with a one-tap back-to-today reset). Every entry shows today's expense / income totals and the running net. All records live in `expense.json` (append-only, never pruned), the last-picked category per direction reopens preselected, and the currency symbol is configurable in settings. A statistics overlay covers week / month / year / all-time ranges: KPI cards (totals, net, daily average, record count), category-share donuts, daily/monthly trends, a category ranking, a year heatmap, and a deletable record list; a backfill modal rounds out record management.
+- **Mobile: the calendar widget is on the phone** — The banner's widget strip gains a Calendar tab (shown when the sidebar calendar widget is enabled in settings). Tapping it loads the month grid directly — the tap itself is explicit intent, so the phone's usual deferred-scan placeholder is skipped — with month/week switching, day agendas (view / add / toggle tasks), the full-screen modal, and task-note jump-to-line all working like desktop. The mobile tab order is now: Lunar, Calendar, Pomodoro, Habits, Expense, Reading.
+- **Calendar: scheduled & completion dates are first-class** — Tasks carrying a scheduled date (`⏳` / `[scheduled::]`) or a completion date (`✅` / `[completion::]`) now anchor to those days in every calendar surface (sidebar widget, full-screen month, week view, day agenda, hover preview), with their own time labels and a small ⏳ / ✅ origin marker on the row. Day lists sort active tasks before completed ones, then by that day's time. The plugin's own `⏰` reminder marker also accepts a date-only form (time optional).
+- **Calendar: multi-day spans render as continuous bars** — In the full-screen month view, a task with a start/end window renders as one bar crossing the day cells of its week (up to four stacked lanes) instead of a duplicated row in every cell; continuation edges are marked, and clicking a bar opens the day agenda of its first visible day.
+- **Library/Folder sections: group by subfolder** — The folder section's kanban "group by" selector gains a subfolder mode: cards group under the top-level subfolder of each configured scan folder (groups sort alphabetically, numeric-aware; files directly inside a scan folder group under the folder's own name). The config modal gets a property/subfolder toggle, and the choice persists in the section config (only the non-default mode is written).
+- **Images/Videos sections: group by folder or tag** — Both media sections gain a toolbar "group by" selector: top-level vault folder, or tag (a file with several tags fans out into each bucket). Grouped rendering shows everything with collapsible group headers and hides the paginator; the lightbox order follows the grouped display order.
+
+### Changed
+- **The version announcement now introduces the habit & expense widgets** — The once-per-version popup (which previously introduced the Dataview section) now presents the habit check-in and expense tracker widgets with a six-point feature list, while keeping the community-group card verbatim (QR code, group title and the expired-invite fallback line). Its i18n keys moved to a neutral `announce.*` prefix so future releases only need to refresh the copy, and it fires again for every user on update to 1.9.5.
+
 ## 1.9.4 (2026-08-26)
 
 ### Changed

@@ -57,7 +57,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					{
 						name: t('settings.widgetTheme'),
 						desc: t('settings.widgetWeatherEnabledDesc'),
-						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion'), t('settings.widgetHabitEnabled')],
+						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion'), t('settings.widgetHabitEnabled'), t('settings.widgetExpenseEnabled')],
 						render: (setting) => {
 							asBlock(setting);
 							this.renderWidgetSettings(setting.settingEl);
@@ -513,6 +513,36 @@ export class DashboardSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
 					this.refresh();
+				}));
+
+		// --- Expense tracker card ---
+		const expenseCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(expenseCard)
+			.setName(t('settings.widgetExpenseEnabled'))
+			.setDesc(t('settings.widgetExpenseEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetExpenseEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetExpenseEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
+		new Setting(expenseCard)
+			.setName(t('settings.expenseCurrency'))
+			.setDesc(t('settings.expenseCurrencyDesc'))
+			.addText(text => text
+				.setPlaceholder('¥')
+				.setValue(this.plugin.settings.expenseCurrency)
+				.onChange(async (value) => {
+					this.plugin.settings = { ...this.plugin.settings, expenseCurrency: value.trim() };
+					await this.plugin.saveSettings();
+					// The sidebar signature includes the currency, so a change
+					// must rebuild the widget (and its derived labels).
+					this.plugin.refreshAllDashboards();
 				}));
 
 		// --- Weread (WeChat Read) card ---

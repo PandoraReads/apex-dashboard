@@ -10,7 +10,7 @@ import {
 	dateBucketOf,
 	type VaultTask,
 } from './alltasks-scan';
-import { renderMonthGrid, renderWeekGrid, mondayOf, taskTime, byTaskTime } from './calendar-grid';
+import { renderMonthGrid, renderWeekGrid, mondayOf, taskDayTime, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
 import { CalendarMonthModal, DayAgendaModal } from './calendar-modal';
 import { applyModalTheme } from './modal-theme';
 import { renderTextWithLinks } from './renderer';
@@ -49,24 +49,26 @@ export function closeDayPreview(): void {
 }
 
 /** Render one compact, non-interactive task row for the preview list. Visually
- *  matches the calendar's task rows (time prefix, priority bar, overdue tint). */
-function renderPreviewTask(task: VaultTask, app: App): HTMLElement {
+ *  matches the calendar's task rows (time prefix, priority bar, overdue tint,
+ *  day-origin marker). */
+function renderPreviewTask(task: VaultTask, iso: string, app: App): HTMLElement {
 	const row = createDiv();
 	const overDue = !task.checked && dateBucketOf(task.due) === 'overdue';
 	row.className = 'dashboard-calendar-event'
 		+ (task.checked ? ' is-done' : '')
 		+ (task.priority ? ` prio-${task.priority}` : '')
 		+ (overDue ? ' is-overdue' : '');
-	const tm = taskTime(task);
+	const tm = taskDayTime(task, iso);
 	if (tm) row.createDiv({ cls: 'dashboard-calendar-event-time', text: tm });
 	const text = row.createDiv({ cls: 'dashboard-calendar-event-text' });
 	renderTextWithLinks(text, task.text, app);
+	appendDayOriginMark(row, task, iso);
 	return row;
 }
 
 /** Build and position the preview popup near `anchor`, listing the day's tasks.
  *  Clamps to the viewport so it never spills off-screen. */
-function showDayPreview(anchor: HTMLElement, tasks: VaultTask[], app: App): void {
+function showDayPreview(anchor: HTMLElement, iso: string, tasks: VaultTask[], app: App): void {
 	// A newer hover superseded this one while its timer was pending.
 	if (hoverTimer !== null) { window.clearTimeout(hoverTimer); hoverTimer = null; }
 
@@ -78,10 +80,10 @@ function showDayPreview(anchor: HTMLElement, tasks: VaultTask[], app: App): void
 	hoverPopup = popup;
 
 	const list = popup.createDiv({ cls: 'dashboard-calendar-day-preview-list' });
-	const sorted = tasks.slice().sort(byTaskTime);
+	const sorted = tasks.slice().sort(byDayTaskTime(iso));
 	const shown = sorted.slice(0, PREVIEW_MAX_TASKS);
 	for (const task of shown) {
-		list.appendChild(renderPreviewTask(task, app));
+		list.appendChild(renderPreviewTask(task, iso, app));
 	}
 	if (sorted.length > PREVIEW_MAX_TASKS) {
 		list.createDiv({
@@ -118,12 +120,17 @@ function showDayPreview(anchor: HTMLElement, tasks: VaultTask[], app: App): void
  *
  * Pure presentation: no timer — cross-day refresh is handled by the view's
  * day-rollover full re-render (same approach as the lunar / year-progress widgets).
+ *
+ * `opts.autoLoad` overrides the phone deferred-scan branch: the mobile widget
+ * panel only creates this widget on an explicit tab tap, so there the scan
+ * starts immediately instead of behind the manual-load placeholder.
  */
 export function renderSidebarCalendar(
 	container: HTMLElement,
 	settings: DashboardSettings,
 	app: App,
 	onOpenNote?: (file: TFile, line?: number) => void,
+	opts?: { autoLoad?: boolean },
 ): void {
 	const excludeFolders = settings.calendarExcludeFolders ?? [];
 
@@ -219,7 +226,7 @@ export function renderSidebarCalendar(
 				if (hoverTimer !== null) window.clearTimeout(hoverTimer);
 				hoverTimer = window.setTimeout(() => {
 					hoverTimer = null;
-					showDayPreview(anchor, tasks, app);
+					showDayPreview(anchor, iso, tasks, app);
 				}, HOVER_DELAY_MS);
 			}
 			: undefined;
@@ -252,7 +259,7 @@ export function renderSidebarCalendar(
 	async function openFullscreen(): Promise<void> {
 		const tasks = (await collectVaultTasks(app, excludeFolders, settings.dashboardFile)).filter(isCalendarRelevant);
 		const byDay = indexTasksByDay(tasks);
-		new CalendarMonthModal(app, byDay, { onToggle, onOpenNote }, view, view === 'week' ? weekStart : undefined).open();
+		new CalendarMonthModal(app, byDay, { onToggle, onOpenNote }, view, view === 'week' ? weekStart : undefined, settings.dashboardFile).open();
 	}
 
 	/** Navigate by one month (month view) or one week (week view). */
@@ -274,7 +281,7 @@ export function renderSidebarCalendar(
 
 	const load = (): Promise<void> => render();
 
-	if (Platform.isPhone) {
+	if (Platform.isPhone && !opts?.autoLoad) {
 		// Phones: defer the vault scan to keep the sidebar light. The refresh
 		// button loads the inline grid; from there a tap on the expand button
 		// opens fullscreen. (Tablets also have .is-mobile but plenty of room,

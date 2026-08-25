@@ -1311,8 +1311,35 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 	}
 }
 
+/** Kanban folder-mode grouping key for one file: the top-level subfolder under
+ * the first configured scan folder that contains it. Files directly inside a
+ * scan folder group under that folder's own name; files matching no scan
+ * folder (defensive — a library section hand-set to folder mode) fall back to
+ * the first segment of their parent path, or undefined at vault root. */
+export function folderGroupKey(filePath: string, scanFolders: string[]): string | undefined {
+	const normalized = filePath.replace(/\\/g, '/');
+	const parent = normalized.includes('/') ? normalized.slice(0, normalized.lastIndexOf('/')) : '';
+	for (const root of scanFolders) {
+		const r = root.trim().replace(/\\/g, '/').replace(/\/+$/, '');
+		if (!r) continue;
+		// Case-insensitive prefix match, same rule the scanner uses.
+		const rel = parent.toLowerCase().startsWith(r.toLowerCase() + '/')
+			? parent.slice(r.length + 1)
+			: (parent.toLowerCase() === r.toLowerCase() ? '' : null);
+		if (rel === null) continue;
+		if (rel === '') {
+			// Directly inside the scan folder: the folder itself is the group.
+			return r.split('/').filter(Boolean).pop() ?? r;
+		}
+		return rel.split('/')[0] ?? '';
+	}
+	if (parent === '') return undefined;
+	return parent.split('/')[0] ?? undefined;
+}
+
 function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig): void {
 	const groupBy = config.kanbanGroupBy ?? 'tags';
+	const byFolder = config.groupMode === 'folder';
 	const kanban = container.createDiv({ cls: 'dashboard-library-kanban' });
 
 	// Group results
@@ -1320,6 +1347,16 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 	const noGroup: LibraryFileResult[] = [];
 
 	for (const result of results) {
+		if (byFolder) {
+			const key = folderGroupKey(result.file.path, config.folders ?? []);
+			if (key === undefined) {
+				noGroup.push(result);
+				continue;
+			}
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key)!.push(result);
+			continue;
+		}
 		const value = result.frontmatter[groupBy];
 		if (value == null) {
 			noGroup.push(result);
@@ -1336,6 +1373,14 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 			if (!groups.has(key)) groups.set(key, []);
 			groups.get(key)!.push(result);
 		}
+	}
+
+	// Folder groups read best alphabetically (they mirror the folder tree);
+	// property groups keep their first-occurrence order.
+	if (byFolder) {
+		const sorted = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+		groups.clear();
+		for (const entry of sorted) groups.set(entry[0], entry[1]);
 	}
 
 	// Render columns

@@ -2,7 +2,7 @@ import { App, Modal, Notice, setIcon } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { t } from './i18n';
 import { renderTextWithLinks } from './renderer';
-import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskTime, byTaskTime } from './calendar-grid';
+import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskDayTime, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
 import { toIsoDate, type VaultTask } from './alltasks-scan';
 import { insertTaskForDay, type TaskInsertTarget } from './daily-notes';
 import { applyModalTheme } from './modal-theme';
@@ -25,6 +25,9 @@ export class CalendarMonthModal extends Modal {
 	private view: 'month' | 'week';
 	private weekStart: Date;
 	private readonly cb: CalendarModalCallbacks;
+	/** Vault path of the dashboard file, forwarded to day agendas opened from
+	 *  bar clicks (their add-task fallback destination). */
+	private readonly dashboardFile?: string;
 
 	constructor(
 		app: App,
@@ -32,10 +35,12 @@ export class CalendarMonthModal extends Modal {
 		cb: CalendarModalCallbacks,
 		initialView: 'month' | 'week' = 'month',
 		initialWeekStart?: Date,
+		dashboardFile?: string,
 	) {
 		super(app);
 		this.byDay = byDay;
 		this.cb = cb;
+		this.dashboardFile = dashboardFile;
 		const now = new Date();
 		this.year = now.getFullYear();
 		this.month = now.getMonth();
@@ -106,6 +111,9 @@ export class CalendarMonthModal extends Modal {
 			app: this.app,
 			onToggle: (task: VaultTask, next: boolean) => { void this.toggle(task, next); },
 			onOpenNote: this.cb.onOpenNote,
+			onBarClick: (iso: string) => {
+				new DayAgendaModal(this.app, iso, this.byDay.get(iso) ?? [], this.cb, this.dashboardFile).open();
+			},
 		};
 		const { label } = this.view === 'week'
 			? renderWeekTimeGrid(body, this.weekStart, this.byDay, gridOpts)
@@ -203,7 +211,7 @@ export class DayAgendaModal extends Modal {
 			body.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
 		} else {
 			const list = body.createDiv({ cls: 'dashboard-alltasks-list' });
-			for (const task of [...this.tasks].sort(byTaskTime)) {
+			for (const task of [...this.tasks].sort(byDayTaskTime(this.iso))) {
 				list.appendChild(this.renderRow(task));
 			}
 		}
@@ -222,8 +230,9 @@ export class DayAgendaModal extends Modal {
 		check.checked = task.checked;
 		check.addEventListener('click', (e) => { e.preventDefault(); void this.toggle(task, !task.checked); });
 
-		const tm = taskTime(task);
+		const tm = taskDayTime(task, this.iso);
 		if (tm) row.createDiv({ cls: 'dashboard-calendar-event-time', text: tm });
+		appendDayOriginMark(row, task, this.iso);
 
 		if (task.priority) {
 			row.createDiv({ cls: `dashboard-alltasks-prio dashboard-alltasks-prio--${task.priority}`, text: task.priority[0]!.toUpperCase() });
@@ -287,7 +296,7 @@ export class DayAgendaModal extends Modal {
 			file: target.file, path: target.file.path, line: target.line, originalLine: target.writtenLine, checked: false,
 			text: title, reminder, due: this.iso, time: time || undefined,
 			priority: undefined, mtime: Date.now(), ctime: Date.now(),
-		}].sort(byTaskTime);
+		}].sort(byDayTaskTime(this.iso));
 		titleInput.value = '';
 		timeInput.value = '';
 		this.onOpen();

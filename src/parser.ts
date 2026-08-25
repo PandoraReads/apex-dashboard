@@ -185,6 +185,10 @@ export function serialize(data: DashboardData): string {
 			if (lc.kanbanGroupBy) {
 				lines.push(`      kanbanGroupBy: "${escapeYamlString(lc.kanbanGroupBy)}"`);
 			}
+			// 'property' is the default group mode — only persist the opt-in.
+			if (lc.groupMode === 'folder') {
+				lines.push(`      groupMode: folder`);
+			}
 			if (lc.pageSize) {
 				lines.push(`      pageSize: ${lc.pageSize}`);
 			}
@@ -884,6 +888,7 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		sortBy: str(raw.sortBy ?? 'modified'),
 		sortDesc: raw.sortDesc !== false,
 		kanbanGroupBy: raw.kanbanGroupBy ? str(raw.kanbanGroupBy) : undefined,
+		groupMode: ['property', 'folder'].includes(str(raw.groupMode ?? '')) ? (raw.groupMode as import('./types').LibraryConfig['groupMode']) : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
 		showProperties: raw.showProperties === false ? false : undefined,
 		propertyLimit: typeof raw.propertyLimit === 'number' ? raw.propertyLimit : undefined,

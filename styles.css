@@ -1876,6 +1876,257 @@
 	opacity: 0.7;
 }
 
+/* Expense Widget */
+.dashboard-sidebar-expense-top {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	margin-bottom: 6px;
+}
+
+.dashboard-sidebar-expense-title {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 0.7em;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	color: var(--db-accent);
+	user-select: none;
+	white-space: nowrap;
+}
+
+.dashboard-sidebar-expense-title-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	opacity: 0.85;
+}
+
+.dashboard-sidebar-expense-title-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-sidebar-expense-count {
+	font-size: 0.65em;
+	color: var(--db-text-muted);
+	user-select: none;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.dashboard-sidebar-expense-top-spacer {
+	flex: 1;
+}
+
+.dashboard-sidebar-expense-icon-btn {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	opacity: 0.3;
+	color: var(--db-text-muted);
+	transition: opacity 0.15s;
+	flex-shrink: 0;
+}
+
+.dashboard-sidebar-expense-icon-btn:hover {
+	opacity: 0.75;
+}
+
+.dashboard-sidebar-expense-form {
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	/* The sidebar marks widgets draggable; the entry form is a form, not a grip. */
+	cursor: default;
+}
+
+.dashboard-sidebar-expense-row-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+
+.dashboard-sidebar-expense-row-label {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 0.68em;
+	color: var(--db-text-muted);
+	user-select: none;
+}
+
+.dashboard-sidebar-expense-row-label-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.dashboard-sidebar-expense-row-label-icon svg {
+	width: 11px;
+	height: 11px;
+}
+
+.dashboard-sidebar-expense-row--expense .dashboard-sidebar-expense-row-label-icon {
+	color: var(--db-danger, #e74c3c);
+}
+
+.dashboard-sidebar-expense-row--income .dashboard-sidebar-expense-row-label-icon {
+	color: #2ecc71;
+}
+
+.dashboard-sidebar-expense-row-total {
+	font-size: 0.68em;
+	color: var(--db-text-muted);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.dashboard-sidebar-expense-row-main {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+.dashboard-sidebar-expense-currency {
+	font-size: 0.7em;
+	color: var(--db-text-muted);
+	flex-shrink: 0;
+	user-select: none;
+}
+
+.dashboard-sidebar-expense-amount {
+	/* Kill the native input chrome: iOS WKWebView draws its own rounded field
+	   background from -webkit-appearance even when background/border are none
+	   (desktop Chromium doesn't). Any author-side appearance declaration beats
+	   the UA sheet, so no !important needed here. */
+	-webkit-appearance: none;
+	appearance: none;
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text);
+	font-size: 0.82em;
+	padding: 3px 0;
+	outline: none;
+	font-family: var(--db-font);
+	font-variant-numeric: tabular-nums;
+	flex: 1 1 auto;
+	min-width: 0;
+	width: 0;
+	text-align: left;
+}
+
+.dashboard-sidebar-expense-amount::placeholder {
+	color: var(--db-text-faint);
+	opacity: 0.5;
+}
+
+.dashboard-sidebar-expense-invalid {
+	color: var(--db-danger, #e74c3c) !important;
+	animation: dashboard-expense-shake 0.3s;
+}
+
+@keyframes dashboard-expense-shake {
+	0%, 100% { transform: translateX(0); }
+	25% { transform: translateX(-3px); }
+	75% { transform: translateX(3px); }
+}
+
+.dashboard-sidebar-expense-category {
+	/* menulist keeps the native dropdown arrow on iOS WKWebView (see the
+	   countdown time select); a bare none renders it arrow-less. */
+	-webkit-appearance: menulist;
+	appearance: menulist;
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+	border: 1px solid var(--db-border-input, rgba(128, 128, 128, 0.25));
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text-muted);
+	font-size: 0.68em;
+	font-family: var(--db-font);
+	padding: 3px 4px;
+	outline: none;
+	flex: 0 1 auto;
+	max-width: 42%;
+	min-width: 0;
+	text-overflow: ellipsis;
+	cursor: pointer;
+}
+
+.dashboard-sidebar-expense-category:focus {
+	color: var(--db-text);
+	border-color: var(--db-accent);
+}
+
+.dashboard-sidebar-expense-note {
+	-webkit-appearance: none;
+	appearance: none;
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text-muted);
+	font-size: 0.72em;
+	padding: 3px 0;
+	outline: none;
+	font-family: var(--db-font);
+}
+
+.dashboard-sidebar-expense-note::placeholder {
+	color: var(--db-text-faint);
+	opacity: 0.5;
+}
+
+.dashboard-sidebar-expense-note:focus {
+	color: var(--db-text);
+}
+
+@media (max-width: 640px) {
+	.dashboard-sidebar-expense-category {
+		max-width: 45%;
+	}
+}
+
+/* Expense backfill dialog (themed config-modal skeleton) */
+.dashboard-expense-backfill-date {
+	width: 140px;
+	box-sizing: border-box;
+	/* Native calendar picker follows the light/dark mode. */
+	color-scheme: light dark;
+}
+
+.dashboard-expense-backfill-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.dashboard-expense-backfill-currency {
+	flex-shrink: 0;
+	color: var(--db-text-muted);
+}
+
+.dashboard-expense-backfill-amount {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.dashboard-expense-backfill-category {
+	/* menulist keeps the native dropdown arrow on iOS WKWebView. */
+	-webkit-appearance: menulist;
+	appearance: menulist;
+	flex: 0 1 auto;
+	width: 38%;
+	min-width: 0;
+}
+
 /* Countdown Widget */
 .dashboard-sidebar-countdown {
 	position: relative;
@@ -4002,6 +4253,709 @@
 
 	.dashboard-pomodoro-donut-legend--grid {
 		grid-template-columns: 1fr;
+	}
+}
+
+/* ===== Expense Stats Modal ===== */
+.dashboard-expense-stats-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
+.dashboard-expense-stats-modal {
+	background: var(--db-bg-modal, var(--background-primary, var(--db-bg)));
+	border: 1px solid var(--db-border-card);
+	border-radius: var(--db-radius-lg, 12px);
+	padding: 20px;
+	max-width: 380px;
+	width: 90%;
+	max-height: 80vh;
+	overflow-y: auto;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-expense-stats-modal--wide {
+	max-width: 1040px;
+	width: 94%;
+	max-height: 86vh;
+	padding: 22px 26px;
+	display: flex;
+	flex-direction: column;
+}
+
+.dashboard-expense-stats-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 16px;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.dashboard-expense-stats-header-titlewrap {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.dashboard-expense-stats-header-title {
+	font-size: 1.3em;
+	font-weight: 700;
+	color: var(--db-text);
+}
+
+.dashboard-expense-insight {
+	font-size: 0.72em;
+	color: var(--db-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-stats-header-right {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+/* Range toggle (week/month/year/history) */
+.dashboard-expense-range-toggle {
+	display: flex;
+	gap: 2px;
+	background: var(--db-bg-hover);
+	border-radius: 6px;
+	padding: 2px;
+}
+
+.dashboard-expense-range-btn {
+	text-align: center;
+	font-size: 0.82em;
+	font-weight: 500;
+	color: var(--db-text-muted);
+	padding: 5px 12px;
+	border-radius: 5px;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background 0.15s, color 0.15s;
+}
+
+.dashboard-expense-range-btn--active {
+	background: var(--db-bg-modal-raised, var(--background-primary, var(--db-bg)));
+	color: var(--db-accent);
+	font-weight: 700;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+/* Year navigation (history range only) */
+.dashboard-expense-year-nav {
+	display: none;
+	align-items: center;
+	gap: 2px;
+}
+
+.dashboard-expense-year-nav--visible {
+	display: flex;
+}
+
+.dashboard-expense-year-nav-btn {
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	color: var(--db-text-muted);
+	border-radius: 5px;
+	transition: background 0.15s, color 0.15s;
+}
+
+.dashboard-expense-year-nav-btn:hover {
+	background: var(--db-bg-hover);
+	color: var(--db-text);
+}
+
+.dashboard-expense-year-nav-btn--disabled {
+	opacity: 0.25;
+	pointer-events: none;
+}
+
+.dashboard-expense-year-nav-label {
+	font-size: 0.85em;
+	font-weight: 600;
+	color: var(--db-text);
+	min-width: 48px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Expense/income type toggle (library view toggle, miniature) */
+.dashboard-expense-type-toggle {
+	display: flex;
+	gap: 2px;
+	background: var(--db-bg-input, rgba(128, 128, 128, 0.12));
+	border-radius: var(--db-radius-sm, 6px);
+	padding: 2px;
+}
+
+.dashboard-expense-type-btn {
+	cursor: pointer;
+	padding: 4px 10px;
+	border-radius: 4px;
+	color: var(--db-text-muted);
+	font-size: 0.75em;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-expense-type-btn:hover {
+	color: var(--db-text);
+}
+
+.dashboard-expense-type-btn--active {
+	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
+	color: var(--db-accent);
+	font-weight: 600;
+}
+
+.dashboard-expense-stats-close {
+	cursor: pointer;
+	color: var(--db-text-muted);
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	transition: background 0.15s;
+	flex-shrink: 0;
+}
+
+.dashboard-expense-stats-close:hover {
+	background: var(--db-bg-hover);
+}
+
+/* Body grid: left column hosts the record table too, so it gets the width */
+.dashboard-expense-stats-body {
+	display: grid;
+	grid-template-columns: 300px minmax(0, 1fr) 320px;
+	grid-template-rows: minmax(0, 1fr);
+	gap: 18px;
+	overflow-y: auto;
+	min-height: 0;
+	flex: 1;
+	padding-top: 4px;
+}
+
+/* Left column — KPIs */
+.dashboard-expense-kpi-col {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.dashboard-expense-stats-summary {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px;
+}
+
+.dashboard-expense-stats-card {
+	background: var(--db-bg-hover);
+	border-radius: 8px;
+	padding: 10px 8px;
+	text-align: center;
+	min-width: 0;
+}
+
+.dashboard-expense-stats-card-value-row {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.dashboard-expense-stats-card-value {
+	font-size: 1em;
+	font-weight: 700;
+	color: var(--db-accent);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-stats-card-delta {
+	font-size: 0.58em;
+	font-weight: 600;
+	padding: 1px 4px;
+	border-radius: 4px;
+}
+.dashboard-expense-stats-card-delta--up {
+	color: #2ecc71;
+	background: rgba(46, 204, 113, 0.12);
+}
+.dashboard-expense-stats-card-delta--down {
+	color: #e74c3c;
+	background: rgba(231, 76, 60, 0.12);
+}
+
+.dashboard-expense-stats-card-label {
+	font-size: 0.65em;
+	color: var(--db-text-muted);
+	margin-top: 2px;
+}
+
+/* Sections */
+.dashboard-expense-stats-section {
+	margin-bottom: 14px;
+}
+
+.dashboard-expense-stats-section-title {
+	font-size: 0.7em;
+	font-weight: 600;
+	color: var(--db-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	margin-bottom: 8px;
+}
+
+.dashboard-expense-stats-section-title-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 6px;
+}
+
+.dashboard-expense-stats-section-hint {
+	font-size: 0.6em;
+	color: var(--db-text-faint);
+	white-space: nowrap;
+}
+
+/* Mid + right columns */
+.dashboard-expense-mid-col {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+.dashboard-expense-right-col {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+/* Donut chart */
+.dashboard-expense-donut-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+}
+
+.dashboard-expense-donut-wrap {
+	display: flex;
+	justify-content: center;
+}
+
+.dashboard-expense-donut-svg {
+	display: block;
+}
+
+.dashboard-expense-donut-bg {
+	stroke: var(--db-bg-hover);
+}
+
+.dashboard-expense-donut-segment {
+	cursor: pointer;
+}
+
+.dashboard-expense-donut-center-value {
+	fill: var(--db-text);
+	font-size: 0.875em;
+	font-weight: 700;
+}
+
+.dashboard-expense-donut-center-label {
+	fill: var(--db-text-muted);
+	font-size: 0.5625em;
+}
+
+.dashboard-expense-donut-empty {
+	font-size: 0.75em;
+	color: var(--db-text-faint);
+	text-align: center;
+	padding: 24px 0;
+}
+
+.dashboard-expense-donut-legend {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 100%;
+}
+
+.dashboard-expense-donut-legend--grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px 12px;
+}
+
+.dashboard-expense-donut-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.dashboard-expense-donut-legend-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.dashboard-expense-donut-legend-name {
+	font-size: 0.7em;
+	color: var(--db-text);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-expense-donut-legend-pct {
+	font-size: 0.65em;
+	font-weight: 600;
+	color: var(--db-text);
+	width: 32px;
+	text-align: right;
+	flex-shrink: 0;
+}
+
+.dashboard-expense-donut-legend-amount {
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	text-align: right;
+	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Trend bars */
+.dashboard-expense-trend-container {
+	min-height: 140px;
+	position: relative;
+}
+
+.dashboard-expense-trend-svg {
+	display: block;
+}
+
+.dashboard-expense-trend-bar {
+	transition: opacity 0.12s;
+}
+.dashboard-expense-trend-bar:hover {
+	opacity: 0.75;
+}
+
+.dashboard-expense-trend-tick {
+	fill: var(--db-text-faint);
+	font-size: 0.5em;
+}
+
+/* Comparison line chart (income vs expense) */
+.dashboard-expense-lines-container {
+	min-height: 140px;
+	position: relative;
+}
+
+.dashboard-expense-lines-svg {
+	display: block;
+}
+
+.dashboard-expense-lines-legend {
+	display: flex;
+	justify-content: flex-end;
+	gap: 12px;
+	margin-bottom: 4px;
+}
+
+.dashboard-expense-lines-legend-item {
+	gap: 5px;
+}
+
+.dashboard-expense-lines-legend-name {
+	font-size: 0.65em;
+	color: var(--db-text-muted);
+	white-space: nowrap;
+}
+
+.dashboard-expense-lines-baseline {
+	stroke: var(--db-border-card);
+	stroke-width: 1;
+}
+
+.dashboard-expense-lines-line {
+	fill: none;
+	stroke-width: 1.5;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+
+.dashboard-expense-lines-dot {
+	stroke: none;
+}
+
+.dashboard-expense-lines-slot {
+	fill: transparent;
+	/* Guarantee hit-testing even where the UA treats transparent as unpainted. */
+	pointer-events: all;
+}
+
+.dashboard-expense-lines-guide {
+	stroke: var(--db-text-faint);
+	stroke-width: 1;
+	stroke-dasharray: 3 3;
+	opacity: 0;
+	transition: opacity 0.1s;
+}
+
+.dashboard-expense-lines-guide--visible {
+	opacity: 0.7;
+}
+
+/* Shared hover tooltip for the hand-rolled charts */
+.dashboard-expense-chart-tip {
+	position: absolute;
+	pointer-events: none;
+	background: var(--db-bg-modal-raised, var(--background-primary, var(--db-bg)));
+	color: var(--db-text);
+	font-size: 0.62em;
+	line-height: 1.35;
+	padding: 3px 8px;
+	border-radius: 6px;
+	border: 1px solid var(--db-border-card);
+	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+	white-space: nowrap;
+	z-index: 5;
+	opacity: 0;
+	transition: opacity 0.1s;
+}
+
+.dashboard-expense-chart-tip--visible {
+	opacity: 1;
+}
+
+/* Category ranking */
+.dashboard-expense-rank-row {
+	margin-bottom: 7px;
+}
+
+.dashboard-expense-rank-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 3px;
+}
+
+.dashboard-expense-rank-name {
+	font-size: 0.68em;
+	color: var(--db-text);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-expense-rank-amount {
+	font-size: 0.62em;
+	color: var(--db-text-muted);
+	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-rank-bar-wrap {
+	height: 4px;
+	border-radius: 2px;
+	background: var(--db-bg-hover);
+	overflow: hidden;
+}
+
+.dashboard-expense-rank-bar {
+	height: 100%;
+	border-radius: 2px;
+}
+
+/* Record table */
+.dashboard-expense-records-scroll {
+	max-height: 340px;
+	overflow: auto;
+	scrollbar-width: thin;
+}
+
+.dashboard-expense-records-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.dashboard-expense-records-table th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var(--db-bg-modal, var(--background-primary, var(--db-bg)));
+	font-size: 0.6em;
+	font-weight: 600;
+	color: var(--db-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	text-align: left;
+	padding: 4px 6px;
+	border-bottom: 1px solid var(--db-border-card);
+	white-space: nowrap;
+}
+
+.dashboard-expense-records-table th:nth-child(2) {
+	text-align: right;
+}
+
+.dashboard-expense-records-table td {
+	font-size: 0.68em;
+	padding: 5px 6px;
+	border-bottom: 1px solid color-mix(in srgb, var(--db-border-card) 50%, transparent);
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.dashboard-expense-records-table tbody tr:hover td {
+	background: var(--db-bg-hover);
+}
+
+.dashboard-expense-records-type {
+	width: 20px;
+}
+
+.dashboard-expense-records-type > div {
+	display: flex;
+	align-items: center;
+}
+
+.dashboard-expense-records-type svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-expense-records-type--expense {
+	color: var(--db-danger, #e74c3c);
+}
+
+.dashboard-expense-records-type--income {
+	color: #2ecc71;
+}
+
+.dashboard-expense-records-amount {
+	text-align: right;
+	font-weight: 600;
+	color: var(--db-text);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-records-amount--income {
+	color: #2ecc71;
+}
+
+.dashboard-expense-records-category {
+	color: var(--db-text-muted);
+	max-width: 64px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-expense-records-note {
+	max-width: 80px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--db-text-faint);
+}
+
+.dashboard-expense-records-date {
+	color: var(--db-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-records-actions {
+	width: 26px;
+}
+
+.dashboard-expense-records-delete {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	color: var(--db-text-faint);
+	border-radius: 4px;
+	opacity: 0;
+	transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.dashboard-expense-records-table tbody tr:hover .dashboard-expense-records-delete,
+.dashboard-expense-records-delete:focus-visible {
+	opacity: 1;
+}
+
+.dashboard-expense-records-delete:hover {
+	color: var(--db-danger, #e74c3c);
+	background: rgba(231, 76, 60, 0.10);
+}
+
+.dashboard-expense-records-delete svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Responsive: below 900px collapse to one column */
+@media (max-width: 900px) {
+	.dashboard-expense-stats-body {
+		grid-template-columns: 1fr;
+	}
+
+	.dashboard-expense-stats-modal--wide {
+		max-width: 420px;
+		max-height: 80vh;
+	}
+
+	.dashboard-expense-donut-legend--grid {
+		grid-template-columns: 1fr;
+	}
+
+	/* Touch has no hover: keep delete buttons visible. */
+	.dashboard-expense-records-delete {
+		opacity: 0.6;
+	}
+}
+
+@media (max-width: 640px) {
+	.dashboard-expense-stats-modal--wide {
+		width: 96%;
+		padding: 16px;
+	}
+
+	.dashboard-expense-stats-header {
+		justify-content: flex-start;
+	}
+
+	.dashboard-expense-records-note {
+		max-width: 90px;
 	}
 }
 
@@ -10819,6 +11773,17 @@
 	color: var(--db-accent, var(--interactive-accent));
 }
 
+/* Grouping-mode toggle inside a config modal (folder section): the toolbar
+   variant reused as a two-option switch, with modal-appropriate spacing. */
+.dashboard-library-config-view-toggle {
+	margin: 8px 0 4px 0;
+}
+
+.dashboard-library-config-groupby-controls.is-hidden,
+.dashboard-library-config-hint.is-hidden {
+	display: none;
+}
+
 .dashboard-library-toolbar-spacer {
 	flex: 1;
 }
@@ -12172,6 +13137,50 @@
 	min-height: 460px;
 }
 
+/* Grouped rendering (toolbar group-by): one collapsible header + body per
+   folder/tag bucket. Header mirrors the kanban column title's size level. */
+.dashboard-media-group-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 4px;
+	margin: 10px 0 6px 0;
+	border-bottom: 1px solid var(--db-border, var(--background-modifier-border));
+	cursor: pointer;
+	user-select: none;
+	border-radius: var(--db-radius-sm, 4px);
+	transition: background 0.15s ease;
+}
+.dashboard-media-group-header:hover { background: var(--db-bg-hover, rgba(255, 255, 255, 0.05)); }
+.dashboard-media-group-chevron {
+	display: flex;
+	color: var(--db-text-faint, var(--text-faint));
+	flex-shrink: 0;
+}
+.dashboard-media-group-chevron svg { width: 12px; height: 12px; }
+.dashboard-media-group-name {
+	font-size: 0.75em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.dashboard-media-group-count {
+	margin-left: auto;
+	flex-shrink: 0;
+	font-size: 0.625em;
+	color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.06));
+	padding: 0 7px;
+	border-radius: 999px;
+}
+.dashboard-media-group-header.is-collapsed { opacity: 0.75; }
+.dashboard-media-group-body.is-hidden { display: none; }
+.dashboard-media-area .dashboard-media-group-header:first-child { margin-top: 0; }
+/* The empty-state min-height applies to the flat wall; grouped mode sizes by content. */
+.dashboard-media-area:has(.dashboard-media-group-header) { min-height: 0; }
+
 .dashboard-media-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -12963,6 +13972,59 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calendar-weekday { font-size: 0.625em; text-align: center; color: var(--db-text-muted, var(--text-muted)); padding: 2px 0; }
 .dashboard-calendar-body { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 
+/* Full-screen month with continuous multi-day bars: the body becomes a stack of
+   week blocks, each a bar strip (same 7-column template as the day cells below
+   it, so bars and cells share exact column edges) + the day cells. */
+.dashboard-calendar-body--bars { display: flex; flex-direction: column; gap: 2px; }
+.dashboard-calendar-week { display: flex; flex-direction: column; gap: 2px; }
+.dashboard-calendar-barlayer {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	column-gap: 2px;
+	row-gap: 2px;
+	/* Keep in sync with MAX_BAR_LANES sizing: one lane = 20px bar + 2px row gap. */
+	--dashboard-bar-lane: 22px;
+	height: calc(var(--bar-lanes, 0) * var(--dashboard-bar-lane));
+}
+.dashboard-calendar-barlayer:empty { height: 0 !important; }
+.dashboard-calendar-week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+
+.dashboard-calendar-bar {
+	display: flex; align-items: center; gap: 3px; min-width: 0;
+	height: 20px; padding: 0 6px;
+	grid-column: var(--bar-cs, 1) / span var(--bar-len, 1);
+	grid-row: var(--bar-row, 1);
+	border-radius: 999px; overflow: hidden;
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.08));
+	border: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 40%, transparent);
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.5625em; line-height: 1.2; white-space: nowrap;
+	cursor: pointer; user-select: none;
+}
+.dashboard-calendar-bar:hover { background: var(--db-bg-hover-strong, var(--db-bg-hover, rgba(255, 255, 255, 0.14))); }
+.dashboard-calendar-bar:focus-visible { outline: 1px solid var(--db-accent, var(--interactive-accent)); outline-offset: 1px; }
+.dashboard-calendar-bar-time { flex-shrink: 0; font-weight: 600; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-calendar-bar-text { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dashboard-calendar-bar.is-done { opacity: 0.5; }
+.dashboard-calendar-bar.is-done .dashboard-calendar-bar-text { text-decoration: line-through; }
+.dashboard-calendar-bar.prio-high { background: color-mix(in srgb, var(--db-prio-high, #ef4444) 18%, transparent); border-color: color-mix(in srgb, var(--db-prio-high, #ef4444) 55%, transparent); }
+.dashboard-calendar-bar.prio-medium { background: color-mix(in srgb, var(--db-prio-medium, #f59e0b) 18%, transparent); border-color: color-mix(in srgb, var(--db-prio-medium, #f59e0b) 55%, transparent); }
+.dashboard-calendar-bar.prio-low { background: color-mix(in srgb, var(--db-prio-low, #3b82f6) 18%, transparent); border-color: color-mix(in srgb, var(--db-prio-low, #3b82f6) 55%, transparent); }
+.dashboard-calendar-bar.is-cont-left { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-style: dashed; margin-left: -1px; }
+.dashboard-calendar-bar.is-cont-right { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-style: dashed; margin-right: -1px; }
+
+/* Day-origin markers (scheduled ⏳ / completed ✅) on calendar task rows. */
+.dashboard-calendar-mark { display: flex; flex-shrink: 0; color: var(--db-text-muted, var(--text-muted)); opacity: 0.7; }
+.dashboard-calendar-mark svg { width: 11px; height: 11px; }
+.dashboard-calendar-mark--done { opacity: 0.8; }
+
+/* Dot mode: a day whose only entries are completed tasks gets a muted dot. */
+.dashboard-calendar-cell-dot.is-done { background: var(--db-text-faint, var(--db-text-muted, var(--text-muted))); opacity: 0.55; }
+
+/* Phones: keep bars tappable and readable at narrow widths. */
+.is-phone .dashboard-calendar-bar { font-size: 0.5rem; padding: 0 4px; gap: 2px; }
+.is-phone .dashboard-calendar-bar-time { display: none; }
+
 .dashboard-calendar-cell {
 	min-width: 0; border-radius: var(--db-radius-sm, 6px);
 	background: var(--db-bg-card, rgba(255,255,255,0.03));
@@ -12984,9 +14046,11 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
    theme's text color, so it stays light-on-dark and dark-on-light across
    palettes); today's cell takes an accent-tinted background with an
    accent-colored, bolder date number. The --db-* vars resolve via the copy onto
-   the modal box in calendar-modal.ts (the modal sits outside the theme root). */
+   the modal box in calendar-modal.ts (the modal sits outside the theme root).
+   Cells cap at a viewport-scaled height so a busy day scrolls inside its list
+   instead of stretching the cell (and its whole week row). */
 .dashboard-calendar.is-full .dashboard-calendar-cell {
-	min-height: 108px;
+	height: clamp(104px, 16vh, 200px);
 	border-color: color-mix(in srgb, var(--db-text, rgba(232, 240, 248, 0.9)) 16%, transparent);
 }
 .dashboard-calendar.is-full .dashboard-calendar-cell.is-today {
@@ -13033,7 +14097,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-text, var(--text-normal));
 	overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
-.dashboard-calendar.is-full .dashboard-calendar-event { font-size: 0.6875em; padding: 2px 5px; }
+.dashboard-calendar.is-full .dashboard-calendar-event { font-size: 0.8125em; padding: 3px 6px; line-height: 1.45; }
 .dashboard-calendar-event.is-done { opacity: 0.5; text-decoration: line-through; }
 /* Time-of-day label shown on week-view tasks and the day agenda */
 .dashboard-calendar-event-time {
@@ -13047,7 +14111,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	min-width: 28px;
 	text-align: center;
 }
-.dashboard-calendar.is-full .dashboard-calendar-event-time { font-size: 0.6875em; }
+.dashboard-calendar.is-full .dashboard-calendar-event-time { font-size: 0.8125em; }
 .dashboard-alltasks-row .dashboard-calendar-event-time { font-size: 0.6875em; }
 
 /* Add-task row in the day agenda modal (time + title + Add -> daily note) */
@@ -13139,7 +14203,16 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calendar-fullscreen-modal { width: 92vw; max-width: 1100px; height: 88vh; }
 .dashboard-calendar-fullscreen-inner { width: 100%; height: 100%; display: flex; flex-direction: column; }
 .dashboard-calendar-fullscreen-body { flex: 1; min-height: 0; overflow: auto; }
-.dashboard-calendar-fullscreen-body .dashboard-calendar.is-full .dashboard-calendar-cell-list { overflow: hidden; }
+/* Busy days scroll inside their capped cell. Standard scrollbar properties only
+   (theme hijacks ::-webkit-scrollbar pseudo-elements on some setups). */
+.dashboard-calendar-fullscreen-body .dashboard-calendar.is-full .dashboard-calendar-cell-list {
+	flex: 1;
+	gap: 4px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 30%, transparent) transparent;
+}
 
 /* Prompt dialog (text-input variant of the confirm dialog) */
 .dashboard-prompt-input {

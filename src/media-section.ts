@@ -6,7 +6,7 @@ import { showConfirmDialog } from './confirm-dialog';
 import { MediaLightboxModal } from './media-lightbox-modal';
 import { MediaTagEditModal } from './media-tag-editor-modal';
 import type { MediaTagService } from './media-tags';
-import { renderPagination, renderTagsSelector } from './library-section';
+import { renderPagination, renderTagsSelector, folderGroupKey } from './library-section';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 import {
@@ -26,6 +26,53 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 type MediaViewMode = 'grid' | 'list';
 type ThumbSize = 'small' | 'medium' | 'large';
+
+/** Toolbar grouping mode for media sections (runtime state, like viewMode). */
+export type MediaGroupMode = 'none' | 'folder' | 'tag';
+
+/** One rendered media group: header key, its items in display order, and the
+ * group's start offset into the flattened display order (lightbox indexing). */
+export interface MediaGroup {
+	key: string;
+	items: MediaFileResult[];
+	offset: number;
+}
+
+/** Group filtered+sorted media results for display. Folder mode keys by the
+ * top-level vault folder (`folderGroupKey` with no scan roots — media scans the
+ * whole vault); tag mode fans a file out into one bucket per tag. Buckets sort
+ * alphabetically (numeric-aware); the not-set bucket always goes last. */
+export function groupMediaResults(results: MediaFileResult[], mode: MediaGroupMode): MediaGroup[] {
+	if (mode === 'none') return [];
+	const buckets = new Map<string, MediaFileResult[]>();
+	const notSet: MediaFileResult[] = [];
+	for (const r of results) {
+		if (mode === 'folder') {
+			const key = folderGroupKey(r.path, []);
+			if (key === undefined) { notSet.push(r); continue; }
+			const list = buckets.get(key) ?? [];
+			list.push(r);
+			buckets.set(key, list);
+		} else {
+			const tags = r.tags;
+			if (tags.length === 0) { notSet.push(r); continue; }
+			for (const tag of tags) {
+				const list = buckets.get(tag) ?? [];
+				list.push(r);
+				buckets.set(tag, list);
+			}
+		}
+	}
+	const sorted = [...buckets.entries()].sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+	const groups: MediaGroup[] = [];
+	let offset = 0;
+	for (const [key, items] of sorted) {
+		groups.push({ key, items, offset });
+		offset += items.length;
+	}
+	if (notSet.length > 0) groups.push({ key: t('library.notSet'), items: notSet, offset });
+	return groups;
+}
 
 function extsFor(sectionType: string): Set<string> | null {
 	if (sectionType === 'images') return IMAGE_EXTS;
@@ -199,6 +246,24 @@ export function renderMediaSection(
 	const updateSortIcon = () => setIcon(sortDirBtn, sortDesc ? 'arrow-down-wide-narrow' : 'arrow-up-wide-narrow');
 	updateSortIcon();
 	sortDirBtn.addEventListener('click', () => { sortDesc = !sortDesc; updateSortIcon(); currentPage = 1; render(); });
+
+	// Group-by select (runtime state like the other toolbar toggles): none /
+	// top-level folder / tag. Grouped rendering shows everything and hides the
+	// paginator, so the choice stays orthogonal to sort/filter/view/size.
+	let groupBy: MediaGroupMode = 'none';
+	const collapsedGroups = new Set<string>();
+	const groupSelect = toolbar.createEl('select', {
+		cls: 'dashboard-library-sort dashboard-media-group-select',
+		attr: { 'aria-label': t('media.groupBy'), title: t('media.groupBy') },
+	});
+	for (const opt of [
+		{ value: 'none', label: t('media.groupNone') },
+		{ value: 'folder', label: t('media.groupByFolder') },
+		{ value: 'tag', label: t('media.groupByTag') },
+	] as const) {
+		groupSelect.createEl('option', { text: opt.label, attr: { value: opt.value } });
+	}
+	groupSelect.addEventListener('change', () => { groupBy = groupSelect.value as MediaGroupMode; currentPage = 1; render(); });
 
 	// View mode toggle (reuses library's view-toggle styling)
 	let viewMode: MediaViewMode = 'grid';
@@ -534,10 +599,57 @@ export function renderMediaSection(
 		if (mounter) sectionMounters.set(el, mounter);
 		else sectionMounters.delete(el);
 
+		const deleteCb = (f: TFile): void => { void deleteWithConfirm(f); };
+
+		// Grouped rendering: headers + per-group grid/list, everything shown,
+		// no paginator (slicing pages would tear the groups apart). The lightbox
+		// walks the flattened group order, so next/prev match what's on screen.
+		if (groupBy !== 'none') {
+			const groups = groupMediaResults(results, groupBy);
+			const displayFiles = groups.flatMap(g => g.items.map(r => r.file));
+			const openGroupLightbox = (displayIndex: number): void => {
+				new MediaLightboxModal(app, displayFiles, displayIndex, kind, tagHooks).open();
+			};
+			for (const group of groups) {
+				const collapsed = collapsedGroups.has(group.key);
+				const header = resultArea.createDiv({
+					cls: 'dashboard-media-group-header' + (collapsed ? ' is-collapsed' : ''),
+				});
+				const chevron = header.createDiv({ cls: 'dashboard-media-group-chevron' });
+				setIcon(chevron, collapsed ? 'chevron-right' : 'chevron-down');
+				header.createDiv({ cls: 'dashboard-media-group-name', text: group.key });
+				header.createDiv({ cls: 'dashboard-media-group-count', text: String(group.items.length) });
+				const body = resultArea.createDiv({ cls: 'dashboard-media-group-body' });
+				if (collapsed) body.addClass('is-hidden');
+				// Collapse in place (no vault re-query): flip the set and the
+				// two elements' classes/chevron directly.
+				header.addEventListener('click', () => {
+					if (collapsedGroups.has(group.key)) {
+						collapsedGroups.delete(group.key);
+						header.removeClass('is-collapsed');
+						body.removeClass('is-hidden');
+						setIcon(chevron, 'chevron-down');
+					} else {
+						collapsedGroups.add(group.key);
+						header.addClass('is-collapsed');
+						body.addClass('is-hidden');
+						setIcon(chevron, 'chevron-right');
+					}
+				});
+				const onOpen = (i: number): void => openGroupLightbox(group.offset + i);
+				if (viewMode === 'grid') {
+					renderMediaGrid(body, group.items, app, kind, thumbSize, onOpen, deleteCb, mounter, openTagEditor);
+				} else {
+					renderMediaList(body, group.items, app, kind, onOpen, deleteCb, render, onOpenNote, mounter, openTagEditor);
+				}
+			}
+			return;
+		}
+
 		if (viewMode === 'grid') {
-			renderMediaGrid(resultArea, page, app, kind, thumbSize, openLightbox, (f) => { void deleteWithConfirm(f); }, mounter, openTagEditor);
+			renderMediaGrid(resultArea, page, app, kind, thumbSize, openLightbox, deleteCb, mounter, openTagEditor);
 		} else {
-			renderMediaList(resultArea, page, app, kind, openLightbox, (f) => { void deleteWithConfirm(f); }, render, onOpenNote, mounter, openTagEditor);
+			renderMediaList(resultArea, page, app, kind, openLightbox, deleteCb, render, onOpenNote, mounter, openTagEditor);
 		}
 
 		if (totalPages > 1) {

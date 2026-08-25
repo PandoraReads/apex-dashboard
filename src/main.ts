@@ -8,6 +8,7 @@ import { DataviewGuideModal } from './dataview-guide-modal';
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
 import { HabitService, registerHabitService } from './habit-service';
+import { ExpenseService, registerExpenseService } from './expense-service';
 
 /** All valid style preset keys — single source of truth for migration. */
 const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'neon', 'volt', 'magma', 'onyx', 'mono'] as const;
@@ -60,6 +61,7 @@ export default class DashboardPlugin extends Plugin {
 	backupService!: BackupService;
 	mediaTagService!: MediaTagService;
 	habitService!: HabitService;
+	expenseService!: ExpenseService;
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
@@ -78,6 +80,11 @@ export default class DashboardPlugin extends Plugin {
 		this.habitService = new HabitService(this);
 		await this.habitService.load();
 		registerHabitService(this.habitService);
+
+		// Same contract: expense.json must be ready before the first render.
+		this.expenseService = new ExpenseService(this);
+		await this.expenseService.load();
+		registerExpenseService(this.expenseService);
 
 		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
 
@@ -176,6 +183,8 @@ export default class DashboardPlugin extends Plugin {
 		this.mediaTagService.destroy();
 		registerHabitService(null);
 		this.habitService.destroy();
+		registerExpenseService(null);
+		this.expenseService.destroy();
 	}
 
 	private async openDashboard(): Promise<void> {

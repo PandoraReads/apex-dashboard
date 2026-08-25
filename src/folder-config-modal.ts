@@ -9,20 +9,25 @@ export interface FolderConfigResult {
 	/** Folders whose files are hidden from the section (path-prefix match). */
 	excludeFolders: string[];
 	tags: string[];
+	/** Kanban grouping key: frontmatter property name. */
 	groupBy: string | undefined;
+	/** Kanban grouping mode: property (groupBy) or top-level subfolders. */
+	groupMode: 'property' | 'folder';
 	showProperties: boolean;
 	propertyLimit: number;
 }
 
 /**
  * Configuration modal for a folder section: the folder path plus an optional
- * tag filter, kanban "group by" selector, and card property display settings.
+ * tag filter, kanban "group by" selector (by property or by subfolder), and
+ * card property display settings.
  */
 export class FolderConfigModal extends Modal {
 	private folders: string[];
 	private readonly initialExcludeFolders: string[];
 	private selectedTags: string[];
 	private groupBy: string;
+	private groupMode: 'property' | 'folder';
 	private showProperties: boolean;
 	private propertyLimit: number;
 	private readonly onSave: (result: FolderConfigResult) => void;
@@ -36,12 +41,14 @@ export class FolderConfigModal extends Modal {
 		currentShowProperties: boolean | undefined,
 		currentPropertyLimit: number | undefined,
 		onSave: (result: FolderConfigResult) => void,
+		currentGroupMode?: 'property' | 'folder',
 	) {
 		super(app);
 		this.folders = [...currentFolders];
 		this.initialExcludeFolders = [...(currentExcludeFolders ?? [])];
 		this.selectedTags = [...currentTags];
 		this.groupBy = currentGroupBy ?? '';
+		this.groupMode = currentGroupMode ?? 'property';
 		this.showProperties = currentShowProperties !== false;
 		this.propertyLimit = currentPropertyLimit ?? 6;
 		this.onSave = onSave;
@@ -141,11 +148,25 @@ export class FolderConfigModal extends Modal {
 		};
 		renderTags();
 
-		// Kanban group-by
+		// Kanban group-by: property vs subfolder mode. The property picker only
+		// applies in property mode, so it hides when subfolder grouping is on.
 		const groupSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		groupSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.kanbanGroupBy') });
-		groupSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.kanbanGroupByHint') });
-		const groupSelect = groupSection.createEl('select', { cls: 'dashboard-library-filter-property' });
+		const modeToggle = groupSection.createDiv({ cls: 'dashboard-library-view-toggle dashboard-library-config-view-toggle' });
+		const propertyBtn = modeToggle.createDiv({
+			cls: 'dashboard-library-view-btn' + (this.groupMode === 'property' ? ' active' : ''),
+			attr: { 'aria-label': t('library.groupByProperty') },
+		});
+		propertyBtn.createSpan({ text: t('library.groupByProperty') });
+		const folderBtn = modeToggle.createDiv({
+			cls: 'dashboard-library-view-btn' + (this.groupMode === 'folder' ? ' active' : ''),
+			attr: { 'aria-label': t('library.groupByFolder') },
+		});
+		folderBtn.createSpan({ text: t('library.groupByFolder') });
+
+		const propertyControls = groupSection.createDiv({ cls: 'dashboard-library-config-groupby-controls' });
+		propertyControls.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.kanbanGroupByHint') });
+		const groupSelect = propertyControls.createEl('select', { cls: 'dashboard-library-filter-property' });
 		groupSelect.createEl('option', { text: t('library.noGroup'), attr: { value: '' } });
 		const propKeys = [...extractFrontmatterProperties(this.app).keys()].sort();
 		for (const key of propKeys) {
@@ -153,6 +174,17 @@ export class FolderConfigModal extends Modal {
 			if (key === this.groupBy) opt.selected = true;
 		}
 		groupSelect.addEventListener('change', () => { this.groupBy = groupSelect.value; });
+
+		const folderHint = groupSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.groupByFolderHint') });
+		const applyMode = (): void => {
+			propertyBtn.toggleClass('active', this.groupMode === 'property');
+			folderBtn.toggleClass('active', this.groupMode === 'folder');
+			propertyControls.toggleClass('is-hidden', this.groupMode !== 'property');
+			folderHint.toggleClass('is-hidden', this.groupMode !== 'folder');
+		};
+		propertyBtn.addEventListener('click', () => { this.groupMode = 'property'; applyMode(); });
+		folderBtn.addEventListener('click', () => { this.groupMode = 'folder'; applyMode(); });
+		applyMode();
 
 		// Card properties (grid view)
 		const propsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -194,6 +226,7 @@ export class FolderConfigModal extends Modal {
 				excludeFolders: excludeEditor.value,
 				tags: this.selectedTags,
 				groupBy: this.groupBy || undefined,
+				groupMode: this.groupMode,
 				showProperties: this.showProperties,
 				propertyLimit: this.propertyLimit,
 			});

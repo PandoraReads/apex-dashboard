@@ -20,7 +20,7 @@ export interface VaultTask {
 	checked: boolean;
 	/** Display text with all markers (collapsed/reminder/due/priority) stripped. */
 	text: string;
-	/** Raw `⏰ YYYY-MM-DD HH:MM` reminder value, if present. */
+	/** Raw `⏰ YYYY-MM-DD( HH:MM)` reminder value, if present (time optional). */
 	reminder?: string;
 	/** Canonical due date `YYYY-MM-DD` (from ⏰ / `[due::]` / 📅), if any. */
 	due?: string;
@@ -28,6 +28,14 @@ export interface VaultTask {
 	start?: string;
 	/** Multi-day event end `YYYY-MM-DD` (from `[end::]` / 🛬), if any. */
 	end?: string;
+	/** Scheduled date `YYYY-MM-DD` (from ⏳ / `[scheduled::]`), if any. */
+	scheduled?: string;
+	/** `HH:MM` carried by the scheduled marker (`[scheduled::]` field form only). */
+	scheduledTime?: string;
+	/** Completion date `YYYY-MM-DD` (from ✅ / `[completion::]`), if any. */
+	completion?: string;
+	/** `HH:MM` carried by the completion marker (`[completion::]` field form only). */
+	completionTime?: string;
 	/** Start time-of-day `HH:MM` (from ⏰ / `[due::]` / `[start::]` when a time is present). */
 	time?: string;
 	/** End time-of-day `HH:MM` (from `[end::]` when a time is present). */
@@ -45,8 +53,8 @@ interface CacheEntry {
 const moduleCache = new Map<string, CacheEntry>();
 
 const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
-/** Plugin's own reminder marker: `⏰ YYYY-MM-DD HH:MM` at end of line. */
-const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*$/;
+/** Plugin's own reminder marker: `⏰ YYYY-MM-DD( HH:MM)` at end of line (time optional). */
+const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?\s*$/;
 /** Dataview-style due date inline field, anywhere in the text. */
 const DUE_FIELD_REGEX = /\s*\[due::\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*\]/i;
 /** Tasks-plugin calendar emoji due date, anywhere in the text. */
@@ -59,6 +67,14 @@ const START_EMOJI_REGEX = /\s*🛫\s*(\d{4}-\d{2}-\d{2})/;
 const END_FIELD_REGEX = /\s*\[end::\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*\]/i;
 /** Tasks-plugin end emoji. */
 const END_EMOJI_REGEX = /\s*🛬\s*(\d{4}-\d{2}-\d{2})/;
+/** Dataview-style scheduled-date inline field, anywhere in the text. */
+const SCHEDULED_FIELD_REGEX = /\s*\[scheduled::\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*\]/i;
+/** Tasks-plugin scheduled emoji. */
+const SCHEDULED_EMOJI_REGEX = /\s*⏳\s*(\d{4}-\d{2}-\d{2})/;
+/** Dataview-style completion-date inline field, anywhere in the text. */
+const COMPLETION_FIELD_REGEX = /\s*\[completion::\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*\]/i;
+/** Tasks-plugin done emoji with date. */
+const COMPLETION_EMOJI_REGEX = /\s*✅\s*(\d{4}-\d{2}-\d{2})/;
 /** Dataview-style priority inline field, anywhere in the text. */
 const PRIORITY_FIELD_REGEX = /\s*\[priority::\s*([^\]]+?)\s*\]/i;
 /** Any checkbox line, allowing leading indentation so subtasks are aggregated too. */
@@ -96,7 +112,8 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 		let reminder: string | undefined;
 		const rm = text.match(REMINDER_REGEX);
 		if (rm) {
-			reminder = rm[1];
+			// Time part optional: date-only ⏰ anchors the day without a time label.
+			reminder = rm[2] ? `${rm[1]} ${rm[2]}` : rm[1];
 			text = text.replace(REMINDER_REGEX, '');
 		}
 
@@ -137,6 +154,27 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 			text = text.replace(END_FIELD_REGEX, '').replace(END_EMOJI_REGEX, '');
 		}
 
+		// Scheduled date (⏳ / `[scheduled::]`): the day the task is planned for.
+		// A distinct calendar fact from the due date, so both anchor their own day.
+		let scheduled: string | undefined;
+		let scheduledTime: string | undefined;
+		const schf = text.match(SCHEDULED_FIELD_REGEX) ?? text.match(SCHEDULED_EMOJI_REGEX);
+		if (schf) {
+			scheduled = (schf[1] ?? '').slice(0, 10);
+			scheduledTime = hhmm(schf[1]);
+			text = text.replace(SCHEDULED_FIELD_REGEX, '').replace(SCHEDULED_EMOJI_REGEX, '');
+		}
+
+		// Completion date (✅ / `[completion::]`): the day the task was done.
+		let completion: string | undefined;
+		let completionTime: string | undefined;
+		const cmpf = text.match(COMPLETION_FIELD_REGEX) ?? text.match(COMPLETION_EMOJI_REGEX);
+		if (cmpf) {
+			completion = (cmpf[1] ?? '').slice(0, 10);
+			completionTime = hhmm(cmpf[1]);
+			text = text.replace(COMPLETION_FIELD_REGEX, '').replace(COMPLETION_EMOJI_REGEX, '');
+		}
+
 		// Time-of-day (for the calendar week time-grid): start time from ⏰ / due
 		// / start (whichever carries HH:MM), end time from [end::].
 		const time = hhmm(reminder) ?? hhmm(df?.[1]) ?? hhmm(sf?.[1]);
@@ -153,6 +191,10 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 			due,
 			start,
 			end,
+			scheduled,
+			scheduledTime,
+			completion,
+			completionTime,
 			time,
 			endTime,
 			priority,
@@ -364,9 +406,22 @@ export function groupTasks(tasks: VaultTask[], groupBy: TaskGroupBy): TaskGroup[
 /** Max number of days a multi-day span may cover (guards against pathological ranges). */
 const MAX_SPAN_DAYS = 366;
 
-/** A task is calendar-relevant if it carries a due date or a start/end window. */
+/** A task is calendar-relevant if it carries any recognized calendar date. */
 export function isCalendarRelevant(task: VaultTask): boolean {
-	return Boolean(task.due || task.start || task.end);
+	return Boolean(task.due || task.start || task.end || task.scheduled || task.completion);
+}
+
+/** Why a task occupies a given calendar day. Renderers use this to pick the
+ * time label and origin marker. Marker precedence: completion > reminder >
+ * scheduled > due > span (the most specific fact for that day wins). */
+export type CalendarDayKind = 'completion' | 'reminder' | 'scheduled' | 'due' | 'span';
+
+export function taskDayKind(task: VaultTask, iso: string): CalendarDayKind {
+	if (task.completion && task.completion === iso) return 'completion';
+	if (task.reminder && task.reminder.slice(0, 10) === iso) return 'reminder';
+	if (task.scheduled && task.scheduled === iso) return 'scheduled';
+	if (task.due && task.due === iso) return 'due';
+	return 'span';
 }
 
 /**
@@ -395,24 +450,34 @@ function addDaysIso(iso: string, days: number): string {
 }
 
 /**
- * Index calendar-relevant tasks by every day they occupy. Multi-day tasks are
- * added to each day in their span (capped at MAX_SPAN_DAYS). Tasks with no date
- * are skipped.
+ * Index calendar-relevant tasks by every day they occupy. A task's days are the
+ * union of: its start/end span (capped at MAX_SPAN_DAYS), its scheduled day,
+ * its due day, and its completion day — a task with both a scheduled and a due
+ * date shows on both days; same-day overlaps dedup via the Set. Tasks with no
+ * date are skipped.
  */
 export function indexTasksByDay(tasks: VaultTask[]): Map<string, VaultTask[]> {
 	const byDay = new Map<string, VaultTask[]>();
 	for (const task of tasks) {
+		const days = new Set<string>();
 		const span = calendarSpan(task);
-		if (!span) continue;
-		let cursor = span.start;
-		let guard = 0;
-		while (guard <= MAX_SPAN_DAYS) {
-			const list = byDay.get(cursor);
+		if (span) {
+			let cursor = span.start;
+			let guard = 0;
+			while (guard <= MAX_SPAN_DAYS) {
+				days.add(cursor);
+				if (cursor >= span.end) break;
+				cursor = addDaysIso(cursor, 1);
+				guard++;
+			}
+		}
+		if (task.scheduled) days.add(task.scheduled);
+		if (task.due) days.add(task.due);
+		if (task.completion) days.add(task.completion);
+		for (const iso of days) {
+			const list = byDay.get(iso);
 			if (list) list.push(task);
-			else byDay.set(cursor, [task]);
-			if (cursor >= span.end) break;
-			cursor = addDaysIso(cursor, 1);
-			guard++;
+			else byDay.set(iso, [task]);
 		}
 	}
 	return byDay;
