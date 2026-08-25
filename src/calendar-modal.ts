@@ -5,33 +5,12 @@ import { renderTextWithLinks } from './renderer';
 import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskTime, byTaskTime } from './calendar-grid';
 import { toIsoDate, type VaultTask } from './alltasks-scan';
 import { insertTaskForDay, type TaskInsertTarget } from './daily-notes';
+import { applyModalTheme } from './modal-theme';
 
 interface CalendarModalCallbacks {
 	onToggle: (task: VaultTask, nextChecked: boolean) => Promise<void> | void;
 	/** Open a task's source note, optionally scrolling to the task's line. */
 	onOpenNote?: (file: TFile, line?: number) => void;
-}
-
-/** `--db-*` theme variables live on `.apex-dashboard-root[data-theme]`, but an
- *  Obsidian modal renders in the body-level modal layer outside that root.
- *  Without copying them onto the modal box, every var() in the grid resolves to
- *  its generic fallback (near-invisible cell borders/backgrounds, no accent).
- *  Same idiom as the reminder popup and the library/media popovers. */
-function inheritDashboardTheme(target: HTMLElement): void {
-	const root = activeDocument.querySelector<HTMLElement>('.apex-dashboard-root');
-	if (!root) return;
-	const rs = getComputedStyle(root);
-	const vars = [
-		'--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-bg-hover', '--db-bg-banner',
-		'--db-border', '--db-border-card', '--db-radius-sm', '--db-radius-md', '--db-radius-lg',
-		'--db-text', '--db-text-muted', '--db-text-faint',
-		'--db-accent', '--db-accent-light', '--db-danger',
-		'--db-font', '--db-backdrop-blur', '--db-shadow-card',
-	];
-	for (const name of vars) {
-		const val = rs.getPropertyValue(name).trim();
-		if (val) target.style.setProperty(name, val);
-	}
 }
 
 /**
@@ -69,7 +48,7 @@ export class CalendarMonthModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('dashboard-calendar-fullscreen');
 		modalEl.addClass('dashboard-calendar-fullscreen-modal');
-		inheritDashboardTheme(modalEl);
+		applyModalTheme(containerEl);
 		containerEl.addClass('modal--dashboard');
 		containerEl.setCssProps({
 			background: 'transparent',
@@ -179,12 +158,12 @@ export class DayAgendaModal extends Modal {
 	}
 
 	onOpen(): void {
-		const { contentEl, containerEl, modalEl } = this;
+		const { contentEl, containerEl } = this;
 		contentEl.empty();
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		inheritDashboardTheme(modalEl);
+		applyModalTheme(containerEl);
 		containerEl.setCssProps({
 			background: 'transparent',
 			backgroundColor: 'transparent',

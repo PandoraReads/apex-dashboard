@@ -2,6 +2,7 @@ import { App, Notice, TFile } from 'obsidian';
 import { Modal } from 'obsidian';
 import { t } from './i18n';
 import { MEDIA_TAG_MAX_LEN, MEDIA_TAG_MAX_PER_FILE, normalizeTags } from './media-tags';
+import { applyModalTheme } from './modal-theme';
 
 /**
  * Small modal to edit the tag list of one media file. Shared by all three
@@ -30,14 +31,19 @@ export class MediaTagEditModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		contentEl.addClass('dashboard-modal');
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
-		contentEl.createEl('h2', { text: t('media.editTagsTitle', { name: this.file.basename }) });
-		contentEl.createDiv({ cls: 'dashboard-media-tagedit-path', text: this.file.path });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('media.editTagsTitle', { name: this.file.basename }) });
+		container.createDiv({ cls: 'dashboard-media-tagedit-path', text: this.file.path });
 
-		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 
 		// Current tags as removable chips
 		const listField = form.createDiv();
@@ -123,9 +129,15 @@ export class MediaTagEditModal extends Modal {
 		renderChips();
 
 		// Actions
-		const actions = contentEl.createDiv({ cls: 'dashboard-modal-actions' });
-		actions.createEl('button', { text: t('common.cancel') }).addEventListener('click', () => this.close());
-		actions.createEl('button', { cls: 'mod-cta', text: t('common.save') }).addEventListener('click', () => {
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: t('common.cancel'),
+		}).addEventListener('click', () => this.close());
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('common.save'),
+		}).addEventListener('click', () => {
 			this.onSave(normalizeTags(this.tags));
 			this.close();
 		});

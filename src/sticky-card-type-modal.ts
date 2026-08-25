@@ -1,5 +1,6 @@
 import { Modal, setIcon } from 'obsidian';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 /** The two card flavors a sticky-notes ("便利贴") section can hold. */
 export type StickyCardKind = 'memo' | 'todo';
@@ -11,27 +12,29 @@ export type StickyCardKind = 'memo' | 'todo';
  */
 export class StickyCardTypeModal extends Modal {
 	private readonly onSelect: (kind: StickyCardKind) => void;
-	private readonly theme: string;
 
 	constructor(
 		app: import('obsidian').App,
 		onSelect: (kind: StickyCardKind) => void,
-		theme?: string,
 	) {
 		super(app);
 		this.onSelect = onSelect;
-		this.theme = theme ?? 'earth';
 	}
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.theme;
-		contentEl.addClass('dashboard-modal');
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		contentEl.createEl('h2', { text: t('sticky.selectType') });
+		applyModalTheme(containerEl);
 
-		const row = contentEl.createDiv({ cls: 'widget-type-row' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('sticky.selectType') });
+
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		const row = body.createDiv({ cls: 'widget-type-row' });
 
 		const kinds: { value: StickyCardKind; icon: string; labelKey: string; descKey: string }[] = [
 			{ value: 'memo', icon: 'sticky-note', labelKey: 'sticky.memoLabel', descKey: 'sticky.memoDesc' },

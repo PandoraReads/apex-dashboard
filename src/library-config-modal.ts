@@ -2,6 +2,8 @@ import { App, Modal, setIcon } from 'obsidian';
 import type { LibraryConfig } from './types';
 import { extractFrontmatterProperties } from './library-section';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
+import { ExcludeFoldersEditor } from './exclude-folders-editor';
 
 export class LibraryConfigModal extends Modal {
 	private config: LibraryConfig;
@@ -25,6 +27,7 @@ export class LibraryConfigModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 		containerEl.setCssProps({
 			background: 'transparent',
 			backgroundColor: 'transparent',
@@ -162,6 +165,12 @@ export class LibraryConfigModal extends Modal {
 			this.config.kanbanGroupBy = groupSelect.value || undefined;
 		});
 
+		// Excluded folders: files inside them never reach the section's data.
+		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });
+		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
+		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.config.excludeFolders ?? []);
+
 		// Card properties (grid view)
 		const propsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		propsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.cardProperties') });
@@ -201,7 +210,8 @@ export class LibraryConfigModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		}).addEventListener('click', () => {
-			this.onSave(this.config);
+			const folders = excludeEditor.value;
+			this.onSave({ ...this.config, excludeFolders: folders.length > 0 ? folders : undefined });
 			this.close();
 		});
 	}

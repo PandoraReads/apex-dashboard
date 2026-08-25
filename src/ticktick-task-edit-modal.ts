@@ -3,6 +3,7 @@ import type { TickTickTask } from './ticktick-service';
 import { t } from './i18n';
 import { parseTickDate } from './ticktick-service';
 import { DEFAULT_TICKTICK_TZ, fromTzInputs, isValidTz, tzParts } from './ticktick-tz';
+import { applyModalTheme } from './modal-theme';
 
 const PRIORITIES: Array<{ value: number; labelKey: string }> = [
 	{ value: 0, labelKey: 'ticktick.prioNone' },
@@ -30,6 +31,7 @@ export class TickTickTaskEditModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });

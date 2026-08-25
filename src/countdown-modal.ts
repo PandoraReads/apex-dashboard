@@ -1,6 +1,7 @@
 import { App, Modal } from 'obsidian';
 import type { CountdownConfig } from './types';
 import { t, getLanguage } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 export class CountdownSettingsModal extends Modal {
 	private config: CountdownConfig;
@@ -36,11 +37,19 @@ export class CountdownSettingsModal extends Modal {
 	}
 
 	onOpen(): void {
-		const { contentEl } = this;
-		contentEl.addClass('dashboard-modal');
-		contentEl.createEl('h2', { text: t('countdown.settingsTitle') });
+		const { contentEl, containerEl } = this;
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
+		containerEl.addClass('modal--dashboard');
+		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
-		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('countdown.settingsTitle') });
+
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 
 		// Date row with calendar picker
 		const dateRow = form.createDiv({ cls: 'dashboard-modal-countdown-row' });
@@ -109,8 +118,15 @@ export class CountdownSettingsModal extends Modal {
 		});
 
 		// Actions
-		const actions = form.createDiv({ cls: 'dashboard-modal-actions' });
-		const saveBtn = actions.createEl('button', { text: t('common.save'), cls: 'mod-cta' });
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: t('common.cancel'),
+		}).addEventListener('click', () => this.close());
+		const saveBtn = footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('common.save'),
+		});
 		saveBtn.addEventListener('click', () => {
 			const h = parseInt(hourSelect.value, 10);
 			const m = parseInt(minuteSelect.value, 10);
@@ -126,9 +142,6 @@ export class CountdownSettingsModal extends Modal {
 			});
 			this.close();
 		});
-
-		const cancelBtn = actions.createEl('button', { text: t('common.cancel') });
-		cancelBtn.addEventListener('click', () => this.close());
 	}
 
 	onClose(): void {
@@ -148,6 +161,7 @@ export class CountdownSettingsModal extends Modal {
 		this.closeCalendarPopup();
 
 		const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-countdown-calendar-popup' });
+		applyModalTheme(popup);
 
 		const rect = anchor.getBoundingClientRect();
 		popup.setCssProps({
@@ -190,8 +204,8 @@ export class CountdownSettingsModal extends Modal {
 		const calGrid = popup.createDiv({ cls: 'dashboard-task-reminder-calendar' });
 
 		const btnRow = popup.createDiv({ cls: 'dashboard-task-reminder-popup-btns' });
-		btnRow.createEl('button', { cls: 'mod-cta', text: t('common.save') });
-		btnRow.createEl('button', { text: t('common.cancel') });
+		btnRow.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.save') });
+		btnRow.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--cancel', text: t('common.cancel') });
 
 		const renderCalendar = () => {
 			calGrid.empty();
@@ -249,7 +263,7 @@ export class CountdownSettingsModal extends Modal {
 			renderCalendar();
 		});
 
-		btnRow.querySelector('.mod-cta')!.addEventListener('click', (e) => {
+		btnRow.querySelector('.dashboard-modal-btn--confirm')!.addEventListener('click', (e) => {
 			e.stopPropagation();
 			this.selectedDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
 			dateText.setText(this.selectedDate);

@@ -3,13 +3,13 @@ import type DashboardPlugin from './main';
 import type { TaskTemplate } from './types';
 import { t } from './i18n';
 import { showConfirmDialog } from './confirm-dialog';
+import { applyModalTheme } from './modal-theme';
 
 type TemplateSelectCallback = (template: TaskTemplate) => void;
 
 export class TemplatePickerModal extends Modal {
 	private plugin: DashboardPlugin;
 	private onSelect: TemplateSelectCallback;
-	private theme: string;
 	private mode: 'pick' | 'edit' = 'pick';
 	private editingTemplate: TaskTemplate | null = null;
 
@@ -17,20 +17,19 @@ export class TemplatePickerModal extends Modal {
 		app: import('obsidian').App,
 		plugin: DashboardPlugin,
 		onSelect: TemplateSelectCallback,
-		theme?: string,
 	) {
 		super(app);
 		this.plugin = plugin;
 		this.onSelect = onSelect;
-		this.theme = theme ?? 'earth';
 	}
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.theme;
-		contentEl.addClass('dashboard-modal');
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 		this.render();
 	}
 
@@ -55,15 +54,20 @@ export class TemplatePickerModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+
 		if (this.mode === 'edit') {
-			this.renderEditMode(contentEl);
+			this.renderEditMode(container);
 			return;
 		}
+		this.renderPickMode(container);
+	}
 
+	private renderPickMode(container: HTMLElement): void {
 		const templates = this.getTemplates();
 
-		const header = contentEl.createDiv({ cls: 'template-modal-header' });
-		header.createEl('h2', { text: t('template.selectTemplate') });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('template.selectTemplate') });
 
 		const manageBtn = header.createEl('button', {
 			cls: 'template-modal-manage-btn',
@@ -75,11 +79,13 @@ export class TemplatePickerModal extends Modal {
 			this.render();
 		});
 
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
 		if (templates.length === 0) {
-			const empty = contentEl.createDiv({ cls: 'template-modal-empty' });
+			const empty = body.createDiv({ cls: 'template-modal-empty' });
 			empty.createDiv({ text: t('template.empty') });
 			const createBtn = empty.createEl('button', {
-				cls: 'mod-cta',
+				cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 				text: t('template.createFirst'),
 			});
 			createBtn.addEventListener('click', () => {
@@ -90,7 +96,7 @@ export class TemplatePickerModal extends Modal {
 			return;
 		}
 
-		const list = contentEl.createDiv({ cls: 'template-modal-list' });
+		const list = body.createDiv({ cls: 'template-modal-list' });
 
 		let selectedId: string | null = null;
 
@@ -129,10 +135,9 @@ export class TemplatePickerModal extends Modal {
 			});
 		}
 
-		const actions = contentEl.createDiv({ cls: 'template-modal-actions' });
-
-		const confirmBtn = actions.createEl('button', {
-			cls: 'mod-cta',
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		const confirmBtn = footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('template.confirm'),
 		});
 		confirmBtn.addEventListener('click', () => {
@@ -145,13 +150,13 @@ export class TemplatePickerModal extends Modal {
 		});
 	}
 
-	private renderEditMode(contentEl: HTMLElement): void {
+	private renderEditMode(container: HTMLElement): void {
 		const templates = this.getTemplates();
 		const isNew = this.editingTemplate === null;
 		const editing = this.editingTemplate;
 
-		const header = contentEl.createDiv({ cls: 'template-modal-header' });
-		header.createEl('h2', { text: isNew ? t('template.create') : t('template.edit') });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: isNew ? t('template.create') : t('template.edit') });
 
 		const backBtn = header.createEl('button', {
 			cls: 'template-modal-back-btn',
@@ -163,10 +168,12 @@ export class TemplatePickerModal extends Modal {
 			this.render();
 		});
 
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
 		// Template list (when not editing a specific template)
 		if (isNew) {
 			if (templates.length > 0) {
-				const existingList = contentEl.createDiv({ cls: 'template-modal-manage-list' });
+				const existingList = body.createDiv({ cls: 'template-modal-manage-list' });
 				for (const tmpl of templates) {
 					const row = existingList.createDiv({ cls: 'template-modal-manage-row' });
 					row.createDiv({ cls: 'template-modal-manage-name', text: tmpl.name });
@@ -206,8 +213,8 @@ export class TemplatePickerModal extends Modal {
 				}
 			}
 
-			const createBtn = contentEl.createEl('button', {
-				cls: 'template-modal-create-btn mod-cta',
+			const createBtn = body.createEl('button', {
+				cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 				text: t('template.create'),
 			});
 			createBtn.addEventListener('click', () => {
@@ -222,7 +229,7 @@ export class TemplatePickerModal extends Modal {
 		}
 
 		// Edit form
-		const form = contentEl.createDiv({ cls: 'template-modal-form' });
+		const form = body.createDiv({ cls: 'template-modal-form' });
 
 		const nameField = form.createDiv({ cls: 'template-modal-field' });
 		nameField.createEl('label', { text: t('template.nameLabel') });
@@ -294,10 +301,9 @@ export class TemplatePickerModal extends Modal {
 
 		renderTaskInputs();
 
-		const actions = form.createDiv({ cls: 'template-modal-form-actions' });
-
-		const saveBtn = actions.createEl('button', {
-			cls: 'mod-cta',
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		const saveBtn = footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('template.save'),
 		});
 		saveBtn.addEventListener('click', () => {

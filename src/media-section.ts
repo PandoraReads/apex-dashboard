@@ -8,6 +8,7 @@ import { MediaTagEditModal } from './media-tag-editor-modal';
 import type { MediaTagService } from './media-tags';
 import { renderPagination, renderTagsSelector } from './library-section';
 import { MultiFolderSelectModal } from './folder-config-modal';
+import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 import {
 	type MediaFileResult,
 	renderMediaGrid,
@@ -36,10 +37,12 @@ function isMediaSection(sectionType: string): boolean {
 	return sectionType === 'images' || sectionType === 'videos';
 }
 
-function queryMediaFiles(app: App, exts: Set<string>, tagService?: MediaTagService): MediaFileResult[] {
+function queryMediaFiles(app: App, exts: Set<string>, excludeFolders: string[], tagService?: MediaTagService): MediaFileResult[] {
+	const excluded = normalizeExcludeFolders(excludeFolders);
 	const results: MediaFileResult[] = [];
 	for (const file of app.vault.getFiles()) {
 		if (file.path.startsWith('.')) continue;
+		if (isUnderExcludedFolder(file.path, excluded)) continue;
 		if (!exts.has(file.extension)) continue;
 		results.push({
 			file,
@@ -477,7 +480,7 @@ export function renderMediaSection(
 		resultArea.empty();
 		paginationArea.empty();
 
-		let results = queryMediaFiles(app, exts!, tagService);
+		let results = queryMediaFiles(app, exts!, column.libraryConfig?.excludeFolders ?? [], tagService);
 		const q = searchInput.value.trim().toLowerCase();
 		if (q) {
 			results = results.filter(r => r.basename.toLowerCase().includes(q) || r.path.toLowerCase().includes(q));

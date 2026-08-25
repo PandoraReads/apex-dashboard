@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 interface PromptOptions {
 	title: string;
@@ -17,6 +18,7 @@ export function showPromptDialog(_app: unknown, options: PromptOptions): Promise
 
 		const overlay = activeDocument.body.createDiv({ cls: 'dashboard-confirm-overlay' });
 		const dialog = overlay.createDiv({ cls: 'dashboard-confirm-card' });
+		applyModalTheme(dialog);
 
 		dialog.createEl('h3', { text: options.title, cls: 'dashboard-confirm-title' });
 

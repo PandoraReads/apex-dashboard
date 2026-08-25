@@ -1849,8 +1849,19 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		return el;
 	}
 
-	// Images / videos sections: full-vault media thumbnail wall (no config needed)
+	// Images / videos sections: full-vault media thumbnail wall; the config
+	// modal (gear) currently manages the excluded-folder set.
 	if (sectionType === 'images' || sectionType === 'videos') {
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('media.configure') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
 		const deleteSectionBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
 			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },

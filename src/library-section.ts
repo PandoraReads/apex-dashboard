@@ -5,6 +5,7 @@ import { t, getLanguage } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { showConfirmDialog } from './confirm-dialog';
+import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 
 // Set once per render by renderLibrarySection so the grid/list/table/kanban
 // renderers can route opens through the note popover and attach hover previews
@@ -103,8 +104,13 @@ export function queryVaultFiles(app: App, config: LibraryConfig): LibraryFileRes
 		.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
 		.filter(f => f.length > 0);
 
+	// Excluded folders: files inside them never reach the section (library scans
+	// and folder sections alike).
+	const excluded = normalizeExcludeFolders(config.excludeFolders ?? []);
+
 	for (const file of files) {
 		if (file.path.startsWith('.')) continue;
+		if (isUnderExcludedFolder(file.path, excluded)) continue;
 
 		if (scanFolders.length > 0) {
 			const lp = file.path.toLowerCase();

@@ -4,6 +4,7 @@ import type { PinnedNote, QuickCommand, QuickNotePreset } from './types';
 import { IconPickerModal } from './icon-picker-modal';
 import type { AppWithCommands } from './obsidian-internal';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 /**
  * Configuration modal for the Quick Notes region: CRUD for create-presets,
@@ -41,10 +42,11 @@ export class QuickNoteConfigModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.plugin.settings.stylePreset;
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		contentEl.addClass('dashboard-modal', 'dashboard-modal--compact', 'dashboard-quicknote-config');
+		applyModalTheme(containerEl);
 		this.renderBody();
 	}
 
@@ -55,14 +57,19 @@ export class QuickNoteConfigModal extends Modal {
 	private renderBody(): void {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: t('quickNote.configTitle') });
-		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		const container = contentEl.createDiv({
+			cls: 'dashboard-modal dashboard-modal--compact dashboard-quicknote-config',
+		});
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('quickNote.configTitle') });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 		this.renderPresets(form);
 		this.renderPinned(form);
 		this.renderCommands(form);
 		this.renderCapture(form);
 		this.renderDaily(form);
-		this.renderActions(form);
+		this.renderActions(container);
 	}
 
 	// ── Presets ────────────────────────────────────────────────────────────
@@ -142,7 +149,7 @@ export class QuickNoteConfigModal extends Modal {
 		this.commands.forEach((_, i) => this.renderCommandRow(list, i));
 
 		this.addBtn(section, t('quickNote.addCommand'), () => {
-			new CommandSearchModal(this.app, this.plugin.settings.stylePreset, (entry) => {
+			new CommandSearchModal(this.app, (entry) => {
 				this.commands = [...this.commands, {
 					id: uid(), label: entry.name, icon: 'terminal', commandId: entry.id,
 				}];
@@ -219,12 +226,16 @@ export class QuickNoteConfigModal extends Modal {
 
 	// ── Actions ────────────────────────────────────────────────────────────
 
-	private renderActions(form: HTMLElement): void {
-		const actions = form.createDiv({ cls: 'dashboard-modal-actions' });
-		const saveBtn = actions.createEl('button', { text: t('common.save'), cls: 'mod-cta' });
-		saveBtn.addEventListener('click', () => { void this.save(); });
-		const cancelBtn = actions.createEl('button', { text: t('common.cancel') });
-		cancelBtn.addEventListener('click', () => this.close());
+	private renderActions(container: HTMLElement): void {
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: t('common.cancel'),
+		}).addEventListener('click', () => this.close());
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('common.save'),
+		}).addEventListener('click', () => { void this.save(); });
 	}
 
 	private async save(): Promise<void> {
@@ -403,24 +414,27 @@ function uid(): string {
  * modal the same way IconPickerModal does.
  */
 class CommandSearchModal extends Modal {
-	private readonly stylePreset: string;
 	private readonly onPick: (entry: { id: string; name: string }) => void;
 
-	constructor(app: App, stylePreset: string, onPick: (entry: { id: string; name: string }) => void) {
+	constructor(app: App, onPick: (entry: { id: string; name: string }) => void) {
 		super(app);
-		this.stylePreset = stylePreset;
 		this.onPick = onPick;
 	}
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.stylePreset;
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		contentEl.addClass('dashboard-modal');
-		contentEl.createEl('h2', { text: t('quickNote.commandSearchTitle') });
+		applyModalTheme(containerEl);
 
-		const wrap = contentEl.createDiv({ cls: 'dashboard-docsearch' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('quickNote.commandSearchTitle') });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
+		const wrap = body.createDiv({ cls: 'dashboard-docsearch' });
 		const input = wrap.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-docsearch-input',
 			attr: { type: 'text', placeholder: t('quickNote.commandSearchPh'), autofocus: 'true' },
@@ -467,8 +481,9 @@ class CommandSearchModal extends Modal {
 		renderResults(input.value);
 		input.focus();
 
-		contentEl.createEl('button', {
-			cls: 'dashboard-docsearch-cancel',
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
 			text: t('common.cancel'),
 		}).addEventListener('click', () => this.close());
 	}

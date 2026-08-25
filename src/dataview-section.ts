@@ -8,6 +8,7 @@ import { toggleTaskInFile } from './alltasks-scan';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
 import { coerceNumber, dqlCompare, formatDate, formatValue, kindOf } from './dql/values';
+import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 
 // Module-level singletons mirroring library-section.ts:13-14 — set once per
 // render so the inner renderers can route opens + hover previews without
@@ -57,7 +58,13 @@ export function renderDataviewSection(
 
 		try {
 			const pages = await buildPages(app);
-			const outcome = executeDql(config.query, pages);
+			// Excluded folders: drop their pages before the query runs, so FROM /
+			// WHERE / GROUP BY never see them.
+			const excluded = normalizeExcludeFolders(config.excludeFolders ?? []);
+			const visiblePages = excluded.length > 0
+				? pages.filter(p => !isUnderExcludedFolder(p.file.path, excluded))
+				: pages;
+			const outcome = executeDql(config.query, visiblePages);
 			// Drop the spinner before rendering the outcome — every render* below
 			// appends into `content`, so without this reset it would spin forever.
 			content.empty();

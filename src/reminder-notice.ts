@@ -1,5 +1,6 @@
 import { App, Modal } from 'obsidian';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 export class ReminderNoticeModal extends Modal {
 	private readonly taskText: string;
@@ -14,31 +15,33 @@ export class ReminderNoticeModal extends Modal {
 	}
 
 	onOpen(): void {
-		const { contentEl } = this;
+		const { contentEl, containerEl } = this;
 		contentEl.empty();
-		contentEl.addClass('dashboard-modal', 'dashboard-reminder-modal');
+		contentEl.addClass('dashboard-library-config-modal');
+		containerEl.addClass('modal--dashboard');
+		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
-		const msg = contentEl.createDiv({ cls: 'dashboard-reminder-message' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact dashboard-reminder-modal' });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
+		const msg = body.createDiv({ cls: 'dashboard-reminder-message' });
 		msg.textContent = t('reminder.dueNotice', { task: this.taskText });
 
-		const actions = contentEl.createDiv({ cls: 'dashboard-reminder-actions' });
-
-		const snoozeBtn = actions.createEl('button', {
-			text: t('reminder.snooze'),
-			cls: 'dashboard-reminder-snooze',
-		});
-		snoozeBtn.addEventListener('click', () => {
-			this.close();
-			this.onSnooze();
-		});
-
-		const dismissBtn = actions.createEl('button', {
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
 			text: t('reminder.dismiss'),
-			cls: 'dashboard-reminder-dismiss',
-		});
-		dismissBtn.addEventListener('click', () => {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+		}).addEventListener('click', () => {
 			this.close();
 			this.onDismiss();
+		});
+		footer.createEl('button', {
+			text: t('reminder.snooze'),
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+		}).addEventListener('click', () => {
+			this.close();
+			this.onSnooze();
 		});
 	}
 

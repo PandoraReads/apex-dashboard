@@ -1,5 +1,6 @@
 import { Modal, setIcon } from 'obsidian';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 export interface SectionTypeOption {
 	value: string;
@@ -48,6 +49,7 @@ export class AddSectionModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 

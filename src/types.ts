@@ -431,7 +431,9 @@ export interface LibraryConfig {
 	folders?: string[];
 	/** Library/folder funnel: persistent folder-prefix filter (OR across entries). */
 	folderFilter?: string[];
-	/** All-tasks section: vault folders whose tasks are excluded from aggregation. */
+	/** Folders excluded from this section's data (all-tasks aggregation, library
+	 *  scans, images/videos scans). Matched by path prefix, case-insensitive;
+	 *  files inside them never reach the section. */
 	excludeFolders?: string[];
 	/** All-tasks section: dimension used to group tasks into list sections / kanban columns. */
 	taskGroupBy?: 'date' | 'priority' | 'none';
@@ -498,6 +500,10 @@ export interface DataviewConfig {
 	striped?: boolean;
 	/** Prepend a row-number column to TABLE results (default off). */
 	rowNumbers?: boolean;
+	/** Vault folders excluded from the query's page set (matched by path prefix,
+	 *  case-insensitive). Pages under them are dropped before the query runs, so
+	 *  FROM / WHERE / GROUP BY never see them. */
+	excludeFolders?: string[];
 }
 
 export interface DashboardColumn {

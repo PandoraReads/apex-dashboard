@@ -256,6 +256,12 @@ export function serialize(data: DashboardData): string {
 			// escapes embedded newlines/quotes in the multi-line query.
 			lines.push(`      query: ${JSON.stringify(dc.query)}`);
 			if (dc.title) lines.push(`      title: ${JSON.stringify(dc.title)}`);
+			if (dc.excludeFolders && dc.excludeFolders.length > 0) {
+				lines.push('      excludeFolders:');
+				for (const f of dc.excludeFolders) {
+					lines.push(`        - "${escapeYamlString(f)}"`);
+				}
+			}
 		}
 	}
 
@@ -936,7 +942,11 @@ function parseTickTickConfig(raw: Record<string, unknown>): TickTickConfig {
 function parseDataviewConfig(raw: Record<string, unknown>): DataviewConfig {
 	const query = str(raw.query ?? '');
 	const title = raw.title ? str(raw.title) : undefined;
-	return { query, title: title && title.length > 0 ? title : undefined };
+	return {
+		query,
+		title: title && title.length > 0 ? title : undefined,
+		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
+	};
 }
 
 function splitByH2(body: string): Array<{ heading: string; content: string }> {

@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 interface ConfirmOptions {
 	title: string;
@@ -26,6 +27,7 @@ export function showConfirmDialog(_app: unknown, options: ConfirmOptions): Promi
 
 		// Dialog card
 		const dialog = overlay.createDiv({ cls: 'dashboard-confirm-card' });
+		applyModalTheme(dialog);
 
 		dialog.createEl('h3', { text: options.title, cls: 'dashboard-confirm-title' });
 		dialog.createEl('p', { text: options.message, cls: 'dashboard-confirm-message' });

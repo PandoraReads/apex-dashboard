@@ -4,6 +4,7 @@ import type { BgSize, CustomColors, DashboardSettings } from './types';
 import { CUSTOM_COLOR_TOKENS, refreshAppearanceLive } from './appearance';
 import { showConfirmDialog } from './confirm-dialog';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 /** Image extensions offered by the background-image browser. */
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif']);
@@ -72,10 +73,11 @@ export class ThemeStudioModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.plugin.settings.stylePreset;
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		contentEl.addClass('dashboard-modal', 'dashboard-modal--compact', 'dashboard-theme-studio');
+		applyModalTheme(containerEl);
 		this.renderBody();
 	}
 
@@ -91,8 +93,12 @@ export class ThemeStudioModal extends Modal {
 	 *  never on continuous `input` events, or an open color picker would lose focus. */
 	private renderBody(): void {
 		const { contentEl } = this;
-		const header = contentEl.createDiv({ cls: 'dashboard-theme-studio-header' });
-		header.createEl('h2', { text: t('themeStudio.modalTitle') });
+		contentEl.empty();
+		const container = contentEl.createDiv({
+			cls: 'dashboard-modal dashboard-modal--compact dashboard-theme-studio',
+		});
+		const header = container.createDiv({ cls: 'dashboard-modal-header dashboard-theme-studio-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('themeStudio.modalTitle') });
 
 		// Global one-click restore, on the title row (right-aligned) so it's easy to find.
 		const resetAllBtn = header.createEl('button', {
@@ -103,13 +109,14 @@ export class ThemeStudioModal extends Modal {
 		resetAllBtn.appendText(t('themeStudio.resetAll'));
 		resetAllBtn.addEventListener('click', () => { void this.confirmResetAll(); });
 
-		contentEl.createEl('p', { cls: 'dashboard-theme-studio-hint', text: t('themeStudio.hint') });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		body.createEl('p', { cls: 'dashboard-theme-studio-hint', text: t('themeStudio.hint') });
 
-		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 		this.renderColorsSection(form);
 		this.renderBackgroundSection(form);
 		this.renderAdvancedSection(form);
-		this.renderActions(form);
+		this.renderActions(container);
 	}
 
 	// ── Color scheme ───────────────────────────────────────────────────────
@@ -399,10 +406,12 @@ export class ThemeStudioModal extends Modal {
 
 	// ── Actions ────────────────────────────────────────────────────────────
 
-	private renderActions(form: HTMLElement): void {
-		const actions = form.createDiv({ cls: 'dashboard-modal-actions' });
-		const doneBtn = actions.createEl('button', { text: t('common.done'), cls: 'mod-cta' });
-		doneBtn.addEventListener('click', () => this.close());
+	private renderActions(container: HTMLElement): void {
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('common.done'),
+		}).addEventListener('click', () => this.close());
 	}
 
 	// ── Global one-click restore ───────────────────────────────────────────

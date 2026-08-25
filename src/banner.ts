@@ -5,6 +5,7 @@ import { renderBannerStats, resolveStatsConfig, LEFT_STAT_OPTIONS, CENTER_STAT_O
 import { getDailyNotesConfig } from './daily-notes';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { getHabitService } from './habit-service';
+import { applyModalTheme } from './modal-theme';
 
 export function getActiveQuote(banner: BannerData): QuoteItem {
 	if (banner.quotes && banner.quotes.length > 0) {
@@ -115,7 +116,6 @@ export function resolveVaultImage(app: App, relativePath: string): string | null
 export class BannerEditModal extends Modal {
 	private banner: BannerData;
 	private onSave: (updates: Partial<BannerData>) => void;
-	private theme: string;
 	private quotes: QuoteItem[];
 	private images: string[];
 	private mode: 'quote' | 'stats';
@@ -123,11 +123,10 @@ export class BannerEditModal extends Modal {
 	private quoteColorDraft: string;
 	private form!: HTMLDivElement;
 
-	constructor(app: App, banner: BannerData, onSave: (updates: Partial<BannerData>) => void, theme?: string) {
+	constructor(app: App, banner: BannerData, onSave: (updates: Partial<BannerData>) => void) {
 		super(app);
 		this.banner = banner;
 		this.onSave = onSave;
-		this.theme = theme ?? 'earth';
 		this.mode = banner.mode === 'stats' ? 'stats' : 'quote';
 		this.statsDraft = resolveStatsConfig(banner.statsConfig);
 		this.quoteColorDraft = banner.quoteColor || '#ffffff';
@@ -141,17 +140,23 @@ export class BannerEditModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.theme;
-		contentEl.addClass('dashboard-modal', 'dashboard-modal--compact');
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		contentEl.createEl('h2', { text: t('banner.editTitle') });
+		applyModalTheme(containerEl);
 
-		this.renderModeHeader(contentEl);
-		this.renderModeToggle(contentEl);
-		this.form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('banner.editTitle') });
+
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
+		this.renderModeHeader(body);
+		this.renderModeToggle(body);
+		this.form = body.createDiv({ cls: 'dashboard-modal-form' });
 		this.renderBody();
-		this.renderActions(contentEl);
+		this.renderActions(container);
 	}
 
 	/** One-line heading above the mode toggle explaining it switches the view. */
@@ -549,11 +554,15 @@ export class BannerEditModal extends Modal {
 	}
 
 	private renderActions(host: HTMLElement): void {
-		const actions = host.createDiv({ cls: 'dashboard-modal-actions' });
-		const saveBtn = actions.createEl('button', { text: t('common.save'), cls: 'mod-cta' });
-		saveBtn.addEventListener('click', () => this.save());
-		const cancelBtn = actions.createEl('button', { text: t('common.cancel') });
-		cancelBtn.addEventListener('click', () => this.close());
+		const footer = host.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: t('common.cancel'),
+		}).addEventListener('click', () => this.close());
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('common.save'),
+		}).addEventListener('click', () => this.save());
 	}
 
 	private save(): void {

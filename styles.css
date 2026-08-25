@@ -2504,7 +2504,7 @@
 .dashboard-pomodoro-stats-modal {
 	background: var(--background-primary, var(--db-bg));
 	border: 1px solid var(--db-border-card);
-	border-radius: 12px;
+	border-radius: var(--db-radius-lg, 12px);
 	padding: 20px;
 	max-width: 380px;
 	width: 90%;
@@ -2991,7 +2991,7 @@
 .dashboard-habit-stats-modal {
 	background: var(--background-primary, var(--db-bg));
 	border: 1px solid var(--db-border-card);
-	border-radius: 12px;
+	border-radius: var(--db-radius-lg, 12px);
 	padding: 20px;
 	max-width: 480px;
 	width: 90%;
@@ -3303,8 +3303,8 @@
 }
 
 .dashboard-pomodoro-tagmanager-action--danger:hover {
-	border-color: #e74c3c;
-	color: #e74c3c;
+	border-color: var(--db-danger, #e74c3c);
+	color: var(--db-danger, #e74c3c);
 }
 
 .dashboard-pomodoro-tagmanager-action-icon {
@@ -3348,7 +3348,7 @@
 
 .dashboard-pomodoro-tagmanager-prompt-error {
 	font-size: 0.65em;
-	color: #e74c3c;
+	color: var(--db-danger, #e74c3c);
 	min-height: 0;
 }
 
@@ -3377,7 +3377,7 @@
 	color: var(--background-primary, #fff);
 }
 .dashboard-pomodoro-tagmanager-prompt-ok--danger {
-	background: #e74c3c;
+	background: var(--db-danger, #e74c3c);
 }
 .dashboard-pomodoro-tagmanager-prompt-cancel:hover,
 .dashboard-pomodoro-tagmanager-prompt-ok:hover {
@@ -3906,7 +3906,7 @@
 	overflow-y: auto;
 	background: var(--background-primary, var(--db-bg));
 	border: 1px solid var(--db-border-card);
-	border-radius: 12px;
+	border-radius: var(--db-radius-lg, 12px);
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
 	padding: 14px 16px;
 	z-index: 10;
@@ -3946,7 +3946,6 @@
 		grid-template-columns: 1fr;
 	}
 }
-
 
 /* ===== Reading Widget ===== */
 .dashboard-sidebar-reading {
@@ -4162,8 +4161,8 @@
 	color: var(--db-text-muted);
 }
 .dashboard-reading-book-card-btn--stop:hover {
-	border-color: #e74c3c;
-	color: #e74c3c;
+	border-color: var(--db-danger, #e74c3c);
+	color: var(--db-danger, #e74c3c);
 }
 .dashboard-reading-book-card-btn--stop svg {
 	color: inherit;
@@ -4220,7 +4219,7 @@
 
 .dashboard-reading-book-modal {
 	background: var(--background-secondary, #fff);
-	border-radius: 12px;
+	border-radius: var(--db-radius-lg, 12px);
 	width: 90%;
 	max-width: 400px;
 	max-height: 70vh;
@@ -4497,7 +4496,7 @@
 
 .dashboard-reading-end-modal {
 	background: var(--background-secondary, #fff);
-	border-radius: 14px;
+	border-radius: var(--db-radius-lg, 14px);
 	width: 88%;
 	max-width: 380px;
 	overflow: hidden;
@@ -4713,8 +4712,8 @@
 	border: 1px solid var(--db-border, rgba(0,0,0,0.12));
 }
 .dashboard-reading-end-btn--discard:hover {
-	border-color: #e74c3c;
-	color: #e74c3c;
+	border-color: var(--db-danger, #e74c3c);
+	color: var(--db-danger, #e74c3c);
 }
 
 .dashboard-reading-end-btn--confirm {
@@ -4727,14 +4726,14 @@
 
 .dashboard-reading-end-btn--delete {
 	background: transparent;
-	color: #e74c3c;
+	color: var(--db-danger, #e74c3c);
 	border: 1px solid rgba(231, 76, 60, 0.3);
 	margin-left: auto;
 }
 .dashboard-reading-end-btn--delete:hover {
-	background: #e74c3c;
+	background: var(--db-danger, #e74c3c);
 	color: #fff;
-	border-color: #e74c3c;
+	border-color: var(--db-danger, #e74c3c);
 }
 
 /* Reading Stats (card-style sections) */
@@ -6830,7 +6829,6 @@
    round scroll-top button into a wide pill that pushes its arrow glyph out of
    view, and eating ~80px of task-text width on every todo row (delete +
    reminder buttons). Qualify with `button` to reach 0,2,1 and win by source
-   order (plugin styles load after app.css). Phones have no .is-tablet class,
    desktop matches neither — both stay on the base styles. */
 .is-tablet button.dashboard-scroll-top,
 .is-tablet button.dashboard-task-delete,
@@ -7630,8 +7628,8 @@
 /* ===== Modal ===== */
 .dashboard-modal {
 	border-radius: var(--db-radius-lg, 12px);
-	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
-	background: var(--db-bg-card, rgba(255, 255, 255, 0.06)) !important;
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	background: var(--db-bg-card, var(--background-secondary)) !important;
 	backdrop-filter: var(--db-backdrop-blur, blur(24px));
 	-webkit-backdrop-filter: var(--db-backdrop-blur, blur(24px));
 	color: var(--db-text, var(--text-normal));
@@ -7661,7 +7659,7 @@
 	overflow-y: auto;
 	max-height: 85vh;
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
 .modal.modal--dashboard::-webkit-scrollbar {
@@ -7673,12 +7671,12 @@
 }
 
 .modal.modal--dashboard::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
 .modal.modal--dashboard::-webkit-scrollbar-thumb:hover {
-	background: rgba(255, 255, 255, 0.25);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 35%, transparent);
 }
 
 .modal-bg.modal-bg--dashboard {
@@ -7694,7 +7692,7 @@
 
 .dashboard-modal h2 {
 	color: var(--db-accent, var(--text-normal));
-	border-bottom: 1px solid var(--db-border, rgba(255, 255, 255, 0.08));
+	border-bottom: 1px solid var(--db-border, var(--background-modifier-border));
 	padding-bottom: 10px;
 	margin-bottom: 4px;
 }
@@ -7708,7 +7706,6 @@
 
 /* Card-style module backgrounds inside configuration/stats modals.
    Mirrors the reading-stats card treatment so grouped settings feel separated
-   instead of floating on a flat panel. Does not affect the fortune-stick modal,
    which uses its own fortune-* classes. */
 .dashboard-library-config-section,
 .dashboard-pomodoro-stats-section,
@@ -7732,9 +7729,9 @@
 .dashboard-modal-input {
 	width: 100%;
 	padding: 8px 12px;
-	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	border: 1px solid var(--db-border-input, var(--background-modifier-border));
 	border-radius: var(--db-radius-sm, 6px);
-	background: var(--db-bg-input, rgba(255, 255, 255, 0.04));
+	background: var(--db-bg-input, var(--background-modifier-form-field));
 	color: var(--db-text, var(--text-normal));
 	font-size: 0.95em;
 	font-family: var(--db-font, var(--font-interface));
@@ -7758,6 +7755,63 @@
 	font-family: var(--db-font, var(--font-interface));
 }
 
+/* ===== Library-dialect footer & buttons =====
+   Standard action bar for card-grouped config modals (the header/body/footer
+   skeleton used by every config dialog). Primary action sits rightmost;
+   --confirm is solid accent with the theme's accent-appropriate inverse text
+   color, neutral/cancel buttons use the accent-tinted ghost treatment. */
+.dashboard-modal-footer {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 16px;
+	padding-top: 12px;
+	border-top: 1px solid var(--db-border, var(--background-modifier-border));
+}
+
+.dashboard-modal-btn {
+	padding: 6px 16px;
+	border-radius: var(--db-radius-sm, 6px);
+	font-family: var(--db-font, var(--font-interface));
+	font-size: 0.9em;
+	cursor: pointer;
+	background: var(--db-bg-btn, var(--background-modifier-hover));
+	border: 1px solid var(--db-border-btn, var(--background-modifier-border));
+	color: var(--db-text, var(--text-normal));
+	transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.dashboard-modal-btn:hover {
+	background: var(--db-bg-btn-hover, var(--background-modifier-hover));
+}
+
+.dashboard-modal-btn--cancel {
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-modal-btn--confirm {
+	background: var(--db-accent, var(--interactive-accent));
+	border-color: transparent;
+	color: var(--db-text-inverse, var(--text-on-accent));
+	font-weight: 500;
+}
+
+.dashboard-modal-btn--confirm:hover {
+	background: var(--db-accent, var(--interactive-accent));
+	opacity: 0.88;
+}
+
+.dashboard-modal-btn--danger {
+	background: var(--db-danger, #e5484d);
+	border-color: transparent;
+	color: #fff;
+	font-weight: 500;
+}
+
+.dashboard-modal-btn--danger:hover {
+	opacity: 0.88;
+}
+
 /* Banner Quotes List */
 .dashboard-modal-quotes {
 	margin-bottom: 12px;
@@ -7776,7 +7830,7 @@
 	overflow-y: auto;
 	padding: 2px 0;
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
 .dashboard-modal-quotes-list::-webkit-scrollbar {
@@ -7788,7 +7842,7 @@
 }
 
 .dashboard-modal-quotes-list::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
@@ -7886,7 +7940,7 @@
 	overflow-y: auto;
 	padding: 2px 0;
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
 .dashboard-modal-images-list::-webkit-scrollbar {
@@ -7898,7 +7952,7 @@
 }
 
 .dashboard-modal-images-list::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
@@ -8023,7 +8077,7 @@
 	overflow-y: auto;
 	margin-bottom: 4px;
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
 .dashboard-modal-docs-list::-webkit-scrollbar {
@@ -8035,7 +8089,7 @@
 }
 
 .dashboard-modal-docs-list::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
@@ -8099,7 +8153,7 @@
 	overflow-y: auto;
 	margin-top: 4px;
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
 .dashboard-modal-search-results::-webkit-scrollbar {
@@ -8111,7 +8165,7 @@
 }
 
 .dashboard-modal-search-results::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
@@ -8216,7 +8270,7 @@
 	border: 1px solid var(--db-border);
 	border-radius: var(--db-radius-sm);
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
 .dashboard-docsearch-results::-webkit-scrollbar {
@@ -8228,7 +8282,7 @@
 }
 
 .dashboard-docsearch-results::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
@@ -8415,191 +8469,10 @@
 /* ===== Theme-specific enhancements ===== */
 
 /* Aurora: modal — frosted glass with cyan glow */
-[data-theme="aurora"] .dashboard-modal {
-	border-radius: 16px;
-	border: 1px solid rgba(139, 92, 246, 0.18);
-	background: rgba(20, 30, 50, 0.85) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-.theme-light [data-theme="aurora"] .dashboard-modal {
-	background: rgba(240, 244, 248, 0.88) !important;
-	border-color: rgba(59, 130, 246, 0.15);
-}
-[data-theme="aurora"] .dashboard-modal h2 {
-	color: #22d3ee;
-	border-bottom-color: rgba(139, 92, 246, 0.15);
-	font-weight: 600;
-	letter-spacing: 0.02em;
-}
-.theme-light [data-theme="aurora"] .dashboard-modal h2 {
-	color: #0891b2;
-	border-bottom-color: rgba(59, 130, 246, 0.12);
-}
-[data-theme="aurora"] .dashboard-modal-form label {
-	color: #94a3b8;
-}
-.theme-light [data-theme="aurora"] .dashboard-modal-form label {
-	color: #475569;
-}
-[data-theme="aurora"] .dashboard-modal-input {
-	background: rgba(139, 92, 246, 0.06);
-	border-color: rgba(139, 92, 246, 0.12);
-	color: #e2e8f0;
-	border-radius: 10px;
-}
-.theme-light [data-theme="aurora"] .dashboard-modal-input {
-	background: rgba(59, 130, 246, 0.04);
-	border-color: rgba(59, 130, 246, 0.12);
-	color: #1e293b;
-}
-[data-theme="aurora"] .dashboard-modal-input:focus {
-	border-color: rgba(34, 211, 238, 0.4);
-	box-shadow: 0 0 16px rgba(34, 211, 238, 0.08);
-}
-.theme-light [data-theme="aurora"] .dashboard-modal-input:focus {
-	border-color: rgba(34, 211, 238, 0.6);
-	box-shadow: 0 0 12px rgba(59, 130, 246, 0.06);
-}
-[data-theme="aurora"] .dashboard-modal-actions button {
-	border-radius: 10px;
-}
-[data-theme="aurora"] .dashboard-modal-actions .mod-cta {
-	background: rgba(34, 211, 238, 0.15);
-	color: #22d3ee;
-	border: 1px solid rgba(34, 211, 238, 0.25);
-}
-.theme-light [data-theme="aurora"] .dashboard-modal-actions .mod-cta {
-	background: rgba(8, 145, 178, 0.1);
-	color: #0891b2;
-	border-color: rgba(8, 145, 178, 0.25);
-}
-[data-theme="aurora"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(34, 211, 238, 0.25);
-	box-shadow: 0 0 12px rgba(34, 211, 238, 0.12);
-}
 
 /* Earth: modal — warm organic, rounded */
-[data-theme="earth"] .dashboard-modal {
-	border-radius: 16px;
-	border: 1px solid rgba(217, 119, 6, 0.15);
-	background: rgba(250, 246, 240, 0.88) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-}
-.theme-dark [data-theme="earth"] .dashboard-modal {
-	background: rgba(30, 26, 20, 0.88) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border-color: rgba(245, 158, 11, 0.15);
-}
-[data-theme="earth"] .dashboard-modal h2 {
-	color: #d97706;
-	border-bottom-color: rgba(217, 119, 6, 0.15);
-	font-weight: 700;
-}
-.theme-dark [data-theme="earth"] .dashboard-modal h2 {
-	color: #f59e0b;
-}
-[data-theme="earth"] .dashboard-modal-form label {
-	color: #6B5040;
-}
-.theme-dark [data-theme="earth"] .dashboard-modal-form label {
-	color: #b8a890;
-}
-[data-theme="earth"] .dashboard-modal-input {
-	background: rgba(120, 80, 40, 0.04);
-	border-color: #D5C8B5;
-	color: #3D2B1F;
-	border-radius: 10px;
-}
-.theme-dark [data-theme="earth"] .dashboard-modal-input {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: #3a3228;
-	color: #e8ddd0;
-}
-[data-theme="earth"] .dashboard-modal-input:focus {
-	border-color: #d97706;
-	box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.1);
-}
-.theme-dark [data-theme="earth"] .dashboard-modal-input:focus {
-	border-color: #f59e0b;
-	box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
-}
-[data-theme="earth"] .dashboard-modal-actions button {
-	border-radius: 10px;
-}
-[data-theme="earth"] .dashboard-modal-actions .mod-cta {
-	background: rgba(217, 119, 6, 0.12);
-	color: #d97706;
-	border: 1px solid rgba(217, 119, 6, 0.25);
-}
-.theme-dark [data-theme="earth"] .dashboard-modal-actions .mod-cta {
-	background: rgba(245, 158, 11, 0.12);
-	color: #f59e0b;
-	border-color: rgba(245, 158, 11, 0.25);
-}
 
 /* Nordic: modal — clean minimal with blue accent */
-[data-theme="nordic"] .dashboard-modal {
-	border-radius: 8px;
-	border: 1px solid rgba(59, 130, 246, 0.12);
-	background: rgba(255, 255, 255, 0.88) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-}
-.theme-dark [data-theme="nordic"] .dashboard-modal {
-	background: rgba(30, 41, 59, 0.88) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border-color: rgba(96, 165, 250, 0.15);
-}
-[data-theme="nordic"] .dashboard-modal h2 {
-	color: #3b82f6;
-	border-bottom-color: rgba(59, 130, 246, 0.12);
-	font-weight: 600;
-}
-.theme-dark [data-theme="nordic"] .dashboard-modal h2 {
-	color: #60a5fa;
-}
-[data-theme="nordic"] .dashboard-modal-form label {
-	color: #475569;
-}
-.theme-dark [data-theme="nordic"] .dashboard-modal-form label {
-	color: #94a3b8;
-}
-[data-theme="nordic"] .dashboard-modal-input {
-	background: rgba(59, 130, 246, 0.04);
-	border-color: #E2E8F0;
-	color: #1e293b;
-	border-radius: 6px;
-}
-.theme-dark [data-theme="nordic"] .dashboard-modal-input {
-	background: rgba(59, 130, 246, 0.06);
-	border-color: #334155;
-	color: #e2e8f0;
-}
-[data-theme="nordic"] .dashboard-modal-input:focus {
-	border-color: #3b82f6;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
-}
-.theme-dark [data-theme="nordic"] .dashboard-modal-input:focus {
-	border-color: #60a5fa;
-	box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.08);
-}
-[data-theme="nordic"] .dashboard-modal-actions button {
-	border-radius: 6px;
-}
-[data-theme="nordic"] .dashboard-modal-actions .mod-cta {
-	background: rgba(59, 130, 246, 0.1);
-	color: #3b82f6;
-	border: 1px solid rgba(59, 130, 246, 0.2);
-}
-.theme-dark [data-theme="nordic"] .dashboard-modal-actions .mod-cta {
-	background: rgba(96, 165, 250, 0.1);
-	color: #60a5fa;
-	border-color: rgba(96, 165, 250, 0.2);
-}
 
 /* -- Aurora: glass glow, soft rounded -- */
 .apex-dashboard-root[data-theme="aurora"] .dashboard-card:hover {
@@ -8623,7 +8496,7 @@
 }
 
 .apex-dashboard-root[data-theme="aurora"] .dashboard-add-section {
-	border-radius: 14px;
+	border-radius: var(--db-radius-lg, 14px);
 	border-color: rgba(139, 92, 246, 0.15);
 }
 
@@ -8724,93 +8597,6 @@
 }
 
 /* Island: modal — cream parchment, green-tinted */
-[data-theme="island"] .dashboard-modal {
-	border-radius: 20px;
-	border: 2px solid #b5d4b0;
-	background: #faf8f2 !important;
-	box-shadow: 0 6px 0 0 #a8c8a5, 0 12px 40px rgba(74, 103, 65, 0.20);
-}
-.theme-dark [data-theme="island"] .dashboard-modal {
-	background: #263830 !important;
-	border-color: #3a5a3e;
-	box-shadow: 0 6px 0 0 #1a2a1e, 0 12px 40px rgba(0, 0, 0, 0.3);
-}
-[data-theme="island"] .dashboard-modal h2 {
-	color: #4a6741;
-	border-bottom: 2px solid rgba(130, 213, 187, 0.3);
-	font-weight: 700;
-	letter-spacing: 0.02em;
-}
-.theme-dark [data-theme="island"] .dashboard-modal h2 {
-	color: #c8e0c4;
-	border-bottom-color: rgba(61, 212, 198, 0.2);
-}
-[data-theme="island"] .dashboard-modal-form label {
-	color: #5a7247;
-	font-weight: 500;
-}
-.theme-dark [data-theme="island"] .dashboard-modal-form label {
-	color: #98b894;
-}
-[data-theme="island"] .dashboard-modal-input {
-	background: rgba(25, 200, 185, 0.04);
-	border: 2.5px solid #b5d4b0;
-	color: #4a6741;
-	border-radius: 50px;
-	box-shadow: 0 3px 0 0 #c8dcc5;
-	font-weight: 500;
-}
-.theme-dark [data-theme="island"] .dashboard-modal-input {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: #3a5a3e;
-	color: #c8e0c4;
-	box-shadow: 0 3px 0 0 #2a4a2e;
-}
-[data-theme="island"] .dashboard-modal-input:focus {
-	border-color: #ffcc00;
-	box-shadow: 0 3px 0 0 #e0b800, 0 0 0 3px rgba(255, 204, 0, 0.15);
-}
-.theme-dark [data-theme="island"] .dashboard-modal-input:focus {
-	border-color: #ffcc00;
-	box-shadow: 0 3px 0 0 #e0b800, 0 0 0 3px rgba(255, 204, 0, 0.10);
-}
-[data-theme="island"] .dashboard-modal-actions button {
-	border-radius: 50px;
-	font-weight: 600;
-	box-shadow: 0 4px 0 0 #a8c8a5;
-	transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-[data-theme="island"] .dashboard-modal-actions button:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 5px 0 0 #98b894;
-}
-[data-theme="island"] .dashboard-modal-actions button:active {
-	transform: translateY(2px);
-	box-shadow: 0 1px 0 0 #a8c8a5;
-}
-[data-theme="island"] .dashboard-modal-actions .mod-cta {
-	background: #ffcc00;
-	color: #4a6741;
-	border: 2px solid #ffcc00;
-	font-weight: 600;
-}
-.theme-dark [data-theme="island"] .dashboard-modal-actions .mod-cta {
-	background: #ffcc00;
-	color: #1a2a1e;
-	border-color: #ffcc00;
-}
-[data-theme="island"] .dashboard-modal-actions .mod-cta:hover {
-	background: #e0b800;
-	border-color: #e0b800;
-}
-.theme-dark [data-theme="island"] .dashboard-modal-actions .mod-cta:hover {
-	background: #e0b800;
-	border-color: #e0b800;
-}
-[data-theme="island"] .dashboard-modal-actions .mod-cta:active {
-	background: #ccaa00;
-	border-color: #ccaa00;
-}
 
 /* Island: checkbox — grass green */
 .apex-dashboard-root[data-theme="island"] .task-checkbox:checked {
@@ -8946,65 +8732,6 @@
 }
 
 /* Tundra: modal — warm organic, rounded */
-[data-theme="tundra"] .dashboard-modal {
-	border-radius: 16px;
-	border: 1px solid rgba(217, 119, 6, 0.15);
-	background: rgba(250, 246, 240, 0.88) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-}
-.theme-dark [data-theme="tundra"] .dashboard-modal {
-	background: rgba(30, 26, 20, 0.88) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border-color: rgba(245, 158, 11, 0.15);
-}
-[data-theme="tundra"] .dashboard-modal h2 {
-	color: #d97706;
-	border-bottom-color: rgba(217, 119, 6, 0.15);
-	font-weight: 700;
-}
-.theme-dark [data-theme="tundra"] .dashboard-modal h2 {
-	color: #f59e0b;
-}
-[data-theme="tundra"] .dashboard-modal-form label {
-	color: #6B5040;
-}
-.theme-dark [data-theme="tundra"] .dashboard-modal-form label {
-	color: #b8a890;
-}
-[data-theme="tundra"] .dashboard-modal-input {
-	background: rgba(120, 80, 40, 0.04);
-	border-color: #D5C8B5;
-	color: #3D2B1F;
-	border-radius: 10px;
-}
-.theme-dark [data-theme="tundra"] .dashboard-modal-input {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: #3a3228;
-	color: #e8ddd0;
-}
-[data-theme="tundra"] .dashboard-modal-input:focus {
-	border-color: #d97706;
-	box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.1);
-}
-.theme-dark [data-theme="tundra"] .dashboard-modal-input:focus {
-	border-color: #f59e0b;
-	box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
-}
-[data-theme="tundra"] .dashboard-modal-actions button {
-	border-radius: 10px;
-}
-[data-theme="tundra"] .dashboard-modal-actions .mod-cta {
-	background: rgba(217, 119, 6, 0.12);
-	color: #d97706;
-	border: 1px solid rgba(217, 119, 6, 0.25);
-}
-.theme-dark [data-theme="tundra"] .dashboard-modal-actions .mod-cta {
-	background: rgba(245, 158, 11, 0.12);
-	color: #f59e0b;
-	border-color: rgba(245, 158, 11, 0.25);
-}
 
 /* -- Blossom: rose glass glow (cloned from Prism) -- */
 .apex-dashboard-root[data-theme="blossom"] .dashboard-card:hover {
@@ -9028,7 +8755,7 @@
 }
 
 .apex-dashboard-root[data-theme="blossom"] .dashboard-add-section {
-	border-radius: 14px;
+	border-radius: var(--db-radius-lg, 14px);
 	border-color: rgba(244, 63, 94, 0.15);
 }
 
@@ -9038,69 +8765,6 @@
 }
 
 /* Blossom: modal — rose glass with warm glow */
-[data-theme="blossom"] .dashboard-modal {
-	border-radius: 16px;
-	border: 1px solid rgba(244, 63, 94, 0.18);
-	background: rgba(30, 18, 35, 0.85) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-.theme-light [data-theme="blossom"] .dashboard-modal {
-	background: rgba(250, 245, 248, 0.88) !important;
-	border-color: rgba(244, 63, 94, 0.12);
-}
-[data-theme="blossom"] .dashboard-modal h2 {
-	color: #f43f5e;
-	border-bottom-color: rgba(244, 63, 94, 0.15);
-	font-weight: 600;
-	letter-spacing: 0.02em;
-}
-.theme-light [data-theme="blossom"] .dashboard-modal h2 {
-	color: #e11d48;
-	border-bottom-color: rgba(244, 63, 94, 0.12);
-}
-[data-theme="blossom"] .dashboard-modal-form label {
-	color: #a898a8;
-}
-.theme-light [data-theme="blossom"] .dashboard-modal-form label {
-	color: #475569;
-}
-[data-theme="blossom"] .dashboard-modal-input {
-	background: rgba(244, 63, 94, 0.06);
-	border-color: rgba(244, 63, 94, 0.12);
-	color: #f0e0e8;
-	border-radius: 10px;
-}
-.theme-light [data-theme="blossom"] .dashboard-modal-input {
-	background: rgba(244, 63, 94, 0.04);
-	border-color: rgba(244, 63, 94, 0.12);
-	color: #1c1018;
-}
-[data-theme="blossom"] .dashboard-modal-input:focus {
-	border-color: rgba(244, 63, 94, 0.4);
-	box-shadow: 0 0 16px rgba(244, 63, 94, 0.08);
-}
-.theme-light [data-theme="blossom"] .dashboard-modal-input:focus {
-	border-color: rgba(244, 63, 94, 0.5);
-	box-shadow: 0 0 12px rgba(244, 63, 94, 0.06);
-}
-[data-theme="blossom"] .dashboard-modal-actions button {
-	border-radius: 10px;
-}
-[data-theme="blossom"] .dashboard-modal-actions .mod-cta {
-	background: rgba(244, 63, 94, 0.15);
-	color: #f43f5e;
-	border: 1px solid rgba(244, 63, 94, 0.25);
-}
-.theme-light [data-theme="blossom"] .dashboard-modal-actions .mod-cta {
-	background: rgba(225, 29, 72, 0.1);
-	color: #e11d48;
-	border-color: rgba(225, 29, 72, 0.25);
-}
-[data-theme="blossom"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(244, 63, 94, 0.25);
-	box-shadow: 0 0 12px rgba(244, 63, 94, 0.12);
-}
 
 /* -- Matcha: gentle green glow -- */
 .apex-dashboard-root[data-theme="matcha"] .dashboard-card:hover {
@@ -9120,7 +8784,7 @@
 	box-shadow: 0 0 20px rgba(143, 170, 152, 0.06);
 }
 .apex-dashboard-root[data-theme="matcha"] .dashboard-add-section {
-	border-radius: 14px;
+	border-radius: var(--db-radius-lg, 14px);
 	border-color: rgba(143, 170, 152, 0.15);
 }
 .apex-dashboard-root[data-theme="matcha"] .dashboard-add-section:hover {
@@ -9128,69 +8792,6 @@
 	box-shadow: 0 0 12px rgba(143, 170, 152, 0.06);
 }
 /* Matcha: modal — soft green glass */
-[data-theme="matcha"] .dashboard-modal {
-	border-radius: 16px;
-	border: 1px solid rgba(143, 170, 152, 0.18);
-	background: rgba(14, 24, 18, 0.85) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-.theme-light [data-theme="matcha"] .dashboard-modal {
-	background: rgba(242, 245, 240, 0.88) !important;
-	border-color: rgba(143, 170, 152, 0.12);
-}
-[data-theme="matcha"] .dashboard-modal h2 {
-	color: #8faa98;
-	border-bottom-color: rgba(143, 170, 152, 0.15);
-	font-weight: 600;
-	letter-spacing: 0.02em;
-}
-.theme-light [data-theme="matcha"] .dashboard-modal h2 {
-	color: #6a8a78;
-	border-bottom-color: rgba(143, 170, 152, 0.12);
-}
-[data-theme="matcha"] .dashboard-modal-form label {
-	color: #90a898;
-}
-.theme-light [data-theme="matcha"] .dashboard-modal-form label {
-	color: #4a6050;
-}
-[data-theme="matcha"] .dashboard-modal-input {
-	background: rgba(143, 170, 152, 0.06);
-	border-color: rgba(143, 170, 152, 0.12);
-	color: #e0e8e2;
-	border-radius: 10px;
-}
-.theme-light [data-theme="matcha"] .dashboard-modal-input {
-	background: rgba(143, 170, 152, 0.04);
-	border-color: rgba(143, 170, 152, 0.12);
-	color: #1a2a1e;
-}
-[data-theme="matcha"] .dashboard-modal-input:focus {
-	border-color: rgba(143, 170, 152, 0.4);
-	box-shadow: 0 0 16px rgba(143, 170, 152, 0.08);
-}
-.theme-light [data-theme="matcha"] .dashboard-modal-input:focus {
-	border-color: rgba(143, 170, 152, 0.5);
-	box-shadow: 0 0 12px rgba(143, 170, 152, 0.06);
-}
-[data-theme="matcha"] .dashboard-modal-actions button {
-	border-radius: 10px;
-}
-[data-theme="matcha"] .dashboard-modal-actions .mod-cta {
-	background: rgba(143, 170, 152, 0.15);
-	color: #8faa98;
-	border: 1px solid rgba(143, 170, 152, 0.25);
-}
-.theme-light [data-theme="matcha"] .dashboard-modal-actions .mod-cta {
-	background: rgba(106, 138, 120, 0.10);
-	color: #6a8a78;
-	border-color: rgba(106, 138, 120, 0.25);
-}
-[data-theme="matcha"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(143, 170, 152, 0.25);
-	box-shadow: 0 0 12px rgba(143, 170, 152, 0.12);
-}
 
 /* -- Lilac: gentle purple glow -- */
 .apex-dashboard-root[data-theme="lilac"] .dashboard-card:hover {
@@ -9210,7 +8811,7 @@
 	box-shadow: 0 0 20px rgba(184, 160, 200, 0.06);
 }
 .apex-dashboard-root[data-theme="lilac"] .dashboard-add-section {
-	border-radius: 14px;
+	border-radius: var(--db-radius-lg, 14px);
 	border-color: rgba(184, 160, 200, 0.15);
 }
 .apex-dashboard-root[data-theme="lilac"] .dashboard-add-section:hover {
@@ -9218,69 +8819,6 @@
 	box-shadow: 0 0 12px rgba(184, 160, 200, 0.06);
 }
 /* Lilac: modal — soft purple glass */
-[data-theme="lilac"] .dashboard-modal {
-	border-radius: 16px;
-	border: 1px solid rgba(184, 160, 200, 0.18);
-	background: rgba(20, 14, 24, 0.85) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-.theme-light [data-theme="lilac"] .dashboard-modal {
-	background: rgba(244, 240, 244, 0.88) !important;
-	border-color: rgba(184, 160, 200, 0.12);
-}
-[data-theme="lilac"] .dashboard-modal h2 {
-	color: #b8a0c8;
-	border-bottom-color: rgba(184, 160, 200, 0.15);
-	font-weight: 600;
-	letter-spacing: 0.02em;
-}
-.theme-light [data-theme="lilac"] .dashboard-modal h2 {
-	color: #9070a8;
-	border-bottom-color: rgba(184, 160, 200, 0.12);
-}
-[data-theme="lilac"] .dashboard-modal-form label {
-	color: #a090b0;
-}
-.theme-light [data-theme="lilac"] .dashboard-modal-form label {
-	color: #5a4068;
-}
-[data-theme="lilac"] .dashboard-modal-input {
-	background: rgba(184, 160, 200, 0.06);
-	border-color: rgba(184, 160, 200, 0.12);
-	color: #ece4f0;
-	border-radius: 10px;
-}
-.theme-light [data-theme="lilac"] .dashboard-modal-input {
-	background: rgba(184, 160, 200, 0.04);
-	border-color: rgba(184, 160, 200, 0.12);
-	color: #1a101e;
-}
-[data-theme="lilac"] .dashboard-modal-input:focus {
-	border-color: rgba(184, 160, 200, 0.4);
-	box-shadow: 0 0 16px rgba(184, 160, 200, 0.08);
-}
-.theme-light [data-theme="lilac"] .dashboard-modal-input:focus {
-	border-color: rgba(184, 160, 200, 0.5);
-	box-shadow: 0 0 12px rgba(184, 160, 200, 0.06);
-}
-[data-theme="lilac"] .dashboard-modal-actions button {
-	border-radius: 10px;
-}
-[data-theme="lilac"] .dashboard-modal-actions .mod-cta {
-	background: rgba(184, 160, 200, 0.15);
-	color: #b8a0c8;
-	border: 1px solid rgba(184, 160, 200, 0.25);
-}
-.theme-light [data-theme="lilac"] .dashboard-modal-actions .mod-cta {
-	background: rgba(144, 112, 168, 0.10);
-	color: #9070a8;
-	border-color: rgba(144, 112, 168, 0.25);
-}
-[data-theme="lilac"] .dashboard-modal-actions .mod-cta:hover {
-	background: rgba(184, 160, 200, 0.25);
-	box-shadow: 0 0 12px rgba(184, 160, 200, 0.12);
-}
 
 /* -- Dusk: dreamy cloud-soft modal -- */
 
@@ -9289,46 +8827,6 @@
 /* -- Moonlight: ethereal silver modal -- */
 
 /* -- Neon: near-black + neon magenta modal (same in light & dark) -- */
-[data-theme="neon"] .dashboard-modal {
-	border-radius: 8px;
-	border: 1px solid rgba(255, 46, 136, 0.18);
-	background: rgba(10, 10, 12, 0.92) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-[data-theme="neon"] .dashboard-modal h2 {
-	color: #ff2e88;
-	border-bottom-color: rgba(255, 46, 136, 0.15);
-	font-weight: 700;
-	letter-spacing: 0.02em;
-}
-[data-theme="neon"] .dashboard-modal-form label {
-	color: #A8A8A8;
-}
-[data-theme="neon"] .dashboard-modal-input {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: rgba(255, 255, 255, 0.10);
-	color: #FAFAFA;
-	border-radius: 6px;
-}
-[data-theme="neon"] .dashboard-modal-input:focus {
-	border-color: rgba(255, 46, 136, 0.55);
-	box-shadow: 0 0 0 3px rgba(255, 46, 136, 0.10);
-}
-[data-theme="neon"] .dashboard-modal-actions button {
-	border-radius: 6px;
-}
-[data-theme="neon"] .dashboard-modal-actions .mod-cta {
-	background: #ff2e88;
-	color: #ffffff;
-	border: 1px solid #ff2e88;
-	font-weight: 600;
-}
-[data-theme="neon"] .dashboard-modal-actions .mod-cta:hover {
-	background: #ff5ca8;
-	border-color: #ff5ca8;
-	box-shadow: 0 0 12px rgba(255, 46, 136, 0.25);
-}
 [data-theme="neon"] .dashboard-add-section {
 	border-radius: 6px;
 	border-color: rgba(255, 46, 136, 0.20);
@@ -9361,60 +8859,8 @@
 }
 
 /* Banner modal Add-Quote / Add-Image — magenta text on a dark chip */
-[data-theme="neon"] .dashboard-modal-quote-add,
-[data-theme="neon"] .dashboard-modal-image-add {
-	background: rgba(255, 46, 136, 0.06) !important;
-	border: 1px dashed rgba(255, 46, 136, 0.30) !important;
-	color: #ff2e88 !important;
-}
-[data-theme="neon"] .dashboard-modal-quote-add:hover,
-[data-theme="neon"] .dashboard-modal-image-add:hover {
-	background: rgba(255, 46, 136, 0.14) !important;
-	border-color: rgba(255, 46, 136, 0.55) !important;
-	color: #ff5ca8 !important;
-}
 
 /* -- Volt: near-black + electric cyan modal (same in light & dark) -- */
-[data-theme="volt"] .dashboard-modal {
-	border-radius: 8px;
-	border: 1px solid rgba(0, 194, 255, 0.18);
-	background: rgba(9, 10, 14, 0.92) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-[data-theme="volt"] .dashboard-modal h2 {
-	color: #00c2ff;
-	border-bottom-color: rgba(0, 194, 255, 0.15);
-	font-weight: 700;
-	letter-spacing: 0.02em;
-}
-[data-theme="volt"] .dashboard-modal-form label {
-	color: #A8A8A8;
-}
-[data-theme="volt"] .dashboard-modal-input {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: rgba(255, 255, 255, 0.10);
-	color: #FAFAFA;
-	border-radius: 6px;
-}
-[data-theme="volt"] .dashboard-modal-input:focus {
-	border-color: rgba(0, 194, 255, 0.55);
-	box-shadow: 0 0 0 3px rgba(0, 194, 255, 0.10);
-}
-[data-theme="volt"] .dashboard-modal-actions button {
-	border-radius: 6px;
-}
-[data-theme="volt"] .dashboard-modal-actions .mod-cta {
-	background: #00c2ff;
-	color: #001018;
-	border: 1px solid #00c2ff;
-	font-weight: 600;
-}
-[data-theme="volt"] .dashboard-modal-actions .mod-cta:hover {
-	background: #4dd6ff;
-	border-color: #4dd6ff;
-	box-shadow: 0 0 12px rgba(0, 194, 255, 0.25);
-}
 [data-theme="volt"] .dashboard-add-section {
 	border-radius: 6px;
 	border-color: rgba(0, 194, 255, 0.20);
@@ -9447,60 +8893,8 @@
 }
 
 /* Banner modal Add-Quote / Add-Image — cyan text on a dark chip */
-[data-theme="volt"] .dashboard-modal-quote-add,
-[data-theme="volt"] .dashboard-modal-image-add {
-	background: rgba(0, 194, 255, 0.06) !important;
-	border: 1px dashed rgba(0, 194, 255, 0.30) !important;
-	color: #00c2ff !important;
-}
-[data-theme="volt"] .dashboard-modal-quote-add:hover,
-[data-theme="volt"] .dashboard-modal-image-add:hover {
-	background: rgba(0, 194, 255, 0.14) !important;
-	border-color: rgba(0, 194, 255, 0.55) !important;
-	color: #4dd6ff !important;
-}
 
 /* -- Magma: warm near-black + lava orange modal (same in light & dark) -- */
-[data-theme="magma"] .dashboard-modal {
-	border-radius: 8px;
-	border: 1px solid rgba(255, 107, 26, 0.18);
-	background: rgba(12, 10, 8, 0.92) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-[data-theme="magma"] .dashboard-modal h2 {
-	color: #ff6b1a;
-	border-bottom-color: rgba(255, 107, 26, 0.15);
-	font-weight: 700;
-	letter-spacing: 0.02em;
-}
-[data-theme="magma"] .dashboard-modal-form label {
-	color: #A8A8A8;
-}
-[data-theme="magma"] .dashboard-modal-input {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: rgba(255, 255, 255, 0.10);
-	color: #FAFAFA;
-	border-radius: 6px;
-}
-[data-theme="magma"] .dashboard-modal-input:focus {
-	border-color: rgba(255, 107, 26, 0.55);
-	box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.10);
-}
-[data-theme="magma"] .dashboard-modal-actions button {
-	border-radius: 6px;
-}
-[data-theme="magma"] .dashboard-modal-actions .mod-cta {
-	background: #ff6b1a;
-	color: #180a00;
-	border: 1px solid #ff6b1a;
-	font-weight: 600;
-}
-[data-theme="magma"] .dashboard-modal-actions .mod-cta:hover {
-	background: #ff9448;
-	border-color: #ff9448;
-	box-shadow: 0 0 12px rgba(255, 107, 26, 0.25);
-}
 [data-theme="magma"] .dashboard-add-section {
 	border-radius: 6px;
 	border-color: rgba(255, 107, 26, 0.20);
@@ -9533,59 +8927,8 @@
 }
 
 /* Banner modal Add-Quote / Add-Image — orange text on a dark chip */
-[data-theme="magma"] .dashboard-modal-quote-add,
-[data-theme="magma"] .dashboard-modal-image-add {
-	background: rgba(255, 107, 26, 0.06) !important;
-	border: 1px dashed rgba(255, 107, 26, 0.30) !important;
-	color: #ff6b1a !important;
-}
-[data-theme="magma"] .dashboard-modal-quote-add:hover,
-[data-theme="magma"] .dashboard-modal-image-add:hover {
-	background: rgba(255, 107, 26, 0.14) !important;
-	border-color: rgba(255, 107, 26, 0.55) !important;
-	color: #ff9448 !important;
-}
 
 /* -- Onyx: pure black + lemon modal (same in light & dark) -- */
-[data-theme="onyx"] .dashboard-modal {
-	border-radius: 8px;
-	border: 1px solid rgba(233, 255, 64, 0.18);
-	background: rgba(8, 8, 8, 0.92) !important;
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-}
-[data-theme="onyx"] .dashboard-modal h2 {
-	color: #e9ff40;
-	border-bottom-color: rgba(233, 255, 64, 0.15);
-	font-weight: 700;
-	letter-spacing: 0.02em;
-}
-[data-theme="onyx"] .dashboard-modal-form label {
-	color: #A8A8A8;
-}
-[data-theme="onyx"] .dashboard-modal-input {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: rgba(255, 255, 255, 0.10);
-	color: #FAFAFA;
-	border-radius: 6px;
-}
-[data-theme="onyx"] .dashboard-modal-input:focus {
-	border-color: rgba(233, 255, 64, 0.55);
-	box-shadow: 0 0 0 3px rgba(233, 255, 64, 0.10);
-}
-[data-theme="onyx"] .dashboard-modal-actions button {
-	border-radius: 6px;
-}
-[data-theme="onyx"] .dashboard-modal-actions .mod-cta {
-	background: #e9ff40;
-	color: #000000;
-	border: 1px solid #e9ff40;
-	font-weight: 600;
-}
-[data-theme="onyx"] .dashboard-modal-actions .mod-cta:hover {
-	background: #f5ff8a;
-	box-shadow: 0 0 12px rgba(233, 255, 64, 0.25);
-}
 [data-theme="onyx"] .dashboard-add-section {
 	border-radius: 6px;
 	border-color: rgba(233, 255, 64, 0.20);
@@ -9618,25 +8961,13 @@
 }
 
 /* Banner modal Add-Quote / Add-Image — lemon text on a dark chip */
-[data-theme="onyx"] .dashboard-modal-quote-add,
-[data-theme="onyx"] .dashboard-modal-image-add {
-	background: rgba(233, 255, 64, 0.06) !important;
-	border: 1px dashed rgba(233, 255, 64, 0.30) !important;
-	color: #e9ff40 !important;
-}
-[data-theme="onyx"] .dashboard-modal-quote-add:hover,
-[data-theme="onyx"] .dashboard-modal-image-add:hover {
-	background: rgba(233, 255, 64, 0.14) !important;
-	border-color: rgba(233, 255, 64, 0.55) !important;
-	color: #f5ff8a !important;
-}
 
 /* ===================================================================
    MONO (墨白) overrides — solid, no glass/gradient/shadow
    =================================================================== */
 /* Mono: banner — solid dark frame + flat scrim, white quote (both modes) */
 [data-theme="mono"] .dashboard-banner {
-	border-radius: 12px;
+	border-radius: var(--db-radius-lg, 12px);
 	border: 1px solid var(--db-border-card);
 }
 [data-theme="mono"] .dashboard-banner-overlay {
@@ -9652,45 +8983,6 @@
 }
 
 /* Mono: modal — flat, line-bordered, no blur */
-[data-theme="mono"] .dashboard-modal {
-	border-radius: 8px;
-	border: 1px solid var(--db-border-card);
-	background: var(--db-bg-card) !important;
-	backdrop-filter: none;
-	-webkit-backdrop-filter: none;
-}
-[data-theme="mono"] .dashboard-modal h2 {
-	color: var(--db-text);
-	border-bottom: 1px solid var(--db-border);
-	font-weight: 700;
-	letter-spacing: 0.01em;
-}
-[data-theme="mono"] .dashboard-modal-form label {
-	color: var(--db-text-muted);
-}
-[data-theme="mono"] .dashboard-modal-input {
-	background: var(--db-bg-input);
-	border: 1px solid var(--db-border-input);
-	color: var(--db-text);
-	border-radius: 6px;
-}
-[data-theme="mono"] .dashboard-modal-input:focus {
-	border-color: var(--db-accent);
-	box-shadow: none;
-}
-[data-theme="mono"] .dashboard-modal-actions button {
-	border-radius: 6px;
-	border: 1px solid var(--db-border-btn);
-}
-[data-theme="mono"] .dashboard-modal-actions .mod-cta {
-	background: var(--db-accent) !important;
-	color: var(--db-text-inverse) !important;
-	border: 1px solid var(--db-accent) !important;
-	font-weight: 600;
-}
-[data-theme="mono"] .dashboard-modal-actions .mod-cta:hover {
-	opacity: 0.85;
-}
 [data-theme="mono"] .dashboard-add-section {
 	border-radius: 6px;
 	border: 1px solid var(--db-border-add-section);
@@ -9719,18 +9011,6 @@
 }
 
 /* Mono: banner modal Add-Quote / Add-Image — flat chip, monochrome */
-[data-theme="mono"] .dashboard-modal-quote-add,
-[data-theme="mono"] .dashboard-modal-image-add {
-	background: var(--db-bg-btn) !important;
-	border: 1px solid var(--db-border-btn) !important;
-	color: var(--db-text) !important;
-}
-[data-theme="mono"] .dashboard-modal-quote-add:hover,
-[data-theme="mono"] .dashboard-modal-image-add:hover {
-	background: var(--db-bg-btn-hover) !important;
-	border-color: var(--db-accent) !important;
-	color: var(--db-text) !important;
-}
 
 /* =================================================================
    MOBILE LAYOUT (phones only, <=640px)
@@ -10313,7 +9593,7 @@
 
 .dashboard-task-reminder-btn--overdue {
 	opacity: 1 !important;
-	color: #ef4444 !important;
+	color: var(--db-danger, #ef4444) !important;
 	animation: reminder-pulse 2s ease-in-out infinite;
 }
 
@@ -10613,7 +9893,7 @@
 	   an unreadable transparent card wherever blur is unavailable/disabled. */
 	background: var(--background-secondary, #1e1e1e);
 	border: 1px solid var(--background-modifier-border, rgba(255, 255, 255, 0.1));
-	border-radius: 12px;
+	border-radius: var(--db-radius-lg, 12px);
 	color: var(--text-normal);
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
@@ -10658,7 +9938,7 @@
 }
 
 .dashboard-confirm-delete {
-	background: #f43f5e;
+	background: var(--db-danger, #f43f5e);
 	border: 1px solid transparent;
 	color: #fff;
 }
@@ -10668,9 +9948,9 @@
 }
 
 .dashboard-confirm-primary {
-	background: var(--db-accent);
+	background: var(--db-accent, var(--interactive-accent));
 	border: 1px solid transparent;
-	color: #fff;
+	color: var(--db-text-inverse, var(--text-on-accent));
 }
 
 .dashboard-confirm-primary:hover {
@@ -10691,7 +9971,7 @@
 	align-items: center;
 	gap: 8px;
 	padding: 20px 12px;
-	border-radius: 12px;
+	border-radius: var(--db-radius-md, 12px);
 	background: var(--db-bg-hover);
 	border: 2px solid transparent;
 	cursor: pointer;
@@ -11069,7 +10349,7 @@
 	max-height: 400px;
 	overflow-y: auto;
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
 .template-modal-list::-webkit-scrollbar {
@@ -11077,7 +10357,7 @@
 }
 
 .template-modal-list::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
@@ -11197,7 +10477,7 @@
 }
 
 .template-modal-manage-delete:hover {
-	color: #ef4444;
+	color: var(--db-danger, #ef4444);
 }
 
 .template-modal-create-btn {
@@ -11251,7 +10531,7 @@
 }
 
 .template-modal-task-remove:hover {
-	color: #ef4444;
+	color: var(--db-danger, #ef4444);
 }
 
 .template-modal-add-task {
@@ -12307,7 +11587,7 @@
 }
 
 .dashboard-library-filter-remove:hover {
-	color: #ef4444;
+	color: var(--db-danger, #ef4444);
 	background: rgba(239, 68, 68, 0.1);
 }
 
@@ -12968,7 +12248,6 @@
 	background: var(--db-bg-card-hover, rgba(0, 0, 0, 0.2));
 	cursor: pointer;
 }
-.dashboard-media-list-thumb img,
 .dashboard-media-list-thumb video { width: 100%; height: 100%; object-fit: cover; }
 .dashboard-media-list-thumb:hover { outline: 2px solid var(--db-accent, var(--interactive-accent)); }
 .dashboard-media-list-info { flex: 1; min-width: 0; }
@@ -12991,7 +12270,7 @@
 }
 .dashboard-media-list .dashboard-media-delete--list:hover {
 	background: rgba(220, 50, 50, 0.12);
-	color: rgb(220, 50, 50);
+	color: var(--db-danger, rgb(220, 50, 50));
 }
 .dashboard-media-list-meta {
 	font-size: 0.6875em;
@@ -13168,7 +12447,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-text-muted, var(--text-muted));
 	padding: 0 2px;
 }
-.dashboard-media-tagedit-chip-x:hover { color: rgb(220, 50, 50); }
+.dashboard-media-tagedit-chip-x:hover { color: var(--db-danger, rgb(220, 50, 50)); }
 .dashboard-media-tagedit-add { margin-top: 6px; }
 .dashboard-media-tagedit-pick {
 	display: flex;
@@ -13764,7 +13043,6 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calendar-event.prio-low { border-left: 2px solid #64748b; }
 .dashboard-calendar-event.is-multi { background: var(--db-bg-hover, rgba(255,255,255,0.1)); }
 .dashboard-calendar-event-text { overflow: hidden; text-overflow: ellipsis; }
-.dashboard-calendar.is-full .dashboard-calendar-event-text a,
 .dashboard-calendar.is-full .dashboard-calendar-event-text .dashboard-wikilink { pointer-events: none; }
 .dashboard-calendar-event.is-multi .dashboard-calendar-multi-mark { margin-left: auto; flex-shrink: 0; display: flex; opacity: 0.7; }
 .dashboard-calendar-event.is-multi .dashboard-calendar-multi-mark svg { width: 9px; height: 9px; }
@@ -14337,7 +13615,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 .dashboard-ticktick-login-error {
 	font-size: 0.78em;
-	color: #ef4444;
+	color: var(--db-danger, #ef4444);
 }
 
 .dashboard-ticktick-manual {
@@ -15093,7 +14371,6 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
    overrides are needed anymore.
 
    Tablet-only reset: Obsidian's own stylesheet ships `.is-tablet
-   button:not(.clickable-icon) { padding: 4px 20px }` — specificity 0,2,1,
    since :not() counts its argument — which beats the chips' plain
    `padding: 3px 0` (0,1,0) and the cog's `padding: 0`, inflating every chip
    into a ~40px-wider pill that starves the row down to a couple of buttons.
@@ -15253,7 +14530,6 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	pointer-events: none; /* let clicks fall through to the corner buttons */
 }
 /* Keep the corner buttons above the stats content. */
-.dashboard-banner--stats .dashboard-banner-edit-btn,
 .dashboard-banner--stats .dashboard-banner-pin-btn { z-index: 2; }
 
 /* ---- Column shell (shared) ---- */
@@ -16013,11 +15289,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	padding: 0 2px;
 	border-radius: 3px;
 }
-.dashboard-dataview-free-list em,
-.dashboard-dataview-list em,
 .dashboard-dataview-cell em { font-style: italic; }
-.dashboard-dataview-free-list strong,
-.dashboard-dataview-list strong,
 .dashboard-dataview-cell strong { font-weight: 600; }
 
 /* TASK (Phase 3 — read-only for now) */
@@ -16267,6 +15539,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	.is-mobile .dashboard-pomodoro-stats-overlay,
 	.is-mobile .dashboard-habit-stats-overlay,
 	.is-mobile .dashboard-confirm-overlay,
+	.is-mobile .fortune-overlay,
 	.is-mobile .file-suggest-container,
 	.is-mobile .suggestion-container {
 		backdrop-filter: none !important;

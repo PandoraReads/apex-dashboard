@@ -1,31 +1,34 @@
 import { Modal, setIcon } from 'obsidian';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 export type WidgetType = 'weather' | 'tracker';
 
 export class WidgetTypeModal extends Modal {
 	private onSelect: (type: WidgetType) => void;
-	private theme: string;
 
 	constructor(
 		app: import('obsidian').App,
 		onSelect: (type: WidgetType) => void,
-		theme?: string,
 	) {
 		super(app);
 		this.onSelect = onSelect;
-		this.theme = theme ?? 'earth';
 	}
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.theme;
-		contentEl.addClass('dashboard-modal');
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		contentEl.createEl('h2', { text: t('widget.selectType') });
+		applyModalTheme(containerEl);
 
-		const row = contentEl.createDiv({ cls: 'widget-type-row' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('widget.selectType') });
+
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		const row = body.createDiv({ cls: 'widget-type-row' });
 
 		const types: { value: WidgetType; icon: string; labelKey: string; descKey: string }[] = [
 			{ value: 'weather', icon: 'cloud-sun', labelKey: 'widget.weatherLabel', descKey: 'widget.weatherDesc' },

@@ -1,9 +1,13 @@
 import { App, Modal, TFolder } from 'obsidian';
 import { t } from './i18n';
 import { extractFrontmatterProperties, getAllTags, renderTagsSelector } from './library-section';
+import { applyModalTheme } from './modal-theme';
+import { ExcludeFoldersEditor } from './exclude-folders-editor';
 
 export interface FolderConfigResult {
 	folders: string[];
+	/** Folders whose files are hidden from the section (path-prefix match). */
+	excludeFolders: string[];
 	tags: string[];
 	groupBy: string | undefined;
 	showProperties: boolean;
@@ -16,6 +20,7 @@ export interface FolderConfigResult {
  */
 export class FolderConfigModal extends Modal {
 	private folders: string[];
+	private readonly initialExcludeFolders: string[];
 	private selectedTags: string[];
 	private groupBy: string;
 	private showProperties: boolean;
@@ -25,6 +30,7 @@ export class FolderConfigModal extends Modal {
 	constructor(
 		app: App,
 		currentFolders: string[],
+		currentExcludeFolders: string[] | undefined,
 		currentTags: string[],
 		currentGroupBy: string | undefined,
 		currentShowProperties: boolean | undefined,
@@ -33,6 +39,7 @@ export class FolderConfigModal extends Modal {
 	) {
 		super(app);
 		this.folders = [...currentFolders];
+		this.initialExcludeFolders = [...(currentExcludeFolders ?? [])];
 		this.selectedTags = [...currentTags];
 		this.groupBy = currentGroupBy ?? '';
 		this.showProperties = currentShowProperties !== false;
@@ -46,6 +53,7 @@ export class FolderConfigModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 
@@ -110,6 +118,13 @@ export class FolderConfigModal extends Modal {
 		addBtn.addEventListener('click', addFolder);
 		pathInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addFolder(); } });
 		renderFolderChips();
+
+		// Excluded folders: files inside them are hidden even when they live
+		// under a scanned source folder above.
+		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });
+		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
+		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.initialExcludeFolders);
 
 		// Tags filter
 		const tagsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -176,6 +191,7 @@ export class FolderConfigModal extends Modal {
 		}).addEventListener('click', () => {
 			this.onSave({
 				folders: this.folders,
+				excludeFolders: excludeEditor.value,
 				tags: this.selectedTags,
 				groupBy: this.groupBy || undefined,
 				showProperties: this.showProperties,
@@ -226,6 +242,7 @@ export class MultiFolderSelectModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 

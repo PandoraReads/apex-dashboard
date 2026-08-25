@@ -1,6 +1,7 @@
 import { App, Modal, setIcon } from 'obsidian';
 import { t } from './i18n';
 import { WECHAT_GROUP_QR_DATA_URL } from './assets/wechat-group-qr';
+import { applyModalTheme } from './modal-theme';
 
 interface GuideFeature {
 	readonly icon: string;
@@ -31,21 +32,25 @@ export class DataviewGuideModal extends Modal {
 	}
 
 	onOpen(): void {
-		const { contentEl } = this;
+		const { contentEl, containerEl } = this;
 		contentEl.empty();
-		contentEl.addClass('dashboard-modal', 'dashboard-dataview-guide-modal');
+		contentEl.addClass('dashboard-library-config-modal');
+		containerEl.addClass('modal--dashboard');
+		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
-		contentEl.createEl('h2', {
-			text: t('dataviewGuide.title'),
-			cls: 'dashboard-dataview-guide-title',
-		});
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact dashboard-dataview-guide-modal' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-dataview-guide-title', text: t('dataviewGuide.title') });
 
-		contentEl.createEl('p', {
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
+		body.createEl('p', {
 			text: t('dataviewGuide.intro'),
 			cls: 'dashboard-dataview-guide-intro',
 		});
 
-		const list = contentEl.createDiv({ cls: 'dashboard-dataview-guide-features' });
+		const list = body.createDiv({ cls: 'dashboard-dataview-guide-features' });
 		for (const feature of GUIDE_FEATURES) {
 			const row = list.createDiv({ cls: 'dashboard-dataview-guide-feature' });
 			const iconWrap = row.createDiv({ cls: 'dashboard-dataview-guide-feature-icon' });
@@ -54,7 +59,7 @@ export class DataviewGuideModal extends Modal {
 		}
 
 		// --- Community group card: centered QR, one title, fallback below ---
-		const groupCard = contentEl.createDiv({ cls: 'dashboard-dataview-guide-group' });
+		const groupCard = body.createDiv({ cls: 'dashboard-dataview-guide-group' });
 		groupCard.createDiv({ cls: 'dashboard-dataview-guide-group-title', text: t('dataviewGuide.groupTitle') });
 
 		const qrWrap = groupCard.createDiv({ cls: 'dashboard-dataview-guide-qr-wrap' });
@@ -69,12 +74,11 @@ export class DataviewGuideModal extends Modal {
 		});
 		qrWrap.createDiv({ cls: 'dashboard-dataview-guide-group-fallback', text: t('dataviewGuide.groupFallback') });
 
-		const actions = contentEl.createDiv({ cls: 'dashboard-dataview-guide-actions' });
-		const gotItBtn = actions.createEl('button', {
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('dataviewGuide.gotIt'),
-			cls: 'dashboard-dataview-guide-gotit',
-		});
-		gotItBtn.addEventListener('click', () => this.close());
+		}).addEventListener('click', () => this.close());
 	}
 
 	onClose(): void {

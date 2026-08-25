@@ -1,4 +1,4 @@
-import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Modal, Notice, setIcon, Setting, WorkspaceLeaf, TFile } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
@@ -30,9 +30,11 @@ import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
 import { DataviewConfigModal } from './dataview-config-modal';
+import { MediaConfigModal } from './media-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
 import { fetchWereadCategories } from './weread-service';
 import { fetchTickTickProjects } from './ticktick-config-modal';
+import { TickTickFilterModal } from './ticktick-filter-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
 import { PomodoroService } from './pomodoro-service';
@@ -349,6 +351,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openWereadConfigModal(columnName);
 			} else if (col?.sectionType === 'dataview') {
 				this.openDataviewConfigModal(columnName);
+			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
+				this.openMediaConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
 			}
@@ -1146,14 +1150,14 @@ export class DashboardView extends ItemView implements HoverParent {
 	private openBannerEditModal(data: DashboardData): void {
 		const modal = new BannerEditModal(this.app, data.banner, (updates) => {
 			void this.sync.updateBanner(updates);
-		}, this.plugin.settings.stylePreset);
+		});
 		modal.open();
 	}
 
 	private openCardEditModal(card: DashboardCard): void {
 		const modal = new CardEditModal(this.app, card, (updates) => {
 			void this.sync.updateCard(card.id, updates);
-		}, this.plugin.settings.stylePreset);
+		});
 		modal.open();
 	}
 
@@ -1161,7 +1165,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Close any previously open popover so its embedded leaf is detached
 		// before we open a fresh one.
 		this.popoverModal?.close();
-		const modal = new NotePopoverModal(this.app, file, this.plugin.settings.stylePreset, subpath, line);
+		const modal = new NotePopoverModal(this.app, file, subpath, line);
 		this.popoverModal = modal;
 		modal.open();
 	}
@@ -1220,7 +1224,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			} else if (type === 'tracker') {
 				this.openTrackerConfigModal(colName);
 			}
-		}, this.plugin.settings.stylePreset);
+		});
 		modal.open();
 	}
 
@@ -1236,7 +1240,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 				void this.sync.addCard(colName, { type: 'generic', title: t('sync.memoTitle', { date }) });
 			}
-		}, this.plugin.settings.stylePreset);
+		});
 		modal.open();
 	}
 
@@ -1247,7 +1251,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				type: 'weather',
 				weatherConfig: config,
 			});
-		}, this.plugin.settings.stylePreset);
+		});
 		modal.open();
 	}
 
@@ -1258,7 +1262,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				type: 'tracker',
 				trackerConfig: config,
 			});
-		}, this.plugin.settings.stylePreset);
+		});
 		modal.open();
 	}
 
@@ -1274,7 +1278,6 @@ export class DashboardView extends ItemView implements HoverParent {
 					tasks: template.tasks.map(text => ({ text, checked: false })),
 				});
 			},
-			this.plugin.settings.stylePreset,
 		);
 		modal.open();
 	}
@@ -1304,6 +1307,18 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existing,
 			(config) => { void this.sync.updateDataviewConfig(colName, config); },
+		);
+		modal.open();
+	}
+
+	/** Images/videos sections: the config currently manages the excluded-folder
+	 *  set, persisted via the column's libraryConfig. */
+	private openMediaConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const modal = new MediaConfigModal(
+			this.app,
+			column?.libraryConfig,
+			(config) => { void this.sync.updateLibraryConfig(colName, config); },
 		);
 		modal.open();
 	}
@@ -1441,30 +1456,12 @@ export class DashboardView extends ItemView implements HoverParent {
 		const config = column?.ticktickConfig ?? { view: 'lists' as const };
 		const region = this.plugin.settings.ticktickRegion === 'ticktick' ? 'ticktick' : 'dida365';
 		const projects = await fetchTickTickProjects(region, this.plugin.settings.ticktickCookie, this.plugin.settings.ticktickDeviceVersion);
-		const hidden = new Set(config.hiddenProjects ?? []);
-		const modal = new Modal(this.app);
-		modal.titleEl.setText(t('ticktick.filterProjects'));
-		for (const p of projects) {
-			new Setting(modal.contentEl)
-				.setName(p.name)
-				.addToggle(toggle => toggle
-					.setValue(!hidden.has(p.id))
-					.onChange(value => {
-						if (value) hidden.delete(p.id);
-						else hidden.add(p.id);
-					}));
-		}
-		new Setting(modal.contentEl).addButton(btn => btn
-			.setButtonText(t('common.save'))
-			.setCta()
-			.onClick(() => {
-				this.suppressNextRender = true;
-				void this.sync.updateTickTickConfig(colName, { ...config, hiddenProjects: hidden.size > 0 ? [...hidden] : undefined }).then(() => {
-					this.refreshSectionInPlace(colName);
-				});
-				modal.close();
-			}));
-		modal.open();
+		new TickTickFilterModal(this.app, projects, config.hiddenProjects, (hiddenProjects) => {
+			this.suppressNextRender = true;
+			void this.sync.updateTickTickConfig(colName, { ...config, hiddenProjects }).then(() => {
+				this.refreshSectionInPlace(colName);
+			});
+		}).open();
 	}
 
 	private openFolderConfigModal(colName: string): void {
@@ -1476,6 +1473,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new FolderConfigModal(
 			this.app,
 			currentFolders,
+			libraryConfig?.excludeFolders,
 			currentTags,
 			currentGroupBy,
 			libraryConfig?.showProperties,
@@ -1494,6 +1492,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				void this.sync.updateLibraryConfig(colName, {
 					...base,
 					folders: result.folders,
+					excludeFolders: result.excludeFolders.length > 0 ? result.excludeFolders : undefined,
 					filters,
 					kanbanGroupBy: result.groupBy,
 					showProperties: result.showProperties ? undefined : false,

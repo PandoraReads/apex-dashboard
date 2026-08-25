@@ -1,5 +1,6 @@
 import { App, MarkdownView, Modal, TFile, WorkspaceLeaf, setIcon } from 'obsidian';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 const MODE_STORAGE_KEY = 'apex-dashboard-note-popover-mode';
 type NoteViewMode = 'source' | 'preview';
@@ -15,17 +16,15 @@ type NoteViewMode = 'source' | 'preview';
  */
 export class NotePopoverModal extends Modal {
 	private readonly file: TFile;
-	private readonly theme: string;
 	private readonly subpath?: string;
 	private readonly line?: number;
 	private leaf: WorkspaceLeaf | null = null;
 	private toggleBtn: HTMLElement | null = null;
 	private mode: NoteViewMode;
 
-	constructor(app: App, file: TFile, theme = 'earth', subpath?: string, line?: number) {
+	constructor(app: App, file: TFile, subpath?: string, line?: number) {
 		super(app);
 		this.file = file;
-		this.theme = theme;
 		this.subpath = subpath;
 		this.line = line;
 		this.mode = (this.app.loadLocalStorage(MODE_STORAGE_KEY) as string | null) === 'preview' ? 'preview' : 'source';
@@ -34,7 +33,7 @@ export class NotePopoverModal extends Modal {
 	async onOpen(): Promise<void> {
 		const { contentEl, modalEl } = this;
 		modalEl.addClass('note-popover-modal-wrap');
-		modalEl.dataset.theme = this.theme;
+		applyModalTheme(modalEl);
 		contentEl.empty();
 		contentEl.addClass('note-popover-modal');
 

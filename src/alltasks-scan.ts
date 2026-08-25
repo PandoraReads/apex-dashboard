@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 
 /** Recognized task priority levels (parsed from `[priority:: ...]`). */
 export type Priority = 'high' | 'medium' | 'low';
@@ -162,22 +163,12 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 	return out;
 }
 
-/** True if a vault path equals or lives under one of the excluded folders. */
-function isExcluded(path: string, normalized: string[]): boolean {
-	if (normalized.length === 0) return false;
-	const lower = path.toLowerCase();
-	return normalized.some(f => lower === f || lower.startsWith(f + '/'));
-}
-
 /**
  * Collect every checkbox task across the vault, skipping excluded folders,
  * using an mtime-keyed cache so unchanged files are not re-parsed each render.
  */
 export async function collectVaultTasks(app: App, excludeFolders: string[] = []): Promise<VaultTask[]> {
-	const normalized = excludeFolders
-		.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
-		.filter(Boolean)
-		.map(f => f.toLowerCase());
+	const normalized = normalizeExcludeFolders(excludeFolders);
 	const files = app.vault.getMarkdownFiles();
 	const stale = new Set(moduleCache.keys());
 	const all: VaultTask[] = [];
@@ -191,7 +182,7 @@ export async function collectVaultTasks(app: App, excludeFolders: string[] = [])
 		if (i > 0 && i % 50 === 0) await new Promise<void>(r => window.setTimeout(r, 0));
 
 		if (file.path.startsWith('.')) { stale.delete(file.path); continue; }
-		if (isExcluded(file.path, normalized)) { stale.delete(file.path); continue; }
+		if (isUnderExcludedFolder(file.path, normalized)) { stale.delete(file.path); continue; }
 		stale.delete(file.path);
 
 		const cached = moduleCache.get(file.path);

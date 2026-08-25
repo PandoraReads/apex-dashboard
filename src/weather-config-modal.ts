@@ -2,10 +2,10 @@ import { App, Modal } from 'obsidian';
 import type { WeatherConfig } from './types';
 import { geocodeCity, type GeocodeResult } from './weather-service';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 export class WeatherConfigModal extends Modal {
 	private onSave: (title: string, config: WeatherConfig) => void;
-	private theme: string;
 
 	private cityName = '';
 	private latitude = 0;
@@ -17,30 +17,34 @@ export class WeatherConfigModal extends Modal {
 	constructor(
 		app: App,
 		onSave: (title: string, config: WeatherConfig) => void,
-		theme?: string,
 	) {
 		super(app);
 		this.onSave = onSave;
-		this.theme = theme ?? 'earth';
 	}
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.theme;
-		contentEl.addClass('dashboard-modal');
-		contentEl.createEl('h2', { text: t('weather.configTitle') });
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
+		containerEl.addClass('modal--dashboard');
+		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
-		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('weather.configTitle') });
+
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
 		// City search
-		const cityField = form.createDiv({ cls: 'chart-config-field' });
-		cityField.createEl('label', { text: t('weather.cityLabel') });
-		const cityInput = cityField.createEl('input', {
+		const citySection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		citySection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('weather.cityLabel') });
+		const cityInput = citySection.createEl('input', {
 			cls: 'dashboard-modal-input',
 			attr: { type: 'text', placeholder: t('weather.cityPlaceholder') },
 		});
 
-		const resultsList = cityField.createDiv({ cls: 'weather-city-results' });
+		const resultsList = citySection.createDiv({ cls: 'weather-city-results' });
 
 		const renderResults = () => {
 			resultsList.empty();
@@ -77,40 +81,47 @@ export class WeatherConfigModal extends Modal {
 			}, 400);
 		});
 
-		// Manual coordinates toggle
-		const manualField = form.createDiv({ cls: 'chart-config-field' });
-		const manualCheck = manualField.createEl('input', {
+		// Manual coordinates
+		const coordsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		const manualRow = coordsSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const manualCheck = manualRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
 			attr: { type: 'checkbox', id: 'weather-manual' },
 		});
-		manualField.createEl('label', {
-			text: t('weather.manualCoords'),
-			attr: { for: 'weather-manual' },
-		});
+		manualRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('weather.manualCoords') });
 
-		const coordsWrap = form.createDiv({ cls: 'weather-coords-wrap', attr: { style: 'display:none' } });
-
-		const latField = coordsWrap.createDiv({ cls: 'chart-config-field chart-config-row' });
-		latField.createEl('label', { text: t('weather.latLabel') });
-		const latInput = latField.createEl('input', {
+		const latRow = coordsSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		latRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('weather.latLabel') });
+		const latInput = latRow.createEl('input', {
 			cls: 'dashboard-modal-input',
 			attr: { type: 'number', step: '0.0001', placeholder: '39.9042' },
 		});
 
-		const lonField = coordsWrap.createDiv({ cls: 'chart-config-field chart-config-row' });
-		lonField.createEl('label', { text: t('weather.lonLabel') });
-		const lonInput = lonField.createEl('input', {
+		const lonRow = coordsSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		lonRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('weather.lonLabel') });
+		const lonInput = lonRow.createEl('input', {
 			cls: 'dashboard-modal-input',
 			attr: { type: 'number', step: '0.0001', placeholder: '116.4074' },
 		});
 
+		latRow.setCssProps({ display: 'none' });
+		lonRow.setCssProps({ display: 'none' });
 		manualCheck.addEventListener('change', () => {
 			this.useManual = manualCheck.checked;
-			coordsWrap.style.display = this.useManual ? 'block' : 'none';
+			latRow.setCssProps({ display: this.useManual ? 'flex' : 'none' });
+			lonRow.setCssProps({ display: this.useManual ? 'flex' : 'none' });
 		});
 
 		// Actions
-		const actions = form.createDiv({ cls: 'dashboard-modal-actions' });
-		const saveBtn = actions.createEl('button', { text: t('common.save'), cls: 'mod-cta' });
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: t('common.cancel'),
+		}).addEventListener('click', () => this.close());
+		const saveBtn = footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('common.save'),
+		});
 		saveBtn.addEventListener('click', () => {
 			let lat: number, lon: number, city: string;
 
@@ -131,9 +142,6 @@ export class WeatherConfigModal extends Modal {
 			this.onSave(city, { latitude: lat, longitude: lon, cityName: city });
 			this.close();
 		});
-
-		const cancelBtn = actions.createEl('button', { text: t('common.cancel') });
-		cancelBtn.addEventListener('click', () => this.close());
 
 		cityInput.focus();
 	}

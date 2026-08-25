@@ -4,6 +4,7 @@ import { PRESET_ACTIONS } from './types';
 import { t } from './i18n';
 import type { AppWithCommands } from './obsidian-internal';
 import { iconForExtension } from './file-types';
+import { applyModalTheme } from './modal-theme';
 
 function actionKey(action: QuickAction, isPreset: boolean): string {
 	return isPreset ? `p:${action.target}` : `c:${action.target}`;
@@ -246,25 +247,32 @@ export class AddActionModal extends Modal {
 	}
 
 	onOpen(): void {
-		const { contentEl } = this;
-		contentEl.addClass('dashboard-modal');
+		const { contentEl, containerEl } = this;
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
+		containerEl.addClass('modal--dashboard');
+		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 		this.render();
 	}
 
 	private render(): void {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: t('quickActions.addAction') });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('quickActions.addAction') });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
 		if (this.pendingAction) {
-			this.renderConfirmView(contentEl);
+			this.renderConfirmView(body, container);
 		} else {
-			this.renderSearchView(contentEl);
+			this.renderSearchView(body, container);
 		}
 	}
 
-	private renderSearchView(contentEl: HTMLElement): void {
-		const tabBar = contentEl.createDiv({ cls: 'dashboard-action-tabs' });
+	private renderSearchView(body: HTMLElement, container: HTMLElement): void {
+		const tabBar = body.createDiv({ cls: 'dashboard-action-tabs' });
 		const fileTab = tabBar.createEl('button', {
 			cls: 'dashboard-action-tab' + (this.activeTab === 'file' ? ' active' : ''),
 			text: t('quickActions.fileTab'),
@@ -282,7 +290,7 @@ export class AddActionModal extends Modal {
 		fileTab.addEventListener('click', () => switchTab('file'));
 		cmdTab.addEventListener('click', () => switchTab('command'));
 
-		const searchWrap = contentEl.createDiv({ cls: 'dashboard-docsearch' });
+		const searchWrap = body.createDiv({ cls: 'dashboard-docsearch' });
 		const input = searchWrap.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-docsearch-input',
 			attr: { type: 'text', placeholder: t('quickActions.searchPlaceholder'), autofocus: 'true', value: this.lastQuery },
@@ -306,20 +314,20 @@ export class AddActionModal extends Modal {
 		renderResults(input.value);
 		input.focus();
 
-		const cancelBtn = contentEl.createEl('button', {
-			cls: 'dashboard-docsearch-cancel',
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
 			text: t('common.cancel'),
-		});
-		cancelBtn.addEventListener('click', () => this.close());
+		}).addEventListener('click', () => this.close());
 	}
 
-	private renderConfirmView(contentEl: HTMLElement): void {
+	private renderConfirmView(body: HTMLElement, container: HTMLElement): void {
 		const action = this.pendingAction!;
 		const defaultName = action.name;
 		const defaultIcon = action.icon;
 
 		// Preview of the selected file/command
-		const preview = contentEl.createDiv({ cls: 'dashboard-qa-confirm-preview' });
+		const preview = body.createDiv({ cls: 'dashboard-qa-confirm-preview' });
 		const previewIcon = preview.createDiv({ cls: 'dashboard-docsearch-icon dashboard-qa-confirm-preview-icon' });
 		setIcon(previewIcon, defaultIcon);
 		const previewInfo = preview.createDiv({ cls: 'dashboard-docsearch-info' });
@@ -327,7 +335,7 @@ export class AddActionModal extends Modal {
 		previewInfo.createDiv({ cls: 'dashboard-docsearch-path', text: action.target });
 
 		// Name field
-		const nameField = contentEl.createDiv({ cls: 'dashboard-qa-confirm-field' });
+		const nameField = body.createDiv({ cls: 'dashboard-qa-confirm-field' });
 		nameField.createEl('label', { text: t('quickActions.displayName'), cls: 'dashboard-qa-confirm-label' });
 		const nameInput = nameField.createEl('input', {
 			cls: 'dashboard-modal-input',
@@ -335,7 +343,7 @@ export class AddActionModal extends Modal {
 		});
 
 		// Icon picker: clickable grid of common icons
-		const iconField = contentEl.createDiv({ cls: 'dashboard-qa-confirm-field' });
+		const iconField = body.createDiv({ cls: 'dashboard-qa-confirm-field' });
 		iconField.createEl('label', { text: t('quickActions.icon'), cls: 'dashboard-qa-confirm-label' });
 		let selectedIcon = defaultIcon;
 		const grid = iconField.createDiv({ cls: 'dashboard-qa-icon-grid' });
@@ -371,8 +379,9 @@ export class AddActionModal extends Modal {
 			if (e.key === 'Enter') { e.preventDefault(); finish(); }
 		});
 
-		const actions = contentEl.createDiv({ cls: 'dashboard-modal-actions' });
-		const backBtn = actions.createEl('button', {
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		const backBtn = footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
 			text: this.isEditMode ? t('common.cancel') : t('quickActions.back'),
 		});
 		backBtn.addEventListener('click', () => {
@@ -383,8 +392,8 @@ export class AddActionModal extends Modal {
 				this.render();
 			}
 		});
-		const confirmBtn = actions.createEl('button', {
-			cls: 'mod-cta',
+		const confirmBtn = footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: this.isEditMode ? t('quickActions.saveAction') : t('quickActions.confirmAdd'),
 		});
 		confirmBtn.addEventListener('click', finish);
@@ -479,11 +488,19 @@ export class DocSearchModal extends Modal {
 	}
 
 	onOpen(): void {
-		const { contentEl } = this;
-		contentEl.addClass('dashboard-modal');
-		contentEl.createEl('h2', { text: t('quickActions.fileTab') });
+		const { contentEl, containerEl } = this;
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
+		containerEl.addClass('modal--dashboard');
+		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
-		const searchWrap = contentEl.createDiv({ cls: 'dashboard-docsearch' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('quickActions.fileTab') });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
+		const searchWrap = body.createDiv({ cls: 'dashboard-docsearch' });
 		const input = searchWrap.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-docsearch-input',
 			attr: { type: 'text', placeholder: t('quickActions.searchPlaceholder'), autofocus: 'true' },
@@ -518,8 +535,9 @@ export class DocSearchModal extends Modal {
 		input.addEventListener('input', () => renderResults(input.value));
 		input.focus();
 
-		contentEl.createEl('button', {
-			cls: 'dashboard-docsearch-cancel',
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
 			text: t('common.cancel'),
 		}).addEventListener('click', () => this.close());
 	}

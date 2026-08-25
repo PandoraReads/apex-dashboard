@@ -1,6 +1,7 @@
 import { App, Modal, setIcon } from 'obsidian';
 import type { WereadConfig, WereadWidget } from './types';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 const VIEW_OPTIONS: Array<{ value: WereadWidget['view']; labelKey: string }> = [
 	{ value: 'shelf', labelKey: 'weread.viewShelf' },
@@ -37,6 +38,7 @@ export class WereadConfigModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 

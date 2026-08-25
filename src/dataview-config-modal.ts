@@ -2,6 +2,8 @@ import { App, Modal } from 'obsidian';
 import type { DataviewConfig } from './types';
 import { t } from './i18n';
 import { checkSyntax } from './dql';
+import { applyModalTheme } from './modal-theme';
+import { ExcludeFoldersEditor } from './exclude-folders-editor';
 
 /** One-click query templates shown as chips in the config modal. Each is a
  *  concrete, useful DQL query exercising different features. */
@@ -64,6 +66,7 @@ export class DataviewConfigModal extends Modal {
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(containerEl);
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 
@@ -119,6 +122,13 @@ export class DataviewConfigModal extends Modal {
 			const value = titleInput.value.trim();
 			this.config = { ...this.config, title: value.length > 0 ? value : undefined };
 		});
+
+		// Excluded folders: pages inside them are dropped before the query runs,
+		// so FROM / WHERE / GROUP BY never see them.
+		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });
+		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
+		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.config.excludeFolders ?? []);
 
 		// Display settings: density / zebra stripes / row numbers.
 		const displaySection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -187,7 +197,8 @@ export class DataviewConfigModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		}).addEventListener('click', () => {
-			this.onSave(this.config);
+			const folders = excludeEditor.value;
+			this.onSave({ ...this.config, excludeFolders: folders.length > 0 ? folders : undefined });
 			this.close();
 		});
 

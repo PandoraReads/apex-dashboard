@@ -1,11 +1,11 @@
 import { App, Modal, setIcon } from 'obsidian';
 import type { DashboardCard } from './types';
 import { t } from './i18n';
+import { applyModalTheme } from './modal-theme';
 
 export class CardEditModal extends Modal {
 	private card: DashboardCard;
 	private onSave: (updates: { title: string; body: string; coverImage: string }) => void;
-	private theme: string;
 	private linkedPaths: string[];
 	private coverImageValue: string;
 	private pendingPaths: Set<string> = new Set();
@@ -14,12 +14,10 @@ export class CardEditModal extends Modal {
 		app: App,
 		card: DashboardCard,
 		onSave: (updates: { title: string; body: string; coverImage: string }) => void,
-		theme?: string,
 	) {
 		super(app);
 		this.card = card;
 		this.onSave = onSave;
-		this.theme = theme ?? 'earth';
 
 		this.linkedPaths = card.body.split('\n')
 			.map(line => line.trim())
@@ -31,13 +29,18 @@ export class CardEditModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
-		containerEl.dataset.theme = this.theme;
-		contentEl.addClass('dashboard-modal');
+		contentEl.empty();
+		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		contentEl.createEl('h2', { text: t('cardEdit.title') });
+		applyModalTheme(containerEl);
 
-		const form = contentEl.createDiv({ cls: 'dashboard-modal-form' });
+		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		const header = container.createDiv({ cls: 'dashboard-modal-header' });
+		header.createDiv({ cls: 'dashboard-modal-title', text: t('cardEdit.title') });
+
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 
 		const titleField = form.createDiv();
 		titleField.createEl('label', { text: t('cardEdit.titleLabel') });
@@ -151,7 +154,7 @@ export class CardEditModal extends Modal {
 
 		// Batch add button
 		const addBtn = form.createEl('button', {
-			cls: 'dashboard-modal-batch-add mod-cta',
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm dashboard-modal-batch-add',
 			text: t('cardEdit.addSelected'),
 		});
 		addBtn.setCssProps({ display: 'none' });
@@ -176,9 +179,15 @@ export class CardEditModal extends Modal {
 			updateAddBtn();
 		});
 
-		const actions = form.createDiv({ cls: 'dashboard-modal-actions' });
-
-		const saveBtn = actions.createEl('button', { text: t('common.save'), cls: 'mod-cta' });
+		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: t('common.cancel'),
+		}).addEventListener('click', () => this.close());
+		const saveBtn = footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('common.save'),
+		});
 		saveBtn.addEventListener('click', () => {
 			const body = this.linkedPaths.map(p => `[[${p}]]`).join('\n');
 			this.onSave({
@@ -188,9 +197,6 @@ export class CardEditModal extends Modal {
 			});
 			this.close();
 		});
-
-		const cancelBtn = actions.createEl('button', { text: t('common.cancel') });
-		cancelBtn.addEventListener('click', () => this.close());
 
 		titleInput.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter') {
