@@ -2848,7 +2848,15 @@
 }
 
 .dashboard-pomodoro-stats-section {
-	margin-bottom: 14px;
+	/* Spacing between cards comes from the column flex gap alone (see
+	 * .dashboard-pomodoro-mid-col / -right-col) — no extra bottom margin. */
+	margin-bottom: 0;
+}
+
+/* Sections whose content is data-dependent (e.g. the time-distribution
+ * donut hides when there is nothing to distribute). */
+.dashboard-pomodoro-stats-section--hidden {
+	display: none;
 }
 
 .dashboard-pomodoro-stats-section-title {
@@ -3128,7 +3136,7 @@
 .dashboard-pomodoro-mid-col {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 6px;
 	min-width: 0;
 }
 
@@ -3153,7 +3161,7 @@
 }
 
 .dashboard-pomodoro-trend-container {
-	min-height: 140px;
+	min-height: 176px;
 }
 
 .dashboard-pomodoro-trend-svg {
@@ -3176,7 +3184,7 @@
 .dashboard-pomodoro-right-col {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 6px;
 	min-width: 0;
 }
 
@@ -3777,6 +3785,28 @@
 	opacity: 0.92;
 }
 
+/* Focus garden — pseudo-3D plot leading the mid column */
+.dashboard-pomodoro-garden {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dashboard-pomodoro-garden-svg {
+	width: 100%;
+	height: auto;
+	display: block;
+	border-radius: 10px;
+}
+
+.dashboard-pomodoro-garden-stats {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	padding: 0 6px;
+}
+
 .dashboard-pomodoro-kpi-group--hist .dashboard-pomodoro-stats-card-value {
 	font-size: 0.85em;
 }
@@ -3792,38 +3822,18 @@
 	gap: 6px;
 }
 
-.dashboard-pomodoro-kpi-hero-value-row {
-	display: flex;
-	align-items: baseline;
-	gap: 4px;
-	justify-content: center;
+.dashboard-pomodoro-kpi-hero--gauge {
+	align-items: center;
 }
 
-.dashboard-pomodoro-kpi-hero-value {
-	font-size: 1.7em;
+.dashboard-pomodoro-kpi-hero-gauge {
+	display: block;
+}
+
+.dashboard-pomodoro-kpi-hero-gauge-value {
+	fill: var(--db-text);
+	font-size: 1.15em;
 	font-weight: 800;
-	color: var(--db-accent);
-	line-height: 1;
-}
-
-.dashboard-pomodoro-kpi-hero-goal {
-	font-size: 0.85em;
-	font-weight: 600;
-	color: var(--db-text-muted);
-}
-
-.dashboard-pomodoro-kpi-hero-bar {
-	height: 6px;
-	border-radius: 3px;
-	background: var(--db-bg);
-	overflow: hidden;
-}
-
-.dashboard-pomodoro-kpi-hero-bar-fill {
-	height: 100%;
-	border-radius: 3px;
-	background: var(--db-accent);
-	transition: width 0.3s;
 }
 
 .dashboard-pomodoro-kpi-hero-label {

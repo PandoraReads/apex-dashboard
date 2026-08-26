@@ -5,6 +5,7 @@ import {
 	activityColor,
 } from './pomodoro-service';
 import { openPomodoroTagManager } from './pomodoro-tag-manager';
+import { renderPomodoroGarden } from './pomodoro-garden';
 
 export type PomodoroRangeKey = 'day' | 'week' | 'month' | 'year' | 'all';
 
@@ -190,10 +191,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		todayGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-group-title', text: t('pomodoro.kpiTodayGroup') });
 
 		const goal = service.getTodayGoal();
-		const hero = todayGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-hero' });
-		const heroValue = hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value-row' });
-		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-value', text: `${goal.completed}` });
-		heroValue.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-goal', text: `/ ${goal.goal}` });
+		const hero = todayGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-hero dashboard-pomodoro-kpi-hero--gauge' });
 		// Goal editor entry: a small pencil pinned to the card's top-right
 		// corner (it used to sit inline after "/ N", oversized and pushing
 		// the centered numbers off balance).
@@ -206,10 +204,51 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		goalEditBtn.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showGoalEditor(); }
 		});
-		const heroPct = goal.goal > 0 ? Math.round((goal.completed / goal.goal) * 100) : 0;
-		const heroBar = hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-bar' });
-		heroBar.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-bar-fill' }).style.width = `${Math.min(100, heroPct)}%`;
-		hero.createDiv({ cls: 'dashboard-pomodoro-kpi-hero-label', text: t('pomodoro.todayPomodoros') + ' · ' + heroPct + '%' });
+
+		// Goal gauge (the 270-degree arc design that used to lead the mid
+		// column, relocated here when the focus garden took that slot).
+		const heroPct = goal.goal > 0 ? Math.min(1, goal.completed / goal.goal) : 0;
+		const gSize = 132;
+		const gStroke = 15;
+		const gCx = gSize / 2;
+		const gCy = gSize / 2 + 4;
+		const gR = (gSize - gStroke * 2) / 2 - 6;
+		const gStart = 135;
+		const gSweep = 270;
+		const heroSvg = hero.createSvg('svg', {
+			cls: 'dashboard-pomodoro-kpi-hero-gauge',
+			attr: { viewBox: `0 0 ${gSize} ${gSize}`, width: String(gSize), height: String(gSize) },
+		});
+		heroSvg.createSvg('path', {
+			cls: 'dashboard-pomodoro-donut-bg',
+			attr: {
+				d: describeArc(gCx, gCy, gR, gStart, gStart + gSweep),
+				fill: 'none', 'stroke-width': gStroke, 'stroke-linecap': 'round',
+			},
+		});
+		if (goal.completed > 0) {
+			const valArc = heroSvg.createSvg('path', {
+				attr: {
+					d: describeArc(gCx, gCy, gR, gStart, gStart + gSweep * heroPct),
+					fill: 'none', 'stroke-width': gStroke, 'stroke-linecap': 'round',
+				},
+			});
+			valArc.style.stroke = heroPct >= 1 ? '#2ecc71' : 'var(--db-accent)';
+		}
+		const heroCenter = heroSvg.createSvg('text', {
+			attr: { x: gCx, y: gCy - 3, 'text-anchor': 'middle', 'dominant-baseline': 'middle' },
+			cls: 'dashboard-pomodoro-kpi-hero-gauge-value',
+		});
+		heroCenter.textContent = `${goal.completed}/${goal.goal}`;
+		const heroCenterLabel = heroSvg.createSvg('text', {
+			attr: { x: gCx, y: gCy + 17, 'text-anchor': 'middle', 'dominant-baseline': 'middle' },
+			cls: 'dashboard-pomodoro-donut-center-label',
+		});
+		heroCenterLabel.textContent = t('pomodoro.todayPomodoros');
+		hero.createDiv({
+			cls: 'dashboard-pomodoro-kpi-hero-label',
+			text: t('pomodoro.todayPomodoros') + ' · ' + Math.round(heroPct * 100) + '%',
+		});
 
 		const todayRow = todayGroup.createDiv({ cls: 'dashboard-pomodoro-stats-summary' });
 		kpiCard(todayRow, formatMinutes(service.getTodayFocusMinutes()), t('pomodoro.todayFocus'));
@@ -232,7 +271,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		streakRow.createDiv({ cls: 'dashboard-pomodoro-kpi-streak-label', text: t('pomodoro.streakDays') });
 		streakRow.createDiv({ cls: 'dashboard-pomodoro-kpi-streak-hint', text: streakText(streak) });
 
-		// --- Group 2: history (compact) ---
+		// --- Group 2: focus forest (history) ---
 		const histGroup = kpiCol.createDiv({ cls: 'dashboard-pomodoro-kpi-group dashboard-pomodoro-kpi-group--hist' });
 		histGroup.createDiv({ cls: 'dashboard-pomodoro-kpi-group-title', text: t('pomodoro.kpiHistoryGroup') });
 
@@ -309,9 +348,21 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	}
 
 	// ===== Mid column =====
+	// The focus garden leads the mid column (it replaced the old goal-gauge
+	// card; today's goal now lives as a gauge in the left column's hero).
+	const gardenSection = midCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
+	const gardenHead = gardenSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
+	gardenHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.gardenTitle') });
+	gardenHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.gardenHint') });
+	const gardenContainer = gardenSection.createDiv({ cls: 'dashboard-pomodoro-garden' });
+
 	const donutSection = midCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	const donutTitle = donutSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: '' });
 	const donutContainer = donutSection.createDiv({ cls: 'dashboard-pomodoro-donut-container dashboard-pomodoro-donut-container--wide' });
+
+	function renderGarden(): void {
+		renderPomodoroGarden(gardenContainer, service);
+	}
 
 	function renderDonut(): void {
 		donutContainer.empty();
@@ -319,14 +370,14 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		const sorted = [...breakdown.entries()].sort((a, b) => b[1] - a[1]);
 		const totalRangeMin = sorted.reduce((sum, [, m]) => sum + m, 0);
 
-		// Single (or no) activity: switch to a daily-goal completion gauge —
-		// a 100%-filled donut carries no information, the gauge is actionable.
+		// Zero or a single activity carries no distribution — the goal gauge
+		// moved to the left column's hero, so this card simply hides.
 		if (sorted.length <= 1) {
-			donutTitle.textContent = t('pomodoro.goalGaugeTitle');
-			renderGoalGauge();
+			donutTitle.textContent = t('pomodoro.timeDistribution');
+			donutSection.addClass('dashboard-pomodoro-stats-section--hidden');
 			return;
 		}
-
+		donutSection.removeClass('dashboard-pomodoro-stats-section--hidden');
 		donutTitle.textContent = t('pomodoro.timeDistribution');
 		if (totalRangeMin === 0) {
 			donutContainer.createDiv({ cls: 'dashboard-pomodoro-donut-empty', text: t('pomodoro.noRecords') });
@@ -402,65 +453,6 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 	}
 
-	/** Goal-completion gauge: today's pomodoros vs daily goal. */
-	function renderGoalGauge(): void {
-		const { completed, goal } = service.getTodayGoal();
-		const pct = Math.min(1, completed / goal);
-
-		const size = 200;
-		const strokeWidth = 26;
-		const cx = size / 2;
-		const cy = size / 2;
-		const gaugeR = (size - strokeWidth * 2) / 2 - 8;
-
-		// 270° gauge from 135° to 405°
-		const startAngle = 135;
-		const sweep = 270;
-
-		const wrap = donutContainer.createDiv({ cls: 'dashboard-pomodoro-donut-wrap' });
-		const svg = wrap.createSvg('svg', {
-			cls: 'dashboard-pomodoro-donut-svg',
-			attr: { viewBox: `0 0 ${size} ${size}`, width: String(size), height: String(size) },
-		});
-
-		// Background arc (open circle path)
-		const bgPath = describeArc(cx, cy, gaugeR, startAngle, startAngle + sweep);
-		svg.createSvg('path', {
-			cls: 'dashboard-pomodoro-donut-bg',
-			attr: { d: bgPath, fill: 'none', 'stroke-width': strokeWidth, 'stroke-linecap': 'round' },
-		});
-
-		if (completed > 0) {
-			const endAngle = startAngle + sweep * pct;
-			const valPath = describeArc(cx, cy, gaugeR, startAngle, endAngle);
-			const valArc = svg.createSvg('path', {
-				attr: { d: valPath, fill: 'none', 'stroke-width': strokeWidth, 'stroke-linecap': 'round' },
-			});
-			valArc.style.stroke = pct >= 1 ? '#2ecc71' : 'var(--db-accent)';
-		}
-
-		const valueText = svg.createSvg('text', {
-			attr: { x: cx, y: cy - 4, 'text-anchor': 'middle', 'dominant-baseline': 'middle' },
-			cls: 'dashboard-pomodoro-gauge-value',
-		});
-		valueText.textContent = `${completed}/${goal}`;
-		const label = svg.createSvg('text', {
-			attr: { x: cx, y: cy + 18, 'text-anchor': 'middle', 'dominant-baseline': 'middle' },
-			cls: 'dashboard-pomodoro-donut-center-label',
-		});
-		label.textContent = t('pomodoro.todayPomodoros');
-
-		const hint = donutContainer.createDiv({ cls: 'dashboard-pomodoro-gauge-hint' });
-		if (completed >= goal) {
-			hint.textContent = t('pomodoro.goalHit');
-			hint.addClass('dashboard-pomodoro-gauge-hint--good');
-		} else if (completed === 0) {
-			hint.textContent = t('pomodoro.goalEmptyHint');
-		} else {
-			hint.textContent = t('pomodoro.goalRemaining', { count: goal - completed });
-		}
-	}
-
 	/** SVG path for an arc between two angles (degrees, 0 = 3 o'clock). */
 	function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
 		const polar = (angle: number): [number, number] => {
@@ -520,7 +512,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 
 		const width = 520;
-		const height = 130;
+		const height = 168;
 		const goal = service.getTodayGoal();
 		const workMin = service.getWorkMinutes();
 		// Daily goal baseline in minutes (only meaningful on day-granularity bars)
@@ -625,7 +617,23 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 	}
 
-	// ===== Right column =====
+	// ===== Right column (visual order: timeline, heatmap, ranking) =====
+	const timelineSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
+	const timelineHead = timelineSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
+	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.todayTimeline') });
+	// What this section means, right in the header — "why is it empty" is the
+	// most common question when the day has no completed pomodoros yet.
+	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.todayTimelineHint') });
+	const timelineContainer = timelineSection.createDiv({ cls: 'dashboard-pomodoro-timeline-container' });
+
+	const heatSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
+	const heatHead = heatSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
+	heatHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.heatmap') });
+	heatHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.heatmapHint') });
+	const heatWrap = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-wrap' });
+	const heatContainer = heatWrap.createDiv({ cls: 'dashboard-pomodoro-heatmap-container' });
+	const heatLegend = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-legend' });
+
 	const rankSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	rankSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.activityRanking') });
 	const rankContainer = rankSection.createDiv({ cls: 'dashboard-pomodoro-rank-container' });
@@ -693,15 +701,8 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		});
 	}
 
-	// --- Heatmap (12 weeks, 4-step gradient) ---
-	const heatSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-	const heatHead = heatSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
-	heatHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.heatmap') });
-	heatHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.heatmapHint') });
-	const heatWrap = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-wrap' });
-	const heatContainer = heatWrap.createDiv({ cls: 'dashboard-pomodoro-heatmap-container' });
-	const heatLegend = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-legend' });
-
+	// --- Heatmap (12 weeks, 4-step gradient) — section DOM created with the
+	// right column above (visual slot 2); only the renderer lives here. ---
 	function renderHeatmap(): void {
 		heatContainer.empty();
 		heatLegend.empty();
@@ -745,15 +746,8 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		heatLegend.createSpan({ cls: 'dashboard-pomodoro-heatmap-legend-label', text: t('pomodoro.more') });
 	}
 
-	// --- Today timeline (work → break rhythm) ---
-	const timelineSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-	const timelineHead = timelineSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
-	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.todayTimeline') });
-	// What this section means, right in the header — "why is it empty" is the
-	// most common question when the day has no completed pomodoros yet.
-	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.todayTimelineHint') });
-	const timelineContainer = timelineSection.createDiv({ cls: 'dashboard-pomodoro-timeline-container' });
-
+	// --- Today timeline (work → break rhythm) — section DOM created with the
+	// right column above (visual slot 1); only the renderer lives here. ---
 	function renderTimeline(): void {
 		timelineContainer.empty();
 		const records = service.getTodayTimeline();
@@ -842,6 +836,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	function renderAll(): void {
 		insightEl.textContent = service.getInsight();
 		renderKpis();
+		renderGarden();
 		renderDonut();
 		renderTrend();
 		renderHourDistribution();
