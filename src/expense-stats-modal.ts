@@ -7,6 +7,8 @@ import {
 	getExpenseService,
 	type ExpenseService,
 } from './expense-service';
+import { categoryLabel } from './expense-category-ui';
+import { showExpenseLedger } from './expense-ledger-modal';
 import {
 	categoryColor,
 	EXPENSE_BAR_COLOR,
@@ -34,8 +36,9 @@ const TYPES: Array<{ key: ExpenseType; labelKey: string }> = [
 	{ key: 'income', labelKey: 'expense.typeIncome' },
 ];
 
-/** Hard cap on rendered record rows (year/history ranges can hold thousands). */
-const RECORDS_LIMIT = 50;
+/** Hard cap on rendered record rows (year/history ranges can hold thousands);
+ *  the "view all" entry opens the full ledger for everything beyond it. */
+const RECORDS_LIMIT = 20;
 
 function fmtDate(d: Date): string {
 	const y = d.getFullYear();
@@ -115,7 +118,12 @@ export function showExpenseStats(doc: Document): void {
 		overlay.remove();
 	}
 	function onKey(e: KeyboardEvent): void {
-		if (e.key === 'Escape') close();
+		// Escape belongs to whatever sits above us first (ledger overlay,
+		// confirm/prompt cards, native modals) — never close two layers at once.
+		if (e.key === 'Escape'
+			&& !doc.querySelector('.dashboard-expense-ledger-overlay, .dashboard-confirm-overlay, .modal-container')) {
+			close();
+		}
 	}
 	doc.addEventListener('keydown', onKey);
 
@@ -284,7 +292,6 @@ export function showExpenseStats(doc: Document): void {
 		const prevTotals = service.getRangeTotals(win.prevStart, win.prevEnd);
 		const deltaOf = (cur: number, prev: number): number | undefined =>
 			prev > 0 ? ((cur - prev) / prev) * 100 : undefined;
-		const count = service.getRecordsInRange(win.curStart, win.curEnd).length;
 		const net = Math.round((totals.income - totals.expense) * 100) / 100;
 		const dailyAvg = totals.expense / Math.max(1, win.elapsedDays);
 
@@ -294,8 +301,6 @@ export function showExpenseStats(doc: Document): void {
 		const row2 = kpiCol.createDiv({ cls: 'dashboard-expense-stats-summary' });
 		kpiCard(row2, `${net < 0 ? '-' : ''}${fmt(Math.abs(net))}`, t('expense.kpiNet'));
 		kpiCard(row2, fmt(dailyAvg), t('expense.kpiDailyAvg'));
-		const row3 = kpiCol.createDiv({ cls: 'dashboard-expense-stats-summary' });
-		kpiCard(row3, String(count), t('expense.kpiCount'));
 	}
 
 	function breakdownSlices(win: RangeWindow): ExpenseSlice[] {
@@ -303,7 +308,7 @@ export function showExpenseStats(doc: Document): void {
 			.sort((a, b) => b[1] - a[1])
 			.map(([key, value]) => ({
 				key,
-				label: t(`expense.cat.${key}`),
+				label: categoryLabel(key),
 				value,
 				color: categoryColor(activeType, key),
 			}));
@@ -398,12 +403,20 @@ export function showExpenseStats(doc: Document): void {
 		const recordsSection = parent.createDiv({ cls: 'dashboard-expense-stats-section' });
 		const recordsHead = recordsSection.createDiv({ cls: 'dashboard-expense-stats-section-title-row' });
 		recordsHead.createDiv({ cls: 'dashboard-expense-stats-section-title', text: t('expense.records') });
+		// Newest first: getRecordsInRange sorts ascending, reverse flips it.
 		const records = service.getRecordsInRange(win.curStart, win.curEnd).reverse();
-		const recordsHint = recordsHead.createDiv({ cls: 'dashboard-expense-stats-section-hint' });
-		if (records.length > 0) {
-			recordsHint.setText(t('expense.recordsCount', { n: records.length })
-				+ (records.length > RECORDS_LIMIT ? t('expense.recordsTruncated') : ''));
-		}
+		// Full ledger entry: every record, filterable/sortable/editable.
+		const viewAll = recordsHead.createDiv({
+			cls: 'dashboard-expense-records-viewall',
+			attr: { role: 'button', tabindex: '0', 'aria-label': t('expense.viewAll') },
+		});
+		viewAll.createSpan({ text: t('expense.viewAll') });
+		const viewAllIcon = viewAll.createDiv({ cls: 'dashboard-expense-records-viewall-icon' });
+		setIcon(viewAllIcon, 'chevron-right');
+		viewAll.addEventListener('click', (e) => {
+			e.stopPropagation();
+			showExpenseLedger(doc);
+		});
 		if (records.length === 0) {
 			recordsSection.createDiv({ cls: 'dashboard-expense-donut-empty', text: t('expense.noRecords') });
 			return;
@@ -432,7 +445,7 @@ export function showExpenseStats(doc: Document): void {
 					+ (r.type === 'income' ? ' dashboard-expense-records-amount--income' : ''),
 				text: `${r.type === 'income' ? '+' : ''}${fmt(r.amount)}`,
 			});
-			row.createEl('td', { cls: 'dashboard-expense-records-category', text: t(`expense.cat.${r.category}`) });
+			row.createEl('td', { cls: 'dashboard-expense-records-category', text: categoryLabel(r.category) });
 			const noteCell = row.createEl('td', { cls: 'dashboard-expense-records-note' });
 			if (r.note) {
 				noteCell.setText(r.note);

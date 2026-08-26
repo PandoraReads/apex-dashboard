@@ -1,4 +1,5 @@
 import type { Language } from './i18n';
+import type { CalendarTaskFilter } from './alltasks-scan';
 import type { TFile } from 'obsidian';
 
 export interface DashboardSettings {
@@ -19,6 +20,8 @@ export interface DashboardSettings {
 	pomodoroDailyGoal: number;
 	pomodoroAutoStartBreak: boolean;
 	pomodoroSoundEnabled: boolean;
+	/** Floating body-level mini countdown panel shown while a pomodoro runs. */
+	pomodoroMiniPanelEnabled: boolean;
 	widgetLunarEnabled: boolean;
 	/** Year-progress widget: shows how much % of the current year has elapsed. */
 	widgetYearProgressEnabled: boolean;
@@ -26,6 +29,9 @@ export interface DashboardSettings {
 	widgetCalendarEnabled: boolean;
 	/** Folders whose tasks are excluded from the calendar widget/section. */
 	calendarExcludeFolders: string[];
+	/** Active task filter in the full-screen calendar modal ('all' default).
+	    Persisted memory only — the sidebar widget stays unfiltered. */
+	calendarTaskFilter: CalendarTaskFilter;
 	/** Habit check-in widget: boolean daily check-offs tracked per habit. */
 	widgetHabitEnabled: boolean;
 	/** Expense tracker widget: quick expense/income entry in the sidebar. */
@@ -196,10 +202,12 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	pomodoroDailyGoal: 8,
 	pomodoroAutoStartBreak: true,
 	pomodoroSoundEnabled: true,
+	pomodoroMiniPanelEnabled: true,
 	widgetLunarEnabled: true,
 	widgetYearProgressEnabled: false,
 	widgetCalendarEnabled: false,
 	calendarExcludeFolders: [],
+	calendarTaskFilter: 'all',
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	expenseCurrency: '¥',

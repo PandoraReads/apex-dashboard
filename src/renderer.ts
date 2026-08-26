@@ -19,7 +19,7 @@ import { readTrackerData, computeStreak } from './tracker-service';
 import type { PomodoroService } from './pomodoro-service';
 import { showPomodoroStats as openWidePomodoroStats } from './pomodoro-stats-modal';
 import type { ReadingService } from './reading-service';
-import { searchBooks, downloadCoverAsBlobUrl } from './book-service';
+import { searchBooks, resolveCoverAsObjectUrl } from './book-service';
 import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
 import { renderSidebarYearProgress } from './year-progress-widget';
@@ -922,7 +922,7 @@ export function renderSidebarReading(
 		const placeholder = coverWrap.createDiv({ cls: 'dashboard-reading-book-card-cover-placeholder' });
 		placeholder.textContent = book.title.length > 8 ? book.title.slice(0, 8) + '..' : book.title;
 		if (book.coverUrl) {
-			void downloadCoverAsBlobUrl(book.coverUrl).then(blobUrl => {
+			void resolveCoverAsObjectUrl(book.coverUrl, service.getApp()).then(blobUrl => {
 				if (blobUrl) {
 					placeholder.setCssProps({ display: 'none' });
 					coverWrap.style.backgroundImage = `url(${blobUrl})`;
@@ -1032,14 +1032,27 @@ export function renderSidebarReading(
 	}
 
 	function refreshCards(): void {
-		service.setOnTick(null);
-		const parent = widget.parentElement!;
-		widget.remove();
+		refreshSidebarReadingWidget(widget.ownerDocument, service);
+	}
+}
+
+/** Re-render every live reading widget (desktop sidebar + mobile drawer
+ *  copies) from scratch. Used after mutations that outlive a single card
+ *  (session finished, book added/removed) — also by the floating mini
+ *  reading timer, which lives outside the widget's closure. */
+export function refreshSidebarReadingWidget(doc: Document, service: ReadingService): void {
+	const widgets = Array.from(doc.querySelectorAll<HTMLElement>('.dashboard-sidebar-reading'));
+	if (widgets.length === 0) return;
+	service.setOnTick(null);
+	for (const w of widgets) {
+		const parent = w.parentElement;
+		if (!parent) continue;
+		w.remove();
 		renderSidebarReading(parent, service);
 	}
 }
 
-function openEndReadingModal(
+export function openEndReadingModal(
 	doc: Document,
 	service: ReadingService,
 	book: import('./reading-service').BookInfo,
@@ -1410,7 +1423,7 @@ function openBookSearch(
 					const item = resultsArea.createDiv({ cls: 'dashboard-reading-book-item' });
 					if (book.coverUrl) {
 						const c = item.createDiv({ cls: 'dashboard-reading-book-item-cover' });
-						void downloadCoverAsBlobUrl(book.coverUrl).then(url => { if (url) c.style.backgroundImage = `url(${url})`; });
+						void resolveCoverAsObjectUrl(book.coverUrl, service.getApp()).then(url => { if (url) c.style.backgroundImage = `url(${url})`; });
 					} else {
 						item.createDiv({ cls: 'dashboard-reading-book-item-nocover' });
 					}
@@ -1502,7 +1515,7 @@ function showReadingStats(doc: Document, service: ReadingService): void {
 				const row = bookListContainer.createDiv({ cls: 'dashboard-reading-book-list-row' });
 				if (book.coverUrl) {
 					const c = row.createDiv({ cls: 'dashboard-reading-book-list-cover' });
-					void downloadCoverAsBlobUrl(book.coverUrl).then(url => {
+					void resolveCoverAsObjectUrl(book.coverUrl, service.getApp()).then(url => {
 						if (url) c.style.backgroundImage = `url(${url})`;
 					});
 				} else {

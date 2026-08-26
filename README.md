@@ -110,6 +110,17 @@ All themes support both Obsidian light and dark modes.
 
 ## What's New
 
+### 1.9.6
+- **Expense ledger** — "View all" from the stats modal opens a full Excel-style table of every record: type/category/date-range/text filters, column sorting, row editing, confirmed batch delete, CSV import (unknown categories auto-register) and export, 50-row pages with filtered totals
+- **Custom expense categories** — "+ New category…" / "Manage categories…" in every category dropdown; per-direction lists with usage counts, deterministic chart colors, sync-safe
+- **Widget data syncs across devices** — Habits, pomodoro, reading and expense data re-read and union-merge on window focus / mobile foreground; every save merges foreign writes first, so check-ins made on another device survive (deletions never resurrect)
+- **Stats modal: aligned two-column layout** — KPIs + record list left, all four chart sections stacked right; container-query collapse to one column on narrow panes (fixes zone overlap); ledger-style underline under the amount inputs
+- **Reading covers accept vault/local image paths** — http(s), `data:`, vault paths and desktop local paths; floating mini panels are draggable and the pomodoro pill can be turned off; the full-screen calendar remembers its task filter
+
+### 1.9.5
+- **Expense tracker widget** — Quick expense/income entry on the desktop sidebar and the phone widget bar, with notes, backdated entries, today's totals and a week/month/year/all-time statistics overlay
+- **Phone calendar widget** — Month/week grid, day agendas and the full-screen month view on the mobile widget bar; scheduled (`⏳`) and completion (`✅`) dates anchor tasks to their days, and multi-day spans render as continuous bars
+
 ### 1.8.7
 - **Sticky Notes section (便利贴)** — Memos and todos side by side in one section: the add button opens a type chooser (icon + description); memo cards keep palette color, save-as-note and inline editing, todo cards keep the task list and progress — plus a one-click archive for completed tasks. Section styling follows the todo section
 - **Global text size** — Small / Medium / Large in Theme Studio scales the whole dashboard proportionally

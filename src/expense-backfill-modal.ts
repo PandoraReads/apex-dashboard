@@ -1,13 +1,14 @@
 import { App, Modal, Notice } from 'obsidian';
 import { t } from './i18n';
 import {
-	categoriesFor,
 	expenseToday,
 	type ExpenseType,
 	EXPENSE_MAX_NOTE_LENGTH,
 	getExpenseService,
+	type ExpenseRecord,
 	sanitizeAmountInput,
 } from './expense-service';
+import { populateCategorySelect, wireCategorySelect } from './expense-category-ui';
 import { applyModalTheme } from './modal-theme';
 
 /** Values the backfill modal collects before handing them to the caller. */
@@ -19,24 +20,34 @@ export interface ExpenseBackfillInput {
 	date: string;
 }
 
-function catLabel(key: string): string {
-	return t(`expense.cat.${key}`);
+export interface ExpenseBackfillOptions {
+	/** Edit mode: prefill every field from this record (title switches to
+	 *  "Edit record"); the caller decides between add and update. */
+	initial?: ExpenseRecord;
+	/** Raise the modal above the expense overlays (stats z 1000 / ledger z
+	 *  1010) when opened from inside one. */
+	aboveOverlay?: boolean;
 }
 
 /**
  * Backfill dialog: one expense/income entry for any past date (the sidebar
- * widget only records today). TrackerConfigModal skeleton — themed config
- * modal, Enter submits, the type toggle swaps the category select's options.
+ * widget only records today), or an existing record's editor when `initial`
+ * is given. TrackerConfigModal skeleton — themed config modal, Enter submits,
+ * the type toggle swaps the category select's options (which also carries the
+ * "+ New category…" / "Manage categories…" entries).
  */
 export class ExpenseBackfillModal extends Modal {
 	private onSave: (input: ExpenseBackfillInput) => void;
+	private options: ExpenseBackfillOptions;
 
 	private typeValue: ExpenseType = 'expense';
 	private categorySelect: HTMLSelectElement | null = null;
 
-	constructor(app: App, onSave: (input: ExpenseBackfillInput) => void) {
+	constructor(app: App, onSave: (input: ExpenseBackfillInput) => void, options: ExpenseBackfillOptions = {}) {
 		super(app);
 		this.onSave = onSave;
+		this.options = options;
+		if (options.initial) this.typeValue = options.initial.type;
 	}
 
 	onOpen(): void {
@@ -44,15 +55,20 @@ export class ExpenseBackfillModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
+		if (this.options.aboveOverlay) containerEl.addClass('dashboard-modal--above-overlay');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
 		applyModalTheme(containerEl);
 
 		const service = getExpenseService();
 		const currency = service?.getCurrency() ?? '¥';
+		const initial = this.options.initial;
 
 		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('expense.backfillTitle') });
+		header.createDiv({
+			cls: 'dashboard-modal-title',
+			text: t(initial ? 'expense.editTitle' : 'expense.backfillTitle'),
+		});
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
@@ -61,7 +77,7 @@ export class ExpenseBackfillModal extends Modal {
 		dateSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('expense.dateLabel') });
 		const dateInput = dateSection.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-expense-backfill-date',
-			attr: { type: 'date', value: expenseToday(), max: expenseToday() },
+			attr: { type: 'date', value: initial?.date ?? expenseToday(), max: expenseToday() },
 		});
 
 		// Expense / income toggle.
@@ -79,7 +95,13 @@ export class ExpenseBackfillModal extends Modal {
 		entryRow.createDiv({ cls: 'dashboard-expense-backfill-currency', text: currency });
 		const amountInput = entryRow.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-expense-backfill-amount',
-			attr: { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0.00' },
+			attr: {
+				type: 'text',
+				inputmode: 'decimal',
+				autocomplete: 'off',
+				placeholder: '0.00',
+				...(initial ? { value: String(initial.amount) } : {}),
+			},
 		});
 		amountInput.addEventListener('input', () => {
 			const sanitized = sanitizeAmountInput(amountInput.value);
@@ -91,15 +113,15 @@ export class ExpenseBackfillModal extends Modal {
 		});
 		this.categorySelect = select;
 
-		/** Swap the preset options when the direction toggle changes. */
+		/** Rebuild the options when the direction toggle changes (custom
+		 *  categories included via populateCategorySelect). */
 		const rebuildOptions = (type: ExpenseType): void => {
+			if (!service) return;
 			select.empty();
-			for (const key of categoriesFor(type)) {
-				select.createEl('option', { text: catLabel(key), attr: { value: key } });
-			}
-			select.value = service?.getLastCategory(type) ?? categoriesFor(type)[0] ?? 'other';
+			populateCategorySelect(select, service, type, initial ? { value: initial.category } : {});
 		};
 		rebuildOptions(this.typeValue);
+		if (service) wireCategorySelect(select, service, this.typeValue);
 
 		for (const opt of typeOptions) {
 			const btn = typeRow.createEl('button', {
@@ -119,7 +141,12 @@ export class ExpenseBackfillModal extends Modal {
 		noteSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('expense.colNote') });
 		const noteInput = noteSection.createEl('input', {
 			cls: 'dashboard-modal-input',
-			attr: { type: 'text', autocomplete: 'off', placeholder: t('expense.notePlaceholder') },
+			attr: {
+				type: 'text',
+				autocomplete: 'off',
+				placeholder: t('expense.notePlaceholder'),
+				...(initial?.note ? { value: initial.note } : {}),
+			},
 		});
 
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
@@ -142,6 +169,7 @@ export class ExpenseBackfillModal extends Modal {
 		}
 
 		amountInput.focus();
+		if (initial) amountInput.select();
 	}
 
 	/** Validate the collected fields and hand them to the caller. */

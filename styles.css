@@ -1684,7 +1684,7 @@
 	display: flex;
 	flex: 1;
 	overflow: hidden;
-	gap: 16px;
+	gap: 10px;
 	padding: 16px 16px 0 16px;
 }
 
@@ -2000,6 +2000,23 @@
 	color: var(--db-text-muted);
 	flex-shrink: 0;
 	user-select: none;
+}
+
+/* Ledger-style underline beneath ¥ + amount: the number reads as written on
+   a line. Accent-tinted while typing (focus-within), faint rule at rest. */
+.dashboard-sidebar-expense-amount-wrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 0 2px;
+	border-bottom: 1px solid color-mix(in srgb, var(--db-border-card) 85%, transparent);
+	transition: border-color 0.15s;
+}
+
+.dashboard-sidebar-expense-amount-wrap:focus-within {
+	border-bottom-color: var(--db-accent);
 }
 
 .dashboard-sidebar-expense-amount {
@@ -3394,6 +3411,7 @@
 	flex: 1;
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	gap: 7px;
 	background: var(--db-bg-card);
 	border-radius: 7px;
@@ -4289,6 +4307,12 @@
 	padding: 22px 26px;
 	display: flex;
 	flex-direction: column;
+	/* Size container for the 1-column collapse below: the breakpoint must
+	   track the MODAL's own width, which follows the pane the dashboard lives
+	   in (split panes, sidebars) — a viewport @media never fires there. Old
+	   engines without container queries keep the @media fallback at the
+	   bottom of this block. */
+	container-type: inline-size;
 }
 
 .dashboard-expense-stats-header {
@@ -4442,24 +4466,60 @@
 	background: var(--db-bg-hover);
 }
 
-/* Body grid: left column hosts the record table too, so it gets the width */
+/* Body grid, two areas: records column left; every chart section right —
+   分类占比 → 分类排名 (mid) then 每日趋势 → 收支对比 (right) stack in the
+   second column, so all sections share one straight edge. Rows are auto: each
+   track sizes to its content (the old minmax(0,1fr) row compressed tracks
+   below their content and let one zone paint over the next); the body itself
+   scrolls when the whole thing outgrows the modal. */
 .dashboard-expense-stats-body {
 	display: grid;
-	grid-template-columns: 300px minmax(0, 1fr) 320px;
-	grid-template-rows: minmax(0, 1fr);
+	grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+	grid-template-rows: auto auto;
+	grid-template-areas:
+		"kpi mid"
+		"kpi right";
 	gap: 18px;
 	overflow-y: auto;
+	/* The tall chart column makes this always scrollable; the bar along the
+	   modal edge reads as clutter — scroll stays, chrome doesn't. */
+	scrollbar-width: none;
 	min-height: 0;
 	flex: 1;
 	padding-top: 4px;
 }
 
-/* Left column — KPIs */
+.dashboard-expense-stats-body::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+}
+
+/* Collapse to one column when the modal itself gets narrow (narrow panes,
+   phones): the chart column drops below the records column. Breakpoint in
+   container px (content-box of the modal). */
+@container (max-width: 700px) {
+	.dashboard-expense-stats-body {
+		grid-template-columns: 1fr;
+		grid-template-rows: auto;
+		grid-template-areas:
+			"kpi"
+			"mid"
+			"right";
+	}
+}
+
+/* Left column — KPIs + record table */
 .dashboard-expense-kpi-col {
+	grid-area: kpi;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
 	min-width: 0;
+}
+
+/* A touch more air between the KPI cards and the record list below them. */
+.dashboard-expense-kpi-col > .dashboard-expense-stats-section {
+	margin-top: 6px;
 }
 
 .dashboard-expense-stats-summary {
@@ -4539,8 +4599,38 @@
 	white-space: nowrap;
 }
 
-/* Mid + right columns */
+/* "View all" link on the records title row → the full ledger overlay */
+.dashboard-expense-records-viewall {
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	font-size: 0.62em;
+	font-weight: 600;
+	color: var(--db-accent);
+	cursor: pointer;
+	white-space: nowrap;
+	flex-shrink: 0;
+	opacity: 0.85;
+	transition: opacity 0.15s;
+}
+
+.dashboard-expense-records-viewall:hover {
+	opacity: 1;
+}
+
+.dashboard-expense-records-viewall-icon {
+	display: flex;
+	align-items: center;
+}
+
+.dashboard-expense-records-viewall-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Mid + right columns (both live in the second grid area's column) */
 .dashboard-expense-mid-col {
+	grid-area: mid;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
@@ -4548,6 +4638,7 @@
 }
 
 .dashboard-expense-right-col {
+	grid-area: right;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
@@ -4569,6 +4660,11 @@
 
 .dashboard-expense-donut-svg {
 	display: block;
+	/* Shrink with the column instead of overflowing into the neighbours
+	   (fixed 200px attrs stay as the cap/aspect source via viewBox). */
+	width: 100%;
+	max-width: 200px;
+	height: auto;
 }
 
 .dashboard-expense-donut-bg {
@@ -4874,7 +4970,9 @@
 
 .dashboard-expense-records-category {
 	color: var(--db-text-muted);
-	max-width: 64px;
+	/* Wide enough for 4-6 character custom category names; the date column
+	   below shrinks to its content (MM-DD) to fund the width. */
+	max-width: 100px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
@@ -4889,6 +4987,9 @@
 .dashboard-expense-records-date {
 	color: var(--db-text-muted);
 	font-variant-numeric: tabular-nums;
+	/* Shrink-to-content hint: the usual MM-DD stays as narrow as its digits,
+	   leaving the spare width to the category column. */
+	width: 1%;
 }
 
 .dashboard-expense-records-actions {
@@ -4923,10 +5024,17 @@
 	height: 12px;
 }
 
-/* Responsive: below 900px collapse to one column */
+/* Responsive: old-engine fallback for the container collapse above (no
+   container-query support → collapse on narrow VIEWPORTS instead; narrow
+   panes on old engines keep the squeezed two-column behavior). */
 @media (max-width: 900px) {
 	.dashboard-expense-stats-body {
 		grid-template-columns: 1fr;
+		grid-template-rows: auto;
+		grid-template-areas:
+			"kpi"
+			"mid"
+			"right";
 	}
 
 	.dashboard-expense-stats-modal--wide {
@@ -4957,6 +5065,500 @@
 	.dashboard-expense-records-note {
 		max-width: 90px;
 	}
+}
+
+/* ===== Expense ledger overlay ("view all" full table) ===== */
+
+/* Native edit modal opened from inside the overlays: Obsidian ships modals
+   at z 100, under both overlays — raise this one above them (stats 1000 /
+   ledger 1010), still below the confirm/prompt cards (9999). */
+.modal-container.dashboard-modal--above-overlay {
+	z-index: 1015;
+}
+
+.dashboard-expense-ledger-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1010;
+}
+
+.dashboard-expense-ledger-modal {
+	background: var(--db-bg-modal, var(--background-primary, var(--db-bg)));
+	border: 1px solid var(--db-border-card);
+	border-radius: var(--db-radius-lg, 12px);
+	max-width: 1080px;
+	width: 94%;
+	max-height: 86vh;
+	padding: 18px 20px 14px;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Toolbar: filters left, actions right; wraps on narrow panes */
+.dashboard-expense-ledger-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 10px 14px;
+	flex-wrap: wrap;
+	margin-bottom: 12px;
+}
+
+.dashboard-expense-ledger-filters {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.dashboard-expense-ledger-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.dashboard-expense-ledger-select {
+	-webkit-appearance: menulist;
+	appearance: menulist;
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+	border: 1px solid var(--db-border-input, rgba(128, 128, 128, 0.25));
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text-muted);
+	font-size: 0.72em;
+	font-family: var(--db-font);
+	padding: 4px 6px;
+	outline: none;
+	cursor: pointer;
+	max-width: 150px;
+}
+
+.dashboard-expense-ledger-select:focus {
+	color: var(--db-text);
+	border-color: var(--db-accent);
+}
+
+.dashboard-expense-ledger-select--category {
+	max-width: 130px;
+}
+
+.dashboard-expense-ledger-date {
+	width: 118px;
+	box-sizing: border-box;
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+	border: 1px solid var(--db-border-input, rgba(128, 128, 128, 0.25));
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text-muted);
+	font-size: 0.72em;
+	font-family: var(--db-font);
+	padding: 4px 6px;
+	outline: none;
+	/* Native calendar picker follows the light/dark mode. */
+	color-scheme: light dark;
+}
+
+.dashboard-expense-ledger-search {
+	width: 150px;
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+	border: 1px solid var(--db-border-input, rgba(128, 128, 128, 0.25));
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text);
+	font-size: 0.72em;
+	font-family: var(--db-font);
+	padding: 4px 8px;
+	outline: none;
+}
+
+.dashboard-expense-ledger-search:focus {
+	border-color: var(--db-accent);
+}
+
+.dashboard-expense-ledger-btn {
+	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
+	border: 1px solid var(--db-border-btn, color-mix(in srgb, var(--db-accent) 30%, transparent));
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-accent);
+	font-size: 0.72em;
+	font-weight: 600;
+	font-family: var(--db-font);
+	padding: 4px 12px;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background 0.15s, opacity 0.15s;
+}
+
+.dashboard-expense-ledger-btn:hover:not(:disabled) {
+	background: var(--db-bg-btn-hover, rgba(139, 92, 246, 0.18));
+}
+
+.dashboard-expense-ledger-btn:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.dashboard-expense-ledger-btn--ghost {
+	background: transparent;
+	color: var(--db-text-muted);
+	border-color: var(--db-border-card);
+}
+
+.dashboard-expense-ledger-btn--ghost:hover {
+	color: var(--db-text);
+}
+
+.dashboard-expense-ledger-btn--danger {
+	background: rgba(231, 76, 60, 0.10);
+	border-color: rgba(231, 76, 60, 0.35);
+	color: var(--db-danger, #e74c3c);
+}
+
+.dashboard-expense-ledger-btn--danger:hover:not(:disabled) {
+	background: rgba(231, 76, 60, 0.18);
+}
+
+.dashboard-expense-ledger-file {
+	display: none;
+}
+
+/* Excel-style grid: full cell borders, sticky header, zebra rows. Fixed
+   layout with per-column th widths — auto layout spread spare width across
+   every column and made the date column read oversized; now only the note
+   column flexes. */
+.dashboard-expense-ledger-wrap {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	scrollbar-width: thin;
+	border: 1px solid color-mix(in srgb, var(--db-border-card) 70%, transparent);
+	border-radius: var(--db-radius-sm, 6px);
+}
+
+.dashboard-expense-ledger-table {
+	width: 100%;
+	min-width: 640px;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.dashboard-expense-ledger-th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var(--db-bg-modal-raised, var(--background-primary, var(--db-bg)));
+	color: var(--db-text-muted);
+	font-size: 0.66em;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	text-align: left;
+	padding: 6px 8px;
+	border: 1px solid color-mix(in srgb, var(--db-border-card) 60%, transparent);
+	white-space: nowrap;
+	cursor: pointer;
+	user-select: none;
+}
+
+.dashboard-expense-ledger-th:hover {
+	color: var(--db-text);
+}
+
+.dashboard-expense-ledger-th-check,
+.dashboard-expense-ledger-th-actions {
+	cursor: default;
+	width: 34px;
+}
+
+/* Fixed-layout column widths (the note column takes whatever remains). */
+.dashboard-expense-ledger-th-date {
+	width: 92px;
+}
+
+.dashboard-expense-ledger-th-amount {
+	width: 100px;
+	text-align: right;
+}
+
+.dashboard-expense-ledger-th-type {
+	width: 84px;
+}
+
+.dashboard-expense-ledger-th-category {
+	width: 118px;
+}
+
+.dashboard-expense-ledger-th-actions {
+	width: 58px;
+}
+
+.dashboard-expense-ledger-sort {
+	margin-left: 3px;
+	color: var(--db-accent);
+}
+
+.dashboard-expense-ledger-td-check,
+.dashboard-expense-ledger-td-date,
+.dashboard-expense-ledger-td-type,
+.dashboard-expense-ledger-td-category,
+.dashboard-expense-ledger-td-amount,
+.dashboard-expense-ledger-td-note,
+.dashboard-expense-ledger-td-actions {
+	font-size: 0.72em;
+	padding: 5px 8px;
+	border: 1px solid color-mix(in srgb, var(--db-border-card) 45%, transparent);
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.dashboard-expense-ledger-table tbody tr:nth-child(even) td {
+	background: color-mix(in srgb, var(--db-bg-hover) 45%, transparent);
+}
+
+.dashboard-expense-ledger-table tbody tr:hover td {
+	background: var(--db-bg-hover);
+}
+
+.dashboard-expense-ledger-row--selected td {
+	background: color-mix(in srgb, var(--db-accent) 10%, transparent) !important;
+}
+
+.dashboard-expense-ledger-check {
+	accent-color: var(--db-accent);
+	width: 13px;
+	height: 13px;
+	cursor: pointer;
+}
+
+.dashboard-expense-ledger-td-date {
+	color: var(--db-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-ledger-type-icon {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 4px;
+	vertical-align: middle;
+}
+
+.dashboard-expense-ledger-type-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-expense-ledger-td-amount {
+	text-align: right;
+	font-weight: 600;
+	color: var(--db-text);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-ledger-td-category {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-expense-ledger-td-note {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--db-text-faint);
+}
+
+.dashboard-expense-ledger-td-actions {
+	width: 56px;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.dashboard-expense-ledger-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	margin-left: 4px;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--db-text-faint);
+	opacity: 0.55;
+	vertical-align: middle;
+	transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.dashboard-expense-ledger-table tbody tr:hover .dashboard-expense-ledger-action,
+.dashboard-expense-ledger-action:focus-visible {
+	opacity: 1;
+}
+
+.dashboard-expense-ledger-action:hover {
+	background: var(--db-bg-hover);
+	color: var(--db-text);
+}
+
+.dashboard-expense-ledger-action svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* Touch has no hover: keep the row actions visible. */
+@media (hover: none) {
+	.dashboard-expense-ledger-action {
+		opacity: 0.7;
+	}
+}
+
+.dashboard-expense-ledger-empty {
+	text-align: center;
+	color: var(--db-text-faint);
+	font-size: 0.75em;
+	padding: 36px 0 !important;
+	border: none !important;
+	background: transparent !important;
+}
+
+/* Footer: filtered totals left, pager right */
+.dashboard-expense-ledger-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-top: 10px;
+}
+
+.dashboard-expense-ledger-footer-info {
+	font-size: 0.68em;
+	color: var(--db-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-ledger-pager {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dashboard-expense-ledger-pager-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-expense-ledger-pager-label {
+	font-size: 0.68em;
+	color: var(--db-text-muted);
+	min-width: 72px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+	.dashboard-expense-ledger-modal {
+		width: 96%;
+		padding: 14px;
+	}
+
+	.dashboard-expense-ledger-search {
+		width: 120px;
+	}
+
+	.dashboard-expense-ledger-table {
+		min-width: 580px;
+	}
+}
+
+/* ===== Expense category manager (confirm-card overlay) ===== */
+.dashboard-expense-catmgr {
+	text-align: left;
+	max-width: 380px;
+	align-items: stretch;
+}
+
+.dashboard-expense-catmgr-body {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	max-height: 50vh;
+	overflow-y: auto;
+	margin: 0 0 14px;
+}
+
+.dashboard-expense-catmgr-section-title {
+	font-size: 0.72em;
+	font-weight: 600;
+	color: var(--db-text-muted);
+	margin-bottom: 6px;
+}
+
+.dashboard-expense-catmgr-empty {
+	font-size: 0.72em;
+	color: var(--db-text-faint);
+	margin-bottom: 6px;
+}
+
+.dashboard-expense-catmgr-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 0;
+}
+
+.dashboard-expense-catmgr-name {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.8em;
+	color: var(--db-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-expense-catmgr-usage {
+	flex-shrink: 0;
+	font-size: 0.66em;
+	color: var(--db-text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-catmgr-delete {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--db-text-faint);
+	transition: color 0.15s, background 0.15s;
+}
+
+.dashboard-expense-catmgr-delete:hover {
+	color: var(--db-danger, #e74c3c);
+	background: rgba(231, 76, 60, 0.10);
+}
+
+.dashboard-expense-catmgr-delete svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-expense-catmgr-add {
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.dashboard-expense-catmgr-input {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.8em;
+	padding: 5px 8px;
+	box-sizing: border-box;
 }
 
 /* ===== Reading Widget ===== */
@@ -14203,6 +14805,19 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calendar-fullscreen-modal { width: 92vw; max-width: 1100px; height: 88vh; }
 .dashboard-calendar-fullscreen-inner { width: 100%; height: 100%; display: flex; flex-direction: column; }
 .dashboard-calendar-fullscreen-body { flex: 1; min-height: 0; overflow: auto; }
+/* Fullscreen calendar: task filter button (header). Active (non-'all') filters
+   tint icon + label with the accent so the narrowed state is visible at a glance. */
+.dashboard-calendar-filter-btn { display: inline-flex; align-items: center; gap: 4px; }
+.dashboard-calendar-filter-btn svg { width: 13px; height: 13px; }
+.dashboard-calendar-filter-btn.is-filtered {
+	color: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-calendar-filter-caret { display: inline-flex; align-items: center; }
+.dashboard-calendar-filter-caret svg { width: 12px; height: 12px; }
+/* Narrow screens: the header now carries nav + view toggle + today + filter —
+   let it wrap instead of clipping controls. */
+.dashboard-calendar-fullscreen-inner .dashboard-modal-header { flex-wrap: wrap; row-gap: 8px; }
 /* Busy days scroll inside their capped cell. Standard scrollbar properties only
    (theme hijacks ::-webkit-scrollbar pseudo-elements on some setups). */
 .dashboard-calendar-fullscreen-body .dashboard-calendar.is-full .dashboard-calendar-cell-list {
@@ -15516,9 +16131,11 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	outline: none;
 	/* Widen while typing so wrapped lines stay readable; height itself is driven
 	   by JS (auto-grow) and animates via the height transition above. Same
-	   vw-then-cqw two-row pattern as the resting width. */
-	width: min(300px, 40vw);
-	width: min(320px, 60cqw);
+	   vw-then-cqw two-row pattern as the resting width. Cap 220px — 320 made
+	   the focused field swallow the bar; it only needs room for a wrapped
+	   thought, and Enter captures right away. */
+	width: min(220px, 40vw);
+	width: min(220px, 45cqw);
 	background: color-mix(in srgb, var(--db-accent) 12%, var(--db-bg-input, rgba(255, 255, 255, 0.05)));
 	box-shadow: 0 0 0 1px color-mix(in srgb, var(--db-accent) 42%, transparent);
 }
@@ -16745,4 +17362,270 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		filter: none !important;
 		transform: none !important;
 	}
+}
+
+/* ===== Floating Pomodoro Mini Panel ===== */
+/* Body-level pill: theme vars arrive via applyModalTheme, so every rule
+ * carries a stock-theme fallback for when no dashboard root is active.
+ * No backdrop-filter on purpose (mobile crash history + readability). */
+.dashboard-pomodoro-mini {
+	position: fixed;
+	right: 16px;
+	bottom: 40px;
+	z-index: var(--layer-popover, 30);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	background: var(--db-bg-modal, var(--background-secondary));
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	border-radius: var(--db-radius-lg, 12px);
+	box-shadow: var(--db-shadow-card, 0 4px 16px rgba(0, 0, 0, 0.25));
+	font-family: var(--db-font, inherit);
+	color: var(--db-text, var(--text-normal));
+	user-select: none;
+	cursor: grab;
+	/* Claim the gesture so dragging never scrolls the page behind. */
+	touch-action: none;
+	/* Size is frozen in JS at mount; never let content spill it. */
+	overflow: hidden;
+}
+
+.dashboard-floating-mini--dragging {
+	cursor: grabbing;
+	opacity: 0.92;
+}
+
+.dashboard-pomodoro-mini-ring-wrap {
+	position: relative;
+	width: 28px;
+	height: 28px;
+	flex-shrink: 0;
+}
+
+.dashboard-pomodoro-mini-ring {
+	width: 28px;
+	height: 28px;
+	display: block;
+}
+
+.dashboard-pomodoro-mini-ring-bg {
+	stroke: var(--db-border-card, var(--background-modifier-border));
+	opacity: 0.8;
+}
+
+.dashboard-pomodoro-mini-ring-progress {
+	stroke: var(--db-accent, var(--interactive-accent));
+	transition: stroke-dashoffset 0.9s linear;
+}
+
+.dashboard-pomodoro-mini--break .dashboard-pomodoro-mini-ring-progress {
+	stroke: var(--db-accent-light, var(--db-accent, var(--interactive-accent)));
+}
+
+.dashboard-pomodoro-mini-tomato {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	line-height: 1;
+}
+
+.dashboard-pomodoro-mini-info {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 52px;
+	overflow: hidden;
+}
+
+.dashboard-pomodoro-mini-time {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.4px;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.2;
+}
+
+.dashboard-pomodoro-mini-phase {
+	font-size: 9px;
+	color: var(--db-text-muted, var(--text-muted));
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	line-height: 1.2;
+}
+
+.dashboard-pomodoro-mini--paused .dashboard-pomodoro-mini-time {
+	opacity: 0.65;
+}
+
+.dashboard-pomodoro-mini-btn {
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: var(--db-bg-btn, transparent);
+	border: 1px solid var(--db-border-btn, var(--background-modifier-border));
+	color: var(--db-text, var(--text-normal));
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.dashboard-pomodoro-mini-btn:hover {
+	background: var(--db-bg-hover, var(--background-modifier-hover));
+}
+
+.dashboard-pomodoro-mini-btn:active {
+	transform: scale(0.92);
+}
+
+.dashboard-pomodoro-mini-btn svg {
+	width: 10px;
+	height: 10px;
+}
+
+.dashboard-pomodoro-mini-btn--ghost {
+	border-color: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+@media (max-width: 640px) {
+	.dashboard-pomodoro-mini {
+		right: 12px;
+		/* Clear the mobile tab bar plus the home-indicator safe area. */
+		bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+		padding: 5px 7px;
+		gap: 7px;
+	}
+
+	.dashboard-pomodoro-mini-time {
+		font-size: 13px;
+	}
+
+	.dashboard-pomodoro-mini-btn {
+		width: 28px;
+		height: 28px;
+	}
+
+	.dashboard-pomodoro-mini-btn svg {
+		width: 13px;
+		height: 13px;
+	}
+}
+
+/* ===== Floating Reading Mini Timer ===== */
+/* Tiny top-right pill mirroring the pomodoro mini panel conventions: theme
+ * vars via applyModalTheme, stock-theme fallbacks, no backdrop-filter. */
+.dashboard-reading-mini {
+	position: fixed;
+	/* Below the workspace header's per-pane action buttons (top-right). */
+	top: 46px;
+	right: 12px;
+	z-index: var(--layer-popover, 30);
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px;
+	background: var(--db-bg-modal, var(--background-secondary));
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	border-radius: var(--db-radius-md, 8px);
+	box-shadow: var(--db-shadow-card, 0 4px 16px rgba(0, 0, 0, 0.25));
+	font-family: var(--db-font, inherit);
+	color: var(--db-text, var(--text-normal));
+	user-select: none;
+	cursor: grab;
+	/* Claim the gesture so dragging never scrolls the page behind. */
+	touch-action: none;
+	/* Size is frozen in JS at mount; never let content spill it. */
+	overflow: hidden;
+}
+
+.dashboard-reading-mini-icon {
+	display: flex;
+	align-items: center;
+	color: var(--db-accent, var(--interactive-accent));
+	flex-shrink: 0;
+}
+
+.dashboard-reading-mini-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-reading-mini-time {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.4px;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.2;
+	white-space: nowrap;
+	/* Cell width is frozen in JS at the h:mm:ss size; keep digits centered
+	 * while sessions shorter than an hour show the narrower m:ss form. */
+	text-align: center;
+}
+
+.dashboard-reading-mini--paused .dashboard-reading-mini-time {
+	opacity: 0.6;
+}
+
+.dashboard-reading-mini-btn {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: var(--db-bg-btn, transparent);
+	border: 1px solid var(--db-border-btn, var(--background-modifier-border));
+	color: var(--db-text, var(--text-normal));
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.dashboard-reading-mini-btn:hover {
+	background: var(--db-bg-hover, var(--background-modifier-hover));
+}
+
+.dashboard-reading-mini-btn:active {
+	transform: scale(0.92);
+}
+
+.dashboard-reading-mini-btn svg {
+	width: 9px;
+	height: 9px;
+}
+
+@media (max-width: 640px) {
+	.dashboard-reading-mini {
+		/* Below the mobile header row (back / title / more-menu). */
+		top: 52px;
+		right: 10px;
+		padding: 4px 6px;
+	}
+
+	.dashboard-reading-mini-btn {
+		width: 26px;
+		height: 26px;
+	}
+
+	.dashboard-reading-mini-btn svg {
+		width: 11px;
+		height: 11px;
+	}
+}
+
+/* Dragged floating panels switch from their stylesheet right/bottom anchor
+ * to inline left/top. This class cancels the anchors; it must stay AFTER the
+ * .dashboard-*-mini blocks (including their mobile media queries) so it wins
+ * the same-specificity cascade everywhere. */
+.dashboard-floating-mini--pinned {
+	right: auto;
+	bottom: auto;
 }

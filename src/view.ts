@@ -40,6 +40,8 @@ import { TickTickFilterModal } from './ticktick-filter-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
 import { TemplatePickerModal } from './template-modal';
 import { PomodoroService } from './pomodoro-service';
+import { createPomodoroMiniPanel, type PomodoroMiniPanel } from './pomodoro-mini-panel';
+import { createReadingMiniTimer, type ReadingMiniTimer } from './reading-mini-timer';
 import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
 import { t } from './i18n';
@@ -110,9 +112,13 @@ export class DashboardView extends ItemView implements HoverParent {
 	private pendingScrollCardId: string | null = null;
 	private pendingScrollToLastCardOfColumn: string | null = null;
 	private pomodoroService: PomodoroService | null = null;
+	private pomodoroMiniPanel: PomodoroMiniPanel | null = null;
+	private readingMiniTimer: ReadingMiniTimer | null = null;
 	private readingService: ReadingService | null = null;
 	private habitUnsubscribe: (() => void) | null = null;
 	private expenseUnsubscribe: (() => void) | null = null;
+	private pomodoroUnsubscribe: (() => void) | null = null;
+	private readingUnsubscribe: (() => void) | null = null;
 	private holidayData: Record<string, HolidayInfo> = {};
 	private mobileWidgetExpanded: 'pomodoro' | 'reading' | 'lunar' | 'calendar' | 'habit' | 'expense' | null = null;
 	private mobileWidgetTabsOpen: boolean = false;
@@ -184,12 +190,29 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.startDayRolloverChecker();
 		this.pomodoroService = new PomodoroService(this.plugin);
 		await this.pomodoroService.loadSessions();
+		// Body-level floating countdown pill; polls the service on its own so
+		// it survives sidebar re-renders and stays up while other tabs show.
+		this.pomodoroMiniPanel = createPomodoroMiniPanel(
+			this.plugin,
+			this.pomodoroService,
+			this.containerEl.ownerDocument,
+		);
 		this.readingService = new ReadingService(this.plugin);
 		await this.readingService.loadSessions();
+		// Tiny top-right elapsed-time pill while a reading session runs; its
+		// stop button opens the same end-of-reading flow as the sidebar card.
+		this.readingMiniTimer = createReadingMiniTimer(
+			this.readingService,
+			this.containerEl.ownerDocument,
+		);
 		// Habit data is plugin-level: every open view subscribes so a check-in
 		// in one view refreshes the widget and banner in all of them.
 		this.habitUnsubscribe = getHabitService()?.subscribe(() => this.onHabitChanged()) ?? null;
 		this.expenseUnsubscribe = getExpenseService()?.subscribe(() => this.onExpenseChanged()) ?? null;
+		// Focus re-sync merges another device's records and notifies — refresh
+		// the pomodoro/reading widgets without restarting the timers.
+		this.pomodoroUnsubscribe = this.pomodoroService.subscribe(() => this.onPomodoroDataChanged());
+		this.readingUnsubscribe = this.readingService.subscribe(() => this.onReadingDataChanged());
 		void loadHolidayData(this.app).then(data => {
 			this.holidayData = data;
 			const currentData = this.sync.getData();
@@ -205,6 +228,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.stopReminderChecker();
 		this.stopWeatherRefresh();
 		this.stopDayRolloverChecker();
+		this.pomodoroMiniPanel?.destroy();
+		this.pomodoroMiniPanel = null;
+		this.readingMiniTimer?.destroy();
+		this.readingMiniTimer = null;
 		this.pomodoroService?.destroy();
 		this.pomodoroService = null;
 		this.readingService?.destroy();
@@ -213,6 +240,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.habitUnsubscribe = null;
 		this.expenseUnsubscribe?.();
 		this.expenseUnsubscribe = null;
+		this.pomodoroUnsubscribe?.();
+		this.pomodoroUnsubscribe = null;
+		this.readingUnsubscribe?.();
+		this.readingUnsubscribe = null;
 		this.sync.destroy();
 	}
 
@@ -1706,6 +1737,53 @@ export class DashboardView extends ItemView implements HoverParent {
 			panel.empty();
 			renderSidebarExpenseWidget(panel, this.app);
 		}
+	}
+
+	/** Pomodoro data changed externally (focus re-sync merged another
+	 *  device's records): re-render the widget in place + the mobile panel.
+	 *  Timer state lives in the service, so a running session is untouched. */
+	private onPomodoroDataChanged(): void {
+		const service = this.pomodoroService;
+		if (!service) return;
+		this.refreshDataWidget('.dashboard-sidebar-pomodoro', (c) =>
+			renderSidebarPomodoro(c, service, this.plugin.settings));
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
+		if (panel && this.mobileWidgetExpanded === 'pomodoro') {
+			panel.empty();
+			renderSidebarPomodoro(panel, service, this.plugin.settings);
+		}
+	}
+
+	/** Reading data changed externally (focus re-sync merged another device's
+	 *  records): re-render the widget in place + the mobile panel. */
+	private onReadingDataChanged(): void {
+		const service = this.readingService;
+		if (!service) return;
+		this.refreshDataWidget('.dashboard-sidebar-reading', (c) =>
+			renderSidebarReading(c, service));
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
+		if (panel && this.mobileWidgetExpanded === 'reading') {
+			panel.empty();
+			renderSidebarReading(panel, service);
+		}
+	}
+
+	/** Re-render one sidebar data widget in place: render into a fresh mount
+	 *  at the same position, then drop the old node (emptying in place would
+	 *  nest a second .dashboard-sidebar-widget inside and confuse the
+	 *  sidebar's widget enumeration/drag handlers). */
+	private refreshDataWidget(selector: string, render: (container: HTMLElement) => void): void {
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		const widget = root?.querySelector<HTMLElement>(selector);
+		if (!widget || !widget.isConnected) return;
+		const parent = widget.parentElement;
+		if (!parent) return;
+		const mount = createDiv();
+		parent.insertBefore(mount, widget);
+		widget.remove();
+		render(mount);
 	}
 
 	/** Recompute the stats banner in place (only when in stats mode). Vault

@@ -1,16 +1,50 @@
-import { App, Modal, Notice, setIcon } from 'obsidian';
+import { App, Menu, Modal, Notice, setIcon } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { t } from './i18n';
 import { renderTextWithLinks } from './renderer';
 import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskDayTime, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
-import { toIsoDate, type VaultTask } from './alltasks-scan';
+import {
+	CALENDAR_TASK_FILTERS,
+	filterTasksByDay,
+	toIsoDate,
+	type CalendarTaskFilter,
+	type VaultTask,
+} from './alltasks-scan';
 import { insertTaskForDay, type TaskInsertTarget } from './daily-notes';
 import { applyModalTheme } from './modal-theme';
+import type { DashboardSettings } from './types';
 
 interface CalendarModalCallbacks {
 	onToggle: (task: VaultTask, nextChecked: boolean) => Promise<void> | void;
 	/** Open a task's source note, optionally scrolling to the task's line. */
 	onOpenNote?: (file: TFile, line?: number) => void;
+}
+
+/** Minimal plugin surface needed to persist the calendar task filter. */
+type DashboardPluginHandle = {
+	settings?: DashboardSettings;
+	saveSettings?: () => Promise<void>;
+};
+
+/** Live plugin lookup (same pattern as renderer.ts's countdown settings path). */
+function lookupDashboardPlugin(app: App): DashboardPluginHandle | undefined {
+	return (app as unknown as { plugins?: { plugins?: Record<string, DashboardPluginHandle> } })
+		.plugins?.plugins?.['apex-dashboard'];
+}
+
+/** Current persisted filter; unknown or hand-edited values normalize to 'all'. */
+function readCalendarTaskFilter(app: App): CalendarTaskFilter {
+	const raw = lookupDashboardPlugin(app)?.settings?.calendarTaskFilter;
+	return raw !== undefined && CALENDAR_TASK_FILTERS.includes(raw) ? raw : 'all';
+}
+
+/** Persist the filter (spread-replace + save). When the plugin can't be
+ *  reached the in-modal choice still applies for this session. */
+function writeCalendarTaskFilter(app: App, filter: CalendarTaskFilter): void {
+	const plugin = lookupDashboardPlugin(app);
+	if (!plugin?.settings) return;
+	plugin.settings = { ...plugin.settings, calendarTaskFilter: filter };
+	void plugin.saveSettings?.();
 }
 
 /**
@@ -28,6 +62,9 @@ export class CalendarMonthModal extends Modal {
 	/** Vault path of the dashboard file, forwarded to day agendas opened from
 	 *  bar clicks (their add-task fallback destination). */
 	private readonly dashboardFile?: string;
+	/** Active task filter (which tasks may occupy the grid), persisted in
+	 *  plugin settings so the choice survives across sessions. */
+	private filter: CalendarTaskFilter;
 
 	constructor(
 		app: App,
@@ -41,6 +78,7 @@ export class CalendarMonthModal extends Modal {
 		this.byDay = byDay;
 		this.cb = cb;
 		this.dashboardFile = dashboardFile;
+		this.filter = readCalendarTaskFilter(app);
 		const now = new Date();
 		this.year = now.getFullYear();
 		this.month = now.getMonth();
@@ -105,6 +143,25 @@ export class CalendarMonthModal extends Modal {
 			this.render();
 		});
 
+		// Task filter: narrows WHICH tasks occupy the grid (kept tasks show all
+		// their anchors). Dropdown via Obsidian's Menu — native checkmark,
+		// dismiss and mobile behavior, no custom popover lifecycle to manage.
+		const filterBtn = header.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel dashboard-calendar-filter-btn'
+				+ (this.filter !== 'all' ? ' is-filtered' : ''),
+			attr: { 'aria-haspopup': 'menu', 'aria-label': t('calendar.filter'), type: 'button' },
+		});
+		setIcon(filterBtn, 'filter');
+		filterBtn.createSpan({ cls: 'dashboard-calendar-filter-label', text: t(`calendar.filter.${this.filter}`) });
+		const caret = filterBtn.createSpan({ cls: 'dashboard-calendar-filter-caret' });
+		setIcon(caret, 'chevron-down');
+		filterBtn.addEventListener('click', (e) => this.showFilterMenu(e, filterBtn));
+
+		// Filtered day view, recomputed every render (nav, view switch, toggle
+		// and filter changes all re-render) so the 'active' today-boundary and
+		// checked-drops-out behavior stay fresh.
+		const viewByDay = filterTasksByDay(this.byDay, this.filter, toIsoDate(new Date()));
+
 		const body = container.createDiv({ cls: 'dashboard-modal-body dashboard-calendar-fullscreen-body' });
 		const gridOpts = {
 			compact: false as const,
@@ -112,12 +169,12 @@ export class CalendarMonthModal extends Modal {
 			onToggle: (task: VaultTask, next: boolean) => { void this.toggle(task, next); },
 			onOpenNote: this.cb.onOpenNote,
 			onBarClick: (iso: string) => {
-				new DayAgendaModal(this.app, iso, this.byDay.get(iso) ?? [], this.cb, this.dashboardFile).open();
+				new DayAgendaModal(this.app, iso, viewByDay.get(iso) ?? [], this.cb, this.dashboardFile).open();
 			},
 		};
 		const { label } = this.view === 'week'
-			? renderWeekTimeGrid(body, this.weekStart, this.byDay, gridOpts)
-			: renderMonthGrid(body, this.year, this.month, this.byDay, gridOpts);
+			? renderWeekTimeGrid(body, this.weekStart, viewByDay, gridOpts)
+			: renderMonthGrid(body, this.year, this.month, viewByDay, gridOpts);
 		labelEl.textContent = label;
 	}
 
@@ -134,6 +191,30 @@ export class CalendarMonthModal extends Modal {
 			this.month = m;
 			this.year = y;
 		}
+		this.render();
+	}
+
+	/** Open the filter dropdown anchored to its button. The Menu owns its own
+	 *  Escape / click-outside dismissal, so the modal's key scope (and its
+	 *  ArrowLeft/Right paging) is never involved. */
+	private showFilterMenu(evt: MouseEvent, anchor: HTMLElement): void {
+		const menu = new Menu();
+		for (const f of CALENDAR_TASK_FILTERS) {
+			menu.addItem(item => item
+				.setTitle(t(`calendar.filter.${f}`))
+				.setChecked(f === this.filter)
+				.onClick(() => this.applyFilter(f)));
+		}
+		anchor.setAttribute('aria-expanded', 'true');
+		menu.onHide(() => anchor.setAttribute('aria-expanded', 'false'));
+		menu.showAtMouseEvent(evt);
+	}
+
+	/** Switch the active filter, persist it, and re-render the grid. */
+	private applyFilter(filter: CalendarTaskFilter): void {
+		if (filter === this.filter) return;
+		this.filter = filter;
+		writeCalendarTaskFilter(this.app, filter);
 		this.render();
 	}
 

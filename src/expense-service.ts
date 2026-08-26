@@ -1,4 +1,5 @@
 import type DashboardPlugin from './main';
+import { t } from './i18n';
 
 /** Direction of a bookkeeping entry. */
 export type ExpenseType = 'expense' | 'income';
@@ -26,6 +27,8 @@ export interface ExpenseData {
 	records: ExpenseRecord[];
 	/** Last category picked per type, so the widget's selects reopen on it. */
 	lastCategory: { expense?: string; income?: string };
+	/** User-added category names per direction (absent in pre-1.9.6 files). */
+	customCategories?: { expense?: string[]; income?: string[] };
 }
 
 const DATA_FILE = 'expense.json';
@@ -50,6 +53,24 @@ export const INCOME_CATEGORIES = [
 /** The preset category keys for a direction. */
 export function categoriesFor(type: ExpenseType): readonly string[] {
 	return type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+}
+
+/** Custom-category guards shared with the manager UI. */
+export const EXPENSE_CATEGORY_NAME_MAX = 12;
+export const EXPENSE_MAX_CUSTOM_CATEGORIES = 30;
+
+/** Outcome of addCustomCategory — callers map `reason` to a Notice. */
+export type AddCategoryResult =
+	| { ok: true; name: string }
+	| { ok: false; reason: 'invalid' | 'duplicate' | 'limit' };
+
+/** True when a candidate custom name would shadow a preset key or the
+ *  preset's localized label (case-insensitive), which would make records
+ *  written with it indistinguishable from preset entries. */
+function collidesWithPreset(name: string, type: ExpenseType): boolean {
+	const lower = name.toLowerCase();
+	return categoriesFor(type).some(key =>
+		key.toLowerCase() === lower || t(`expense.cat.${key}`).toLowerCase() === lower);
 }
 
 function isExpenseType(value: unknown): value is ExpenseType {
@@ -93,11 +114,34 @@ function mergeData(disk: ExpenseData, session: ExpenseData): ExpenseData {
 	for (const r of session.records) byId.set(r.id, r);
 	const records = [...byId.values()].sort((a, b) =>
 		a.date === b.date ? a.createdAt - b.createdAt : (a.date < b.date ? -1 : 1));
+	const customCategories = mergeCustomCategories(disk.customCategories, session.customCategories);
 	return {
 		version: 1,
 		records,
 		lastCategory: { ...disk.lastCategory, ...session.lastCategory },
+		...(customCategories ? { customCategories } : {}),
 	};
+}
+
+/** Union of per-type custom category lists (disk order first, case-insensitive
+ *  dedupe); undefined when both sides carry nothing. */
+function mergeCustomCategories(
+	disk: ExpenseData['customCategories'],
+	session: ExpenseData['customCategories'],
+): ExpenseData['customCategories'] {
+	const out: { expense?: string[]; income?: string[] } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const names: string[] = [];
+		const seen = new Set<string>();
+		for (const name of [...(disk?.[type] ?? []), ...(session?.[type] ?? [])]) {
+			const key = name.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			names.push(name);
+		}
+		if (names.length > 0) out[type] = names.slice(0, EXPENSE_MAX_CUSTOM_CATEGORIES);
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
 }
 
 /** Normalize a parsed expense.json: keep only well-formed records so a
@@ -122,7 +166,33 @@ function normalizeData(raw: unknown): ExpenseData {
 		if (typeof lc.expense === 'string' && lc.expense.length > 0) lastCategory.expense = lc.expense;
 		if (typeof lc.income === 'string' && lc.income.length > 0) lastCategory.income = lc.income;
 	}
-	return { version: 1, records, lastCategory };
+	const customCategories = normalizeCustomCategories(obj.customCategories);
+	return { version: 1, records, lastCategory, ...(customCategories ? { customCategories } : {}) };
+}
+
+/** Keep only usable custom category names per type: non-empty trimmed strings
+ *  that don't shadow a preset key, deduped case-insensitively and capped. A
+ *  hand-edited file degrades to partial data instead of failing the load. */
+function normalizeCustomCategories(raw: unknown): ExpenseData['customCategories'] {
+	if (!raw || typeof raw !== 'object') return undefined;
+	const out: { expense?: string[]; income?: string[] } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const list = (raw as Record<string, unknown>)[type];
+		if (!Array.isArray(list)) continue;
+		const names: string[] = [];
+		const seen = new Set<string>();
+		for (const v of list) {
+			if (typeof v !== 'string') continue;
+			const name = v.trim().slice(0, EXPENSE_CATEGORY_NAME_MAX);
+			if (name.length === 0 || collidesWithPreset(name, type)) continue;
+			const key = name.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			names.push(name);
+		}
+		if (names.length > 0) out[type] = names.slice(0, EXPENSE_MAX_CUSTOM_CATEGORIES);
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
 }
 
 function formatDate(d: Date): string {
@@ -167,9 +237,27 @@ export class ExpenseService {
 	private data: ExpenseData = emptyData();
 	private loaded = false;
 	private loadFailed = false;
+	/** Raw file content of this instance's last successful write; a disk read
+	 *  that differs means an external writer (sync / another device)
+	 *  intervened and the next write must merge instead of clobber. */
+	private lastWritten: string | null = null;
+	private syncInFlight = false;
 	private listeners = new Set<() => void>();
 
-	constructor(private plugin: DashboardPlugin) {}
+	private focusDoc: Document | null = null;
+	private focusHandler = (): void => {
+		if (this.focusDoc?.visibilityState === 'visible') void this.syncFromDisk();
+	};
+
+	constructor(private plugin: DashboardPlugin) {
+		// Data files only ever load at startup; without re-reading, a session
+		// open all day never sees another device's records and its next save
+		// clobbers them. On focus (window switch / mobile foreground)
+		// re-read and union. Listener is per-service (not plugin-lifetime):
+		// pomodoro/reading instances live and die with their view.
+		this.focusDoc = activeDocument;
+		this.focusDoc.addEventListener('visibilitychange', this.focusHandler);
+	}
 
 	async load(): Promise<void> {
 		if (this.loaded) return;
@@ -178,7 +266,9 @@ export class ExpenseService {
 			const adapter = this.plugin.app.vault.adapter;
 			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
 			if (await adapter.exists(path)) {
-				this.data = normalizeData(JSON.parse(await adapter.read(path)));
+				const raw = await adapter.read(path);
+				this.data = normalizeData(JSON.parse(raw));
+				this.lastWritten = raw;
 			}
 		} catch (error) {
 			// Distinguish the two failure kinds: a JSON parse error means the
@@ -210,7 +300,23 @@ export class ExpenseService {
 			if (!(await adapter.exists(dir))) {
 				await adapter.mkdir(dir);
 			}
-			await adapter.write(path, JSON.stringify(this.data));
+			// Merge the disk state first when someone else wrote since our
+			// last write — blind full-file saves revert the other device's
+			// entries. Deletions stay deleted: without an external change the
+			// union never runs, so removed records are not resurrected.
+			try {
+				if (await adapter.exists(path)) {
+					const raw = await adapter.read(path);
+					if (raw !== this.lastWritten) {
+						this.data = mergeData(normalizeData(JSON.parse(raw)), this.data);
+					}
+				}
+			} catch {
+				// Disk unreadable at save time: write our state as before.
+			}
+			const json = JSON.stringify(this.data);
+			await adapter.write(path, json);
+			this.lastWritten = json;
 		} catch {
 			// silent fail: an unwriteable expense.json must not break entries in-session
 		}
@@ -226,7 +332,9 @@ export class ExpenseService {
 			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
 			let disk = emptyData();
 			if (await adapter.exists(path)) {
-				disk = normalizeData(JSON.parse(await adapter.read(path)));
+				const raw = await adapter.read(path);
+				disk = normalizeData(JSON.parse(raw));
+				this.lastWritten = raw;
 			}
 			this.data = mergeData(disk, this.data);
 			this.loadFailed = false;
@@ -239,6 +347,29 @@ export class ExpenseService {
 		}
 	}
 
+	/** Re-read the file and union external changes into memory (another
+	 *  device's entries arriving via sync). Notifies listeners when the merge
+	 *  changed anything, and writes the union back so a lagging device heals
+	 *  on its next focus. */
+	async syncFromDisk(): Promise<void> {
+		if (!this.loaded || this.syncInFlight) return;
+		this.syncInFlight = true;
+		try {
+			const adapter = this.plugin.app.vault.adapter;
+			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
+			if (!(await adapter.exists(path))) return;
+			const raw = await adapter.read(path);
+			if (raw === this.lastWritten) return;
+			this.data = mergeData(normalizeData(JSON.parse(raw)), this.data);
+			this.notify();
+			this.save();
+		} catch {
+			// Transient read error (file mid-sync): the next focus retries.
+		} finally {
+			this.syncInFlight = false;
+		}
+	}
+
 	/** Register a data-changed listener; returns its unsubscribe function. */
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
@@ -247,6 +378,8 @@ export class ExpenseService {
 
 	destroy(): void {
 		this.listeners.clear();
+		this.focusDoc?.removeEventListener('visibilitychange', this.focusHandler);
+		this.focusDoc = null;
 	}
 
 	private notify(): void {
@@ -262,15 +395,21 @@ export class ExpenseService {
 		return [...this.data.records];
 	}
 
-	/** Add an entry; null when validation fails (caller surfaces a Notice):
-	 *  amount must be finite, > 0 and < 1e8; date must be a valid past-or-today
-	 *  'YYYY-MM-DD'; category must be one of the presets for the type. */
+	/** Entry validation shared by addRecord / updateRecord / importRows:
+	 *  amount finite in (0, 1e8), category known for the type, date a valid
+	 *  past-or-today 'YYYY-MM-DD'. */
+	private isValidEntry(type: ExpenseType, amount: number, category: string, date: string): boolean {
+		if (!Number.isFinite(amount) || amount <= 0 || amount >= MAX_AMOUNT) return false;
+		if (!this.getCategories(type).includes(category)) return false;
+		if (!DATE_RE.test(date) || date > expenseToday()) return false;
+		return true;
+	}
+
+	/** Add an entry; null when validation fails (caller surfaces a Notice). */
 	addRecord(input: { type: ExpenseType; amount: number; category: string; note?: string; date: string }): ExpenseRecord | null {
 		const { type, category, date } = input;
 		const amount = round2(input.amount);
-		if (!Number.isFinite(amount) || amount <= 0 || amount >= MAX_AMOUNT) return null;
-		if (!categoriesFor(type).includes(category)) return null;
-		if (!DATE_RE.test(date) || date > expenseToday()) return null;
+		if (!this.isValidEntry(type, amount, category, date)) return null;
 		const note = input.note?.trim().slice(0, MAX_NOTE_LENGTH);
 		const record: ExpenseRecord = {
 			id: makeRecordId(),
@@ -291,6 +430,36 @@ export class ExpenseService {
 		return record;
 	}
 
+	/** Patch an existing record (any mutable field); null when the id is
+	 *  unknown or the merged entry fails validation. id/createdAt never move. */
+	updateRecord(id: string, patch: { type?: ExpenseType; amount?: number; category?: string; note?: string; date?: string }): ExpenseRecord | null {
+		const base = this.data.records.find(r => r.id === id);
+		if (!base) return null;
+		const type = patch.type ?? base.type;
+		const amount = round2(patch.amount ?? base.amount);
+		const category = patch.category ?? base.category;
+		const date = patch.date ?? base.date;
+		if (!this.isValidEntry(type, amount, category, date)) return null;
+		const note = (patch.note !== undefined ? patch.note : base.note)?.trim().slice(0, MAX_NOTE_LENGTH);
+		const { note: _dropped, ...rest } = base;
+		const updated: ExpenseRecord = {
+			...rest,
+			type,
+			amount,
+			category,
+			date,
+			...(note ? { note } : {}),
+		};
+		this.data = {
+			...this.data,
+			records: this.data.records.map(r => (r.id === id ? updated : r)),
+			lastCategory: { ...this.data.lastCategory, [type]: category },
+		};
+		this.save();
+		this.notify();
+		return updated;
+	}
+
 	/** Delete a record by id; true when it existed. */
 	deleteRecord(id: string): boolean {
 		if (!this.data.records.some(r => r.id === id)) return false;
@@ -300,16 +469,117 @@ export class ExpenseService {
 		return true;
 	}
 
-	/** Last category picked for a type (or the first preset). */
+	/** Bulk delete by ids (one immutable update, one save + notify); returns
+	 *  how many actually existed. */
+	deleteRecords(ids: readonly string[]): number {
+		const doomed = new Set(ids);
+		const before = this.data.records.length;
+		const records = this.data.records.filter(r => !doomed.has(r.id));
+		if (records.length === before) return 0;
+		this.data = { ...this.data, records };
+		this.save();
+		this.notify();
+		return before - records.length;
+	}
+
+	/** Bulk insert for CSV import: each row is validated like addRecord,
+	 *  invalid rows are skipped; single save + notify. */
+	importRows(rows: Array<{ type: ExpenseType; amount: number; category: string; note?: string; date: string }>): { added: number; skipped: number } {
+		const valid: ExpenseRecord[] = [];
+		for (const input of rows) {
+			const { type, category, date } = input;
+			const amount = round2(input.amount);
+			if (!this.isValidEntry(type, amount, category, date)) continue;
+			const note = input.note?.trim().slice(0, MAX_NOTE_LENGTH);
+			valid.push({
+				id: makeRecordId(),
+				type,
+				amount,
+				category,
+				...(note ? { note } : {}),
+				date,
+				createdAt: Date.now(),
+			});
+		}
+		if (valid.length > 0) {
+			this.data = { ...this.data, records: [...this.data.records, ...valid] };
+			this.save();
+			this.notify();
+		}
+		return { added: valid.length, skipped: rows.length - valid.length };
+	}
+
+	// ===== Custom categories =====
+
+	/** Preset keys followed by the user's custom names for a direction. */
+	getCategories(type: ExpenseType): string[] {
+		return [...categoriesFor(type), ...(this.data.customCategories?.[type] ?? [])];
+	}
+
+	/** Custom names only (shared copy). */
+	getCustomCategories(type: ExpenseType): string[] {
+		return [...(this.data.customCategories?.[type] ?? [])];
+	}
+
+	/** Records using a category key (usage count in the manager). */
+	countCategoryUsage(type: ExpenseType, category: string): number {
+		return this.data.records.filter(r => r.type === type && r.category === category).length;
+	}
+
+	/** Register a custom category name for a direction; rejected when empty/
+	 *  over-long, shadowing a preset, already present, or past the cap. */
+	addCustomCategory(type: ExpenseType, rawName: string): AddCategoryResult {
+		const name = rawName.trim().slice(0, EXPENSE_CATEGORY_NAME_MAX);
+		if (name.length === 0) return { ok: false, reason: 'invalid' };
+		const existing = this.data.customCategories?.[type] ?? [];
+		if (collidesWithPreset(name, type) || existing.some(n => n.toLowerCase() === name.toLowerCase())) {
+			return { ok: false, reason: 'duplicate' };
+		}
+		if (existing.length >= EXPENSE_MAX_CUSTOM_CATEGORIES) return { ok: false, reason: 'limit' };
+		const next = { ...this.data.customCategories, [type]: [...existing, name] };
+		this.data = { ...this.data, customCategories: next };
+		this.save();
+		this.notify();
+		return { ok: true, name };
+	}
+
+	/** Remove a custom category (case-insensitive). Existing records keep the
+	 *  name — display falls back to the raw key (categoryLabel). */
+	removeCustomCategory(type: ExpenseType, name: string): boolean {
+		const existing = this.data.customCategories?.[type] ?? [];
+		const next = existing.filter(n => n.toLowerCase() !== name.toLowerCase());
+		if (next.length === existing.length) return false;
+		const custom = { ...this.data.customCategories, [type]: next };
+		// Drop the key entirely when empty so the JSON stays tidy.
+		if (next.length === 0) delete custom[type];
+		this.data = { ...this.data, customCategories: custom };
+		this.save();
+		this.notify();
+		return true;
+	}
+
+	/** Last category picked for a type (or the first known category). */
 	getLastCategory(type: ExpenseType): string {
+		const cats = this.getCategories(type);
 		const saved = this.data.lastCategory[type];
-		if (saved && categoriesFor(type).includes(saved)) return saved;
-		return categoriesFor(type)[0] ?? 'other';
+		if (saved && cats.includes(saved)) return saved;
+		return cats[0] ?? 'other';
 	}
 
 	/** Currency symbol from settings (trimmed, default '¥'). */
 	getCurrency(): string {
 		return this.plugin.settings.expenseCurrency.trim() || '¥';
+	}
+
+	/** The Obsidian App (dialogs opened from render layers that only hold a
+	 *  Document — e.g. the ledger's edit modal — need it for the Modal base). */
+	getApp(): import('obsidian').App {
+		return this.plugin.app;
+	}
+
+	/** Write a text file into the vault (CSV export); vault-relative path. */
+	async writeVaultFile(path: string, content: string): Promise<void> {
+		await this.plugin.app.vault.adapter.write(path, content);
 	}
 
 	// ===== Aggregation queries (pure derivations, no disk access) =====

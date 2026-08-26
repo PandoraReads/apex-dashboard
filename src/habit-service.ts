@@ -139,9 +139,27 @@ export class HabitService {
 	private data: HabitData = emptyData();
 	private loaded = false;
 	private loadFailed = false;
+	/** Raw file content of this instance's last successful write; a disk read
+	 *  that differs means an external writer (sync / another device)
+	 *  intervened and the next write must merge instead of clobber. */
+	private lastWritten: string | null = null;
+	private syncInFlight = false;
 	private listeners = new Set<() => void>();
 
-	constructor(private plugin: DashboardPlugin) {}
+	private focusDoc: Document | null = null;
+	private focusHandler = (): void => {
+		if (this.focusDoc?.visibilityState === 'visible') void this.syncFromDisk();
+	};
+
+	constructor(private plugin: DashboardPlugin) {
+		// Data files only ever load at startup; without re-reading, a session
+		// open all day never sees another device's records and its next save
+		// clobbers them. On focus (window switch / mobile foreground)
+		// re-read and union. Listener is per-service (not plugin-lifetime):
+		// pomodoro/reading instances live and die with their view.
+		this.focusDoc = activeDocument;
+		this.focusDoc.addEventListener('visibilitychange', this.focusHandler);
+	}
 
 	async load(): Promise<void> {
 		if (this.loaded) return;
@@ -150,7 +168,9 @@ export class HabitService {
 			const adapter = this.plugin.app.vault.adapter;
 			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
 			if (await adapter.exists(path)) {
-				this.data = normalizeData(JSON.parse(await adapter.read(path)));
+				const raw = await adapter.read(path);
+				this.data = normalizeData(JSON.parse(raw));
+				this.lastWritten = raw;
 			}
 		} catch (error) {
 			// Distinguish the two failure kinds: a JSON parse error means the
@@ -186,7 +206,24 @@ export class HabitService {
 			if (!(await adapter.exists(dir))) {
 				await adapter.mkdir(dir);
 			}
-			await adapter.write(path, JSON.stringify(this.data));
+			// Merge the disk state first when someone else wrote since our
+			// last write — blind full-file saves are what made check-ins
+			// "not sync" (last writer silently reverted the other device).
+			// Deletions stay deleted: without an external change the union
+			// never runs, so a removed habit is not resurrected.
+			try {
+				if (await adapter.exists(path)) {
+					const raw = await adapter.read(path);
+					if (raw !== this.lastWritten) {
+						this.data = mergeData(normalizeData(JSON.parse(raw)), this.data);
+					}
+				}
+			} catch {
+				// Disk unreadable at save time: write our state as before.
+			}
+			const json = JSON.stringify(this.data);
+			await adapter.write(path, json);
+			this.lastWritten = json;
 		} catch {
 			// silent fail: an unwriteable habits.json must not break check-ins in-session
 		}
@@ -205,7 +242,9 @@ export class HabitService {
 			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
 			let disk = emptyData();
 			if (await adapter.exists(path)) {
-				disk = normalizeData(JSON.parse(await adapter.read(path)));
+				const raw = await adapter.read(path);
+				disk = normalizeData(JSON.parse(raw));
+				this.lastWritten = raw;
 			}
 			this.data = mergeData(disk, this.data);
 			this.loadFailed = false;
@@ -218,6 +257,30 @@ export class HabitService {
 		}
 	}
 
+	/** Re-read the file and union external changes into memory (another
+	 *  device's check-ins arriving via sync). Notifies listeners when the
+	 *  merge changed anything, and writes the union back so a lagging device
+	 *  heals on its next focus. */
+	async syncFromDisk(): Promise<void> {
+		if (!this.loaded || this.syncInFlight) return;
+		this.syncInFlight = true;
+		try {
+			const adapter = this.plugin.app.vault.adapter;
+			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
+			if (!(await adapter.exists(path))) return;
+			const raw = await adapter.read(path);
+			if (raw === this.lastWritten) return;
+			this.data = mergeData(normalizeData(JSON.parse(raw)), this.data);
+			this.pruneOldRecords();
+			this.notify();
+			this.save();
+		} catch {
+			// Transient read error (file mid-sync): the next focus retries.
+		} finally {
+			this.syncInFlight = false;
+		}
+	}
+
 	/** Register a data-changed listener; returns its unsubscribe function. */
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
@@ -226,6 +289,8 @@ export class HabitService {
 
 	destroy(): void {
 		this.listeners.clear();
+		this.focusDoc?.removeEventListener('visibilitychange', this.focusHandler);
+		this.focusDoc = null;
 	}
 
 	private notify(): void {

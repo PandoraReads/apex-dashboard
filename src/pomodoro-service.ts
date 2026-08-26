@@ -54,6 +54,41 @@ function emptyData(): PomodoroData {
 	return { version: 2, currentActivity: '', tags: [], sessions: [] };
 }
 
+/** Union of two datasets, `session` winning per-record conflicts: sessions
+ *  merge by date with records deduped by timestamp, tags by name. Used by the
+ *  save-time merge and the focus-time re-sync so concurrent writers (another
+ *  device through file sync, another view in-process) never silently drop
+ *  each other's sessions. */
+function mergeData(disk: PomodoroData, session: PomodoroData): PomodoroData {
+	const byDate = new Map(disk.sessions.map(s => [s.date, s] as const));
+	for (const s of session.sessions) {
+		const existing = byDate.get(s.date);
+		if (!existing) {
+			byDate.set(s.date, s);
+			continue;
+		}
+		const byTs = new Map((existing.records ?? []).map(r => [r.timestamp, r] as const));
+		for (const r of s.records ?? []) byTs.set(r.timestamp, r);
+		const records = [...byTs.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+		byDate.set(s.date, {
+			date: s.date,
+			// Legacy sessions may carry `completed` without records — the max
+			// keeps those counts while record-backed days self-correct.
+			completed: Math.max(existing.completed, s.completed, records.length),
+			records,
+		});
+	}
+	const tagMap = new Map(disk.tags.map(tg => [tg.name, tg] as const));
+	for (const tg of session.tags) tagMap.set(tg.name, tg);
+	return {
+		version: 2,
+		// The live activity is transient per-device state; local wins.
+		currentActivity: session.currentActivity,
+		tags: [...tagMap.values()],
+		sessions: [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date)),
+	};
+}
+
 /** Normalize a parsed pomodoro.json of either version into v2 shape. */
 function normalizeData(raw: unknown): PomodoroData {
 	if (Array.isArray(raw)) {
@@ -95,8 +130,28 @@ export class PomodoroService {
 	private onCompleteCallback: (() => void) | null = null;
 	private data: PomodoroData = emptyData();
 	private loaded = false;
+	private loadFailed = false;
+	/** Raw file content of this instance's last successful write; a disk read
+	 *  that differs means an external writer (sync / another view) intervened
+	 *  and the next write must merge instead of clobber. */
+	private lastWritten: string | null = null;
+	private listeners = new Set<() => void>();
+	private syncInFlight = false;
 
-	constructor(private plugin: DashboardPlugin) {}
+	private focusDoc: Document | null = null;
+	private focusHandler = (): void => {
+		if (this.focusDoc?.visibilityState === 'visible') void this.syncFromDisk();
+	};
+
+	constructor(private plugin: DashboardPlugin) {
+		// Data files only ever load at startup; without re-reading, a session
+		// open all day never sees another device's records and its next save
+		// clobbers them. On focus (window switch / mobile foreground)
+		// re-read and union. Listener is per-service (not plugin-lifetime):
+		// pomodoro/reading instances live and die with their view.
+		this.focusDoc = activeDocument;
+		this.focusDoc.addEventListener('visibilitychange', this.focusHandler);
+	}
 
 	async loadSessions(): Promise<void> {
 		if (this.loaded) return;
@@ -105,16 +160,35 @@ export class PomodoroService {
 			const adapter = this.plugin.app.vault.adapter;
 			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
 			if (await adapter.exists(path)) {
-				this.data = normalizeData(JSON.parse(await adapter.read(path)));
+				const raw = await adapter.read(path);
+				this.data = normalizeData(JSON.parse(raw));
+				this.lastWritten = raw;
 			}
-		} catch {
+		} catch (error) {
+			// Parse error = unusable file (start fresh); an adapter/IO error
+			// (mobile file lock, iCloud file not yet downloaded) leaves the
+			// on-disk file intact — flag it so the next save cannot overwrite
+			// real history with the empty state (expense/habit pattern).
 			this.data = emptyData();
+			this.loadFailed = !(error instanceof SyntaxError);
 		}
 		this.currentActivity = this.data.currentActivity;
 		this.pruneOldSessions();
 	}
 
-	private async saveSessions(): Promise<void> {
+	/** Serialized write queue — at most one write is ever in flight (the old
+	 *  per-call awaits could interleave read/compare/write cycles between
+	 *  tag edits and session completions). */
+	private saveQueue: Promise<void> = Promise.resolve();
+
+	private save(): void {
+		this.saveQueue = this.saveQueue.then(() => this.persist());
+	}
+
+	private async persist(): Promise<void> {
+		// A non-parse load failure must not brick persistence for the whole
+		// session; re-attempt the read and merge before deciding to skip.
+		if (this.loadFailed && !(await this.retryFailedLoad())) return;
 		try {
 			const adapter = this.plugin.app.vault.adapter;
 			const dir = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}`;
@@ -123,9 +197,84 @@ export class PomodoroService {
 				await adapter.mkdir(dir);
 			}
 			this.data = { ...this.data, currentActivity: this.currentActivity };
-			await adapter.write(path, JSON.stringify(this.data));
+			// Merge the disk state first when someone else wrote since our
+			// last write — blind full-file saves are what made records
+			// "not sync" (last writer silently reverted the other device).
+			try {
+				if (await adapter.exists(path)) {
+					const raw = await adapter.read(path);
+					if (raw !== this.lastWritten) {
+						this.data = mergeData(normalizeData(JSON.parse(raw)), this.data);
+					}
+				}
+			} catch {
+				// Disk unreadable at save time: write our state as before.
+			}
+			const json = JSON.stringify(this.data);
+			await adapter.write(path, json);
+			this.lastWritten = json;
 		} catch {
-			// silent fail
+			// silent fail: an unwriteable pomodoro.json must not break sessions in-session
+		}
+	}
+
+	/** Re-attempt the initial read after a non-parse load failure. On success
+	 *  the disk state merges with the in-session state; while the file is
+	 *  still unreadable saving stays skipped rather than clobbering a file we
+	 *  cannot see. */
+	private async retryFailedLoad(): Promise<boolean> {
+		try {
+			const adapter = this.plugin.app.vault.adapter;
+			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
+			let disk = emptyData();
+			if (await adapter.exists(path)) {
+				const raw = await adapter.read(path);
+				disk = normalizeData(JSON.parse(raw));
+				this.lastWritten = raw;
+			}
+			this.data = mergeData(disk, this.data);
+			this.loadFailed = false;
+			this.notify();
+			return true;
+		} catch (error) {
+			this.loadFailed = !(error instanceof SyntaxError);
+			return !this.loadFailed;
+		}
+	}
+
+	/** Re-read the file and union external changes into memory (another
+	 *  device's records arriving via sync, or another view's writes in the
+	 *  same process). Notifies listeners when the merge changed anything, and
+	 *  writes the union back so a lagging device heals on its next focus. */
+	async syncFromDisk(): Promise<void> {
+		if (!this.loaded || this.syncInFlight) return;
+		this.syncInFlight = true;
+		try {
+			const adapter = this.plugin.app.vault.adapter;
+			const path = `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/${DATA_FILE}`;
+			if (!(await adapter.exists(path))) return;
+			const raw = await adapter.read(path);
+			if (raw === this.lastWritten) return;
+			this.data = mergeData(normalizeData(JSON.parse(raw)), this.data);
+			this.pruneOldSessions();
+			this.notify();
+			this.save();
+		} catch {
+			// Transient read error (file mid-sync): the next focus retries.
+		} finally {
+			this.syncInFlight = false;
+		}
+	}
+
+	/** Register a data-changed listener; returns its unsubscribe function. */
+	subscribe(listener: () => void): () => void {
+		this.listeners.add(listener);
+		return () => this.listeners.delete(listener);
+	}
+
+	private notify(): void {
+		for (const listener of [...this.listeners]) {
+			listener();
 		}
 	}
 
@@ -242,6 +391,9 @@ export class PomodoroService {
 		this.clearTickInterval();
 		this.onTickCallback = null;
 		this.onCompleteCallback = null;
+		this.listeners.clear();
+		this.focusDoc?.removeEventListener('visibilitychange', this.focusHandler);
+		this.focusDoc = null;
 	}
 
 	private ensureTickInterval(): void {
@@ -361,7 +513,7 @@ export class PomodoroService {
 		// Hold the record until the following break resolves (completed / skipped)
 		// so breakMinutes/breakCompleted land in the same write.
 		this.pendingBreak = { record, breakPhaseStartedAt: Date.now() };
-		await this.saveSessions();
+		this.save();
 	}
 
 	/** Rewrite the pending work record (now carrying break adherence) in place. */
@@ -380,7 +532,7 @@ export class PomodoroService {
 				}
 				: s),
 		};
-		await this.saveSessions();
+		this.save();
 	}
 
 	private appendRecord(date: string, record: PomodoroRecord): void {
@@ -417,7 +569,7 @@ export class PomodoroService {
 
 	setActivity(activity: string): void {
 		this.currentActivity = activity;
-		void this.saveSessions();
+		this.save();
 	}
 
 	getActivity(): string {
@@ -470,7 +622,7 @@ export class PomodoroService {
 			})),
 		};
 		this.currentActivity = this.data.currentActivity;
-		await this.saveSessions();
+		this.save();
 		return true;
 	}
 
@@ -486,7 +638,7 @@ export class PomodoroService {
 			})),
 		};
 		this.currentActivity = this.data.currentActivity;
-		await this.saveSessions();
+		this.save();
 	}
 
 	/** Merge srcName's history into destName and drop srcName. */
@@ -502,7 +654,7 @@ export class PomodoroService {
 			})),
 		};
 		this.currentActivity = this.data.currentActivity;
-		await this.saveSessions();
+		this.save();
 		return true;
 	}
 
@@ -512,7 +664,7 @@ export class PomodoroService {
 			...this.data,
 			tags: this.data.tags.map(tg => tg.name === name ? { ...tg, pinned } : tg),
 		};
-		await this.saveSessions();
+		this.save();
 	}
 
 	// ===== Read queries =====

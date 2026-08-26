@@ -1,20 +1,15 @@
 import { App, Notice, setIcon } from 'obsidian';
 import { t } from './i18n';
 import {
-	categoriesFor,
 	expenseToday,
 	type ExpenseType,
 	formatExpenseAmount,
 	getExpenseService,
 	sanitizeAmountInput,
 } from './expense-service';
+import { categoryLabel, populateCategorySelect, wireCategorySelect } from './expense-category-ui';
 import { showExpenseStats } from './expense-stats-modal';
 import { ExpenseBackfillModal } from './expense-backfill-modal';
-
-/** Category display label; t() falls back to the raw key for dirty data. */
-function catLabel(key: string): string {
-	return t(`expense.cat.${key}`);
-}
 
 /** Mark an input invalid for 600ms (danger color + shake, CSS-driven). */
 function flashInvalid(input: HTMLElement): void {
@@ -69,7 +64,7 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 			new Notice(t('expense.added', {
 				type: t(record.type === 'expense' ? 'expense.expenseLabel' : 'expense.incomeLabel'),
 				amount: `${live.getCurrency()}${formatExpenseAmount(record.amount)}`,
-				category: catLabel(record.category),
+				category: categoryLabel(record.category),
 				date: record.date.slice(5),
 			}));
 		}).open();
@@ -103,9 +98,12 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 		const main = row.createDiv({ cls: 'dashboard-sidebar-expense-row-main' });
 		main.addEventListener('focusin', () => { lastActiveType = type; });
 
-		main.createDiv({ cls: 'dashboard-sidebar-expense-currency', text: currency });
+		// Currency + amount sit on a ledger-style underline (see styles.css);
+		// the category select keeps its boxed look and stands beside the line.
+		const amountWrap = main.createDiv({ cls: 'dashboard-sidebar-expense-amount-wrap' });
+		amountWrap.createDiv({ cls: 'dashboard-sidebar-expense-currency', text: currency });
 
-		const amountInput = main.createEl('input', {
+		const amountInput = amountWrap.createEl('input', {
 			cls: 'dashboard-sidebar-expense-amount',
 			attr: {
 				type: 'text',
@@ -124,10 +122,8 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 			cls: 'dashboard-sidebar-expense-category',
 			attr: { 'aria-label': t(type === 'expense' ? 'expense.expenseLabel' : 'expense.incomeLabel') },
 		});
-		for (const key of categoriesFor(type)) {
-			select.createEl('option', { text: catLabel(key), attr: { value: key } });
-		}
-		select.value = service.getLastCategory(type);
+		populateCategorySelect(select, service, type);
+		wireCategorySelect(select, service, type);
 
 		rows[type] = { amountInput, select, totalEl };
 	};
@@ -172,7 +168,7 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 		new Notice(t('expense.added', {
 			type: t(type === 'expense' ? 'expense.expenseLabel' : 'expense.incomeLabel'),
 			amount: `${live.getCurrency()}${formatExpenseAmount(record.amount)}`,
-			category: catLabel(record.category),
+			category: categoryLabel(record.category),
 			date: record.date.slice(5),
 		}));
 		row.amountInput.focus();
@@ -205,9 +201,10 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 }
 
 /** Refresh the derived labels of an existing widget (today's totals, net
- *  label, remembered categories). The form itself is never rebuilt — typing
- *  state and focus must survive entries made from any view or the stats
- *  overlay. No-op when the widget is absent or the service is gone. */
+ *  label, remembered categories). Custom categories may have changed in any
+ *  view, so option lists are rebuilt too. The form itself is never rebuilt —
+ *  typing state and focus must survive entries made from any view or the
+ *  stats overlay. No-op when the widget is absent or the service is gone. */
 export function refreshExpenseWidget(root: HTMLElement): void {
 	const widget = root.querySelector<HTMLElement>('.dashboard-sidebar-expense');
 	if (!widget || !widget.isConnected) return;
@@ -228,7 +225,7 @@ export function refreshExpenseWidget(root: HTMLElement): void {
 			`.dashboard-sidebar-expense-row--${type} .dashboard-sidebar-expense-category`);
 		// Skip the focused select: the user is mid-choice, don't yank it.
 		if (select && select !== widget.ownerDocument.activeElement) {
-			select.value = service.getLastCategory(type);
+			populateCategorySelect(select, service, type);
 		}
 	}
 

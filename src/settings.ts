@@ -445,6 +445,19 @@ export class DashboardSettingTab extends PluginSettingTab {
 						};
 						await this.plugin.saveSettings();
 					}));
+
+			new Setting(pomodoroCard)
+				.setName(t('settings.pomodoroMiniPanel'))
+				.setDesc(t('settings.pomodoroMiniPanelDesc'))
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.pomodoroMiniPanelEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							pomodoroMiniPanelEnabled: value,
+						};
+						await this.plugin.saveSettings();
+					}));
 		}
 
 		// --- Countdown card ---

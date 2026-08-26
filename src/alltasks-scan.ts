@@ -406,9 +406,15 @@ export function groupTasks(tasks: VaultTask[], groupBy: TaskGroupBy): TaskGroup[
 /** Max number of days a multi-day span may cover (guards against pathological ranges). */
 const MAX_SPAN_DAYS = 366;
 
-/** A task is calendar-relevant if it carries any recognized calendar date. */
+/**
+ * A task is calendar-relevant if it carries any recognized calendar date.
+ * Completion alone does NOT capture: a done checkbox whose only date marker
+ * is ✅ / `[completion::]` is history, not a schedule. Tasks that also carry
+ * a due/start/end/scheduled date keep every anchor, including their
+ * completion-day one (see indexTasksByDay).
+ */
 export function isCalendarRelevant(task: VaultTask): boolean {
-	return Boolean(task.due || task.start || task.end || task.scheduled || task.completion);
+	return Boolean(task.due || task.start || task.end || task.scheduled);
 }
 
 /** Why a task occupies a given calendar day. Renderers use this to pick the
@@ -489,4 +495,57 @@ export function toIsoDate(d: Date): string {
 	const m = String(d.getMonth() + 1).padStart(2, '0');
 	const day = String(d.getDate()).padStart(2, '0');
 	return `${y}-${m}-${day}`;
+}
+
+/* ------------------------- task view filters ------------------------- */
+
+/** Mutually-exclusive task filters for the full-screen calendar. */
+export type CalendarTaskFilter = 'all' | 'due' | 'start' | 'active' | 'open';
+/** Display order of the filter options. */
+export const CALENDAR_TASK_FILTERS: readonly CalendarTaskFilter[] = ['all', 'due', 'start', 'active', 'open'];
+
+/**
+ * Task-level filter predicate. `todayIso` (YYYY-MM-DD) is injected so the
+ * 'active' boundary is testable and recomputed on every render.
+ *  - all: everything
+ *  - due: has a due date (⏰ / 📅 / `[due::]` — the scanner folds ⏰ into due)
+ *  - start: has a start date (🛫 / `[start::]`)
+ *  - active: unchecked, started, and today ∈ [start, end] (no end = ongoing
+ *    until checked off)
+ *  - open: unchecked
+ */
+export function matchesCalendarFilter(task: VaultTask, filter: CalendarTaskFilter, todayIso: string): boolean {
+	switch (filter) {
+		case 'all': return true;
+		case 'due': return Boolean(task.due);
+		case 'start': return Boolean(task.start);
+		case 'active': {
+			if (task.checked) return false;
+			const start = task.start;
+			if (!start) return false;
+			const end = task.end;
+			return start <= todayIso && (!end || end >= todayIso);
+		}
+		case 'open': return !task.checked;
+	}
+}
+
+/**
+ * Task-level view over a day-indexed map: keeps every day entry of tasks that
+ * pass the filter and drops now-empty days. 'all' returns the same map
+ * (zero-copy). Filtering selects tasks, not anchors — a kept task shows all
+ * its day anchors and span bars.
+ */
+export function filterTasksByDay(
+	byDay: Map<string, VaultTask[]>,
+	filter: CalendarTaskFilter,
+	todayIso: string,
+): Map<string, VaultTask[]> {
+	if (filter === 'all') return byDay;
+	const out = new Map<string, VaultTask[]>();
+	for (const [iso, tasks] of byDay) {
+		const kept = tasks.filter(task => matchesCalendarFilter(task, filter, todayIso));
+		if (kept.length > 0) out.set(iso, kept);
+	}
+	return out;
 }

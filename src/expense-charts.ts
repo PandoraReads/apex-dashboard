@@ -26,10 +26,25 @@ const INCOME_PALETTE: Record<string, string> = {
 
 const FALLBACK_COLOR = '#95a5a6';
 
-/** Stable color for a preset category key (gray for unknown/dirty keys). */
+/** Deterministic color for a custom category name: FNV-1a hash → HSL hue, so
+ *  the same name keeps the same color across the donut, ranking and legend
+ *  without persisting a palette. Fixed saturation/lightness read on both the
+ *  light and dark card surfaces. */
+function customCategoryColor(key: string): string {
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < key.length; i++) {
+		hash ^= key.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	const hue = Math.abs(hash) % 360;
+	return `hsl(${hue}, 52%, 50%)`;
+}
+
+/** Stable color for a category key: preset palettes first, then the name
+ *  hash (custom categories), gray only for empty keys. */
 export function categoryColor(type: ExpenseType, key: string): string {
 	const palette = type === 'expense' ? EXPENSE_PALETTE : INCOME_PALETTE;
-	return palette[key] ?? FALLBACK_COLOR;
+	return palette[key] ?? (key.length > 0 ? customCategoryColor(key) : FALLBACK_COLOR);
 }
 
 /** Bar colors shared by the widget/stats convention. */
