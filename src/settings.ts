@@ -862,6 +862,22 @@ export class DashboardSettingTab extends PluginSettingTab {
 		input.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter') { e.preventDefault(); void addFolder(); }
 		});
+
+		// Where calendar-added tasks land in the day's daily note.
+		new Setting(card)
+			.setName(t('settings.widgetCalendarTaskPosition'))
+			.setDesc(t('settings.widgetCalendarTaskPositionDesc'))
+			.addDropdown(d => d
+				.addOption('start', t('settings.widgetCalendarTaskPositionStart'))
+				.addOption('end', t('settings.widgetCalendarTaskPositionEnd'))
+				.setValue(this.plugin.settings.calendarTaskInsertPosition)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarTaskInsertPosition: value as 'start' | 'end',
+					};
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	private renderBackupSettings(containerEl: HTMLElement): void {

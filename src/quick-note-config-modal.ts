@@ -21,6 +21,7 @@ export class QuickNoteConfigModal extends Modal {
 	private captureTarget: string;
 	private captureFolder: string;
 	private captureTemplate: string;
+	private capturePosition: 'start' | 'end';
 	private dailyEnabled: boolean;
 	/** Index + list of the row currently being dragged (null when idle). */
 	private dragIndex: number | null = null;
@@ -37,6 +38,7 @@ export class QuickNoteConfigModal extends Modal {
 		this.captureTarget = s.quickCaptureTarget;
 		this.captureFolder = s.quickCaptureFolder;
 		this.captureTemplate = s.quickCaptureTemplate;
+		this.capturePosition = s.quickCapturePosition === 'end' ? 'end' : 'start';
 		this.dailyEnabled = s.quickDailyEnabled;
 	}
 
@@ -211,6 +213,16 @@ export class QuickNoteConfigModal extends Modal {
 		this.textInput(section, this.captureTarget, '', { placeholder: t('quickNote.fieldCaptureTargetPh') }, (v) => { this.captureTarget = v; });
 		this.textInput(section, this.captureFolder, '', { placeholder: t('quickNote.fieldCaptureFolderPh') }, (v) => { this.captureFolder = v; });
 		this.textInput(section, this.captureTemplate, '', { placeholder: t('quickNote.fieldCaptureTemplatePh') }, (v) => { this.captureTemplate = v; });
+
+		// Top vs bottom of the capture target (and of the template in new
+		// fleeting notes). Reuses the toggle-row layout: label left, control right.
+		const posRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-toggle' });
+		posRow.createEl('label', { attr: { for: 'qn-capture-pos' }, text: t('quickNote.capturePosition') });
+		const posSelect = posRow.createEl('select', { cls: 'dashboard-modal-input', attr: { id: 'qn-capture-pos' } });
+		const startOpt = posSelect.createEl('option', { text: t('quickNote.capturePositionStart'), attr: { value: 'start' } });
+		const endOpt = posSelect.createEl('option', { text: t('quickNote.capturePositionEnd'), attr: { value: 'end' } });
+		(this.capturePosition === 'end' ? endOpt : startOpt).selected = true;
+		posSelect.addEventListener('change', () => { this.capturePosition = posSelect.value === 'end' ? 'end' : 'start'; });
 	}
 
 	// ── Daily ──────────────────────────────────────────────────────────────
@@ -248,6 +260,7 @@ export class QuickNoteConfigModal extends Modal {
 			quickCaptureTarget: this.captureTarget.trim(),
 			quickCaptureFolder: this.captureFolder.trim(),
 			quickCaptureTemplate: this.captureTemplate.trim(),
+			quickCapturePosition: this.capturePosition,
 			quickDailyEnabled: this.dailyEnabled,
 		};
 		await this.plugin.saveSettings();

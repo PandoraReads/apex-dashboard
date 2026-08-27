@@ -162,7 +162,9 @@ export async function createNoteFromPreset(app: App, preset: QuickNotePreset): P
 	new Notice(t('quickNote.created', { name: file.basename }));
 }
 
-/** Capture a fleeting thought: append to the target note, or create a new note. */
+/** Capture a fleeting thought: insert into the target note — top (after any
+ *  frontmatter) or bottom, per quickCapturePosition — or create a new note.
+ *  New notes place the line the same way against their template content. */
 export async function captureThought(app: App, settings: DashboardSettings, text: string): Promise<void> {
 	const now = nowMoment();
 	// Wiki-link date (jumps to the daily note + shows up in its backlinks) plus
@@ -174,8 +176,7 @@ export async function captureThought(app: App, settings: DashboardSettings, text
 		const file = await getOrCreateNote(app, target);
 		if (file) {
 			const raw = await app.vault.read(file);
-			const sep = raw.endsWith('\n') ? '' : '\n';
-			await app.vault.modify(file, `${raw}${sep}${line}\n`);
+			await app.vault.modify(file, placeCaptureLine(raw, line, settings.quickCapturePosition));
 			new Notice(t('quickNote.captured'));
 			return;
 		}
@@ -186,10 +187,10 @@ export async function captureThought(app: App, settings: DashboardSettings, text
 	const filename = now.format('YYYY-MM-DD-HHmm');
 	let path = folder ? `${folder}/${filename}.md` : `${filename}.md`;
 	path = await uniquePath(app, path);
-	// Seed new notes with the configured template (if any), then the captured line.
+	// Seed new notes with the configured template (if any), then place the
+	// captured line top/bottom of it exactly as for an existing target note.
 	const { content: tplContent } = await readTemplateContent(app, settings.quickCaptureTemplate, { now });
-	const body = tplContent ? `${tplContent}${tplContent.endsWith('\n') ? '' : '\n'}${line}\n` : `${line}\n`;
-	await app.vault.create(path, body);
+	await app.vault.create(path, placeCaptureLine(tplContent, line, settings.quickCapturePosition));
 	new Notice(t('quickNote.captured'));
 }
 
@@ -269,6 +270,34 @@ async function uniquePath(app: App, path: string): Promise<string> {
 		if (!(await app.vault.adapter.exists(candidate))) return candidate;
 	}
 	return `${base}-${Date.now()}${ext}`;
+}
+
+/** Place a captured line into `raw` — at the top (after any YAML frontmatter)
+ *  or at the bottom — per the configured capture position. */
+function placeCaptureLine(raw: string, line: string, position: 'start' | 'end'): string {
+	if (position === 'start') {
+		const { fm, body } = splitFrontmatter(raw);
+		// Keep the body's own leading blank line when present; otherwise add one
+		// so the line never glues onto the first paragraph (a bare "- x\ntext"
+		// would render "text" as a lazy continuation of the list item).
+		const sep = body === '' || body.startsWith('\n') ? '' : '\n';
+		return `${fm}${line}\n${sep}${body}`;
+	}
+	const sep = raw === '' || raw.endsWith('\n') ? '' : '\n';
+	return `${raw}${sep}${line}\n`;
+}
+
+/** Split a leading YAML frontmatter block (a closed `---` fence at line 1)
+ *  from the note body. Returns { fm: '', body: raw } when there is none. */
+function splitFrontmatter(raw: string): { fm: string; body: string } {
+	if (!raw.startsWith('---')) return { fm: '', body: raw };
+	const lines = raw.split('\n');
+	for (let i = 1; i < lines.length; i++) {
+		if (lines[i]!.trim() === '---') {
+			return { fm: `${lines.slice(0, i + 1).join('\n')}\n`, body: lines.slice(i + 1).join('\n') };
+		}
+	}
+	return { fm: '', body: raw };
 }
 
 /** Get an existing note (resolving a `.md` suffix if the path omits it), or

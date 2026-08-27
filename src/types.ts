@@ -32,6 +32,9 @@ export interface DashboardSettings {
 	/** Active task filter in the full-screen calendar modal ('all' default).
 	    Persisted memory only — the sidebar widget stays unfiltered. */
 	calendarTaskFilter: CalendarTaskFilter;
+	/** Where calendar-added tasks land in the day's daily note: right below
+	    frontmatter ('start') or at the bottom ('end'). */
+	calendarTaskInsertPosition: 'start' | 'end';
 	/** Habit check-in widget: boolean daily check-offs tracked per habit. */
 	widgetHabitEnabled: boolean;
 	/** Expense tracker widget: quick expense/income entry in the sidebar. */
@@ -87,6 +90,8 @@ export interface DashboardSettings {
 	quickCaptureFolder: string;
 	/** Template path applied to new fleeting notes created in the capture folder. Empty = none. */
 	quickCaptureTemplate: string;
+	/** Where captured lines land in the note: after frontmatter ('start') or at the bottom ('end'). */
+	quickCapturePosition: 'start' | 'end';
 	/** Pinned-note shortcuts rendered as one-click open buttons. */
 	pinnedNotes: PinnedNote[];
 	/** Quick-command shortcuts rendered as one-click execute buttons. */
@@ -208,6 +213,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	widgetCalendarEnabled: false,
 	calendarExcludeFolders: [],
 	calendarTaskFilter: 'all',
+	calendarTaskInsertPosition: 'start',
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	expenseCurrency: '¥',
@@ -234,6 +240,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickCaptureTarget: '',
 	quickCaptureFolder: '',
 	quickCaptureTemplate: '',
+	quickCapturePosition: 'start',
 	pinnedNotes: [] as PinnedNote[],
 	quickCommands: [] as QuickCommand[],
 	quickDailyEnabled: false,

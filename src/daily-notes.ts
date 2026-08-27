@@ -148,7 +148,7 @@ export interface TaskInsertTarget {
 	/** The exact line as written (e.g. with the dashboard list's indentation) —
 	 *  the optimistic row's originalLine so an immediate toggle can match it. */
 	writtenLine: string;
-	kind: 'daily-top' | 'dashboard-list' | 'daily-created';
+	kind: 'daily-top' | 'daily-end' | 'dashboard-list' | 'daily-created';
 }
 
 /** A checkbox task item line (same shape the vault scanner recognizes). */
@@ -204,7 +204,8 @@ function appendAtFileEnd(content: string, taskLine: string): { content: string; 
 /**
  * Write a calendar-added task line for `iso`:
  *
- *  1. the day's daily note exists -> insert at its TOP (right below frontmatter);
+ *  1. the day's daily note exists -> insert per `position`: 'start' at its TOP
+ *     (right below frontmatter), 'end' at its bottom;
  *  2. otherwise -> the dashboard file's first checkbox list (appended at its
  *     end; end-of-file when the file has no checkbox list yet);
  *  3. last resort (no dashboard file either) -> create the daily note (template
@@ -218,13 +219,23 @@ export async function insertTaskForDay(
 	iso: string,
 	taskLine: string,
 	dashboardFile?: string,
+	position: 'start' | 'end' = 'start',
 ): Promise<TaskInsertTarget | null> {
-	// 1. Existing daily note: insert at the top, below frontmatter.
+	// 1. Existing daily note: top (below frontmatter) or bottom, per setting.
 	const notePath = dailyNotePathFor(app, iso);
 	if (notePath) {
 		const existing = app.vault.getAbstractFileByPath(notePath);
 		if (existing instanceof TFile) {
 			const raw = await app.vault.read(existing);
+			if (position === 'end') {
+				let out = raw;
+				if (out !== '' && !out.endsWith('\n')) out += '\n';
+				// Task lands after the current last line (0-based index).
+				const line = out.split('\n').length - 1;
+				out += `${taskLine}\n`;
+				await app.vault.modify(existing, out);
+				return { file: existing, line, writtenLine: taskLine, kind: 'daily-end' };
+			}
 			const lines = raw.split('\n');
 			const at = topInsertIndex(lines);
 			const out = [...lines.slice(0, at), taskLine, ...lines.slice(at)].join('\n');

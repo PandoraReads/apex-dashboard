@@ -47,6 +47,12 @@ function writeCalendarTaskFilter(app: App, filter: CalendarTaskFilter): void {
 	void plugin.saveSettings?.();
 }
 
+/** Where calendar-added tasks land in the daily note; anything but 'end'
+ *  (including an unreachable plugin) keeps the historical 'start' behavior. */
+function readTaskInsertPosition(app: App): 'start' | 'end' {
+	return lookupDashboardPlugin(app)?.settings?.calendarTaskInsertPosition === 'end' ? 'end' : 'start';
+}
+
 /**
  * Full-screen month grid: navigate any month, toggle tasks inline (writes back
  * via onToggle), click a task to open its source note. Receives a fully indexed
@@ -266,10 +272,11 @@ export class DayAgendaModal extends Modal {
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
-		// Add-task row: optional time (HH:MM) + title + Add. Goes to the top of
-		// this day's daily note (created from the Daily Notes template/path when
-		// absent — or, when the day has no daily note, to the dashboard file's
-		// first checkbox list; see insertTaskForDay).
+		// Add-task row: optional time (HH:MM) + title + Add. Goes into this
+		// day's daily note (top or bottom, per the calendar setting; created
+		// from the Daily Notes template/path when absent) — or, when the day
+		// has no daily note, to the dashboard file's first checkbox list; see
+		// insertTaskForDay.
 		const addRow = body.createDiv({ cls: 'dashboard-cal-day-add' });
 		const timeInput = addRow.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-cal-day-add-time',
@@ -341,9 +348,9 @@ export class DayAgendaModal extends Modal {
 		return row;
 	}
 
-	/** Add the entered task (optional time + title) for this day: to the top of
-	 *  the day's daily note, or — when that day has no daily note — to the
-	 *  dashboard file's first checkbox list. */
+	/** Add the entered task (optional time + title) for this day: into the day's
+	 *  daily note — top or bottom, per the calendar widget setting — or, when
+	 *  that day has no daily note, to the dashboard file's first checkbox list. */
 	private async addTask(titleInput: HTMLInputElement, timeInput: HTMLInputElement): Promise<void> {
 		const title = titleInput.value.trim();
 		if (!title) return;
@@ -356,7 +363,7 @@ export class DayAgendaModal extends Modal {
 
 		let target: TaskInsertTarget | null = null;
 		try {
-			target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile);
+			target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app));
 		} catch (err) {
 			console.error('[Dashboard] add task failed:', err);
 			new Notice(t('calendar.taskAddFailed'), 4000);

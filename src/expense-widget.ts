@@ -131,7 +131,10 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 	buildRow('expense');
 	buildRow('income');
 
-	const noteInput = form.createEl('input', {
+	// Note row: the input fills the line, a Log button sits at its right and
+	// commits whichever row was focused last (same rule as the note's Enter).
+	const noteWrap = form.createDiv({ cls: 'dashboard-sidebar-expense-note-wrap' });
+	const noteInput = noteWrap.createEl('input', {
 		cls: 'dashboard-sidebar-expense-note',
 		attr: {
 			type: 'text',
@@ -187,6 +190,22 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 			e.preventDefault();
 			commit(lastActiveType);
 		}
+	});
+
+	const submitBtn = noteWrap.createEl('button', {
+		cls: 'dashboard-sidebar-expense-submit',
+		text: t('expense.submit'),
+		attr: { type: 'button', 'aria-label': t('expense.submit') },
+	});
+	// Empty amount on a button click (unlike Enter, where silence is fine)
+	// flashes the row so the click doesn't feel dead.
+	submitBtn.addEventListener('click', () => {
+		const type = lastActiveType;
+		if (rows[type].amountInput.value.trim() === '') {
+			flashInvalid(rows[type].amountInput);
+			return;
+		}
+		commit(type);
 	});
 
 	// Initial derived labels (today's totals + net).

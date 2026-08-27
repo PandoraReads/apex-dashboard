@@ -2058,17 +2058,23 @@
 }
 
 .dashboard-sidebar-expense-category {
-	/* menulist keeps the native dropdown arrow on iOS WKWebView (see the
-	   countdown time select); a bare none renders it arrow-less. */
-	-webkit-appearance: menulist;
-	appearance: menulist;
-	background: var(--db-bg-input, var(--background-modifier-form-field));
-	border: 1px solid var(--db-border-input, rgba(128, 128, 128, 0.25));
+	/* Borderless, shadowless and backgroundless to match the panel's underline
+	   minimalism; the chevron is painted as a background SVG since a styled
+	   <select> can't hold pseudo-elements. iOS falls back to menulist further
+	   down (see there). */
+	-webkit-appearance: none;
+	appearance: none;
+	background-color: transparent;
+	border: none;
+	box-shadow: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='rgba(128, 128, 128, 0.65)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 3px center;
+	padding: 3px 14px 3px 4px;
 	border-radius: var(--db-radius-sm, 6px);
 	color: var(--db-text-muted);
 	font-size: 0.68em;
 	font-family: var(--db-font);
-	padding: 3px 4px;
 	outline: none;
 	flex: 0 1 auto;
 	max-width: 42%;
@@ -2077,12 +2083,31 @@
 	cursor: pointer;
 }
 
+/* iOS WKWebView renders an appearance:none <select> arrow-less (see the
+   countdown time select); keep the native menulist look there. */
+@supports (-webkit-touch-callout: none) {
+	.dashboard-sidebar-expense-category {
+		-webkit-appearance: menulist;
+		appearance: menulist;
+		background-image: none;
+		padding-right: 4px;
+	}
+}
+
 .dashboard-sidebar-expense-category:focus {
 	color: var(--db-text);
-	border-color: var(--db-accent);
+}
+
+/* Note input + Log button share one line: input stretches, button hugs right. */
+.dashboard-sidebar-expense-note-wrap {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 }
 
 .dashboard-sidebar-expense-note {
+	flex: 1;
+	min-width: 0;
 	-webkit-appearance: none;
 	appearance: none;
 	background: none !important;
@@ -2093,6 +2118,36 @@
 	padding: 3px 0;
 	outline: none;
 	font-family: var(--db-font);
+}
+
+/* Flat text button (quicknote-chip idiom): Obsidian's native button styles
+   would otherwise win over theme tokens on a <button>, so background/shadow/
+   border are forced off. Accent text stays readable on the panel surface in
+   every theme — no accent-fill contrast handling needed. */
+.dashboard-sidebar-expense-submit {
+	flex-shrink: 0;
+	-webkit-appearance: none;
+	appearance: none;
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-accent) !important;
+	font-size: 0.72em;
+	font-weight: 600;
+	line-height: 1.4;
+	padding: 3px 8px;
+	cursor: pointer;
+	font-family: var(--db-font);
+	border-radius: var(--db-radius-sm, 6px);
+	transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.dashboard-sidebar-expense-submit:hover {
+	background-color: var(--db-bg-hover, rgba(128, 128, 128, 0.1)) !important;
+}
+
+.dashboard-sidebar-expense-submit:active {
+	background-color: var(--db-bg-hover-strong, rgba(128, 128, 128, 0.16)) !important;
 }
 
 .dashboard-sidebar-expense-note::placeholder {

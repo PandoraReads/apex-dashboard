@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.8 (2026-08-28)
+
+### Added
+- **Quick capture: choose where thoughts land in the note** — The Common Actions bar's capture box now has an "Insert position" option in its config dialog: top of the note (the new default, placed right after any YAML frontmatter so metadata stays intact) or the end (the previous behavior, byte-for-byte). The setting applies to new fleeting notes too — the captured line goes top or bottom of the note's template content, and the top placement keeps a blank line between the entry and the body so Markdown never swallows the first paragraph as a list continuation.
+- **Calendar: new tasks can go to the top or the bottom of the daily note** — A "New task position" dropdown in the calendar widget settings controls where tasks added from the day agenda are written. The historical top placement (below frontmatter) stays the default; the end placement appends after the last line and reports the correct jump-to line number. Fallback destinations (the dashboard file's first checkbox list, template-seeded note creation) are unchanged.
+- **Expense panel: a Log button next to the note field** — Commits the last-focused row (the same rule as the note's Enter key); an empty amount flashes the amount field so the click never feels dead, while Enter keeps its silent skip.
+
+### Changed
+- **Expense widget controls now match the plugin's themes** — The category dropdown is borderless, shadowless and background-free, with a hand-drawn SVG chevron (iOS keeps the native menulist look so the arrow survives WKWebView), and the Log button is a flat accent-text button with a subtle hover fill. Obsidian's native button styling used to override theme tokens on the widget's `<button>` elements — both now use the forced-off defensive declarations the quick-action chips have always carried.
+
+### Removed
+- **Dead code: the deprecated calendar section module** — `src/calendar-section.ts` (the removed right-column calendar) is deleted. The parser still accepts legacy `calendar` entries in existing dashboard files, so old boards keep loading.
+
 ## 1.9.7 (2026-08-27)
 
 ### Fixed
