@@ -196,11 +196,10 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
-		'announce.title': 'Capture where you want it 🎉',
-		'announce.intro': 'Quick thoughts and calendar-added tasks can now go to the top or the bottom of your notes, and the expense panel gained a one-click Log button.',
-		'announce.featureNotePosition': 'Quick notes: new "Insert position" option — top of the note by default (safely below frontmatter), or the end',
-		'announce.featureTaskPosition': 'Calendar: new tasks land at the top or the bottom of the daily note, per the new calendar widget setting',
-		'announce.featureLogButton': 'Expense panel: a Log button beside the note field, with flat theme-matched dropdown and button styles',
+		'announce.title': 'A quieter focus corner 🍅',
+		'announce.intro': 'The pomodoro mini panel now folds itself down to just the tomato ring when you are not touching it, and calendar day previews are finally readable.',
+		'announce.featureMiniFold': 'Pomodoro mini panel: after ~10s without interaction it collapses to just the tomato + progress ring (the ring keeps ticking); hover, tap or focus unfolds it again',
+		'announce.featurePreviewText': 'Calendar: the day hover preview now lists todos in a readable size — bigger rows and a slightly wider card',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -1439,11 +1438,10 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
-		'announce.title': '记录落笔处，由你决定 🎉',
-		'announce.intro': '闪念笔记与日历新建待办现在可以选择写进笔记的开头还是末尾，记账面板也新增了一键「录入」。',
-		'announce.featureNotePosition': '闪念笔记：新增「插入位置」选项 — 默认写进笔记开头（自动避开 frontmatter），也可改回末尾',
-		'announce.featureTaskPosition': '日历：新建待办按设置写入日记的开头或末尾，位置在日历小组件设置中选择',
-		'announce.featureLogButton': '记账面板：备注右侧新增「录入」按钮，类目下拉与按钮改为扁平样式并全面适配插件主题',
+		'announce.title': '会自己安静下来的番茄钟 🍅',
+		'announce.intro': '番茄钟迷你面板空闲约 10 秒后自动收成番茄进度环，日历悬停弹窗的文字也放大到清晰易读。',
+		'announce.featureMiniFold': '番茄钟迷你面板：约 10 秒无操作自动折叠成番茄 + 进度环（进度照常走动），悬停、点按或键盘聚焦即恢复完整面板',
+		'announce.featurePreviewText': '日历：悬停日期的当日待办弹窗改用更大字号，卡片稍加宽，一眼可读',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',

@@ -7,6 +7,8 @@ import { PomodoroService, type PomodoroPhase } from './pomodoro-service';
 
 /** Panel self-refresh cadence (ms) — matches the service's own tick cadence. */
 const POLL_MS = 1000;
+/** Idle delay before the pill folds down to its tomato ring (ms). */
+const SILENT_AFTER_MS = 10_000;
 /** Mini ring geometry (px). */
 const RING_SIZE = 28;
 const RING_STROKE = 2.5;
@@ -58,6 +60,10 @@ function phaseLabel(phase: PomodoroPhase, paused: boolean): string {
  * hidden when idle, disabled, or manually dismissed (a dismissal re-arms on
  * the next idle-to-running transition). Destroyed together with the owning
  * view, since the service dies with it.
+ *
+ * Idle-fold: after ~10s without pointer/keyboard activity on the panel it
+ * collapses to just the tomato + progress ring (the ring keeps showing
+ * progress); any hover, tap or focus unfolds it again.
  */
 export function createPomodoroMiniPanel(
 	plugin: DashboardPlugin,
@@ -69,6 +75,29 @@ export function createPomodoroMiniPanel(
 	let dismissed = false;
 	let seenIdle = true;
 	let widthFrozen = false;
+	let silent = false;
+	let idleTimer: number | null = null;
+
+	/** Fold/unfold the pill. The CSS class only animates widths/gaps/chrome,
+	 *  so the mount-time frozen info width survives the fold underneath and
+	 *  the pill re-expands to the exact same size. */
+	function setSilent(next: boolean): void {
+		if (!refs || silent === next) return;
+		silent = next;
+		refs.panel.toggleClass('dashboard-pomodoro-mini--silent', next);
+	}
+
+	/** Any pointer/keyboard activity on the panel unfolds it and re-arms the
+	 *  idle countdown; left alone for SILENT_AFTER_MS the pill folds down to
+	 *  just the tomato and its progress ring (which keeps ticking). */
+	function armIdleTimer(): void {
+		if (idleTimer !== null) window.clearTimeout(idleTimer);
+		setSilent(false);
+		idleTimer = window.setTimeout(() => {
+			idleTimer = null;
+			setSilent(true);
+		}, SILENT_AFTER_MS);
+	}
 
 	/** Freeze the info column at its widest phase/pause label right after
 	 *  mount, so the pill's size never changes across phase transitions,
@@ -215,9 +244,21 @@ export function createPomodoroMiniPanel(
 		wireFloatingDrag(panel, doc, POS_KEY, '.dashboard-pomodoro-mini-btn');
 		// Restore the last dragged spot (clamped to this viewport's size).
 		restoreFloatingPos(panel, doc, POS_KEY);
+
+		// Idle-fold: pointer moves over the panel (or a drag in progress) keep
+		// it open; hover/tap/keyboard focus on the folded ring re-expands it.
+		for (const type of ['pointerenter', 'pointerdown', 'pointermove', 'click', 'focusin'] as const) {
+			panel.addEventListener(type, armIdleTimer);
+		}
+		armIdleTimer();
 	}
 
 	function unmount(): void {
+		if (idleTimer !== null) {
+			window.clearTimeout(idleTimer);
+			idleTimer = null;
+		}
+		silent = false;
 		refs?.panel.remove();
 		refs = null;
 	}

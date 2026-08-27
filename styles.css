@@ -7012,7 +7012,7 @@
 	position: fixed;
 	z-index: 9000;
 	min-width: 180px;
-	max-width: 320px;
+	max-width: 360px;
 	max-height: min(60vh, 420px);
 	display: flex;
 	flex-direction: column;
@@ -7051,11 +7051,14 @@
 	scrollbar-width: thin;
 }
 
-/* Reuse the calendar event-row look inside the preview. */
+/* Reuse the calendar event-row look inside the preview — but readable: the
+ * base .dashboard-calendar-event font (0.5625em) is sized for compact sidebar
+ * grid cells, way too small for this body-level popup. */
 .dashboard-calendar-day-preview-list .dashboard-calendar-event {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	font-size: 0.95em;
 	padding: 5px 7px;
 	border-radius: var(--db-radius-sm, 6px);
 	border-left: 3px solid transparent;
@@ -17537,6 +17540,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	touch-action: none;
 	/* Size is frozen in JS at mount; never let content spill it. */
 	overflow: hidden;
+	/* Idle-fold: gap/padding/chrome animate toward the silent tomato-only
+	 * state (.dashboard-pomodoro-mini--silent) and back. */
+	transition: gap 0.2s ease, padding 0.2s ease, border-radius 0.2s ease,
+		background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .dashboard-floating-mini--dragging {
@@ -17587,6 +17594,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	gap: 1px;
 	min-width: 44px;
 	overflow: hidden;
+	transition: width 0.2s ease, opacity 0.15s ease, visibility 0s;
 }
 
 .dashboard-pomodoro-mini-time {
@@ -17617,12 +17625,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
+	overflow: hidden;
 	border-radius: 50%;
 	background: var(--db-bg-btn, transparent);
 	border: 1px solid var(--db-border-btn, var(--background-modifier-border));
 	color: var(--db-text, var(--text-normal));
 	cursor: pointer;
-	transition: background 0.15s ease, transform 0.1s ease;
+	transition: width 0.2s ease, opacity 0.15s ease, border-width 0.2s ease,
+		background 0.15s ease, transform 0.1s ease, visibility 0s;
 }
 
 .dashboard-pomodoro-mini-btn:hover {
@@ -17665,6 +17675,39 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		width: 13px;
 		height: 13px;
 	}
+}
+
+/* Idle-fold ("silent") state: after ~10s without pointer activity on the
+ * pill it collapses to just the tomato + its progress ring (the ring keeps
+ * ticking); any hover, tap or key focus unfolds it again. Double-class
+ * selectors so these override the mobile block above. */
+.dashboard-pomodoro-mini.dashboard-pomodoro-mini--silent {
+	gap: 0;
+	padding: 5px;
+	border-radius: 999px;
+	background: transparent;
+	border-color: transparent;
+	box-shadow: none;
+}
+
+.dashboard-pomodoro-mini.dashboard-pomodoro-mini--silent .dashboard-pomodoro-mini-info {
+	width: 0 !important; /* overrides the mount-time frozen inline width */
+	min-width: 0;
+	opacity: 0;
+	visibility: hidden;
+	/* Stay in the a11y tree until the fold finishes; unfold shows instantly. */
+	transition: width 0.2s ease, opacity 0.15s ease, visibility 0s 0.2s;
+}
+
+.dashboard-pomodoro-mini.dashboard-pomodoro-mini--silent .dashboard-pomodoro-mini-btn {
+	width: 0;
+	min-width: 0;
+	border-width: 0;
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition: width 0.2s ease, opacity 0.15s ease, border-width 0.2s ease,
+		visibility 0s 0.2s;
 }
 
 /* ===== Floating Reading Mini Timer ===== */

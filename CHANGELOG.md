@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.9 (2026-08-28)
+
+### Added
+- **Pomodoro mini panel: an idle "silent" fold** — After 10 seconds without pointer or keyboard activity on the panel, it collapses to just the tomato and its progress ring (the ring keeps ticking every second). Hovering, tapping, dragging or tab-focusing it unfolds the full pill again and re-arms the countdown. The fold animates only widths, gaps and surface chrome, so the mount-time frozen info width survives underneath and the pill re-expands to the exact same size; the collapsed ring stays draggable, and the timer is cleaned up on unmount.
+
+### Changed
+- **Calendar: readable text in the day hover preview** — The popup listing a day's todos when you hover a date now renders rows at a readable size instead of the compact grid-cell font it inherited (~9px → ~15px), and the card is slightly wider (max 360px) so the bigger single-line rows show more text before truncating. Scoped to the popup only — sidebar grid and full-screen calendar rows are untouched.
+
 ## 1.9.8 (2026-08-28)
 
 ### Added
