@@ -193,14 +193,11 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
-		'announce.title': 'Expense ledger + cross-device sync 🎉',
-		'announce.intro': 'Every record in one table, categories of your own, and widget data that follows you across devices.',
-		'announce.featureLedger': 'Ledger: Excel-style table of every entry — filter, sort, edit, batch delete, CSV in/out',
-		'announce.featureCustomCats': 'Custom categories: add your own right from the category dropdown',
-		'announce.featureSync': 'Habits / pomodoro / reading / expense data now merges across devices on focus',
-		'announce.featureStatsLayout': 'Stats modal realigned: records left, all charts right — no more overlap in narrow panes',
-		'announce.featureReadingCovers': 'Reading covers accept vault & local image paths; the pomodoro pill is optional',
-		'announce.featureCrossDevice': 'Available on the desktop sidebar and the mobile widget bar',
+		'announce.title': 'Pomodoro stats fixed on mobile 🎉',
+		'announce.intro': 'The focus-statistics panel now stacks cleanly on phones and narrow panes, with a roomier header.',
+		'announce.featureMobileStats': 'Stats modal: on phones and narrow desktop panes the KPI / charts / timeline stack in one column — zones no longer paint over each other',
+		'announce.featureHeaderRow': 'Header: the day/week/month/year/all toggle and settings button moved to their own row below the title instead of squeezing it',
+		'announce.featurePill': 'Pomodoro pill: "Focusing" while running, just "Paused" on hold — the pill stays compact',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -798,7 +795,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'template.confirm': 'Use Template',
 
 		// Pomodoro
-		'pomodoro.work': 'Focus',
+		'pomodoro.work': 'Focusing',
 		'pomodoro.title': 'Pomodoro',
 		'pomodoro.shortBreak': 'Short Break',
 		'pomodoro.longBreak': 'Long Break',
@@ -1431,14 +1428,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
-		'announce.title': '记账明细账本 + 跨设备同步 🎉',
-		'announce.intro': '收支明细一表全览，类目自定义，小组件数据跨设备自动合并。',
-		'announce.featureLedger': '明细账本：Excel 风格全量表格，筛选、排序、编辑、批量删除、CSV 导入导出',
-		'announce.featureCustomCats': '自定义类目：类目下拉里直接新增、管理自己的记账类目',
-		'announce.featureSync': '习惯/番茄/阅读/记账数据聚焦自动合并，手机打卡桌面即见',
-		'announce.featureStatsLayout': '统计弹窗重排：记录在左、图表在右，窄窗口不再重叠',
-		'announce.featureReadingCovers': '读书封面支持库内/本地图片路径；番茄悬浮条可在设置中关闭',
-		'announce.featureCrossDevice': '桌面侧栏与手机端小组件条均已可用',
+		'announce.title': '番茄钟统计手机端修复 🎉',
+		'announce.intro': '统计面板在手机与窄窗格下不再叠栏，头部布局更宽松。',
+		'announce.featureMobileStats': '统计弹窗：手机与桌面窄窗格下 KPI/图表/时间线单列竖排，区域不再互相叠压',
+		'announce.featureHeaderRow': '头部：日/周/月/年/全部切换排与设置键移到标题下一行，不再挤压标题',
+		'announce.featurePill': '番茄悬浮条：运行中显示「专注中」，暂停时仅显示「已暂停」，胶囊更紧凑',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',
@@ -2032,7 +2026,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'template.confirm': '使用模板',
 
 		// Pomodoro
-		'pomodoro.work': '专注',
+		'pomodoro.work': '专注中',
 		'pomodoro.title': '番茄钟',
 		'pomodoro.shortBreak': '短休息',
 		'pomodoro.longBreak': '长休息',

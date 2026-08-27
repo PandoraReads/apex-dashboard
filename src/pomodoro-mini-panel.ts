@@ -37,10 +37,11 @@ function formatMiniTime(totalSeconds: number): string {
 }
 
 function phaseLabel(phase: PomodoroPhase, paused: boolean): string {
-	const base = phase === 'work'
+	// Paused drops the phase prefix ("专注 · 已暂停" was too wide for the pill).
+	if (paused) return t('pomodoro.paused');
+	return phase === 'work'
 		? t('pomodoro.work')
 		: phase === 'short-break' ? t('pomodoro.shortBreak') : t('pomodoro.longBreak');
-	return paused ? `${base} · ${t('pomodoro.paused')}` : base;
 }
 
 /**

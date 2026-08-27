@@ -2796,6 +2796,7 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	gap: 10px;
 	margin-bottom: 16px;
 }
 
@@ -3027,12 +3028,22 @@
 	padding: 22px 26px;
 	display: flex;
 	flex-direction: column;
+	/* Size container for the 1-column collapse below: the breakpoint must
+	   track the MODAL's own width, which follows the pane the dashboard lives
+	   in (split panes, sidebars, phones) — a viewport @media never fires in
+	   narrow desktop panes. Old engines keep the @media fallback further
+	   down. */
+	container-type: inline-size;
 }
 
 .dashboard-pomodoro-stats-header-right {
 	display: flex;
 	align-items: center;
 	gap: 10px;
+	/* Desktop: hug the right edge next to the close button (the close moved
+	   out of this group so mobile can drop it below the title — see the
+	   container/media collapse blocks). */
+	margin-left: auto;
 }
 
 .dashboard-pomodoro-stats-icon-btn {
@@ -3053,6 +3064,11 @@
 
 .dashboard-pomodoro-stats-body {
 	display: grid;
+	/* Desktop: one row, three columns; the row is capped so tall columns
+	   scroll inside the body instead of stretching the modal. Collapsed
+	   (below) every row MUST become auto — with the 1fr row kept, the two
+	   implicit auto rows eat all the free space, the KPI row collapses to
+	   zero height, and its content paints over the mid column. */
 	grid-template-columns: 230px minmax(0, 1fr) 300px;
 	grid-template-rows: minmax(0, 1fr);
 	gap: 18px;
@@ -3186,6 +3202,45 @@
 	flex-direction: column;
 	gap: 6px;
 	min-width: 0;
+}
+
+/* Collapse to one column when the modal itself gets narrow (narrow desktop
+   panes, phones): columns stack in source order kpi → mid → right and every
+   row sits at its content height so nothing paints over its neighbour; the
+   body scrolls as a whole. Breakpoint in container px (content-box of the
+   modal). */
+@container (max-width: 900px) {
+	/* Header wraps: title + close on the first line, the range toggle and
+	   settings button drop to a full-width row below so they stop squeezing
+	   the title. */
+	.dashboard-pomodoro-stats-header {
+		flex-wrap: wrap;
+	}
+
+	.dashboard-pomodoro-stats-header-titlewrap {
+		order: 1;
+		flex: 1;
+	}
+
+	.dashboard-pomodoro-stats-header .dashboard-pomodoro-stats-close {
+		order: 2;
+	}
+
+	.dashboard-pomodoro-stats-header-right {
+		order: 3;
+		flex-basis: 100%;
+		justify-content: flex-start;
+		margin-left: 0;
+	}
+
+	.dashboard-pomodoro-stats-body {
+		grid-template-columns: 1fr;
+		grid-template-rows: auto;
+	}
+
+	.dashboard-pomodoro-donut-legend--grid {
+		grid-template-columns: 1fr;
+	}
 }
 
 .dashboard-pomodoro-stats-section-title-row {
@@ -4268,10 +4323,38 @@
 	flex-shrink: 0;
 }
 
-/* Responsive: below 900px viewport (or mobile), collapse to one column */
+/* Responsive fallback: below 900px VIEWPORT (phones, and narrow desktop
+   panes on old engines without container queries) collapse to one column.
+   grid-template-rows: auto is the load-bearing part — the single 1fr row
+   from the desktop layout makes the KPI column collapse to zero height and
+   its content overlap the mid column once the columns stack. */
 @media (max-width: 900px) {
+	/* Header wraps: title + close on the first line, the range toggle and
+	   settings button drop to a full-width row below (mirror of the
+	   container-query block above for engines without container queries). */
+	.dashboard-pomodoro-stats-header {
+		flex-wrap: wrap;
+	}
+
+	.dashboard-pomodoro-stats-header-titlewrap {
+		order: 1;
+		flex: 1;
+	}
+
+	.dashboard-pomodoro-stats-header .dashboard-pomodoro-stats-close {
+		order: 2;
+	}
+
+	.dashboard-pomodoro-stats-header-right {
+		order: 3;
+		flex-basis: 100%;
+		justify-content: flex-start;
+		margin-left: 0;
+	}
+
 	.dashboard-pomodoro-stats-body {
 		grid-template-columns: 1fr;
+		grid-template-rows: auto;
 	}
 
 	.dashboard-pomodoro-stats-modal--wide {
@@ -17385,8 +17468,8 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	z-index: var(--layer-popover, 30);
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 6px 8px;
+	gap: 6px;
+	padding: 5px 7px;
 	background: var(--db-bg-modal, var(--background-secondary));
 	border: 1px solid var(--db-border-card, var(--background-modifier-border));
 	border-radius: var(--db-radius-lg, 12px);
@@ -17447,7 +17530,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	display: flex;
 	flex-direction: column;
 	gap: 1px;
-	min-width: 52px;
+	min-width: 44px;
 	overflow: hidden;
 }
 
@@ -17510,8 +17593,8 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		right: 12px;
 		/* Clear the mobile tab bar plus the home-indicator safe area. */
 		bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-		padding: 5px 7px;
-		gap: 7px;
+		padding: 4px 6px;
+		gap: 5px;
 	}
 
 	.dashboard-pomodoro-mini-time {

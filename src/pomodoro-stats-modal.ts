@@ -100,7 +100,10 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		openPomodoroTagManager(doc, service, () => renderAll());
 	});
 
-	const closeBtn = headerRight.createDiv({ cls: 'dashboard-pomodoro-stats-close' });
+	// Close sits directly on the header (not inside headerRight) so the
+	// mobile layout can keep it on the title line while the range toggle
+	// drops to its own row below.
+	const closeBtn = header.createDiv({ cls: 'dashboard-pomodoro-stats-close' });
 	setIcon(closeBtn, 'x');
 	closeBtn.addEventListener('click', () => close());
 	overlay.addEventListener('click', (e) => {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.7 (2026-08-27)
+
+### Fixed
+- **Pomodoro stats zones overlapped on phones and in narrow desktop panes** — The stats modal's desktop layout is a three-column grid with a single `minmax(0, 1fr)` row; the mobile collapse only rewrote the columns, so once the three sections stacked, the two implicit auto rows consumed all free space, the KPI row collapsed to zero height, and its content painted over the mid column. The collapse now also sets every row to `auto` (sections stack at their content height, the body scrolls as a whole), and it is driven by a container query on the modal itself with a viewport media-query fallback for old engines — narrow desktop panes (sidebar, split view), where a viewport query never fired, get the same single-column treatment instead of crammed 230+300px fixed columns.
+
+### Changed
+- **Stats header: the range toggle drops below the title on narrow layouts** — Below 900px of modal width the header wraps: the title (with the close button) keeps the first line, and the day/week/month/year/all pills plus the settings button move to a full-width row of their own underneath, no longer squeezing the title to one side. Desktop keeps the one-line header. The close button moved out of the toggle group in the DOM, with desktop spacing preserved.
+- **Pomodoro mini panel: clearer phase labels** — The work phase now reads "Focusing / 专注中", and a paused pill shows just "Paused / 已暂停" (the old "Focus · Paused" compound overflowed the pill).
+
 ## 1.9.6 (2026-08-27)
 
 ### Added
