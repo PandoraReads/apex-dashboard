@@ -196,10 +196,9 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
-		'announce.title': 'A proper "ding" for focus time 🔔',
-		'announce.intro': 'The pomodoro and reading-timer sound reminders now actually reach your ears: rebuilt as a small bell chime, and finally working on phones.',
-		'announce.featureChimeMobile': 'Fixed: sound reminders were silently dead on mobile — Web Audio refuses to play without a tap, so the chime now unlocks on your first interaction and rings when a focus phase or reading session ends',
-		'announce.featureChimeSound': 'Nicer sound: the flat sine beep is now a layered bell "ding" (the pomodoro rings a touch higher than the reading timer), fully synthesized — no audio files',
+		'announce.title': 'TickTick section, small repair 🔧',
+		'announce.intro': 'The habits card in the TickTick section was showing its raw label key instead of a name — it now reads properly in both languages.',
+		'announce.featureHabitLabel': 'Fixed: the habit check-in card in the TickTick section displayed "ticktick.viewHabits" because the label was missing from both translation dictionaries — it now shows "Habits" (习惯打卡 in Chinese)',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -1002,6 +1001,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'ticktick.viewToday': 'Today',
 		'ticktick.viewLists': 'Lists',
 		'ticktick.viewCompleted': 'Completed',
+		'ticktick.viewHabits': 'Habits',
 		'ticktick.filterProjects': 'Filter lists',
 		'ticktick.configure': 'Configure TickTick',
 		'ticktick.refresh': 'Refresh',
@@ -1438,10 +1438,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
-		'announce.title': '专注结束，听一声"叮" 🔔',
-		'announce.intro': '番茄钟与阅读计时的声音提醒现在真的能出声了：重做成小铃铛音色，并在手机上彻底修复。',
-		'announce.featureChimeMobile': '修复：手机端声音提醒一直静默失灵——Web Audio 在没有点按的场合拒绝发声；现在首次触屏即解锁，专注阶段或阅读结束时正常响铃',
-		'announce.featureChimeSound': '更好听：单调的"哔"换成多层合成的铃铛"叮"（番茄钟比阅读计时略高一点），纯合成、不增加任何音频资源',
+		'announce.title': '滴答清单分区小修补 🔧',
+		'announce.intro': '滴答清单分区里的习惯打卡卡片之前显示的是原始标签键，现在中英文都正常显示了。',
+		'announce.featureHabitLabel': '修复：滴答清单分区的习惯打卡卡片标题一直显示"ticktick.viewHabits"——该标签在中英文词典里都缺失，现补全为「习惯打卡」',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',
@@ -2240,6 +2239,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'ticktick.viewToday': '今日',
 		'ticktick.viewLists': '清单',
 		'ticktick.viewCompleted': '已完成',
+		'ticktick.viewHabits': '习惯打卡',
 		'ticktick.filterProjects': '筛选清单',
 		'ticktick.configure': '配置滴答清单',
 		'ticktick.refresh': '刷新',

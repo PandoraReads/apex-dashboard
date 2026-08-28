@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.11 (2026-08-29)
+
+### Fixed
+- **TickTick section: habits card title showed the raw i18n key** — The habit check-in card in the TickTick "Today" view displayed "ticktick.viewHabits" because that label key was missing from both translation dictionaries, so `t()` fell back to echoing the key. Both dictionaries now carry the entry: 习惯打卡 in Chinese, "Habits" in English.
+
 ## 1.9.10 (2026-08-29)
 
 ### Fixed
