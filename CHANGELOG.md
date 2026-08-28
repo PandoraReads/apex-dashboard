@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.10 (2026-08-29)
+
+### Fixed
+- **Timer sound reminders now actually play — and ring as a "ding"** — Both the pomodoro and the reading timer have had a "sound notification" setting since v1.1.5, but the chime was a `new AudioContext()` built at completion time with no `resume()`. On mobile WebViews (iOS/Android) that context is created suspended outside a user gesture and never self-resumes, so phones stayed permanently silent; desktop depended on Electron's lenient autoplay default. Sound now lives in a shared `src/chime.ts`: one cached AudioContext, a capture-phase gesture listener armed when a timer view loads (your first tap/keystroke unlocks audio), and a best-effort `resume()` at play time so a chime interrupted by a phone call or Siri heals on the next tap.
+
+### Changed
+- **Beep → bell** — The flat 0.8s sine "beep" is replaced by a synthesized small-bell "ding": four partials (fundamental + 2.0× + 3.01× + 4.47×) with independent exponential decays and a 2ms attack, so it has the metallic strike-and-ring shape of a real bell instead of a test tone. The pomodoro rings at C6 (1046.5 Hz), the reading timer a touch lower at A5 (880 Hz), both at a gentler master level. Fully synthesized — no audio assets shipped.
+
 ## 1.9.9 (2026-08-28)
 
 ### Added

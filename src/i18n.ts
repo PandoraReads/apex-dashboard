@@ -196,10 +196,10 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
-		'announce.title': 'A quieter focus corner 🍅',
-		'announce.intro': 'The pomodoro mini panel now folds itself down to just the tomato ring when you are not touching it, and calendar day previews are finally readable.',
-		'announce.featureMiniFold': 'Pomodoro mini panel: after ~10s without interaction it collapses to just the tomato + progress ring (the ring keeps ticking); hover, tap or focus unfolds it again',
-		'announce.featurePreviewText': 'Calendar: the day hover preview now lists todos in a readable size — bigger rows and a slightly wider card',
+		'announce.title': 'A proper "ding" for focus time 🔔',
+		'announce.intro': 'The pomodoro and reading-timer sound reminders now actually reach your ears: rebuilt as a small bell chime, and finally working on phones.',
+		'announce.featureChimeMobile': 'Fixed: sound reminders were silently dead on mobile — Web Audio refuses to play without a tap, so the chime now unlocks on your first interaction and rings when a focus phase or reading session ends',
+		'announce.featureChimeSound': 'Nicer sound: the flat sine beep is now a layered bell "ding" (the pomodoro rings a touch higher than the reading timer), fully synthesized — no audio files',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -1438,10 +1438,10 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
-		'announce.title': '会自己安静下来的番茄钟 🍅',
-		'announce.intro': '番茄钟迷你面板空闲约 10 秒后自动收成番茄进度环，日历悬停弹窗的文字也放大到清晰易读。',
-		'announce.featureMiniFold': '番茄钟迷你面板：约 10 秒无操作自动折叠成番茄 + 进度环（进度照常走动），悬停、点按或键盘聚焦即恢复完整面板',
-		'announce.featurePreviewText': '日历：悬停日期的当日待办弹窗改用更大字号，卡片稍加宽，一眼可读',
+		'announce.title': '专注结束，听一声"叮" 🔔',
+		'announce.intro': '番茄钟与阅读计时的声音提醒现在真的能出声了：重做成小铃铛音色，并在手机上彻底修复。',
+		'announce.featureChimeMobile': '修复：手机端声音提醒一直静默失灵——Web Audio 在没有点按的场合拒绝发声；现在首次触屏即解锁，专注阶段或阅读结束时正常响铃',
+		'announce.featureChimeSound': '更好听：单调的"哔"换成多层合成的铃铛"叮"（番茄钟比阅读计时略高一点），纯合成、不增加任何音频资源',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',

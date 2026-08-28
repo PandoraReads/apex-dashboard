@@ -2,6 +2,7 @@ import { Notice } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { DashboardSettings } from './types';
 import { t } from './i18n';
+import { playDing, unlockChime } from './chime';
 
 export type PomodoroPhase = 'work' | 'short-break' | 'long-break';
 export type PomodoroStatus = 'idle' | 'running' | 'paused';
@@ -151,6 +152,9 @@ export class PomodoroService {
 		// pomodoro/reading instances live and die with their view.
 		this.focusDoc = activeDocument;
 		this.focusDoc.addEventListener('visibilitychange', this.focusHandler);
+		// Audio needs a gesture unlock before timer-driven chimes can play
+		// (mobile WebViews suspend every non-gesture AudioContext).
+		unlockChime(this.focusDoc);
 	}
 
 	async loadSessions(): Promise<void> {
@@ -549,22 +553,7 @@ export class PomodoroService {
 
 	private playSound(): void {
 		if (!this.getSettings().pomodoroSoundEnabled) return;
-		try {
-			const ctx = new AudioContext();
-			const osc = ctx.createOscillator();
-			const gain = ctx.createGain();
-			osc.connect(gain);
-			gain.connect(ctx.destination);
-			osc.frequency.value = 800;
-			osc.type = 'sine';
-			gain.gain.setValueAtTime(0.3, ctx.currentTime);
-			gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-			osc.start(ctx.currentTime);
-			osc.stop(ctx.currentTime + 0.8);
-			osc.onended = () => ctx.close();
-		} catch {
-			// Web Audio not available
-		}
+		playDing(1046.5);
 	}
 
 	setActivity(activity: string): void {
