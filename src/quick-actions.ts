@@ -5,6 +5,7 @@ import { t } from './i18n';
 import type { AppWithCommands } from './obsidian-internal';
 import { iconForExtension } from './file-types';
 import { applyModalTheme } from './modal-theme';
+import { KANBAN_FILE_DRAG_TYPE } from './dnd';
 
 function actionKey(action: QuickAction, isPreset: boolean): string {
 	return isPreset ? `p:${action.target}` : `c:${action.target}`;
@@ -140,6 +141,9 @@ export function renderQuickActions(
 	};
 
 	const onDragOver = (e: DragEvent) => {
+		// Library kanban card drag: not a quick-action reorder — decline without
+		// painting the reorder highlight.
+		if (e.dataTransfer?.types.includes(KANBAN_FILE_DRAG_TYPE)) return;
 		e.preventDefault();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
 		const item = (e.target as HTMLElement).closest('.dashboard-qa-item') as HTMLElement;

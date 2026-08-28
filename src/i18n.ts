@@ -196,9 +196,9 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
-		'announce.title': 'TickTick section, small repair 🔧',
-		'announce.intro': 'The habits card in the TickTick section was showing its raw label key instead of a name — it now reads properly in both languages.',
-		'announce.featureHabitLabel': 'Fixed: the habit check-in card in the TickTick section displayed "ticktick.viewHabits" because the label was missing from both translation dictionaries — it now shows "Habits" (习惯打卡 in Chinese)',
+		'announce.title': 'Kanban drag & drop: move files between folders 🗂️',
+		'announce.intro': 'Library and folder sections in kanban view with folder grouping now let you drag a card onto another column to move the file into that folder. Internal links update per your vault settings. Desktop only.',
+		'announce.featureHabitLabel': 'Drag-to-move: in folder-grouped kanban view, dragging a card to another column moves the file into that folder (desktop). A same-name file in the target blocks the move with a notice.',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -1253,6 +1253,10 @@ const translations: Record<Language, Record<string, string>> = {
 		'library.confirmDelete': 'Delete "{name}"? This cannot be undone.',
 		'library.deleted': 'Moved to trash',
 		'library.deleteFailed': 'Failed to delete file',
+		'library.kanbanDragHint': 'Drag to another column to move the file into that folder',
+		'library.moved': 'Moved "{name}" to "{folder}"',
+		'library.moveFailed': 'Failed to move file',
+		'library.moveNameConflict': '"{folder}" already contains a file named "{name}"',
 	},
 	zh: {
 		// Common
@@ -1438,9 +1442,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
-		'announce.title': '滴答清单分区小修补 🔧',
-		'announce.intro': '滴答清单分区里的习惯打卡卡片之前显示的是原始标签键，现在中英文都正常显示了。',
-		'announce.featureHabitLabel': '修复：滴答清单分区的习惯打卡卡片标题一直显示"ticktick.viewHabits"——该标签在中英文词典里都缺失，现补全为「习惯打卡」',
+		'announce.title': '看板拖拽:跨分组移动文件 🗂️',
+		'announce.intro': '数据库/文件夹分区在看板视图 + 文件夹分组下,现在可以把卡片直接拖到另一列,文件即刻移动到对应文件夹;内部链接按你的设置自动更新。桌面端可用。',
+		'announce.featureHabitLabel': '拖拽移动:文件夹分组的看板视图中,把卡片拖到其他列即把文件移入对应文件夹(桌面端);目标已有同名文件时会提示并阻止。',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',
@@ -2488,6 +2492,10 @@ const translations: Record<Language, Record<string, string>> = {
 		'library.confirmDelete': '确定删除「{name}」吗？此操作无法撤销。',
 		'library.deleted': '已移至回收站',
 		'library.deleteFailed': '删除文件失败',
+		'library.kanbanDragHint': '拖到其他列即可把文件移动到对应文件夹',
+		'library.moved': '已移动「{name}」→「{folder}」',
+		'library.moveFailed': '移动文件失败',
+		'library.moveNameConflict': '「{folder}」中已存在同名文件「{name}」',
 		'library.dateStart': '开始日期',
 		'library.dateEnd': '结束日期',
 		'library.filterActive': '筛选已激活',

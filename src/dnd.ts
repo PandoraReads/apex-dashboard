@@ -1,5 +1,20 @@
 import type { RenderCallbacks } from './types';
 
+/** Custom drag type marking "a library kanban card file drag" (set by
+ *  library-section's folder-grouped kanban). Foreign drop targets check
+ *  dataTransfer.types for it at dragover time — when text/plain payloads are
+ *  not yet readable — to decline the drag instead of painting misleading
+ *  drop-target highlights. */
+export const KANBAN_FILE_DRAG_TYPE = 'application/x-apex-libcard';
+
+/** Custom drag type marking "an item drag inside a card" (task/doc items set
+ *  it on dragstart). The card-level external-file-drop layer and the
+ *  section-row handlers check for it so an item drag is never mistaken for a
+ *  file drag — the file layer used to force dropEffect='link' over the
+ *  effectAllowed='move' item drags carry, which made the browser forbid the
+ *  drop and left empty cards (no item handlers to win the race) undroppable. */
+export const ITEM_DRAG_TYPE = 'application/x-apex-item';
+
 interface DnDState {
 	draggingCardId: string | null;
 	draggingElement: HTMLElement | null;
@@ -93,6 +108,14 @@ export function setupDragAndDrop(
 		});
 
 		const onDragOver = (e: DragEvent) => {
+			// A library kanban card drag hovering this section row: decline early
+			// (no preventDefault, no highlight, no drop indicator) so the row can't
+			// masquerade as a drop target for a file move it would silently ignore.
+			if (e.dataTransfer?.types.includes(KANBAN_FILE_DRAG_TYPE)) return;
+			// An in-card item drag is none of the section row's business either
+			// (no card move, no section reorder): decline the same way so no
+			// misleading card drop indicator is painted over empty row space.
+			if (e.dataTransfer?.types.includes(ITEM_DRAG_TYPE) && !state.sectionDragSource && !state.draggingCardId) return;
 			if (state.sectionDragSource) {
 				e.preventDefault();
 				e.stopPropagation();
@@ -412,6 +435,14 @@ function setupExternalFileDrop(
 	const onFileDragOver = (e: DragEvent) => {
 		if (state.draggingCardId) return;
 		if (!e.dataTransfer) return;
+		// Library kanban card drag: not an OS/Obsidian file drop — skip the
+		// file-drop highlight (the link/move effect mismatch already blocks
+		// the drop itself).
+		if (e.dataTransfer.types.includes(KANBAN_FILE_DRAG_TYPE)) return;
+		// In-card item drag (task/doc): also not a file drop. Must bail BEFORE
+		// setting dropEffect='link' — the link/move mismatch makes the browser
+		// forbid the drop, which is exactly what made empty cards undroppable.
+		if (e.dataTransfer.types.includes(ITEM_DRAG_TYPE)) return;
 
 		e.preventDefault();
 		e.stopPropagation();
@@ -440,6 +471,10 @@ function setupExternalFileDrop(
 		cardEl.removeClass('dashboard-card--file-drop');
 		if (state.draggingCardId) return;
 		if (!e.dataTransfer) return;
+		// Library kanban card drag never carries a vault-explorer file payload.
+		if (e.dataTransfer.types.includes(KANBAN_FILE_DRAG_TYPE)) return;
+		// In-card item drag: its text/plain payload is a JSON path, not a file.
+		if (e.dataTransfer.types.includes(ITEM_DRAG_TYPE)) return;
 
 		e.preventDefault();
 		e.stopPropagation();

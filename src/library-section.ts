@@ -6,6 +6,7 @@ import { attachNoteHover } from './hover-preview';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { showConfirmDialog } from './confirm-dialog';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
+import { KANBAN_FILE_DRAG_TYPE } from './dnd';
 
 // Set once per render by renderLibrarySection so the grid/list/table/kanban
 // renderers can route opens through the note popover and attach hover previews
@@ -1311,14 +1312,19 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 	}
 }
 
-/** Kanban folder-mode grouping key for one file: the top-level subfolder under
- * the first configured scan folder that contains it. Files directly inside a
- * scan folder group under that folder's own name; files matching no scan
- * folder (defensive — a library section hand-set to folder mode) fall back to
- * the first segment of their parent path, or undefined at vault root. */
-export function folderGroupKey(filePath: string, scanFolders: string[]): string | undefined {
+/** Normalized parent path of a (possibly backslash-separated) vault path;
+ *  '' at vault root. */
+function parentOf(filePath: string): string {
 	const normalized = filePath.replace(/\\/g, '/');
-	const parent = normalized.includes('/') ? normalized.slice(0, normalized.lastIndexOf('/')) : '';
+	return normalized.includes('/') ? normalized.slice(0, normalized.lastIndexOf('/')) : '';
+}
+
+/** Shared core of folderGroupKey/folderGroupPath: normalize a file path and
+ * locate the first configured scan folder containing its parent. Returns the
+ * matched root (normalized) and the parent relative to it ('' when the file
+ * sits directly inside the root). */
+function scanRootMatch(filePath: string, scanFolders: string[]): { root: string; rel: string } | null {
+	const parent = parentOf(filePath);
 	for (const root of scanFolders) {
 		const r = root.trim().replace(/\\/g, '/').replace(/\/+$/, '');
 		if (!r) continue;
@@ -1326,25 +1332,234 @@ export function folderGroupKey(filePath: string, scanFolders: string[]): string 
 		const rel = parent.toLowerCase().startsWith(r.toLowerCase() + '/')
 			? parent.slice(r.length + 1)
 			: (parent.toLowerCase() === r.toLowerCase() ? '' : null);
-		if (rel === null) continue;
-		if (rel === '') {
-			// Directly inside the scan folder: the folder itself is the group.
-			return r.split('/').filter(Boolean).pop() ?? r;
-		}
-		return rel.split('/')[0] ?? '';
+		if (rel !== null) return { root: r, rel };
 	}
+	return null;
+}
+
+/** Kanban folder-mode grouping key for one file: the top-level subfolder under
+ * the first configured scan folder that contains it. Files directly inside a
+ * scan folder group under that folder's own name; files matching no scan
+ * folder (defensive — a library section hand-set to folder mode) fall back to
+ * the first segment of their parent path, or undefined at vault root. */
+export function folderGroupKey(filePath: string, scanFolders: string[]): string | undefined {
+	const m = scanRootMatch(filePath, scanFolders);
+	if (m) {
+		if (m.rel === '') {
+			// Directly inside the scan folder: the folder itself is the group.
+			return m.root.split('/').filter(Boolean).pop() ?? m.root;
+		}
+		return m.rel.split('/')[0] ?? '';
+	}
+	const parent = parentOf(filePath);
 	if (parent === '') return undefined;
 	return parent.split('/')[0] ?? undefined;
+}
+
+/** Reverse of folderGroupKey: the real folder path a group key maps to for one
+ * file — the matched scan root itself when the file sits directly inside it,
+ * otherwise root + '/' + the file's group segment. Mirrors folderGroupKey's
+ * fallback (first parent segment) so a folder-mode library section without
+ * scan folders still drops into real folders; undefined only where
+ * folderGroupKey is (vault root). The root is sliced back out of the file's
+ * real parent (not the config entry), so the vault API sees true casing even
+ * when a scan folder was renamed after configuration. */
+function folderGroupPath(filePath: string, scanFolders: string[]): string | undefined {
+	const m = scanRootMatch(filePath, scanFolders);
+	if (m) {
+		const parent = parentOf(filePath);
+		if (m.rel === '') return parent;
+		const trueRoot = parent.slice(0, parent.length - m.rel.length - 1);
+		return `${trueRoot}/${m.rel.split('/')[0]}`;
+	}
+	const parent = parentOf(filePath);
+	if (parent === '') return undefined;
+	return parent.split('/')[0] ?? undefined;
+}
+
+/** One drag in flight within a single kanban render. Scoped per render call so
+ *  two library sections on one board never see each other's drags (a card
+ *  dragged over the OTHER section's kanban finds no state and is declined). */
+interface KanbanDragState {
+	file: TFile | null;
+	cardEl: HTMLElement | null;
+}
+
+/** Group key → drop-target folder path, derived from the group members' real
+ *  parents via folderGroupPath (reverse of folderGroupKey). First member wins:
+ *  when two scan roots have same-named subfolders they merge into one group,
+ *  and the target is whichever member sorts first — deterministic per render.
+ *  The not-set column never gets an entry, so it rejects drops. */
+function buildKanbanGroupFolders(results: LibraryFileResult[], scanFolders: string[]): Map<string, string> {
+	const map = new Map<string, string>();
+	for (const result of results) {
+		const key = folderGroupKey(result.file.path, scanFolders);
+		if (key === undefined || map.has(key)) continue;
+		const folder = folderGroupPath(result.file.path, scanFolders);
+		if (folder !== undefined) map.set(key, folder);
+	}
+	return map;
+}
+
+/** Folder-kanban grouping: keys whose folder is a proper ancestor of another
+ *  group's folder. Those groups are suppressed (their files fall to the
+ *  not-set column) so a parent folder never shows as a group alongside its
+ *  own children — e.g. files directly in a scan root stop forming a
+ *  root-named column next to the root's subfolders. */
+function ancestorGroupKeys(groupFolders: Map<string, string>): Set<string> {
+	const paths = [...groupFolders.values()].map(p => p.toLowerCase().replace(/\/+$/, ''));
+	const suppressed = new Set<string>();
+	for (const [key, path] of groupFolders) {
+		const lp = path.toLowerCase().replace(/\/+$/, '');
+		if (paths.some(other => other !== lp && other.startsWith(lp + '/'))) suppressed.add(key);
+	}
+	return suppressed;
+}
+
+/** Make one kanban card draggable (desktop, folder-grouping only). Tags the
+ *  drag with the shared custom MIME type so foreign drop targets (dnd.ts) can
+ *  recognize and decline it at dragover time. */
+function attachKanbanCardDrag(card: HTMLElement, file: TFile, state: KanbanDragState): void {
+	card.setAttribute('draggable', 'true');
+	card.title = t('library.kanbanDragHint');
+	card.addEventListener('dragstart', (e) => {
+		state.file = file;
+		state.cardEl = card;
+		card.addClass('dashboard-library-kanban-card--dragging');
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			// Custom type only: a bare text/plain payload would insert literal
+			// text wherever else the card gets dropped (editor, search, ...).
+			e.dataTransfer.setData(KANBAN_FILE_DRAG_TYPE, file.path);
+		}
+	});
+	card.addEventListener('dragend', () => {
+		state.file = null;
+		state.cardEl = null;
+		card.removeClass('dashboard-library-kanban-card--dragging');
+		activeDocument.querySelectorAll('.dashboard-library-kanban-col--drag-over')
+			.forEach(el => (el as HTMLElement).removeClass('dashboard-library-kanban-col--drag-over'));
+	});
+}
+
+/** Wire one kanban column as a drop target (desktop, folder-grouping only).
+ *  groupKey undefined marks the not-set column, which declines drops
+ *  (dropEffect none) — its files are vault-root/scan-orphans with no target
+ *  folder. Drags lacking the kanban marker pass through untouched so memo
+ *  cards, section grips and OS file drops keep their dnd.ts behavior. */
+function attachKanbanColumnDrop(
+	col: HTMLElement,
+	groupKey: string | undefined,
+	groupFolders: Map<string, string>,
+	app: App,
+	state: KanbanDragState,
+): void {
+	const onDragOver = (e: DragEvent) => {
+		if (!e.dataTransfer || !e.dataTransfer.types.includes(KANBAN_FILE_DRAG_TYPE)) return;
+		// Claim the event so the enclosing .dashboard-section-row dragover in
+		// dnd.ts doesn't highlight the whole section row behind the kanban.
+		e.preventDefault();
+		e.stopPropagation();
+		const target = state.file ? groupFolders.get(groupKey ?? '') : undefined;
+		e.dataTransfer.dropEffect = target ? 'move' : 'none';
+		col.toggleClass('dashboard-library-kanban-col--drag-over', !!target);
+	};
+	const onDragLeave = (e: DragEvent) => {
+		const rect = col.getBoundingClientRect();
+		if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+			col.removeClass('dashboard-library-kanban-col--drag-over');
+		}
+	};
+	const onDrop = (e: DragEvent) => {
+		if (!state.file || !state.cardEl) return;
+		e.preventDefault();
+		e.stopPropagation();
+		col.removeClass('dashboard-library-kanban-col--drag-over');
+		const targetFolder = groupFolders.get(groupKey ?? '');
+		if (targetFolder) void moveKanbanCard(app, state.file, targetFolder, state.cardEl, col);
+	};
+	col.addEventListener('dragover', onDragOver);
+	col.addEventListener('dragleave', onDragLeave);
+	col.addEventListener('drop', onDrop);
+}
+
+/** Files with a kanban move still awaiting renameFile. A second drop of the
+ *  same file inside that window would read pre-rename vault state (stale path,
+ *  stale conflict check) and could double-move — consult this and bail. */
+const kanbanMovesInFlight = new Set<TFile>();
+
+/** Move a kanban card's file into the target group folder's root (flatten).
+ *  Optimistically reparents the card so it doesn't sit in the old column for
+ *  the ~500ms vault-event debounce before refreshScanningSections re-renders;
+ *  rolls the DOM back if the rename fails. */
+async function moveKanbanCard(
+	app: App,
+	file: TFile,
+	targetFolder: string,
+	cardEl: HTMLElement,
+	targetCol: HTMLElement,
+): Promise<void> {
+	const newPath = `${targetFolder}/${file.name}`;
+	// Already at the group root (dropped on its own column): silent no-op.
+	if (file.path === newPath) return;
+	// A previous drop of this file is still renaming — let it finish.
+	if (kanbanMovesInFlight.has(file)) return;
+	// The group map can hold a folder deleted since the section rendered.
+	if (!app.vault.getAbstractFileByPath(targetFolder)) {
+		new Notice(t('library.moveFailed'));
+		return;
+	}
+	if (app.vault.getAbstractFileByPath(newPath)) {
+		new Notice(t('library.moveNameConflict', { name: file.basename, folder: targetFolder }));
+		return;
+	}
+	const originParent = cardEl.parentNode;
+	const originNext = cardEl.nextSibling;
+	kanbanMovesInFlight.add(file);
+	targetCol.appendChild(cardEl);
+	refreshKanbanColumnCount(targetCol);
+	if (originParent instanceof HTMLElement) refreshKanbanColumnCount(originParent);
+	try {
+		// renameFile respects the user's "auto-update internal links" setting.
+		await app.fileManager.renameFile(file, newPath);
+		new Notice(t('library.moved', { name: file.basename, folder: targetFolder }));
+	} catch (err) {
+		if (originParent) originParent.insertBefore(cardEl, originNext);
+		if (originParent instanceof HTMLElement) refreshKanbanColumnCount(originParent);
+		refreshKanbanColumnCount(targetCol);
+		console.error('[Dashboard] library kanban move failed:', err);
+		new Notice(t('library.moveFailed'));
+	} finally {
+		kanbanMovesInFlight.delete(file);
+	}
+}
+
+/** Rewrite a column title so its count matches the cards now in the DOM
+ *  (covers the optimistic-move window before the debounced re-render). */
+function refreshKanbanColumnCount(col: HTMLElement): void {
+	const title = col.querySelector(':scope > .dashboard-library-kanban-col-title');
+	const label = col.dataset.groupLabel;
+	if (!title || !label) return;
+	const count = col.querySelectorAll(':scope > .dashboard-library-kanban-card').length;
+	title.setText(`${label} (${count})`);
 }
 
 function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig): void {
 	const groupBy = config.kanbanGroupBy ?? 'tags';
 	const byFolder = config.groupMode === 'folder';
+	// Folder-grouping kanbans support drag-to-move on desktop only; the not-set
+	// column still allows dragging OUT (filing loose files) but rejects drops.
+	const dragEnabled = byFolder && !Platform.isMobile;
+	const groupFolders = dragEnabled ? buildKanbanGroupFolders(results, config.folders ?? []) : new Map<string, string>();
+	const dragState: KanbanDragState = { file: null, cardEl: null };
 	const kanban = container.createDiv({ cls: 'dashboard-library-kanban' });
 
 	// Group results
 	const groups = new Map<string, LibraryFileResult[]>();
 	const noGroup: LibraryFileResult[] = [];
+	// Key → real folder per folder-group (collected during grouping so ancestor
+	// groups can be suppressed once every group is known).
+	const groupFolderPaths = new Map<string, string>();
 
 	for (const result of results) {
 		if (byFolder) {
@@ -1352,6 +1567,10 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 			if (key === undefined) {
 				noGroup.push(result);
 				continue;
+			}
+			if (!groupFolderPaths.has(key)) {
+				const path = folderGroupPath(result.file.path, config.folders ?? []);
+				if (path !== undefined) groupFolderPaths.set(key, path);
 			}
 			if (!groups.has(key)) groups.set(key, []);
 			groups.get(key)!.push(result);
@@ -1376,8 +1595,15 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 	}
 
 	// Folder groups read best alphabetically (they mirror the folder tree);
-	// property groups keep their first-occurrence order.
+	// property groups keep their first-occurrence order. First suppress
+	// ancestor groups (a folder that is another group's parent) — their files
+	// fall to the not-set column, so parents never appear alongside children.
 	if (byFolder) {
+		for (const key of ancestorGroupKeys(groupFolderPaths)) {
+			const direct = groups.get(key);
+			if (direct) noGroup.push(...direct);
+			groups.delete(key);
+		}
 		const sorted = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
 		groups.clear();
 		for (const entry of sorted) groups.set(entry[0], entry[1]);
@@ -1387,10 +1613,15 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 	for (const [groupName, groupResults] of groups) {
 		const col = kanban.createDiv({ cls: 'dashboard-library-kanban-col' });
 		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${groupName} (${groupResults.length})` });
+		if (dragEnabled) {
+			col.dataset.groupLabel = groupName;
+			attachKanbanColumnDrop(col, groupName, groupFolders, app, dragState);
+		}
 		for (const result of groupResults) {
 			const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
 			attachItemHover(app, card, result.file);
 			card.addEventListener('click', () => openFile(app, result.file));
+			if (dragEnabled) attachKanbanCardDrag(card, result.file, dragState);
 			card.createDiv({ cls: 'dashboard-library-kanban-card-title', text: result.basename });
 			card.createDiv({ cls: 'dashboard-library-kanban-card-date', text: formatDate(result.mtime) });
 		}
@@ -1399,10 +1630,17 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 	if (noGroup.length > 0) {
 		const col = kanban.createDiv({ cls: 'dashboard-library-kanban-col' });
 		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${t('library.notSet')} (${noGroup.length})` });
+		if (dragEnabled) {
+			// groupKey undefined → no map entry → this column declines drops,
+			// while its cards stay draggable out into real groups.
+			col.dataset.groupLabel = t('library.notSet');
+			attachKanbanColumnDrop(col, undefined, groupFolders, app, dragState);
+		}
 		for (const result of noGroup) {
 			const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
 			attachItemHover(app, card, result.file);
 			card.addEventListener('click', () => openFile(app, result.file));
+			if (dragEnabled) attachKanbanCardDrag(card, result.file, dragState);
 			card.createDiv({ cls: 'dashboard-library-kanban-card-title', text: result.basename });
 		}
 	}

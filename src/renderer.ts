@@ -10,6 +10,7 @@ import { renderTickTickSection } from './ticktick-section';
 import { renderDataviewSection, setDataviewApp } from './dataview-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
+import { ITEM_DRAG_TYPE } from './dnd';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
 import { applyModalTheme } from './modal-theme';
@@ -2725,6 +2726,10 @@ function renderTaskItem(
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
 			e.dataTransfer.setData('text/plain', JSON.stringify(path));
+			// Marks this as an in-card item drag so the card-level file-drop
+			// layer (which would force dropEffect='link' and kill the drop)
+			// and the section-row handlers stand down.
+			e.dataTransfer.setData(ITEM_DRAG_TYPE, '1');
 		}
 	});
 
@@ -3075,6 +3080,9 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 				if (e.dataTransfer) {
 					e.dataTransfer.effectAllowed = 'move';
 					e.dataTransfer.setData('text/plain', JSON.stringify(path));
+					// Marks this as an in-card item drag so the card-level
+					// file-drop layer (dropEffect='link' override) stands down.
+					e.dataTransfer.setData(ITEM_DRAG_TYPE, '1');
 				}
 			});
 

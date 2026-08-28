@@ -215,14 +215,25 @@ export class QuickNoteConfigModal extends Modal {
 		this.textInput(section, this.captureTemplate, '', { placeholder: t('quickNote.fieldCaptureTemplatePh') }, (v) => { this.captureTemplate = v; });
 
 		// Top vs bottom of the capture target (and of the template in new
-		// fleeting notes). Reuses the toggle-row layout: label left, control right.
-		const posRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-toggle' });
-		posRow.createEl('label', { attr: { for: 'qn-capture-pos' }, text: t('quickNote.capturePosition') });
-		const posSelect = posRow.createEl('select', { cls: 'dashboard-modal-input', attr: { id: 'qn-capture-pos' } });
-		const startOpt = posSelect.createEl('option', { text: t('quickNote.capturePositionStart'), attr: { value: 'start' } });
-		const endOpt = posSelect.createEl('option', { text: t('quickNote.capturePositionEnd'), attr: { value: 'end' } });
-		(this.capturePosition === 'end' ? endOpt : startOpt).selected = true;
-		posSelect.addEventListener('change', () => { this.capturePosition = posSelect.value === 'end' ? 'end' : 'start'; });
+		// fleeting notes). Two mutually exclusive check rows — ticking one
+		// unticks the other; the active one refuses to be unticked.
+		section.createDiv({ cls: 'dashboard-quicknote-cfg-pos-head', text: t('quickNote.capturePosition') });
+		const startRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-toggle dashboard-quicknote-cfg-toggle--sub' });
+		const startCb = startRow.createEl('input', { attr: { type: 'checkbox', id: 'qn-capture-pos-start' } });
+		startRow.createEl('label', { attr: { for: 'qn-capture-pos-start' }, text: t('quickNote.capturePositionStart') });
+		const endRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-toggle dashboard-quicknote-cfg-toggle--sub' });
+		const endCb = endRow.createEl('input', { attr: { type: 'checkbox', id: 'qn-capture-pos-end' } });
+		endRow.createEl('label', { attr: { for: 'qn-capture-pos-end' }, text: t('quickNote.capturePositionEnd') });
+		startCb.checked = this.capturePosition === 'start';
+		endCb.checked = this.capturePosition === 'end';
+		startCb.addEventListener('change', () => {
+			if (startCb.checked) { this.capturePosition = 'start'; endCb.checked = false; }
+			else startCb.checked = true;
+		});
+		endCb.addEventListener('change', () => {
+			if (endCb.checked) { this.capturePosition = 'end'; startCb.checked = false; }
+			else endCb.checked = true;
+		});
 	}
 
 	// ── Daily ──────────────────────────────────────────────────────────────

@@ -8840,6 +8840,16 @@
 	gap: 6px;
 }
 
+/* Standing hoverable zone on an empty task list (mirrors
+   .dashboard-project-docs:empty). Without it the empty list is 0px tall, the
+   list-level dragover/drop fallback can never be hovered, and the
+   --drop-target min-height below only applies after that dragover — a
+   chicken-and-egg that left empty todo cards unable to receive dragged
+   tasks. */
+.dashboard-task-list:empty {
+	min-height: 32px;
+}
+
 .dashboard-task-list--drop-target {
 	min-height: 40px;
 	border: 2px dashed var(--db-border-accent);
@@ -13202,6 +13212,27 @@
 	margin-top: 2px;
 }
 
+/* ===== Library folder-kanban drag & drop (desktop) ===== */
+.dashboard-library-kanban-card[draggable="true"] {
+	cursor: grab;
+}
+
+.dashboard-library-kanban-card[draggable="true"]:active {
+	cursor: grabbing;
+}
+
+.dashboard-library-kanban-card--dragging {
+	opacity: 0.4;
+	transform: rotate(2deg);
+	transition: none;
+}
+
+.dashboard-library-kanban-col--drag-over {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 10%, var(--db-bg-section, transparent));
+	outline: 2px dashed var(--db-accent, var(--interactive-accent));
+	outline-offset: -2px;
+}
+
 /* ===== Library Config Modal ===== */
 .dashboard-library-config-modal {
 	padding: 0;
@@ -16423,6 +16454,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-quicknote-cfg-add { font-size: 0.85em; }
 .dashboard-quicknote-cfg-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .dashboard-quicknote-cfg-toggle label { font-size: 0.88em; cursor: pointer; }
+/* Insert-position options: small heading + indented check rows (the old
+   <select> clipped its closed-state text in the narrow modal). */
+.dashboard-quicknote-cfg-pos-head { font-size: 0.88em; margin: 2px 0 6px; }
+.dashboard-quicknote-cfg-toggle--sub { margin: 0 0 2px 18px; }
 .dashboard-quicknote-cfg-cmd-id {
 	font-size: 0.78em;
 	color: var(--db-text-muted);

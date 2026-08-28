@@ -5,6 +5,7 @@ import { TickTickClient, parseTickDate } from './ticktick-service';
 import type { TickTickHabit, TickTickProject, TickTickTask } from './ticktick-service';
 import { TickTickTaskEditModal } from './ticktick-task-edit-modal';
 import { DEFAULT_TICKTICK_TZ, isValidTz, tzDayNum, tzParts, tzStamp } from './ticktick-tz';
+import { KANBAN_FILE_DRAG_TYPE } from './dnd';
 
 interface TaskActions {
 	canWrite: boolean;
@@ -365,7 +366,12 @@ function wireRowDnD(row: HTMLElement, projectId: string, siblings: TickTickTask[
 		if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', row.dataset.taskId ?? ''); }
 	});
 	row.addEventListener('dragend', () => { row.removeClass('dashboard-ticktick-row--dragging'); });
-	row.addEventListener('dragover', (e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; });
+	row.addEventListener('dragover', (e) => {
+		// Library kanban card drag: not a task reorder — decline the row instead
+		// of showing an accepting cursor over an inert target.
+		if (e.dataTransfer?.types.includes(KANBAN_FILE_DRAG_TYPE)) return;
+		e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+	});
 	row.addEventListener('drop', (e) => {
 		e.preventDefault();
 		const movedId = e.dataTransfer?.getData('text/plain') ?? '';

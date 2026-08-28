@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.12 (2026-08-29)
+
+### Added
+- **Library/folder sections: drag-to-move files in the folder-grouped kanban** — In kanban view with folder grouping (desktop), dragging a card onto another column now moves the underlying file into that group's folder via `fileManager.renameFile`, so internal links update per your vault's "auto-update links" setting. The move is optimistic (the card hops columns immediately) with a rollback + notice on failure; a same-name file in the target folder blocks the move with a clear message. The "not set" column rejects drops but its cards can be dragged out to file loose notes. Memo-card and section-reorder drags elsewhere on the board are unaffected. Folder grouping also stops showing a parent folder as its own column next to its children — files sitting directly in the parent (e.g. the scan root itself) now land in the not-set column. The quick-note config modal's insert-position control is also reworked: the dropdown (whose closed-state text clipped in the narrow modal) is replaced by two mutually exclusive checkbox options.
+
 ## 1.9.11 (2026-08-29)
 
 ### Fixed
