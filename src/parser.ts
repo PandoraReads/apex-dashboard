@@ -21,6 +21,7 @@ import type {
 } from './types';
 import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
+import { normalizeColumnPairs } from './column-pairs';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
 const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky']);
@@ -36,7 +37,12 @@ function normalizeHexColor(value?: string): string {
 
 const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*$/;
 const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
-const DOC_LINE_REGEX = /^(\s*)(?:- )?\[\[([^\]\n]+)]](\s*<!--collapsed-->\s*)?$/;
+// Doc lines are `- [[path]]` / `[[path]]` (optionally indented for nesting).
+// The path may itself contain single brackets (z-library books carry `[美]`
+// etc.), so a lone `]` is allowed — the link only terminates on `]]`. Paths
+// ending IN a bracket (`book].pdf`) still can't round-trip, matching the
+// Obsidian core wikilink parser, which also stops at the first `]]`.
+const DOC_LINE_REGEX = /^(\s*)(?:- )?\[\[((?:[^\]\n]|\](?!\]))+?)]](\s*<!--collapsed-->\s*)?$/;
 
 const DEFAULT_BANNER: BannerData = {
 	quote: 'The mind is everything. What you think you become.',
@@ -225,6 +231,9 @@ export function serialize(data: DashboardData): string {
 		}
 		if (col.height != null) {
 			lines.push(`    height: ${col.height}`);
+		}
+		if (col.half) {
+			lines.push('    half: true');
 		}
 		if (col.wereadConfig) {
 			const wc = col.wereadConfig;
@@ -764,7 +773,7 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number; half?: boolean }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -777,15 +786,16 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
 		dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
 		height: typeof item.height === 'number' ? item.height : undefined,
+		half: item.half === true ? true : undefined,
 	}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number; half?: boolean }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
 
-	return sections.map((section, sectionIdx) => {
+	const mapped = sections.map((section, sectionIdx) => {
 		let def = defMap.get(section.heading);
 		if (!def && sectionIdx < defs.length && !usedDefIndices.has(sectionIdx)) {
 			def = defs[sectionIdx];
@@ -816,8 +826,12 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			ticktickConfig: def?.ticktickConfig,
 			dataviewConfig: def?.dataviewConfig,
 			height: def?.height,
+			half: def?.half,
 		};
 	});
+	// Self-heal hand-edited frontmatter: a lone `half: true` (or an odd run)
+	// pairs with no one and would render as an orphan half-width row.
+	return normalizeColumnPairs(mapped);
 }
 
 // Memo sections keep their `[[wikilink]]` lines as body text instead of a doc list.

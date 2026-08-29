@@ -1737,6 +1737,12 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		}
 	}
 
+	// Side-by-side pairing (desktop only): mobile keeps full-width stacking —
+	// the class never renders there, so the mobile CSS sizing is untouched.
+	if (!Platform.isMobile && column.half) {
+		el.addClass('dashboard-section-row--half');
+	}
+
 	attachSectionResizeHandle(el, column, callbacks);
 
 	const header = el.createDiv({ cls: 'dashboard-section-header' });

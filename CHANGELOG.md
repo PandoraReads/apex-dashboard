@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.13 (2026-08-30)
+
+### Added
+- **Side-by-side section pairing (分区双排)** — Drag a section (grip handle) onto the left or right edge strip (25%) of another section to pair them into one row at half width each; the familiar top/bottom drop zones keep the vertical reorder. Pairing is persisted per section in the dashboard frontmatter (`half: true`) and survives reloads. Drop a section beside an already-paired one and the old partner automatically falls back to a full-width row (eviction); dragging a paired section vertically — including onto its partner — or deleting it frees the partner the same way, and intra-pair swaps just exchange the two. No wrapper elements are introduced (DOM order still mirrors the section order), the four tight-gap themes keep an exact 50/50 fill via a `--db-kanban-gap` token, narrow panes (<620px) fall back to stacked full-width rows via a container query, and mobile keeps vertical stacking untouched (the pairing class is desktop-gated).
+
+### Fixed
+- **Books whose filename contains `]` no longer vanish after being dropped onto a project card** — the doc-line regex terminated the path at the first `]`, so a wikilink to e.g. z-library's `…[美]….pdf` flashed briefly and was dropped on the next save/re-parse cycle. A single `]` is now allowed inside the path; the link only terminates on `]]` (matching the Obsidian core parser). Filenames ending in `]` remain unrepresentable, same as Obsidian itself.
+
 ## 1.9.12 (2026-08-29)
 
 ### Added

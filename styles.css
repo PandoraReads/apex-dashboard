@@ -645,7 +645,7 @@
 .apex-dashboard-root[data-theme="blossom"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="lilac"] .dashboard-kanban {
-	gap: 8px;
+	--db-kanban-gap: 8px;
 }
 
 /* Allow card hover translate without clipping top border */
@@ -8009,14 +8009,26 @@
 	min-height: 0;
 }
 
+/* Row + wrap (not column): full-width rows (flex-basis 100%) stack one per
+   line exactly as before, while paired half-width rows share a line. The
+   section DOM order still equals the columns array order — no wrapper
+   elements, so :scope > [data-column] queries and dnd index math hold.
+   align-content flex-start keeps wrapped lines top-anchored (default stretch
+   would grow the rows to eat leftover vertical space). inline-size container
+   so paired rows can fall back to full width in narrow panes (split panes
+   track the pane, not the viewport — same rationale as the quicknote bar). */
 .dashboard-kanban {
+	--db-kanban-gap: 16px;
 	display: flex;
-	flex-direction: column;
-	gap: 16px;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	gap: var(--db-kanban-gap);
 	flex: 1;
 	overflow-y: auto;
 	scrollbar-width: none;
 	padding: 0;
+	container-type: inline-size;
 }
 
 .dashboard-kanban::-webkit-scrollbar {
@@ -8034,9 +8046,30 @@
 	max-height: 500px;
 	display: flex;
 	flex-direction: column;
-	/* Do not shrink when a sibling is resized: let the kanban scroll instead,
-	   otherwise growing one section squishes the others together (overlap). */
-	flex-shrink: 0;
+	/* One full-width row per line in the wrap container; the shorthand's 0
+	   shrink also keeps a resized sibling from squishing others (the kanban
+	   scrolls instead). border-box is load bearing: without it the 16px padding
+	   + 1px border ride on top of the percentage basis and two halves would no
+	   longer fit one line. */
+	box-sizing: border-box;
+	flex: 0 0 100%;
+}
+
+/* Paired half row (drag a section beside another). Grow fills the line when
+   an orphan half slips through (hand-edited file mid-normalization); with a
+   partner the two 50% bases exactly fill the line, so grow never engages. */
+.dashboard-section-row--half {
+	flex: 1 1 calc(50% - var(--db-kanban-gap, 16px) / 2);
+	min-width: 0;
+}
+
+/* Narrow pane (split view, side-by-side panes): two cramped 40%-width rows
+   read worse than stacked full rows. Queries the kanban container itself —
+   the pane width, not the viewport. */
+@container (max-width: 620px) {
+	.dashboard-section-row--half {
+		flex-basis: 100%;
+	}
 }
 
 .dashboard-section-row[data-section-type="notes"],
@@ -8159,6 +8192,15 @@
 	box-shadow: 0 2px 0 0 var(--db-accent, var(--interactive-accent));
 }
 
+/* Side drops (pairing): vertical accent line on the target's near edge. */
+.dashboard-section-row--section-drag-over[data-section-drop-pos="left"] {
+	box-shadow: -3px 0 0 0 var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-section-row--section-drag-over[data-section-drop-pos="right"] {
+	box-shadow: 3px 0 0 0 var(--db-accent, var(--interactive-accent));
+}
+
 /* Section resize handle (desktop only) — transparent border revealed on hover,
    mirroring the memo card resize handle. Sits at the bottom via flex order. */
 .dashboard-section-resize-handle {
@@ -8192,6 +8234,10 @@
 
 .dashboard-section-row--collapsed {
 	height: auto !important;
+	/* A collapsed member of a pair opts out of the line's equal-height
+	   stretch — otherwise it renders as a tall empty box next to its
+	   expanded partner. */
+	align-self: flex-start;
 }
 
 .dashboard-section-row .dashboard-section-title {
@@ -8519,11 +8565,15 @@
 	flex-shrink: 0;
 }
 
+/* Full-line anchor: these are flex items of the wrap kanban now and would
+   otherwise shrink to content width. */
 .dashboard-add-section {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	padding: 12px;
+	box-sizing: border-box;
+	flex: 0 0 100%;
 	/* At least 1.5x the button height of breathing room below, so the button
 	   lifts clear of the Obsidian mobile native bottom bar when scrolled to the end. */
 	margin-bottom: 60px;
@@ -16121,6 +16171,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	padding: 5px 8px;
 	min-height: calc(1.6em + 18px);
 	margin-bottom: -6px;
+	/* Full-line anchor in the wrap kanban (would otherwise shrink to content
+	   width); border-box keeps the border inside the 100% basis. */
+	box-sizing: border-box;
+	flex: 0 0 100%;
 	background: color-mix(in srgb, var(--db-accent) 6%, var(--db-bg-section));
 	border: 1px solid color-mix(in srgb, var(--db-accent) 14%, var(--db-border-section));
 	border-radius: var(--db-radius-md);

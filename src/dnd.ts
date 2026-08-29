@@ -120,7 +120,7 @@ export function setupDragAndDrop(
 				e.preventDefault();
 				e.stopPropagation();
 				if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-				updateSectionDropIndicator(state, container, colEl, e.clientY);
+				updateSectionDropIndicator(state, container, colEl, e.clientX, e.clientY);
 				return;
 			}
 			e.preventDefault();
@@ -148,21 +148,30 @@ export function setupDragAndDrop(
 				e.preventDefault();
 				e.stopPropagation();
 				const src = state.sectionDragSource;
-				const placeBefore = isPointInTopHalf(colEl, e.clientY);
 				if (src.index === index) {
+					removeSectionDropIndicator(state);
+					return;
+				}
+				const zone = getSectionDropZone(colEl, e.clientX, e.clientY);
+				if (zone === 'left' || zone === 'right') {
+					// Side drop: pair with this section (its ex-partner, if any, falls
+					// back to a full-width row). Indices stay in current-array space;
+					// moveColumnBeside resolves the post-removal insertion.
+					callbacks.onColumnMoveBeside(src.index, index, zone);
 					removeSectionDropIndicator(state);
 					return;
 				}
 				// Compute target index in the array AFTER the source is removed.
 				let target: number;
-				if (placeBefore) {
+				if (zone === 'before') {
 					target = src.index < index ? index - 1 : index;
 				} else {
 					target = src.index < index ? index : index + 1;
 				}
-				if (target !== src.index) {
-					callbacks.onColumnMove(src.index, target);
-				}
+				// target === src.index is legal: a vertical drop onto the row the
+				// source already borders unpairs it in place. The sync layer skips
+				// the disk write when nothing actually changes.
+				callbacks.onColumnMove(src.index, target);
 				removeSectionDropIndicator(state);
 				return;
 			}
@@ -260,12 +269,30 @@ function isPointInTopHalf(row: HTMLElement, clientY: number): boolean {
 	return clientY < rect.top + rect.height / 2;
 }
 
-/** Highlight the hovered section row edge (top/bottom) where the drag will land. */
-function updateSectionDropIndicator(state: DnDState, _container: HTMLElement, row: HTMLElement, clientY: number): void {
+/** Side drop zones occupy the left/right edge strips of a section row; the
+ *  middle band keeps the familiar top-half/bottom-half before/after split.
+ *  Always active — dropping beside an already-paired section evicts its
+ *  ex-partner to a full-width row (decided in the sync layer; dnd stays
+ *  pairing-agnostic). */
+const SECTION_SIDE_ZONE = 0.25;
+
+type SectionDropZone = 'before' | 'after' | 'left' | 'right';
+
+function getSectionDropZone(row: HTMLElement, clientX: number, clientY: number): SectionDropZone {
+	const rect = row.getBoundingClientRect();
+	const xRatio = rect.width > 0 ? (clientX - rect.left) / rect.width : 0.5;
+	if (xRatio <= SECTION_SIDE_ZONE) return 'left';
+	if (xRatio >= 1 - SECTION_SIDE_ZONE) return 'right';
+	return isPointInTopHalf(row, clientY) ? 'before' : 'after';
+}
+
+/** Highlight the hovered section row edge (top/bottom for vertical inserts,
+ *  left/right for pairing) where the drag will land. */
+function updateSectionDropIndicator(state: DnDState, _container: HTMLElement, row: HTMLElement, clientX: number, clientY: number): void {
 	clearAllSectionDragOver();
 	if (state.sectionDragSource?.row === row) return;
 	row.addClass('dashboard-section-row--section-drag-over');
-	row.dataset.sectionDropPos = isPointInTopHalf(row, clientY) ? 'before' : 'after';
+	row.dataset.sectionDropPos = getSectionDropZone(row, clientX, clientY);
 }
 
 function removeSectionDropIndicator(_state: DnDState): void {

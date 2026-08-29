@@ -22,6 +22,7 @@ import {
 	appendDocChild,
 	demoteDocToChild,
 } from './doc-tree';
+import { moveToOwnRow, moveBeside, unpartnerAt } from './column-pairs';
 
 type DataCallback = (data: DashboardData) => void;
 
@@ -450,16 +451,29 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	/** Reorder sections by array index (index-based to avoid name collisions). */
+	/** Reorder sections by array index (index-based to avoid name collisions).
+	 *  Vertical drop = "own full-width row": a moved section loses any pairing
+	 *  and never lands between two partners (see moveToOwnRow). from === to is
+	 *  legal — it unpairs the section in place. */
 	async moveColumn(fromIndex: number, toIndex: number): Promise<void> {
 		if (!this.data) return;
-		const cols = [...this.data.columns];
+		const cols = this.data.columns;
 		if (fromIndex < 0 || fromIndex >= cols.length || toIndex < 0 || toIndex >= cols.length) return;
-		if (fromIndex === toIndex) return;
-		const [moved] = cols.splice(fromIndex, 1);
-		if (!moved) return;
-		cols.splice(toIndex, 0, moved);
-		this.data = { ...this.data, columns: cols };
+		const candidate = { ...this.data, columns: moveToOwnRow(cols, fromIndex, toIndex) };
+		// No-op drops (e.g. vertical drop that lands where it started on an
+		// unpaired section) must not burn a backup file and re-render the board.
+		if (serialize(candidate) === serialize(this.data)) return;
+		this.data = candidate;
+		await this.writeToDisk();
+	}
+
+	/** Pair the dragged section beside the target (`side` of the target row).
+	 *  The target's ex-partner, if any, falls back to a full-width row. */
+	async moveColumnBeside(fromIndex: number, targetIndex: number, side: 'left' | 'right'): Promise<void> {
+		if (!this.data) return;
+		const candidate = { ...this.data, columns: moveBeside(this.data.columns, fromIndex, targetIndex, side) };
+		if (serialize(candidate) === serialize(this.data)) return;
+		this.data = candidate;
 		await this.writeToDisk();
 	}
 
@@ -529,9 +543,11 @@ export class SyncEngine {
 		if (!this.data) return;
 		const idx = this.resolveColumnIndex(columnName, columnIndex);
 		if (idx < 0) return;
+		// Free the deleted section's partner first so it falls back to a full
+		// width row instead of lingering as an orphan half.
 		this.data = {
 			...this.data,
-			columns: this.data.columns.filter((_, i) => i !== idx),
+			columns: unpartnerAt(this.data.columns, idx).filter((_, i) => i !== idx),
 		};
 		await this.writeToDisk();
 	}

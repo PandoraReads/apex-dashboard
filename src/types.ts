@@ -545,6 +545,10 @@ export interface DashboardColumn {
 	dataviewConfig?: DataviewConfig;
 	/** User-set max height in px (drag-resize, desktop only). */
 	height?: number;
+	/** Side-by-side pairing: two adjacent `half` columns render as one row
+	 *  (drag a section beside another, desktop only). Maintained by
+	 *  src/column-pairs.ts; adjacency is the pairing identity. */
+	half?: boolean;
 }
 
 export interface DashboardData {
@@ -570,6 +574,9 @@ export interface RenderCallbacks {
 	onColumnAdd(name: string, sectionType?: string): void;
 	onRequestAddSection(): void;
 	onColumnMove(fromIndex: number, toIndex: number): void;
+	/** Pair the dragged section beside the target (its ex-partner, if any,
+	 *  falls back to a full-width row). Indices in current-array space. */
+	onColumnMoveBeside(fromIndex: number, targetIndex: number, side: 'left' | 'right'): void;
 	onColumnHeightChange(name: string, height: number): void;
 	onBannerEdit(): void;
 	onQuickActionAdd(): void;

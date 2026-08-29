@@ -1000,6 +1000,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				onColumnRename: (oldName: string, newName: string, columnIndex?: number) => { void this.sync.renameColumn(oldName, newName, columnIndex); },
 				onColumnDelete: (columnName: string, columnIndex?: number) => this.deleteColumn(columnName, columnIndex),
 				onColumnMove: (fromIndex: number, toIndex: number) => { void this.sync.moveColumn(fromIndex, toIndex); },
+				onColumnMoveBeside: (fromIndex: number, targetIndex: number, side: 'left' | 'right') => { void this.sync.moveColumnBeside(fromIndex, targetIndex, side); },
 				onColumnHeightChange: (name: string, height: number) => { void this.sync.updateColumnHeight(name, height); },
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
