@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.1 (2026-08-30)
+
+### Fixed
+- **Sticky / memo / todo / projects sections scroll horizontally again** — the pairing rework (1.9.13) turned section rows into row-axis flex items, whose default `min-width: auto` let a nowrap card deck inflate its row past the 100% basis: the cards area stopped overflowing (its scrollbar vanished) and the whole board stretched wide. Rows are clamped back with `min-width: 0`. (The kanban sticky-title fix listed under 2.0.0 actually ships in this release — the 2.0.0 tag was cut before that styles.css change landed.)
+
+### Added
+- **Widget data files join the periodic backups** — the habits / expense / pomodoro / reading json snapshots are now taken alongside the dashboard file on the same cadence (`data-<stamp>-<name>.json` beside each board snapshot) and pruned as complete per-timestamp groups. Their live copies in the plugin folder were previously the only copies — a truncated sync or a plugin reinstall lost the histories with no rollback point. Restore remains board-only; the data snapshots are there for manual recovery.
+
+### Changed
+- **Startup and view-open data loads run in parallel** — habits/expense (plugin start) and pomodoro/reading (view open) each awaited their file read serially; on mobile any of them can block on an iCloud download, stacking every wait into startup latency. Both pairs now load concurrently (worst-case wait = the slowest single file).
+- **Tighter gap between the banner and the sidebars/board** — the main area's 16px top padding plus the banner's 4px bottom margin read as one wide ~20px band; the padding is now 8px (~12px total).
+
 ## 2.0.0 (2026-08-30)
 
 ### Changed

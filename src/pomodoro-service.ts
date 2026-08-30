@@ -48,7 +48,7 @@ export interface PomodoroData {
 	sessions: PomodoroSession[];
 }
 
-const DATA_FILE = 'pomodoro.json';
+export const DATA_FILE = 'pomodoro.json';
 const MAX_SESSION_DAYS = 365;
 
 function emptyData(): PomodoroData {

@@ -189,7 +189,14 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.startWeatherRefresh();
 		this.startDayRolloverChecker();
 		this.pomodoroService = new PomodoroService(this.plugin);
-		await this.pomodoroService.loadSessions();
+		this.readingService = new ReadingService(this.plugin);
+		// Load both data files in parallel — on mobile either can block on an
+		// iCloud download, and the old serial awaits stacked both waits into
+		// view-open time.
+		await Promise.all([
+			this.pomodoroService.loadSessions(),
+			this.readingService.loadSessions(),
+		]);
 		// Body-level floating countdown pill; polls the service on its own so
 		// it survives sidebar re-renders and stays up while other tabs show.
 		this.pomodoroMiniPanel = createPomodoroMiniPanel(
@@ -197,8 +204,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.pomodoroService,
 			this.containerEl.ownerDocument,
 		);
-		this.readingService = new ReadingService(this.plugin);
-		await this.readingService.loadSessions();
 		// Tiny top-right elapsed-time pill while a reading session runs; its
 		// stop button opens the same end-of-reading flow as the sidebar card.
 		this.readingMiniTimer = createReadingMiniTimer(

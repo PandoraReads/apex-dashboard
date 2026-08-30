@@ -16,7 +16,7 @@ export interface HabitData {
 	records: Record<string, string[]>;
 }
 
-const DATA_FILE = 'habits.json';
+export const DATA_FILE = 'habits.json';
 const MAX_RECORD_DAYS = 730;
 /** Shared with the widget so its validation Notice matches the service. */
 export const HABIT_MAX_NAME_LENGTH = 50;

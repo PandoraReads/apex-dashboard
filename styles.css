@@ -1685,7 +1685,10 @@
 	flex: 1;
 	overflow: hidden;
 	gap: 10px;
-	padding: 16px 16px 0 16px;
+	/* Top gap is intentionally tighter than the sides: banner already carries
+	   a 4px bottom margin (kept for the collapsed bookmark tab), so 8px here
+	   reads as one ~12px gap instead of the old 20px band. */
+	padding: 8px 16px 0 16px;
 }
 
 /* ===== Sidebar ===== */
@@ -8053,6 +8056,13 @@
 	   longer fit one line. */
 	box-sizing: border-box;
 	flex: 0 0 100%;
+	/* Load bearing since the board went row+wrap (section pairing): a row-main
+	   flex item defaults to min-width:auto = content min-size, so a nowrap
+	   card deck (sticky/memo/todo/projects) inflated the row past its 100%
+	   basis — the cards area stopped overflowing (its horizontal scrollbar
+	   vanished) and the whole board stretched instead. 0 clamps the row back
+	   to its basis so the card area owns the overflow again. */
+	min-width: 0;
 }
 
 /* Paired half row (drag a section beside another). Grow fills the line when

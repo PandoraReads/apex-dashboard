@@ -31,7 +31,7 @@ export interface ExpenseData {
 	customCategories?: { expense?: string[]; income?: string[] };
 }
 
-const DATA_FILE = 'expense.json';
+export const DATA_FILE = 'expense.json';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** Shared with the widget so its validation matches the service. */
 export const EXPENSE_MAX_NOTE_LENGTH = 50;

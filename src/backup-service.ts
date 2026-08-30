@@ -2,6 +2,10 @@ import { Notice } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { BackupPeriod } from './types';
 import { t } from './i18n';
+import { DATA_FILE as HABITS_FILE } from './habit-service';
+import { DATA_FILE as EXPENSE_FILE } from './expense-service';
+import { DATA_FILE as POMODORO_FILE } from './pomodoro-service';
+import { DATA_FILE as READING_FILE } from './reading-service';
 
 /** Milliseconds covered by each backup cadence. */
 const PERIOD_MS: Record<BackupPeriod, number> = {
@@ -10,6 +14,13 @@ const PERIOD_MS: Record<BackupPeriod, number> = {
 	weekly: 7 * 24 * 60 * 60 * 1000,
 	monthly: 30 * 24 * 60 * 60 * 1000,
 };
+
+/** Widget data files snapshotted alongside the dashboard file. Their live
+ *  copies in the plugin folder are the ONLY copies — a truncated sync or a
+ *  plugin reinstall would lose the habit/expense/pomodoro/reading histories
+ *  with no rollback point, while the board itself already had two safety
+ *  nets (SyncEngine's per-write snapshots + this service). */
+const DATA_FILES = [HABITS_FILE, EXPENSE_FILE, POMODORO_FILE, READING_FILE];
 
 /**
  * Periodic snapshot service for the dashboard markdown file.
@@ -38,7 +49,12 @@ export class BackupService {
 
 	/** Absolute vault path of the backup directory inside the plugin folder. */
 	private get backupDir(): string {
-		return `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}/backups`;
+		return `${this.pluginDir}/backups`;
+	}
+
+	/** Absolute vault path of the plugin folder (where the data files live). */
+	private get pluginDir(): string {
+		return `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}`;
 	}
 
 	/** Poll: back up only if enabled and the cadence has elapsed since the last run. */
@@ -60,21 +76,34 @@ export class BackupService {
 		const app = this.plugin.app;
 		const settings = this.plugin.settings;
 		try {
-			const rawPath = (settings.dashboardFile ?? 'dashboard').trim();
-			const path = rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`;
-			const file = app.vault.getFileByPath(path);
-			if (!file) return false;
-			const content = await app.vault.read(file);
-
 			const adapter = app.vault.adapter;
 			const dir = this.backupDir;
 			if (!(await adapter.exists(dir))) {
 				await adapter.mkdir(dir);
 			}
-
+			// One timestamp per run: the board md and the data jsons written in
+			// this pass form a single snapshot group (see prune).
 			const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-			const backupPath = `${dir}/dashboard-${stamp}.md`;
-			await adapter.write(backupPath, content);
+
+			let backed = false;
+
+			const rawPath = (settings.dashboardFile ?? 'dashboard').trim();
+			const path = rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`;
+			const file = app.vault.getFileByPath(path);
+			if (file) {
+				const content = await app.vault.read(file);
+				await adapter.write(`${dir}/dashboard-${stamp}.md`, content);
+				backed = true;
+			}
+
+			for (const name of DATA_FILES) {
+				const src = `${this.pluginDir}/${name}`;
+				if (!(await adapter.exists(src))) continue;
+				await adapter.write(`${dir}/data-${stamp}-${name}`, await adapter.read(src));
+				backed = true;
+			}
+
+			if (!backed) return false;
 
 			await this.prune(dir, settings.backupMaxCount && settings.backupMaxCount > 0 ? settings.backupMaxCount : 10);
 
@@ -87,17 +116,33 @@ export class BackupService {
 		}
 	}
 
-	/** Keep only the newest `max` snapshots. */
+	/**
+	 * Keep only the newest `max` snapshot groups. A group is every file sharing
+	 * one timestamp — the board md plus its data jsons — and is dropped or kept
+	 * as a whole, so a retained group is always a complete state snapshot
+	 * rather than a board from Tuesday next to habits from Friday.
+	 */
 	private async prune(dir: string, max: number): Promise<void> {
 		try {
 			const adapter = this.plugin.app.vault.adapter;
 			const listing = await adapter.list(dir);
-			const backups = listing.files
-				.filter(f => f.startsWith(`${dir}/dashboard-`) && f.endsWith('.md'))
-				.sort();
-			while (backups.length > max) {
-				const oldest = backups.shift();
-				if (oldest) await adapter.remove(oldest);
+			const stamps = new Set<string>();
+			for (const f of listing.files) {
+				// Stamps always end in 'Z' (ISO), which anchors the match despite
+				// the dashes inside the stamp itself. The leading '/' anchor keeps
+				// folder names (e.g. .../apex-dashboard/backups/) from matching.
+				const m = f.match(/\/(?:dashboard|data)-([\dTZ-]+Z)(?:[.-]|\b)/);
+				if (m) stamps.add(m[1]!);
+			}
+			const ordered = [...stamps].sort();
+			while (ordered.length > max) {
+				const oldest = ordered.shift();
+				if (!oldest) break;
+				for (const f of listing.files) {
+					const isBoard = f.endsWith(`-${oldest}.md`);
+					const isData = f.includes(`-${oldest}-`) && f.includes('/data-');
+					if (isBoard || isData) await adapter.remove(f);
+				}
 			}
 		} catch {
 			// Pruning is best-effort.

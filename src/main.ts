@@ -76,14 +76,14 @@ export default class DashboardPlugin extends Plugin {
 		this.mediaTagService.load();
 		registerMediaTagService(this.mediaTagService);
 
-		// Await the load so habits.json is ready before any view first renders.
+		// Await the loads so habits.json / expense.json are ready before any view
+		// first renders. Both load in parallel: each is an independent file, and
+		// on mobile either can block on an iCloud download — serial awaits would
+		// stack both waits into startup latency.
 		this.habitService = new HabitService(this);
-		await this.habitService.load();
-		registerHabitService(this.habitService);
-
-		// Same contract: expense.json must be ready before the first render.
 		this.expenseService = new ExpenseService(this);
-		await this.expenseService.load();
+		await Promise.all([this.habitService.load(), this.expenseService.load()]);
+		registerHabitService(this.habitService);
 		registerExpenseService(this.expenseService);
 
 		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
