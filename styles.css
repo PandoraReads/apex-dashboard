@@ -1350,6 +1350,47 @@
 	pointer-events: none;
 }
 
+/* ===== Workspace settings (registry rows) ===== */
+/* Standalone divider before the workspace group. NOT a border on the heading
+   .setting-item — themes give setting items rounded backgrounds and clip any
+   border we draw there; a separate element keeps a straight, square line with
+   spacing under our control. */
+.dashboard-settings-divider {
+	height: 1px;
+	background: var(--background-modifier-border);
+	margin: 18px 0 10px;
+}
+
+.dashboard-workspace-row .dashboard-workspace-drag-handle {
+	align-self: center;
+	display: flex;
+	color: var(--text-faint);
+	opacity: 0.5;
+	cursor: grab;
+}
+
+.dashboard-workspace-row .dashboard-workspace-drag-handle:hover {
+	opacity: 1;
+}
+
+.dashboard-workspace-row--dragging {
+	opacity: 0.45;
+}
+
+/* Drop indicators: box-shadow instead of border so native row separators
+   and layout are untouched. */
+.dashboard-workspace-row--drop-before {
+	box-shadow: 0 -2px 0 0 var(--interactive-accent);
+}
+
+.dashboard-workspace-row--drop-after {
+	box-shadow: 0 2px 0 0 var(--interactive-accent);
+}
+
+.dashboard-workspace-path-input {
+	width: 160px;
+}
+
 /* Aurora gradient animation for aurora theme only */
 .apex-dashboard-root[data-theme="aurora"] {
 	background: var(--db-aurora-bg);
@@ -1535,6 +1576,68 @@
 	transform: scale(1.15);
 }
 
+/* --- Workspace switcher (banner top-left corner) ---
+   Sits in the dead strip ABOVE the stats content: the left stat column's
+   hero number starts at y=18 (panel padding 10px + 8px hero offset), so a
+   compact 14px-tall pill row at top:2 ends exactly at its top edge — the
+   numbers neither move nor get covered. nowrap so a long row extends right
+   along the same strip instead of wrapping down over the content.
+   Faint at rest (barely-there), full opacity on hover/focus. */
+.dashboard-workspace-switcher {
+	position: absolute;
+	top: 2px;
+	left: 8px;
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: 3px;
+	padding: 1px 4px;
+	z-index: 10;
+	opacity: 0.25;
+	transition: opacity 0.2s ease;
+}
+
+.dashboard-workspace-switcher:hover,
+.dashboard-workspace-switcher:focus-within {
+	opacity: 1;
+}
+
+.dashboard-workspace-btn {
+	min-width: 14px;
+	height: 14px;
+	padding: 0 3px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.28);
+	border: 1px solid rgba(255, 255, 255, 0.22);
+	border-radius: var(--db-radius-sm, 6px);
+	color: rgba(255, 255, 255, 0.78);
+	font-size: 0.5em;
+	line-height: 1;
+	cursor: pointer;
+	outline: none;
+	box-shadow: none !important;
+}
+
+.dashboard-workspace-btn:hover,
+.dashboard-workspace-btn:active {
+	color: #ffffff;
+	border-color: rgba(255, 255, 255, 0.5);
+	background: rgba(0, 0, 0, 0.4);
+}
+
+.dashboard-workspace-btn.active {
+	background: var(--db-accent, #6366f1);
+	border-color: transparent;
+	color: #ffffff;
+}
+
+.dashboard-workspace-add-btn {
+	padding: 0;
+	width: 14px;
+}
+
 /* --- Banner collapsed state (desktop only) --- */
 @media (min-width: 641px) {
 	.dashboard-banner--collapsed {
@@ -1545,11 +1648,18 @@
 		background-color: transparent !important;
 	}
 
-	.dashboard-banner--collapsed > *:not(.dashboard-banner-pin-btn) {
+	.dashboard-banner--collapsed > *:not(.dashboard-banner-pin-btn):not(.dashboard-workspace-switcher) {
 		opacity: 0;
 		pointer-events: none;
 		visibility: hidden;
 		transition: opacity 0.15s ease;
+	}
+
+	/* Switcher stays usable on the 4px collapsed bar: pills hang below the
+	   edge, mirroring the bookmark tab's re-anchor on the right. */
+	.dashboard-banner--collapsed .dashboard-workspace-switcher {
+		top: 2px;
+		opacity: 0.85;
 	}
 
 	/* Bookmark tab: anchors at top edge, extends downward. The bottom point
@@ -8013,6 +8123,7 @@
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+	position: relative; /* anchor for the floating workspace switcher */
 }
 
 /* Row + wrap (not column): full-width rows (flex-basis 100%) stack one per
@@ -10959,6 +11070,26 @@
 		bottom: 4px;
 		left: 10px;
 		z-index: 1;
+	}
+
+	/* Workspace switcher pills: same top-left strip, slightly larger for
+	   touch targets; no hover on touch, so keep them visible. */
+	.dashboard-workspace-switcher {
+		gap: 3px;
+		top: 2px;
+		left: 6px;
+		padding: 1px 3px;
+		opacity: 0.85;
+	}
+
+	.dashboard-workspace-btn {
+		min-width: 16px;
+		height: 16px;
+		font-size: 0.55em;
+	}
+
+	.dashboard-workspace-add-btn {
+		width: 16px;
 	}
 
 	.dashboard-mobile-action-btn {

@@ -3,7 +3,13 @@ import type { CalendarTaskFilter } from './alltasks-scan';
 import type { TFile } from 'obsidian';
 
 export interface DashboardSettings {
+	/** Path of the ACTIVE workspace file (no .md extension). */
 	dashboardFile: string;
+	/** All workspace board files in switcher order (button i+1). Paths follow
+	    the dashboardFile convention (no leading '/', no .md extension). */
+	workspaceFiles: string[];
+	/** Optional display names, parallel to workspaceFiles ('' = number only). */
+	workspaceNames?: string[];
 	recentDocCount: number;
 	language: Language;
 	stylePreset: string;
@@ -192,6 +198,8 @@ export interface QuickCommand {
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
 	dashboardFile: 'dashboard',
+	workspaceFiles: ['dashboard'],
+	workspaceNames: [''],
 	recentDocCount: 5,
 	language: 'zh',
 	stylePreset: 'earth',

@@ -11,6 +11,7 @@ import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widg
 import { getHabitService } from './habit-service';
 import { getExpenseService } from './expense-service';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
+import { renderWorkspaceSwitcher } from './workspace-switcher';
 import { refreshBannerStats } from './banner-stats';
 import { applyAppearance } from './appearance';
 import { createNoteFromPreset, captureThought, openPinnedNote, openTodayNote } from './quick-note-section';
@@ -266,6 +267,15 @@ export class DashboardView extends ItemView implements HoverParent {
 		await this.sync.reloadFromDisk();
 	}
 
+	/** Re-point this view's engine at the (already-updated) active workspace and
+	 *  reload. Called by the plugin after any workspace switch/registry change.
+	 *  Settings objects are replaced (not mutated) on every save, so the fresh
+	 *  reference must be pushed into the engine before it re-resolves the file. */
+	async applyWorkspaceSwitch(): Promise<void> {
+		this.sync.updateSettings(this.plugin.settings);
+		await this.sync.switchFile();
+	}
+
 	async addSection(): Promise<void> {
 		const name = await showPromptDialog(this.app, { title: t('renderer.sectionName') });
 		if (name) {
@@ -356,6 +366,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.bannerStatsEl = bannerEl.querySelector('.dashboard-banner-stats');
 
 		this.renderMobileActions(bannerEl);
+		// Workspace switcher — banner, at the top-left corner of the stats
+		// view's CENTER column (the CSS mirrors the stats grid: 20px panel
+		// padding + 1/5 of the content width = the center column's left edge).
+		// Rebuilt every render so the active highlight always matches settings.
+		renderWorkspaceSwitcher(bannerEl, this.plugin);
 
 		if (this.bannerCollapsed && window.innerWidth > 640) {
 			bannerEl.addClass('dashboard-banner--collapsed');
@@ -380,7 +395,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.renderSidebar(sidebar, container, preserveWidgets ? this.sidebarWidgetsEl : null);
 		this.setupSidebarBehavior(sidebar, container);
 
-		const kanban = mainLayout.createDiv({ cls: 'dashboard-kanban-wrapper' });
+		// Two-layer board: a NON-scrolling wrapper around the scrolling
+		// .dashboard-kanban. (The switcher itself lives on the banner; the split
+		// stays because it gives the scroll layer a clean, non-scrolling host.)
+		const kanbanWrapper = mainLayout.createDiv({ cls: 'dashboard-kanban-wrapper' });
+		const kanban = kanbanWrapper.createDiv({ cls: 'dashboard-kanban' });
 		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this);
 		setupDragAndDrop(kanban, this.createCallbacks(), this.dndCleanupFns);
 		// Library config event delegation

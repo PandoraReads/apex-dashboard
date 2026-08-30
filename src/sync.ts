@@ -23,6 +23,7 @@ import {
 	demoteDocToChild,
 } from './doc-tree';
 import { moveToOwnRow, moveBeside, unpartnerAt } from './column-pairs';
+import { workspaceBackupName } from './workspace-registry';
 
 type DataCallback = (data: DashboardData) => void;
 
@@ -61,6 +62,18 @@ export class SyncEngine {
 	}
 
 	destroy(): void {
+		this.unregisterFileWatchers();
+		if (this.debounceTimer) {
+			window.clearTimeout(this.debounceTimer);
+		}
+		if (this.deferredWriteTimer) {
+			window.clearTimeout(this.deferredWriteTimer);
+		}
+	}
+
+	/** Detach the vault modify/rename watchers. Called on destroy and before
+	    re-pointing the engine at another workspace file (switchFile). */
+	private unregisterFileWatchers(): void {
 		if (this.eventRef) {
 			this.app.vault.offref(this.eventRef);
 			this.eventRef = null;
@@ -68,12 +81,6 @@ export class SyncEngine {
 		if (this.renameEventRef) {
 			this.app.vault.offref(this.renameEventRef);
 			this.renameEventRef = null;
-		}
-		if (this.debounceTimer) {
-			window.clearTimeout(this.debounceTimer);
-		}
-		if (this.deferredWriteTimer) {
-			window.clearTimeout(this.deferredWriteTimer);
 		}
 	}
 
@@ -93,6 +100,38 @@ export class SyncEngine {
 	 */
 	async reloadFromDisk(): Promise<void> {
 		await this.findOrCreateFile();
+		await this.load();
+	}
+
+	/**
+	 * Re-point this engine at `settings.dashboardFile` after a workspace switch
+	 * (unlike reloadFromDisk, which keeps watching the same file).
+	 *
+	 * Order matters: writeToDisk captures its fileRef at ENQUEUE time but
+	 * serializes `this.data` at EXECUTION time — so any queued write must fully
+	 * drain into the OLD file before `this.file`/`this.data` change, or the new
+	 * workspace's content lands in the old workspace's file. The pending
+	 * deferred (quiet collapse) write is flushed into the queue first, not
+	 * dropped. The modify watcher closure-captures the watched path, so it must
+	 * be re-registered against the new file. `this.data` is nulled before
+	 * loading to defeat load()'s serialize-equality skip — two workspaces with
+	 * byte-identical content (e.g. two fresh defaults) must still re-render.
+	 */
+	async switchFile(): Promise<void> {
+		if (this.deferredWriteTimer) {
+			window.clearTimeout(this.deferredWriteTimer);
+			this.deferredWriteTimer = null;
+			if (this.data) await this.writeToDisk(true);
+		}
+		if (this.debounceTimer) {
+			window.clearTimeout(this.debounceTimer);
+			this.debounceTimer = null;
+		}
+		await this.writeQueue;
+		this.unregisterFileWatchers();
+		this.data = null;
+		await this.findOrCreateFile();
+		this.registerFileWatcher();
 		await this.load();
 	}
 
@@ -1012,14 +1051,18 @@ export class SyncEngine {
 				await adapter.mkdir(dir);
 			}
 
+			// Keyed per workspace: each board keeps its own rolling copies and
+			// prunes only its own files (dot separator so 'dashboard.' never
+			// matches 'dashboard-2.<ts>.md').
+			const base = this.file?.basename ?? 'dashboard';
 			const ts = new Date().toISOString().replace(/[:.]/g, '-');
-			const backupPath = dir + '/dashboard-' + ts + '.md';
+			const backupPath = `${dir}/${workspaceBackupName(base, ts)}`;
 			await adapter.write(backupPath, currentContent);
 
 			// Prune old backups, keep only MAX_BACKUPS
 			const files = await adapter.list(dir);
 			const backups = files.files
-				.filter((f: string) => f.startsWith(dir + '/dashboard-') && f.endsWith('.md'))
+				.filter((f: string) => f.startsWith(dir + '/' + base + '.') && f.endsWith('.md'))
 				.sort();
 			while (backups.length > SyncEngine.MAX_BACKUPS) {
 				await adapter.remove(backups.shift()!);

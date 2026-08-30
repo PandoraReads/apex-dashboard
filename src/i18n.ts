@@ -32,8 +32,24 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Settings
 		'settings.general': 'General',
-		'settings.dashboardFile': 'Dashboard file',
-		'settings.dashboardFileDesc': 'Full path to the dashboard file (e.g. dashboard or notes/dashboard). Omit .md extension.',
+		'settings.workspaceList': 'Workspaces',
+		'settings.workspaceListDesc': 'Each workspace is its own dashboard file. Path format: vault-relative, no .md suffix (e.g. dashboard or notes/dashboard).',
+
+		// Workspace switcher
+		'workspace.newTitle': 'New workspace',
+		'workspace.namePlaceholder': 'Workspace name',
+		'workspace.defaultName': 'Workspace {n}',
+		'workspace.renameTitle': 'Rename workspace',
+		'workspace.removeTitle': 'Remove workspace',
+		'workspace.removeConfirm': 'Remove "{name}" ({file}) from the workspace list? The file itself is kept on disk.',
+		'workspace.lastCannotRemove': 'Keep at least one workspace',
+		'workspace.created': 'Workspace "{name}" created',
+		'workspace.createFailed': 'Failed to create the workspace file',
+		'workspace.active': 'Active',
+		'workspace.add': 'Add workspace',
+		'workspace.dragReorder': 'Drag to reorder',
+		'workspace.pathExists': 'That path is already used by another workspace',
+		'workspace.pathNotFound': 'No file found at {file} — move the file first, then update the path',
 		'settings.backup': 'Backup',
 		'settings.backupEnabled': 'Periodic backup',
 		'settings.backupEnabledDesc': 'Automatically snapshot the dashboard file into the plugin folder on a schedule.',
@@ -196,9 +212,9 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
-		'announce.title': 'Sections side by side 🪟',
-		'announce.intro': 'Drag a section onto the left or right edge of another to pair them into one row (50/50). Drag away or delete to restore full rows. Desktop only.',
-		'announce.featureHabitLabel': 'Drop on a section\'s left/right edge strip to pair with it; vertical drags and deletes free the partner automatically.',
+		'announce.title': 'Multiple workspaces 🗂️',
+		'announce.intro': 'Every workspace is its own dashboard file. Switch instantly with the number pills at the banner\'s top-left corner, add new ones with +, right-click a pill to rename or remove. The list is managed in Settings → Workspaces.',
+		'announce.featureHabitLabel': 'Board content stays fully isolated per workspace; habits, pomodoro, reading and expense data remain shared across all of them.',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -233,6 +249,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.toggleBannerMode': 'Toggle banner view (poster & quotes / statistics)',
 		'main.bannerModeQuote': 'Banner switched to poster & quotes',
 		'main.bannerModeStats': 'Banner switched to statistics',
+		'main.nextWorkspace': 'Switch to next workspace',
+		'main.prevWorkspace': 'Switch to previous workspace',
 
 		// Renderer
 		// Default dashboard content
@@ -1279,8 +1297,24 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Settings
 		'settings.general': '通用',
-		'settings.dashboardFile': '仪表盘文件',
-		'settings.dashboardFileDesc': '仪表盘 Markdown 文件路径（如 dashboard 或 notes/dashboard，无需 .md 后缀）',
+		'settings.workspaceList': '多工作台',
+		'settings.workspaceListDesc': '每个工作台对应一个独立的 dashboard.md 文档。路径填写：库内相对路径，不含 .md 后缀（如 dashboard 或 notes/dashboard）。',
+
+		// Workspace switcher
+		'workspace.newTitle': '新建工作台',
+		'workspace.namePlaceholder': '工作台名称',
+		'workspace.defaultName': '工作台 {n}',
+		'workspace.renameTitle': '重命名工作台',
+		'workspace.removeTitle': '移除工作台',
+		'workspace.removeConfirm': '将「{name}」（{file}）从工作台列表移除？文件本身会保留在库中。',
+		'workspace.lastCannotRemove': '至少保留一个工作台',
+		'workspace.created': '已创建工作台「{name}」',
+		'workspace.createFailed': '工作台文件创建失败',
+		'workspace.active': '当前',
+		'workspace.add': '添加工作台',
+		'workspace.dragReorder': '拖拽调整顺序',
+		'workspace.pathExists': '该路径已被其他工作台使用',
+		'workspace.pathNotFound': '未找到 {file} —— 请先移动文件，再更新路径',
 		'settings.backup': '备份',
 		'settings.backupEnabled': '定时备份',
 		'settings.backupEnabledDesc': '按计划自动将仪表盘文件快照保存到插件文件夹中。',
@@ -1442,9 +1476,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
-		'announce.title': '分区并排 —— 一排放两个分区 🪟',
-		'announce.intro': '把分区拖到另一个分区的左/右边缘即并排成一行(各占一半);拖开或删除自动恢复整行。桌面端功能。',
-		'announce.featureHabitLabel': '拖到分区左右边缘条即与其配对;纵向拖走或删除会自动释放搭档。',
+		'announce.title': '多工作台 —— 一库多面 🗂️',
+		'announce.intro': '每个工作台对应独立的仪表盘文件。用横幅左上角的数字药丸即时切换，[+] 新建工作台，右键药丸可重命名/移除。列表在 设置 → 多工作台 中管理（拖拽排序、修改路径）。',
+		'announce.featureHabitLabel': '看板内容按工作台完全隔离；习惯、番茄钟、阅读、记账等侧栏数据全库共享。',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',
@@ -1479,6 +1513,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.toggleBannerMode': '切换横幅视图（海报名言 / 数据统计）',
 		'main.bannerModeQuote': '横幅已切换为：海报与名言',
 		'main.bannerModeStats': '横幅已切换为：数据统计',
+		'main.nextWorkspace': '切换到下一个工作台',
+		'main.prevWorkspace': '切换到上一个工作台',
 
 		// Renderer
 		// Default dashboard content
