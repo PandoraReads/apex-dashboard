@@ -80,7 +80,7 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 
 	const form = widget.createDiv({ cls: 'dashboard-sidebar-expense-form' });
 
-	type RowRefs = { amountInput: HTMLInputElement; select: HTMLSelectElement; totalEl: HTMLElement };
+	type RowRefs = { amountInput: HTMLInputElement; select: HTMLSelectElement };
 	const rows: Record<ExpenseType, RowRefs> = {} as Record<ExpenseType, RowRefs>;
 	/** Row whose inputs were focused last — the note field commits this one. */
 	let lastActiveType: ExpenseType = 'expense';
@@ -88,15 +88,17 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 	const buildRow = (type: ExpenseType): void => {
 		const row = form.createDiv({ cls: `dashboard-sidebar-expense-row dashboard-sidebar-expense-row--${type}` });
 
-		const head = row.createDiv({ cls: 'dashboard-sidebar-expense-row-head' });
-		const label = head.createDiv({ cls: 'dashboard-sidebar-expense-row-label' });
+		// Single-line row: type label leads the amount (the old separate head
+		// line doubled the widget height; per-type daily totals were dropped
+		// here too — they squeezed the line and misaligned the category
+		// selects between rows; the title row keeps the day's net).
+		const main = row.createDiv({ cls: 'dashboard-sidebar-expense-row-main' });
+		main.addEventListener('focusin', () => { lastActiveType = type; });
+
+		const label = main.createDiv({ cls: 'dashboard-sidebar-expense-row-label' });
 		const labelIcon = label.createDiv({ cls: 'dashboard-sidebar-expense-row-label-icon' });
 		setIcon(labelIcon, type === 'expense' ? 'arrow-down-right' : 'arrow-up-right');
 		label.createSpan({ text: t(type === 'expense' ? 'expense.expenseLabel' : 'expense.incomeLabel') });
-		const totalEl = head.createDiv({ cls: 'dashboard-sidebar-expense-row-total' });
-
-		const main = row.createDiv({ cls: 'dashboard-sidebar-expense-row-main' });
-		main.addEventListener('focusin', () => { lastActiveType = type; });
 
 		// Currency + amount sit on a ledger-style underline (see styles.css);
 		// the category select keeps its boxed look and stands beside the line.
@@ -125,7 +127,7 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 		populateCategorySelect(select, service, type);
 		wireCategorySelect(select, service, type);
 
-		rows[type] = { amountInput, select, totalEl };
+		rows[type] = { amountInput, select };
 	};
 
 	buildRow('expense');
@@ -208,10 +210,8 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 		commit(type);
 	});
 
-	// Initial derived labels (today's totals + net).
+	// Initial derived labels (today's net on the title row).
 	const totals = service.getTodayTotals();
-	rows.expense.totalEl.setText(totals.expense > 0 ? `${currency}${formatExpenseAmount(totals.expense)}` : '');
-	rows.income.totalEl.setText(totals.income > 0 ? `${currency}${formatExpenseAmount(totals.income)}` : '');
 	const hasAny = totals.expense > 0 || totals.income > 0;
 	const net = Math.round((totals.income - totals.expense) * 100) / 100;
 	countEl.setText(hasAny
@@ -234,12 +234,6 @@ export function refreshExpenseWidget(root: HTMLElement): void {
 	const currency = service.getCurrency();
 
 	for (const type of ['expense', 'income'] as const) {
-		const totalEl = widget.querySelector<HTMLElement>(
-			`.dashboard-sidebar-expense-row--${type} .dashboard-sidebar-expense-row-total`);
-		if (totalEl) {
-			const value = type === 'expense' ? totals.expense : totals.income;
-			totalEl.setText(value > 0 ? `${currency}${formatExpenseAmount(value)}` : '');
-		}
 		const select = widget.querySelector<HTMLSelectElement>(
 			`.dashboard-sidebar-expense-row--${type} .dashboard-sidebar-expense-category`);
 		// Skip the focused select: the user is mid-choice, don't yank it.

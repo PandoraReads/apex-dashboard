@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2 (2026-08-30)
+
+### Changed
+- **Sidebar widget compaction** — the pomodoro card's ring-to-button and button-to-floor gaps are tighter (~10px shorter overall). The expense entry form went single-line: the expense/income labels now lead their amount fields (the old separate label lines doubled the widget's height), the per-type daily totals were dropped from the rows (they squeezed the line and misaligned the category selects between rows; the title row keeps the day's net), and the note row sits closer to the card floor — the card is roughly 30% shorter than before.
+- **Card titles one step smaller than section titles** — card headers render at 0.875em (was 1.0em, the same size as the section title) across the memo / todo / sticky / notes / projects sections, and the title-to-content gap tightened uniformly from 10px to 6px.
+
 ## 2.0.1 (2026-08-30)
 
 ### Fixed

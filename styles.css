@@ -1949,13 +1949,8 @@
 	cursor: default;
 }
 
-.dashboard-sidebar-expense-row-head {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 6px;
-}
-
+/* Single-line row: label leads the amount, today's total trails the
+   category select (the former two-line head+main doubled the height). */
 .dashboard-sidebar-expense-row-label {
 	display: flex;
 	align-items: center;
@@ -1963,6 +1958,7 @@
 	font-size: 0.68em;
 	color: var(--db-text-muted);
 	user-select: none;
+	flex-shrink: 0;
 }
 
 .dashboard-sidebar-expense-row-label-icon {
@@ -1984,11 +1980,10 @@
 	color: #2ecc71;
 }
 
-.dashboard-sidebar-expense-row-total {
-	font-size: 0.68em;
-	color: var(--db-text-muted);
-	font-variant-numeric: tabular-nums;
-	white-space: nowrap;
+/* Tighter floor than the shared widget card: the note row is the form's
+   last line and shouldn't float (user-tuned). */
+.dashboard-sidebar-widget.dashboard-sidebar-expense {
+	padding-bottom: 6px;
 }
 
 .dashboard-sidebar-expense-row-main {
@@ -2805,11 +2800,19 @@
 	border: none !important;
 	box-shadow: none !important;
 	border-radius: var(--db-radius-md);
-	padding: 5px 16px 1px;
+	/* Tight vertical padding: the ring above and the card edge below read as
+	   one compact cluster (user-tuned — was 5px 16px 1px). */
+	padding: 2px 16px 0;
 	font-size: 0.75em;
 	font-weight: 600;
 	cursor: pointer;
 	transition: opacity 0.15s;
+}
+
+/* The widget card's 12px padding is shared by every sidebar widget; the
+   pomodoro card wants a tighter floor so the start button doesn't float. */
+.dashboard-sidebar-widget.dashboard-sidebar-pomodoro {
+	padding-bottom: 6px;
 }
 
 .dashboard-sidebar-pomodoro-main-btn:hover {
@@ -8796,12 +8799,14 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 10px;
+	/* User-tuned: one step below the section title's size — was 1.0em/10px,
+	   which read as heavy and left a wide band above the card's items. */
+	margin-bottom: 6px;
 	flex-shrink: 0;
 }
 
 .dashboard-card-title {
-	font-size: 1.0em;
+	font-size: 0.875em;
 	font-weight: 600;
 	margin: 0;
 	flex: 1;
