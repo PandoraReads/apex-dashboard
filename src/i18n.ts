@@ -197,8 +197,8 @@ const translations: Record<Language, Record<string, string>> = {
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
 		'announce.title': 'Sections side by side 🪟',
-		'announce.intro': 'Drag a section onto the left or right edge of another section to pair them into one row at half width each. Drag one away vertically (or delete it) and the partner falls back to a full row. Desktop only; mobile keeps vertical stacking.',
-		'announce.featureHabitLabel': 'Pairing: drop a section on the left/right edge strip of another to sit side-by-side (50/50); vertical drops, evictions and deletes free the partner automatically; narrow panes fall back to full width.',
+		'announce.intro': 'Drag a section onto the left or right edge of another to pair them into one row (50/50). Drag away or delete to restore full rows. Desktop only.',
+		'announce.featureHabitLabel': 'Drop on a section\'s left/right edge strip to pair with it; vertical drags and deletes free the partner automatically.',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -1443,8 +1443,8 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
 		'announce.title': '分区并排 —— 一排放两个分区 🪟',
-		'announce.intro': '把分区拖到另一个分区的左/右边缘即可配对并排成一行(各占一半宽)。纵向拖走或删除其一,搭档自动恢复整行。桌面端功能;手机端保持竖排。',
-		'announce.featureHabitLabel': '并排配对:拖到目标分区左右边缘条即成双排(50/50);纵向拖走、驱逐或删除都会自动释放搭档;窄窗格自动退回整行。',
+		'announce.intro': '把分区拖到另一个分区的左/右边缘即并排成一行(各占一半);拖开或删除自动恢复整行。桌面端功能。',
+		'announce.featureHabitLabel': '拖到分区左右边缘条即与其配对;纵向拖走或删除会自动释放搭档。',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',

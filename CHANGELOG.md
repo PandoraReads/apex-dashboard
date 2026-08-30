@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.0 (2026-08-30)
+
+### Changed
+- **Grouped-view (kanban) gutters tightened** — the space between group columns in the Library/folder sections' grouped kanban — and in the all-tasks kanban, which shares the same columns — is noticeably finer: board gap 10px → 5px, column padding 8px → 6px, taking the perceived card-to-card distance across two groups from ~26px to ~17px. The columns' translucent background barely reads as a box in most themes, so both paddings contributed to the inter-group distance that was previously too wide.
+
+### Fixed
+- **Toolbar right cluster stays right-aligned when it wraps** — in Library/folder and media sections, narrowing the section used to push the file-count / page-size / settings cluster onto the toolbar's second row, left-aligned. The count (first element of the cluster) now carries `margin-left: auto`, pinning the cluster to the right edge of whichever line it lands on; single-line layout is unchanged.
+- **Kanban column titles pin again while scrolling** — the board is capped to its bounded-height host (`max-height: 100%`), so columns resume scrolling internally and their sticky group titles engage; previously the board grew to its tallest column, the host scrolled the whole board, and the titles scrolled away with it.
+
+### Housekeeping
+- New WeChat community group QR code in the announcement modal (new invite; the old one had expired).
+
 ## 1.9.13 (2026-08-30)
 
 ### Added

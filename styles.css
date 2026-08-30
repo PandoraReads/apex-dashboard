@@ -12605,6 +12605,12 @@
 	font-size: 0.6875em;
 	color: var(--db-text-muted, var(--text-muted));
 	white-space: nowrap;
+	/* First element of the toolbar's right cluster (count / page size /
+	   settings). The flex-1 spacer can't cross a wrap line — when the toolbar
+	   narrows and this cluster drops to the second row, the auto margin keeps
+	   it pinned right on whichever line it lands. On a single line it simply
+	   takes over the spacer's job (auto margins resolve before flex-grow). */
+	margin-left: auto;
 }
 
 .dashboard-library-page-size {
@@ -13155,8 +13161,18 @@
 /* ===== Kanban View ===== */
 .dashboard-library-kanban {
 	display: flex;
-	gap: 10px;
+	/* Tight inter-group gutters: the columns' translucent background barely
+	   reads as a box in most themes, so the perceived group gap is padding +
+	   gap + padding — keep all three small. */
+	gap: 5px;
 	overflow-x: auto;
+	/* Cap the board to its bounded-height host (.dashboard-library-files).
+	   Without this the board grows to its tallest column, the host scrolls
+	   the whole board instead, and each column never scrolls internally —
+	   which strands the columns' sticky titles (position: sticky sticks to
+	   the column's own scrollport; a column that never scrolls never pins
+	   them, so titles scroll away with the board). */
+	max-height: 100%;
 	/* Lets the row shrink inside its parent so the columns actually overflow and
 	   the horizontal scrollbar engages. */
 	min-width: 0;
@@ -13192,7 +13208,9 @@
 	flex-shrink: 0;
 	background: var(--db-bg-section, rgba(255, 255, 255, 0.02));
 	border-radius: var(--db-radius-md, 10px);
-	padding: 8px;
+	/* See the board's gap note: column padding contributes to the perceived
+	   distance between groups, so it stays tight alongside it. */
+	padding: 6px;
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
@@ -14673,7 +14691,8 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 /* Kanban board (alltasks) */
 .dashboard-alltasks-kanban {
 	display: flex;
-	gap: 10px;
+	/* Matches the library board's tight group gutters (shared columns). */
+	gap: 5px;
 	overflow-x: auto;
 	min-width: 0;
 	padding-bottom: 4px;
