@@ -2574,6 +2574,11 @@
 	position: relative;
 }
 
+.dashboard-sidebar-pomodoro-top-spacer {
+	width: 20px;
+	flex-shrink: 0;
+}
+
 .dashboard-sidebar-pomodoro-title {
 	font-size: 0.7em;
 	font-weight: 600;
@@ -2602,12 +2607,9 @@
 }
 
 /* ===== Activity Selector (Pomodoro Widget) ===== */
-/* Own row under the title row. The widget card is a column flex, so the old
-   flex:1 (from its title-row days) would stretch this row vertically —
-   width:100% keeps the trigger centered without growing. */
 .dashboard-pomodoro-activity-selector {
 	position: relative;
-	width: 100%;
+	flex: 1;
 	display: flex;
 	justify-content: center;
 }

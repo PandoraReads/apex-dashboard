@@ -536,7 +536,7 @@ export function renderSidebarPomodoro(
 	const state = service.getState();
 	const isRunning = state.status === 'running';
 
-	// Title row: today count left + stats button right
+	// Top row: today count left + activity selector centered + stats button right
 	const topRow = widget.createDiv({ cls: 'dashboard-sidebar-pomodoro-top' });
 
 	const todayCount = service.getTodayCount();
@@ -545,12 +545,14 @@ export function renderSidebarPomodoro(
 		text: '🍅 ' + t('pomodoro.today') + ' ' + todayCount,
 	});
 
+	topRow.createDiv({ cls: 'dashboard-sidebar-pomodoro-top-spacer' });
+
+	// Activity selector (in title position)
+	const currentActivity = service.getActivity();
+	createActivitySelector(topRow, service, currentActivity);
+
 	const statsBtn = topRow.createDiv({ cls: 'dashboard-sidebar-pomodoro-stats-btn' });
 	setIcon(statsBtn, 'bar-chart-2');
-
-	// Activity selector on its own row below the title row: squeezed between
-	// the count and the stats button it read as cramped (user request).
-	createActivitySelector(widget, service, service.getActivity());
 
 	// Ring
 	const ringWrap = widget.createDiv({ cls: 'dashboard-sidebar-pomodoro-ring-wrap' });
