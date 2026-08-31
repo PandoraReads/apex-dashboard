@@ -2,6 +2,7 @@ import { App, Notice, setIcon } from 'obsidian';
 import { t } from './i18n';
 import { getHabitService, habitToday, HABIT_MAX_NAME_LENGTH } from './habit-service';
 import { showHabitStats } from './habit-stats-modal';
+import { HabitBackfillModal } from './habit-backfill-modal';
 import { showPromptDialog } from './prompt-dialog';
 
 /**
@@ -23,6 +24,15 @@ export function renderSidebarHabitWidget(container: HTMLElement, app: App): void
 	titleEl.createSpan({ text: t('habit.title') });
 	const countEl = top.createDiv({ cls: 'dashboard-sidebar-habit-count' });
 	top.createDiv({ cls: 'dashboard-sidebar-habit-top-spacer' });
+
+	// Retro check-in sits LEFT of the add button per the widget's icon order.
+	const backfillBtn = top.createDiv({ cls: 'dashboard-sidebar-habit-icon-btn' });
+	backfillBtn.setAttribute('aria-label', t('habit.backfillTitle'));
+	setIcon(backfillBtn, 'history');
+	backfillBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		new HabitBackfillModal(app).open();
+	});
 
 	const addBtn = top.createDiv({ cls: 'dashboard-sidebar-habit-icon-btn' });
 	addBtn.setAttribute('aria-label', t('habit.newTitle'));

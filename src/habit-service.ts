@@ -98,6 +98,13 @@ export function habitToday(): string {
 	return formatDate(new Date());
 }
 
+/** Local-time 'YYYY-MM-DD' for yesterday (the backfill modal's only target). */
+export function habitYesterday(): string {
+	const d = new Date();
+	d.setDate(d.getDate() - 1);
+	return formatDate(d);
+}
+
 function todayStr(): string {
 	return formatDate(new Date());
 }
@@ -405,6 +412,30 @@ export class HabitService {
 	/** Habit ids completed on a date (feeds the "x/y today" sub-label). */
 	getDoneOn(date: string): string[] {
 		return [...(this.data.records[date] ?? [])];
+	}
+
+	/** Mark habits done on a date without toggling anything off (backfill
+	 *  path: making up a missed day must never erase an existing record).
+	 *  One immutable update, one save and one notify for the whole batch;
+	 *  returns how many ids were actually added — 0 means nothing changed. */
+	markDoneMany(habitIds: readonly string[], date: string): number {
+		if (!DATE_RE.test(date)) return 0;
+		const known = new Set(this.data.habits.map(h => h.id));
+		const merged = new Set(this.data.records[date] ?? []);
+		let added = 0;
+		for (const id of habitIds) {
+			if (!known.has(id) || merged.has(id)) continue;
+			merged.add(id);
+			added++;
+		}
+		if (added === 0) return 0;
+		this.data = {
+			...this.data,
+			records: { ...this.data.records, [date]: [...merged] },
+		};
+		this.save();
+		this.notify();
+		return added;
 	}
 
 	/** Consecutive completed days ending today (or yesterday when today is not

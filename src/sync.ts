@@ -25,7 +25,9 @@ import {
 import { moveToOwnRow, moveBeside, unpartnerAt } from './column-pairs';
 import { workspaceBackupName } from './workspace-registry';
 
-type DataCallback = (data: DashboardData) => void;
+import type { DashboardUpdateSource } from './render-update';
+
+type DataCallback = (data: DashboardData, source: DashboardUpdateSource) => void;
 
 type TaskDropMode = 'before' | 'after' | 'nest';
 
@@ -51,8 +53,11 @@ export class SyncEngine {
 		this.settings = settings;
 	}
 
-	onDataUpdate(cb: DataCallback): void {
+	onDataUpdate(cb: DataCallback): () => void {
 		this.callbacks.push(cb);
+		return () => {
+			this.callbacks = this.callbacks.filter((candidate) => candidate !== cb);
+		};
 	}
 
 	async init(): Promise<void> {
@@ -287,7 +292,9 @@ export class SyncEngine {
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			parentPath && parentPath.length > 0
 				? appendChild(tasks, parentPath, node)
-				: [...tasks, node]);
+				// Top-level additions land at the TOP of the list so the newest
+				// item is visible without scrolling past the existing ones.
+				: [node, ...tasks]);
 		await this.writeToDisk();
 	}
 
@@ -996,7 +1003,7 @@ export class SyncEngine {
 		if (this.data && serialize(newData) === serialize(this.data)) return;
 
 		this.data = newData;
-		this.notifyCallbacks();
+		this.notifyCallbacks('external');
 	}
 
 	/**
@@ -1039,7 +1046,7 @@ export class SyncEngine {
 		});
 
 		if (!silent) {
-			this.notifyCallbacks();
+			this.notifyCallbacks('local');
 		}
 	}
 
@@ -1072,10 +1079,10 @@ export class SyncEngine {
 		}
 	}
 
-	private notifyCallbacks(): void {
+	private notifyCallbacks(source: DashboardUpdateSource): void {
 		if (!this.data) return;
 		for (const cb of this.callbacks) {
-			cb(this.data);
+			cb(this.data, source);
 		}
 	}
 }

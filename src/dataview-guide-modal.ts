@@ -11,7 +11,9 @@ interface GuideFeature {
 /** The capabilities showcased in the announcement modal. Content is refreshed
  *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'layers', textKey: 'announce.featureHabitLabel' },
+	{ icon: 'history', textKey: 'announce.featureBackfillLabel' },
+	{ icon: 'list-plus', textKey: 'announce.featureTodoTopLabel' },
+	{ icon: 'smartphone', textKey: 'announce.featureMobileLabel' },
 ];
 
 /**

@@ -212,9 +212,11 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Version announcement + community group (content refreshed per release;
 		// shown once per plugin version — see DataviewGuideModal)
-		'announce.title': 'Multiple workspaces 🗂️',
-		'announce.intro': 'Every workspace is its own dashboard file. Switch instantly with the number pills at the banner\'s top-left corner, add new ones with +, right-click a pill to rename or remove. The list is managed in Settings → Workspaces.',
-		'announce.featureHabitLabel': 'Board content stays fully isolated per workspace; habits, pomodoro, reading and expense data remain shared across all of them.',
+		'announce.title': 'Habit backfill & snappier updates',
+		'announce.intro': 'Missed yesterday\'s habits? The Habits sidebar widget now has a clock icon (left of +) that opens a backfill dialog for yesterday only — tick habits individually or select all missed in one tap. New todo items also land at the top of the card now.',
+		'announce.featureBackfillLabel': 'Backfill yesterday\'s check-ins — select-all for everything missed; existing records are never erased.',
+		'announce.featureTodoTopLabel': 'New todo items appear at the top of the list, newest first.',
+		'announce.featureMobileLabel': 'Mobile: local edits refresh only their section; view lifecycle and holiday data no longer trigger full re-renders.',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -677,6 +679,13 @@ const translations: Record<Language, Record<string, string>> = {
 		'habit.heatDone': 'Done',
 		'habit.centerSubToday': '{done}/{total} done today',
 		'habit.centerSubRate': '{rate}% last 30 days',
+		'habit.backfillTitle': 'Backfill yesterday',
+		'habit.backfillHint': 'Marks missed check-ins for yesterday ({date}) only.',
+		'habit.backfillSelectAll': 'Select all missed',
+		'habit.backfillConfirm': 'Backfill',
+		'habit.backfillDone': 'Backfilled {count} habit(s) for yesterday.',
+		'habit.backfillDoneYesterday': 'Done yesterday',
+		'habit.backfillDateFormat': 'M/D',
 
 		// Expense tracker
 		'expense.title': 'Expense Tracker',
@@ -1476,9 +1485,11 @@ const translations: Record<Language, Record<string, string>> = {
 		'quickNote.guide.dismiss': '知道了',
 
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
-		'announce.title': '多工作台 —— 一库多面 🗂️',
-		'announce.intro': '每个工作台对应独立的仪表盘文件。用横幅左上角的数字药丸即时切换，[+] 新建工作台，右键药丸可重命名/移除。列表在 设置 → 多工作台 中管理（拖拽排序、修改路径）。',
-		'announce.featureHabitLabel': '看板内容按工作台完全隔离；习惯、番茄钟、阅读、记账等侧栏数据全库共享。',
+		'announce.title': '习惯补打卡 · 更轻快的刷新',
+		'announce.intro': '忘记打卡?习惯小组件新增时钟图标(+ 号左侧),可为昨天补打卡——逐项勾选或一键全选漏打项。待办卡片新增事项也改为自动置顶。',
+		'announce.featureBackfillLabel': '仅支持补打前一天;一键全选漏打项;补打只增记录、绝不清除。',
+		'announce.featureTodoTopLabel': '待办清单新增项自动置顶,最新在最上。',
+		'announce.featureMobileLabel': '手机端:本地编辑只刷新所在分区;视图生命周期与节假日数据不再触发全量重渲染。',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',
@@ -1938,6 +1949,13 @@ const translations: Record<Language, Record<string, string>> = {
 		'habit.heatDone': '已完成',
 		'habit.centerSubToday': '今日完成 {done}/{total}',
 		'habit.centerSubRate': '近30天 {rate}%',
+		'habit.backfillTitle': '补打卡',
+		'habit.backfillHint': '仅可补打前一天({date})的打卡。',
+		'habit.backfillSelectAll': '全选未打卡',
+		'habit.backfillConfirm': '补打',
+		'habit.backfillDone': '已为昨天补打 {count} 项习惯。',
+		'habit.backfillDoneYesterday': '昨日已打卡',
+		'habit.backfillDateFormat': 'M月D日',
 
 		// Expense tracker
 		'expense.title': '记账',

@@ -1450,7 +1450,9 @@
 	overflow: hidden;
 	flex-shrink: 0;
 	background-color: var(--db-bg-banner);
-	margin: 0 16px 4px 16px;
+	/* Bottom margin keeps the collapsed state's workspace pills (14px tall,
+	   hanging from the 4px collapsed bar) clear of the sidebar date below. */
+	margin: 0 16px 8px 16px;
 }
 
 .dashboard-banner-overlay {
@@ -1796,8 +1798,8 @@
 	overflow: hidden;
 	gap: 10px;
 	/* Top gap is intentionally tighter than the sides: banner already carries
-	   a 4px bottom margin (kept for the collapsed bookmark tab), so 8px here
-	   reads as one ~12px gap instead of the old 20px band. */
+	   an 8px bottom margin (clearance for the collapsed state's hanging pills),
+	   so 8px here reads as one ~16px gap instead of the old 20px band. */
 	padding: 8px 16px 0 16px;
 }
 
@@ -1987,6 +1989,108 @@
 	text-align: center;
 	padding: 8px 0;
 	opacity: 0.7;
+}
+
+/* Habit backfill modal (retro check-in, yesterday only). Row/check styling
+   mirrors the sidebar widget's tap-to-toggle language inside a modal. */
+.dashboard-habit-backfill-hint {
+	font-size: 0.78em;
+	color: var(--db-text-muted);
+	margin-bottom: 10px;
+}
+
+.dashboard-habit-backfill-empty {
+	font-size: 0.85em;
+	color: var(--db-text-muted);
+	text-align: center;
+	padding: 14px 0;
+}
+
+.dashboard-habit-backfill-selectall {
+	background: none;
+	border: none;
+	box-shadow: none;
+	padding: 2px 6px;
+	font-size: 0.72em;
+	color: var(--db-accent);
+	cursor: pointer;
+}
+
+.dashboard-habit-backfill-selectall:hover {
+	opacity: 0.8;
+}
+
+.dashboard-habit-backfill-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 320px;
+	overflow-y: auto;
+}
+
+.dashboard-habit-backfill-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 8px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+
+.dashboard-habit-backfill-item:hover {
+	background: var(--db-bg-hover);
+}
+
+/* Locked rows (already done yesterday): informational only — no hover, no
+   pointer, dimmed so the tickable rows read as the actionable set. */
+.dashboard-habit-backfill-item--locked {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.dashboard-habit-backfill-item--locked:hover {
+	background: none;
+}
+
+.dashboard-habit-backfill-check {
+	width: 16px;
+	height: 16px;
+	border: 1.5px solid var(--db-text-muted);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	transition: border-color 0.15s, background 0.15s;
+}
+
+.dashboard-habit-backfill-check--done {
+	background: var(--db-accent);
+	border-color: var(--db-accent);
+	/* Check glyph tinted with the panel base so it contrasts with both
+	   bright (dark themes) and deep (light themes) accents. */
+	color: var(--db-bg);
+}
+
+.dashboard-habit-backfill-check--done svg {
+	width: 10px;
+	height: 10px;
+}
+
+.dashboard-habit-backfill-name {
+	flex: 1;
+	font-size: 0.85em;
+	color: var(--db-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-habit-backfill-done-badge {
+	font-size: 0.68em;
+	color: var(--db-text-muted);
+	flex-shrink: 0;
 }
 
 /* Expense Widget */

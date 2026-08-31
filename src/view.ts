@@ -48,6 +48,7 @@ import { ReminderNoticeModal } from './reminder-notice';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
 import type { App } from 'obsidian';
+import { dashboardMarkdownPath, planDashboardUpdate, type DashboardUpdateSource } from './render-update';
 
 interface DailyNotesOptions {
 	folder?: string;
@@ -135,6 +136,10 @@ export class DashboardView extends ItemView implements HoverParent {
 	private sidebarWidgetsSig: string | null = null;
 	private sidebarCalendarTimer: number | null = null;
 	private readonly SIDEBAR_CALENDAR_DEBOUNCE = 500;
+	private isOpening = false;
+	private isOpen = false;
+	private lifecycleRevision = 0;
+	private pendingInitialData: DashboardData | null = null;
 
 	// HoverParent contract: Obsidian assigns/clears this when showing a Page
 	// Preview popover over a dashboard link. Declared so the dashboard can act as
@@ -149,6 +154,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		super(leaf);
 		this.plugin = plugin;
 		this.sync = new SyncEngine(this.app, this.plugin.settings);
+		this.sync.onDataUpdate((data, source) => {
+			this.handleDataUpdate(data, source);
+		});
 	}
 
 	getViewType(): string {
@@ -164,18 +172,12 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	async onOpen(): Promise<void> {
+		if (this.isOpening || this.isOpen) return;
+		this.isOpening = true;
+		const revision = ++this.lifecycleRevision;
 		this.sync.updateSettings(this.plugin.settings);
-		this.sync.onDataUpdate((data) => {
-			this.data = data;
-			if (this.suppressNextRender) {
-				this.suppressNextRender = false;
-				return;
-			}
-			this.render(data);
-		});
-
 		await this.sync.init();
-		this.registerVaultListeners();
+		if (revision !== this.lifecycleRevision) return;
 		// The banner "streak" auto-detects the Daily Notes core plugin, whose
 		// internal-plugins state may report as not-yet-enabled during the very
 		// first render. Re-compute once the metadata cache has fully resolved so
@@ -186,18 +188,18 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.bannerStatsResolvedOnce = true;
 			this.debouncedRefreshBannerStats();
 		}));
-		this.startReminderChecker();
-		this.startWeatherRefresh();
-		this.startDayRolloverChecker();
 		this.pomodoroService = new PomodoroService(this.plugin);
 		this.readingService = new ReadingService(this.plugin);
+		const holidayDataPromise = loadHolidayData(this.app);
 		// Load both data files in parallel — on mobile either can block on an
 		// iCloud download, and the old serial awaits stacked both waits into
-		// view-open time.
+		// view-open time. Holiday data may require a network request, so it must
+		// never hold the first dashboard render hostage.
 		await Promise.all([
 			this.pomodoroService.loadSessions(),
 			this.readingService.loadSessions(),
 		]);
+		if (revision !== this.lifecycleRevision) return;
 		// Body-level floating countdown pill; polls the service on its own so
 		// it survives sidebar re-renders and stays up while other tabs show.
 		this.pomodoroMiniPanel = createPomodoroMiniPanel(
@@ -219,14 +221,27 @@ export class DashboardView extends ItemView implements HoverParent {
 		// the pomodoro/reading widgets without restarting the timers.
 		this.pomodoroUnsubscribe = this.pomodoroService.subscribe(() => this.onPomodoroDataChanged());
 		this.readingUnsubscribe = this.readingService.subscribe(() => this.onReadingDataChanged());
-		void loadHolidayData(this.app).then(data => {
+		this.registerVaultListeners();
+		this.startReminderChecker();
+		this.startWeatherRefresh();
+		this.startDayRolloverChecker();
+		this.isOpen = true;
+		this.isOpening = false;
+		const initialData = this.pendingInitialData ?? this.sync.getData();
+		this.pendingInitialData = null;
+		if (initialData) this.render(initialData);
+		void holidayDataPromise.then((data) => {
+			if (revision !== this.lifecycleRevision || !this.isOpen) return;
 			this.holidayData = data;
-			const currentData = this.sync.getData();
-			if (currentData) this.render(currentData);
+			this.refreshLunarWidgetsInPlace();
 		});
 	}
 
 	async onClose(): Promise<void> {
+		this.lifecycleRevision++;
+		this.isOpening = false;
+		this.isOpen = false;
+		this.pendingInitialData = null;
 		this.popoverModal?.close();
 		this.popoverModal = null;
 		this.runCleanup();
@@ -251,6 +266,27 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.readingUnsubscribe?.();
 		this.readingUnsubscribe = null;
 		this.sync.destroy();
+	}
+
+	private handleDataUpdate(data: DashboardData, source: DashboardUpdateSource): void {
+		const previous = this.data;
+		this.data = data;
+		if (this.isOpening || !this.isOpen) {
+			this.pendingInitialData = data;
+			return;
+		}
+		if (this.suppressNextRender) {
+			this.suppressNextRender = false;
+			return;
+		}
+
+		const plan = planDashboardUpdate(previous, data, source);
+		if (plan.kind === 'none') return;
+		if (plan.kind === 'sections') {
+			const refreshed = plan.names.every((name) => this.refreshSectionInPlace(name));
+			if (refreshed) return;
+		}
+		this.render(data);
 	}
 
 	async refresh(): Promise<void> {
@@ -1675,6 +1711,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private registerVaultListeners(): void {
+		this.unregisterVaultListeners();
 		const events = this.app.vault;
 		// `structure` distinguishes file add/remove/rename (which can change the
 		// media listing) from plain .md content edits (which only affect task/
@@ -1690,6 +1727,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		const createRef = events.on('create', () => handler(true));
 		const modifyRef = events.on('modify', (file) => {
 			if (file instanceof TFile && file.extension === 'md') {
+				// SyncEngine already owns this file and has the fresh in-memory data.
+				// Re-running every vault-wide derived view for our own save is the
+				// mobile interaction storm that used to follow each checkbox tap.
+				if (file.path === dashboardMarkdownPath(this.plugin.settings.dashboardFile)) return;
 				handler(false);
 			}
 		});
@@ -1720,6 +1761,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (this.sidebarCalendarTimer) {
 			window.clearTimeout(this.sidebarCalendarTimer);
 			this.sidebarCalendarTimer = null;
+		}
+		if (this.libraryRefreshTimer) {
+			window.clearTimeout(this.libraryRefreshTimer);
+			this.libraryRefreshTimer = null;
 		}
 	}
 
@@ -1792,6 +1837,20 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (panel && this.mobileWidgetExpanded === 'reading') {
 			panel.empty();
 			renderSidebarReading(panel, service);
+		}
+	}
+
+	/** Holiday data can arrive over the network after the first mobile paint.
+	 *  Update only the lunar widget/panel; a second full dashboard render here
+	 *  was one of the startup memory spikes that could trigger a WebView reload. */
+	private refreshLunarWidgetsInPlace(): void {
+		this.refreshDataWidget('.dashboard-sidebar-lunar', (container) =>
+			renderSidebarLunarWidget(container, this.holidayData, this.app));
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
+		if (panel && this.mobileWidgetExpanded === 'lunar') {
+			panel.empty();
+			renderSidebarLunarWidget(panel, this.holidayData, this.app);
 		}
 	}
 
