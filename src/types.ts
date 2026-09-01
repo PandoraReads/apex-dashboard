@@ -202,7 +202,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	workspaceNames: [''],
 	recentDocCount: 5,
 	language: 'zh',
-	stylePreset: 'earth',
+	stylePreset: 'island',
 	widgetWeatherEnabled: false,
 	widgetWeatherCity: 'Shanghai',
 	widgetWeatherLat: 31.23,

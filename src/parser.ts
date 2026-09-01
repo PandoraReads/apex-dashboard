@@ -47,7 +47,11 @@ const DOC_LINE_REGEX = /^(\s*)(?:- )?\[\[((?:[^\]\n]|\](?!\]))+?)]](\s*<!--colla
 const DEFAULT_BANNER: BannerData = {
 	quote: 'The mind is everything. What you think you become.',
 	author: 'Buddha',
-	image: '',
+	image: 'https://images.pexels.com/photos/2307638/pexels-photo-2307638.jpeg',
+	images: [
+		'https://images.pexels.com/photos/2307638/pexels-photo-2307638.jpeg',
+		'https://images.pexels.com/photos/10664504/pexels-photo-10664504.jpeg',
+	],
 };
 
 const DEFAULT_COLUMNS = [
@@ -672,7 +676,7 @@ function splitFrontmatter(markdown: string): { frontmatter: Record<string, unkno
 
 function parseBanner(fm: Record<string, unknown>): BannerData {
 	const raw = fm.banner as Record<string, unknown> | undefined;
-	if (!raw) return { ...DEFAULT_BANNER };
+	if (!raw) return { ...DEFAULT_BANNER, images: DEFAULT_BANNER.images ? [...DEFAULT_BANNER.images] : undefined };
 
 	const quotesRaw = raw.quotes;
 	let quotes: Array<{ quote: string; author: string }> | undefined;
