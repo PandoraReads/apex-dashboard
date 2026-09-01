@@ -49,6 +49,7 @@ import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
 import type { App } from 'obsidian';
 import { dashboardMarkdownPath, planDashboardUpdate, type DashboardUpdateSource } from './render-update';
+import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 
 interface DailyNotesOptions {
 	folder?: string;
@@ -1560,7 +1561,13 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (!column) return false;
 		const callbacks = this.createCallbacks();
 		const newEl = renderSection(column, callbacks, this.app, this.data, this.plugin.settings);
+		// The rebuilt row starts every internal scroller at 0, which snaps the
+		// card deck back to its first card and task lists back to their top —
+		// the "page jumps away after finishing an edit" symptom. Carry the old
+		// row's scroll positions over the node swap.
+		const scrollStates = captureScrollStates(oldEl);
 		oldEl.replaceWith(newEl);
+		restoreScrollStates(newEl, scrollStates);
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
 		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns);

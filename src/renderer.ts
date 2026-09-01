@@ -11,6 +11,7 @@ import { renderDataviewSection, setDataviewApp } from './dataview-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { ITEM_DRAG_TYPE } from './dnd';
+import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
 import { applyModalTheme } from './modal-theme';
@@ -1633,7 +1634,11 @@ export function refreshScanningSections(
 		const oldEl = kanban.querySelector(`:scope > [data-column="${CSS.escape(column.name)}"]`);
 		if (!oldEl) continue;
 		const newEl = renderSection(column, callbacks, app, data, settings);
+		// Carry the old row's scroll positions over the swap (file lists,
+		// library kanban) so a vault-event refresh doesn't yank the viewport.
+		const scrollStates = captureScrollStates(oldEl);
 		oldEl.replaceWith(newEl);
+		restoreScrollStates(newEl, scrollStates);
 	}
 }
 
@@ -1656,9 +1661,11 @@ export function refreshMediaSections(
 		if (!MEDIA_SECTION_TYPES.has(getSectionType(column))) continue;
 		const matched = kanban.querySelector(`:scope > [data-column="${CSS.escape(column.name)}"]`);
 		if (!(matched instanceof HTMLElement)) continue;
+		const scrollStates = captureScrollStates(matched);
 		destroyMediaSection(matched);
 		const newEl = renderSection(column, callbacks, app, data, settings);
 		matched.replaceWith(newEl);
+		restoreScrollStates(newEl, scrollStates);
 	}
 }
 
