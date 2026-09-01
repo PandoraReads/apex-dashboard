@@ -57,8 +57,8 @@ function mountOverlay(doc: Document): HTMLElement {
  *  left   — KPI column grouped "today state" (large) / "history" (compact)
  *  mid    — goal gauge (single activity) or activity donut + adaptive trend
  *           chart with daily-goal baseline + hour-of-day distribution strip
- *  right  — activity ranking (click to filter trend) + 12-week gradient
- *           heatmap + today timeline
+ *  right  — 12-week gradient heatmap + today timeline + activity ranking
+ *           (click to filter trend)
  *
  * All charts are hand-rolled SVG (zero dependencies). Under 900px viewport
  * width the grid collapses to a single column (mobile).
@@ -620,15 +620,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		}
 	}
 
-	// ===== Right column (visual order: timeline, heatmap, ranking) =====
-	const timelineSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-	const timelineHead = timelineSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
-	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.todayTimeline') });
-	// What this section means, right in the header — "why is it empty" is the
-	// most common question when the day has no completed pomodoros yet.
-	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.todayTimelineHint') });
-	const timelineContainer = timelineSection.createDiv({ cls: 'dashboard-pomodoro-timeline-container' });
-
+	// ===== Right column (visual order: heatmap, timeline, ranking) =====
 	const heatSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	const heatHead = heatSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
 	heatHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.heatmap') });
@@ -636,6 +628,14 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	const heatWrap = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-wrap' });
 	const heatContainer = heatWrap.createDiv({ cls: 'dashboard-pomodoro-heatmap-container' });
 	const heatLegend = heatSection.createDiv({ cls: 'dashboard-pomodoro-heatmap-legend' });
+
+	const timelineSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
+	const timelineHead = timelineSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
+	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.todayTimeline') });
+	// What this section means, right in the header — "why is it empty" is the
+	// most common question when the day has no completed pomodoros yet.
+	timelineHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.todayTimelineHint') });
+	const timelineContainer = timelineSection.createDiv({ cls: 'dashboard-pomodoro-timeline-container' });
 
 	const rankSection = rightCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	rankSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.activityRanking') });
@@ -705,7 +705,8 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	}
 
 	// --- Heatmap (12 weeks, 4-step gradient) — section DOM created with the
-	// right column above (visual slot 2); only the renderer lives here. ---
+	// right column above (visual slot 1, above the today timeline); only the
+	// renderer lives here. ---
 	function renderHeatmap(): void {
 		heatContainer.empty();
 		heatLegend.empty();
