@@ -20,9 +20,6 @@ Organize your vault documents into project cards. Each card links to related not
 ### 📝 Notes
 A compact, list-style section for organizing reference documents and quick-access files. Displays up to 5 cards per row without cover images for maximum density.
 
-### ✅ All Tasks
-Aggregate every checkbox task across your entire vault into one section — like a dataview `TASK` query, but interactive. Search, filter by status (open / all / done), and group by date (Overdue / Today / This week / Later / No due) or by priority. Switch between a grouped list and a kanban board. Check a task off and it updates in the source note. Reads due dates (`⏰`, `[due::]`, `📅`) and priorities (`[priority:: high]`). Exclude folders like Archive/Templates from the scan.
-
 ### 📅 Calendar
 A native month-grid calendar of every dated task across your vault (no dataview or external plugin needed). Each day cell lists its tasks; click a day for its agenda. Open a full-screen calendar with month navigation and inline toggling. Multi-day events with `[start::]` / `[end::]` span across days.
 
@@ -54,7 +51,7 @@ A customizable banner with an inspirational quote and optional background image.
 Drag cards between sections to reorganize your workspace. Drag task items within Todo cards to reorder. Drag document links between project/note cards.
 
 ### 🧩 Custom Sections
-Pick from **12 built-in types** when creating a section — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Weread**, and **TickTick** — each with its own layout and behavior. Together with **All Tasks**, **Calendar**, and **nested dashboards**, the renderer supports **15 section types** in all; mix and match to fit your workflow.
+**12 section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Weread**, and **TickTick** — each with its own layout and behavior, so the board fits your workflow.
 
 ### 🕐 Recent Documents
 The sidebar shows recently edited files with relative timestamps, so you can jump back into your latest work.
