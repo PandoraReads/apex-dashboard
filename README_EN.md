@@ -33,13 +33,19 @@ Query your vault with a built-in DQL engine — no Dataview plugin required. Add
 Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
 
 ### 🌤️ Sidebar Widgets
-The left sidebar features decorative widgets for at-a-glance information:
+The left sidebar features 9 independently toggleable, drag-reorderable widgets:
 
-- **Week Calendar** — A compact 7-day strip highlighting today's date
-- **Weather Widget** — Real-time weather with current temperature, feels-like, humidity, wind speed, and a 5-day forecast with daily high/low temperatures. Powered by Open-Meteo (no API key needed). City search with geocoding autocomplete for precise location
-- **Pomodoro Timer** — A focus timer with activity selector and session tracking. Start, pause, and stop timed sessions with a donut chart showing today's breakdown by activity
+- **Weather** — Real-time weather with current temperature, feels-like, humidity, wind speed, and a 5-day forecast with daily high/low temperatures. Powered by Open-Meteo (no API key needed). City search with geocoding autocomplete for precise location
+- **Lunar Almanac** — Traditional Chinese lunar date, festivals, and daily do/don't guidance
+- **Pomodoro Timer** — A focus timer with activity selector and work/break cycles, plus a donut chart of today's breakdown; the stats view adds goal progress, an efficiency score, trend charts, a 12-week heatmap, and a today timeline
 - **Reading Tracker** — Track your reading sessions with a built-in timer. Add books from Douban search or manual input, time your reading sessions, and record progress with page numbers. Each book card shows cover image, author, and reading progress bar
-- **Countdown** — A customizable countdown to any target date, displayed as days or hours remaining
+- **Countdown** — Customizable countdowns to any target dates, displayed as days or hours remaining
+- **Year Progress** — How much of the current year has already elapsed
+- **Calendar** — Month/week grid aggregating every dated task across the vault; click a day for its agenda and add tasks that write into that day's daily note; multi-day events span across days
+- **Habit Check-in** — Daily check-offs per habit, with yesterday backfill, streaks, and heatmap stats
+- **Expense Tracker** — Quick expense/income entry (notes, backdating, custom categories) with today's totals and week/month/year/all-time stats; the ledger adds filtering, inline editing, and CSV import/export
+
+The sidebar also hosts the **week calendar strip** (compact 7 days, today highlighted), **recent documents**, and the **scroll-to-top** button; phones get the same widget bar, and widget data union-merges across devices.
 
 ### 🎨 Banner
 A customizable banner with an inspirational quote and optional background image. Supports both local vault images and web URLs. Double-click to edit.
@@ -48,7 +54,7 @@ A customizable banner with an inspirational quote and optional background image.
 Drag cards between sections to reorganize your workspace. Drag task items within Todo cards to reorder. Drag document links between project/note cards.
 
 ### 🧩 Custom Sections
-Create sections with 4 built-in types — **Memo**, **Todo**, **Projects**, and **Notes** — each with its own layout and behavior. Mix and match to fit your workflow.
+Pick from **12 built-in types** when creating a section — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Weread**, and **TickTick** — each with its own layout and behavior. Together with **All Tasks**, **Calendar**, and **nested dashboards**, the renderer supports **15 section types** in all; mix and match to fit your workflow.
 
 ### 🕐 Recent Documents
 The sidebar shows recently edited files with relative timestamps, so you can jump back into your latest work.
@@ -66,7 +72,7 @@ The sidebar shows recently edited files with relative timestamps, so you can jum
 | **Earth** | Warm organic tones, parchment textures |
 | **Nordic** | Clean minimal with blue accents |
 | **Aurora** | Frosted glass with animated aurora gradient |
-| **Island** | Animal Crossing pastels, forest green and ocean blue |
+| **Island** (default) | Animal Crossing pastels, forest green and ocean blue |
 | **Tundra** | Cold gray + avocado green aurora, sage glass cards |
 | **Blossom** | Rose glass glow, transparent sections |
 | **Matcha** | Morandi green, solid warm tones |
