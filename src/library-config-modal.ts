@@ -4,6 +4,7 @@ import { extractFrontmatterProperties } from './library-section';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
+import { VisiblePropertiesEditor } from './visible-properties-editor';
 
 export class LibraryConfigModal extends Modal {
 	private config: LibraryConfig;
@@ -199,6 +200,10 @@ export class LibraryConfigModal extends Modal {
 			this.config.propertyLimit = n;
 		});
 
+		// Pinned properties: picked keys show first (all of them); only cards
+		// hitting none fall back to the automatic slice above.
+		const pinnedEditor = new VisiblePropertiesEditor(this.app, propsSection, this.config.visibleProperties ?? []);
+
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
@@ -211,7 +216,12 @@ export class LibraryConfigModal extends Modal {
 			text: t('common.save'),
 		}).addEventListener('click', () => {
 			const folders = excludeEditor.value;
-			this.onSave({ ...this.config, excludeFolders: folders.length > 0 ? folders : undefined });
+			const picked = pinnedEditor.value;
+			this.onSave({
+				...this.config,
+				excludeFolders: folders.length > 0 ? folders : undefined,
+				visibleProperties: picked.length > 0 ? picked : undefined,
+			});
 			this.close();
 		});
 	}

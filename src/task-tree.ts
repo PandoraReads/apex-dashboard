@@ -158,6 +158,36 @@ function adjustPathAfterRemoval(destPath: TaskPath, srcPath: TaskPath): TaskPath
 	return destPath;
 }
 
+/**
+ * Move the task at `srcPath` into the sibling slot beside the task at
+ * `destPath` (`before` picks the slot above vs below it).
+ *
+ * Both paths are in the ORIGINAL tree's coordinates — the drag & drop caller
+ * only ever knows pre-move indices — so the destination is re-located after
+ * the source is removed, exactly like {@link nestIntoTarget}. Without that
+ * shift, dropping a task BELOW any later sibling over-shot by one slot (the
+ * removed source still occupied the index the destination was counted
+ * against), while upward drops landed correctly.
+ *
+ * Dropping beside yourself or one of your own descendants is a no-op: a task
+ * cannot become a sibling of its own child.
+ */
+export function moveTaskBeside(
+	tasks: TaskItem[],
+	srcPath: TaskPath,
+	destPath: TaskPath,
+	before: boolean,
+): TaskItem[] {
+	if (srcPath.length === 0 || destPath.length === 0) return tasks;
+	if (isSelfOrDescendant(srcPath, destPath)) return tasks;
+
+	const { removed, tasks: t1 } = removeTaskAt(tasks, srcPath);
+	if (!removed) return tasks;
+
+	const adjustedDest = adjustPathAfterRemoval(destPath, srcPath);
+	return insertSibling(t1, adjustedDest, removed, before);
+}
+
 export function promoteToTopLevel(tasks: TaskItem[], path: TaskPath): TaskItem[] {
 	if (path.length < 2) return tasks;
 	const parentIdx = path[0]!;

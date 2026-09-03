@@ -27,6 +27,15 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100];
 type MediaViewMode = 'grid' | 'list';
 type ThumbSize = 'small' | 'medium' | 'large';
 
+/** localStorage key for the persisted thumbnail-size preference. */
+const THUMB_SIZE_STORAGE_KEY = 'apex-dashboard-media-thumb-size';
+
+/** Read the stored thumbnail size, defaulting to medium on absent/garbage. */
+function readStoredThumbSize(app: App): ThumbSize {
+	const stored = app.loadLocalStorage(THUMB_SIZE_STORAGE_KEY) as string | null;
+	return stored === 'small' || stored === 'large' ? stored : 'medium';
+}
+
 /** Toolbar grouping mode for media sections (runtime state, like viewMode). */
 export type MediaGroupMode = 'none' | 'folder' | 'tag';
 
@@ -281,8 +290,10 @@ export function renderMediaSection(
 	};
 	buildViewToggle();
 
-	// Thumbnail size toggle (small / medium / large) — affects the grid view
-	let thumbSize: ThumbSize = 'medium';
+	// Thumbnail size toggle (small / medium / large) — affects the grid view.
+	// The choice persists via localStorage (same channel the note popover uses
+	// for its edit/preview mode), shared across every media section.
+	let thumbSize: ThumbSize = readStoredThumbSize(app);
 	const sizeToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-media-size-toggle' });
 	const sizeLabels: Record<ThumbSize, string> = { small: 'S', medium: 'M', large: 'L' };
 	const buildSizeToggle = (): void => {
@@ -293,7 +304,12 @@ export function renderMediaSection(
 				attr: { 'aria-label': t('media.size' + s.charAt(0).toUpperCase() + s.slice(1)) },
 			});
 			btn.textContent = sizeLabels[s];
-			btn.addEventListener('click', () => { thumbSize = s; buildSizeToggle(); render(); });
+			btn.addEventListener('click', () => {
+				thumbSize = s;
+				app.saveLocalStorage(THUMB_SIZE_STORAGE_KEY, s);
+				buildSizeToggle();
+				render();
+			});
 		});
 	};
 	buildSizeToggle();

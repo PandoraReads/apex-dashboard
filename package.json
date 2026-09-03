@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "2.1.2",
+	"version": "2.2.0",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -8,6 +8,15 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test:mobile-stability": "esbuild scripts/verify-mobile-stability.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-mobile-stability.cjs --log-level=warning && node node_modules/.tmp/verify-mobile-stability.cjs",
+		"test:weather-mapping": "esbuild scripts/verify-weather-mapping.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weather-mapping.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weather-mapping.cjs",
+		"test:folder-tag-search": "esbuild scripts/verify-folder-tag-search.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-folder-tag-search.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-folder-tag-search.cjs",
+		"test:visible-properties": "esbuild scripts/verify-visible-properties.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-visible-properties.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-visible-properties.cjs",
+		"test:calendar-task-insert": "esbuild scripts/verify-calendar-task-insert.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-calendar-task-insert.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-calendar-task-insert.cjs",
+		"test:calendar-daynum": "esbuild scripts/verify-calendar-daynum.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-calendar-daynum.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-calendar-daynum.cjs",
+		"test:path-picker": "esbuild scripts/verify-path-picker.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-path-picker.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-path-picker.cjs",
+		"test:library-cover": "esbuild scripts/verify-library-cover.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-cover.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-cover.cjs",
+		"test:library-card-size": "esbuild scripts/verify-library-card-size.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-card-size.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-card-size.cjs",
+		"test:media-thumb-size": "esbuild scripts/verify-media-thumb-size.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-media-thumb-size.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-media-thumb-size.cjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},

@@ -198,7 +198,7 @@ async function fetchFromMetNo(config: WeatherConfig): Promise<WeatherData> {
 	const nowDetails = now.data.instant.details;
 	const nowSymbol = now.data.next_1_hours?.summary?.symbol_code
 		?? now.data.next_6_hours?.summary?.symbol_code
-		?? 'clearsky';
+		?? 'cloudy';
 
 	// Group by date, compute daily max/min and representative weather code
 	const dayMap = new Map<string, { min: number; max: number; codes: string[] }>();
@@ -242,32 +242,61 @@ async function fetchFromMetNo(config: WeatherConfig): Promise<WeatherData> {
 	return data;
 }
 
-const METNO_TO_WMO: Record<string, number> = {
-	clearsky: 0, clearsky_night: 0,
-	fair: 1, fair_night: 1,
-	partlycloudy: 2, partlycloudy_night: 2,
+// Met.no locationforecast returns weathericon 2.0 `symbol_code`s (full legend:
+// github.com/metno/weathericons, weather/legend.csv). Symbols split into base
+// names the API never suffixes (continuous precipitation, fog, overcast) and
+// names the API suffixes with _day/_night/_polartwilight (sky states and
+// showers). The light-shower families also circulate under two spellings —
+// "lights"+"sleetshowers" with and without the extra "s" — so both are listed.
+const METNO_PLAIN: Record<string, number> = {
 	cloudy: 3,
 	fog: 45,
-	lightrain: 61, lightrain_night: 61,
-	rain: 63, rain_night: 63,
-	heavyrain: 65, heavyrain_night: 65,
-	lightrainshowers: 80, lightrainshowers_night: 80,
-	rainshowers: 81, rainshowers_night: 81,
-	heavyrainshowers: 82, heavyrainshowers_night: 82,
-	lightsleet: 66, lightsleet_night: 66,
-	sleet: 67, sleet_night: 67,
-	lightsnow: 71, lightsnow_night: 71,
-	snow: 73, snow_night: 73,
-	heavysnow: 75, heavysnow_night: 75,
-	lightssleetshowers: 85, lightssleetshowers_night: 85,
-	sleetshowers: 85, sleetshowers_night: 85,
-	lightssnowshowers: 85, lightssnowshowers_night: 85,
-	snowshowers: 86, snowshowers_night: 86,
-	thunderstorm: 95, thunderstorm_night: 95,
+	lightrain: 61, rain: 63, heavyrain: 65,
+	lightrainandthunder: 95, rainandthunder: 95, heavyrainandthunder: 95,
+	lightsleet: 66, sleet: 67, heavysleet: 67,
+	lightsleetandthunder: 95, sleetandthunder: 95, heavysleetandthunder: 95,
+	lightsnow: 71, snow: 73, heavysnow: 75,
+	lightsnowandthunder: 95, snowandthunder: 95, heavysnowandthunder: 95,
+	thunderstorm: 95,
 };
 
-function mapMetNoCode(symbol: string): number {
-	return METNO_TO_WMO[symbol] ?? 3;
+const METNO_VARIANTED: Record<string, number> = {
+	clearsky: 0, fair: 1, partlycloudy: 2,
+	lightrainshowers: 80, rainshowers: 81, heavyrainshowers: 82,
+	lightrainshowersandthunder: 95, rainshowersandthunder: 95, heavyrainshowersandthunder: 95,
+	lightsleetshowers: 85, lightssleetshowers: 85, sleetshowers: 85, heavysleetshowers: 86,
+	lightsleetshowersandthunder: 95, lightssleetshowersandthunder: 95,
+	sleetshowersandthunder: 95, heavysleetshowersandthunder: 95,
+	lightsnowshowers: 85, lightssnowshowers: 85, snowshowers: 86, heavysnowshowers: 86,
+	lightsnowshowersandthunder: 95, lightssnowshowersandthunder: 95,
+	snowshowersandthunder: 95, heavysnowshowersandthunder: 95,
+};
+
+const METNO_TO_WMO: Record<string, number> = (() => {
+	const table: Record<string, number> = { ...METNO_PLAIN };
+	for (const [base, code] of Object.entries(METNO_VARIANTED)) {
+		for (const suffix of ['', '_day', '_night', '_polartwilight']) {
+			table[base + suffix] = code;
+		}
+	}
+	return table;
+})();
+
+export function mapMetNoCode(symbol: string): number {
+	const direct = METNO_TO_WMO[symbol];
+	if (direct !== undefined) return direct;
+	// Unknown symbol (e.g. a future Met.no addition): retry without the
+	// time-of-day suffix, then classify by precipitation keyword, so new
+	// symbols degrade sensibly instead of always reading "overcast".
+	const stripped = symbol.replace(/_(day|night|polartwilight)$/, '');
+	const base = METNO_TO_WMO[stripped];
+	if (base !== undefined) return base;
+	if (stripped.includes('thunder')) return 95;
+	if (stripped.includes('sleet')) return 67;
+	if (stripped.includes('snow')) return 73;
+	if (stripped.includes('rain')) return 63;
+	if (stripped.includes('fog')) return 45;
+	return 3;
 }
 
 function metNoDaytimeCode(codes: string[]): string {

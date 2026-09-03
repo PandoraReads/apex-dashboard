@@ -5,6 +5,7 @@ import { IconPickerModal } from './icon-picker-modal';
 import type { AppWithCommands } from './obsidian-internal';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
+import { attachPathPicker, type PathPickerMode } from './path-picker-modal';
 
 /**
  * Configuration modal for the Quick Notes region: CRUD for create-presets,
@@ -103,8 +104,8 @@ export class QuickNoteConfigModal extends Modal {
 		this.textInput(top, preset.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updatePreset(i, { label: v }));
 		this.delBtn(top, () => { this.presets = this.presets.filter((_, idx) => idx !== i); this.renderBody(); });
 
-		this.textInput(card, preset.templatePath, '', { placeholder: t('quickNote.fieldTemplatePh') }, (v) => this.updatePreset(i, { templatePath: v }));
-		this.textInput(card, preset.folder, '', { placeholder: t('quickNote.fieldFolderPh') }, (v) => this.updatePreset(i, { folder: v }));
+		this.pathTextInput(card, preset.templatePath, { placeholder: t('quickNote.fieldTemplatePh'), mode: 'file' }, (v) => this.updatePreset(i, { templatePath: v }));
+		this.pathTextInput(card, preset.folder, { placeholder: t('quickNote.fieldFolderPh'), mode: 'folder' }, (v) => this.updatePreset(i, { folder: v }));
 		this.textInput(card, preset.filename, '', { placeholder: t('quickNote.fieldFilenamePh') }, (v) => this.updatePreset(i, { filename: v }));
 	}
 
@@ -136,7 +137,7 @@ export class QuickNoteConfigModal extends Modal {
 		this.iconPickBtn(top, note.icon || 'pin', (name) => this.updatePinned(i, { icon: name }));
 		this.textInput(top, note.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updatePinned(i, { label: v }));
 		this.delBtn(top, () => { this.pinned = this.pinned.filter((_, idx) => idx !== i); this.renderBody(); });
-		this.textInput(card, note.path, '', { placeholder: t('quickNote.fieldPathPh') }, (v) => this.updatePinned(i, { path: v }));
+		this.pathTextInput(card, note.path, { placeholder: t('quickNote.fieldPathPh'), mode: 'file' }, (v) => this.updatePinned(i, { path: v }));
 	}
 
 	private updatePinned(i: number, patch: Partial<PinnedNote>): void {
@@ -210,9 +211,9 @@ export class QuickNoteConfigModal extends Modal {
 		cb.addEventListener('change', () => { this.captureEnabled = cb.checked; });
 		toggleRow.createEl('label', { attr: { for: 'qn-capture' }, text: t('quickNote.captureEnable') });
 
-		this.textInput(section, this.captureTarget, '', { placeholder: t('quickNote.fieldCaptureTargetPh') }, (v) => { this.captureTarget = v; });
-		this.textInput(section, this.captureFolder, '', { placeholder: t('quickNote.fieldCaptureFolderPh') }, (v) => { this.captureFolder = v; });
-		this.textInput(section, this.captureTemplate, '', { placeholder: t('quickNote.fieldCaptureTemplatePh') }, (v) => { this.captureTemplate = v; });
+		this.pathTextInput(section, this.captureTarget, { placeholder: t('quickNote.fieldCaptureTargetPh'), mode: 'file' }, (v) => { this.captureTarget = v; });
+		this.pathTextInput(section, this.captureFolder, { placeholder: t('quickNote.fieldCaptureFolderPh'), mode: 'folder' }, (v) => { this.captureFolder = v; });
+		this.pathTextInput(section, this.captureTemplate, { placeholder: t('quickNote.fieldCaptureTemplatePh'), mode: 'file' }, (v) => { this.captureTemplate = v; });
 
 		// Top vs bottom of the capture target (and of the template in new
 		// fleeting notes). Two mutually exclusive check rows — ticking one
@@ -301,6 +302,20 @@ export class QuickNoteConfigModal extends Modal {
 		});
 		input.value = value;
 		input.addEventListener('input', () => onInput(input.value));
+		return input;
+	}
+
+	/** A path text input with a browse button on its right that opens the vault
+	 *  path picker and writes the chosen path back into the field. */
+	private pathTextInput(
+		parent: HTMLElement,
+		value: string,
+		opts: { placeholder: string; mode: PathPickerMode },
+		onInput: (v: string) => void,
+	): HTMLInputElement {
+		const row = parent.createDiv({ cls: 'dashboard-quicknote-cfg-path-row' });
+		const input = this.textInput(row, value, '', { placeholder: opts.placeholder }, onInput);
+		attachPathPicker(row, input, this.app, opts.mode, onInput);
 		return input;
 	}
 

@@ -33,6 +33,9 @@ export interface MonthGridOptions {
 	/** Full-screen month mode: a continuous multi-day bar was clicked. Opens the
 	 *  day agenda of the bar's first visible day. */
 	onBarClick?: (iso: string) => void;
+	/** Full-screen mode: the day number (month cells) or day header (week time
+	 * grid) was clicked. Opens that day's agenda ready to add tasks. */
+	onDayNumClick?: (iso: string) => void;
 }
 
 const COMPACT_MAX_PER_DAY = 3;
@@ -89,6 +92,22 @@ function weekdayLabels(): string[] {
 	const raw = t('calendar.weekdays');
 	const labels = raw.split(',').map(s => s.trim());
 	return labels.length === 7 ? labels : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+}
+
+/** Make a day-number element (month cell number, week day header) open that
+ *  day's agenda: clickable + keyboard-activated, with an affordance hint. */
+function wireDayTrigger(el: HTMLElement, iso: string, handler: (iso: string) => void): void {
+	el.addClass('is-clickable');
+	el.setAttribute('role', 'button');
+	el.setAttribute('tabindex', '0');
+	const label = t('calendar.dayNumAddTask');
+	el.setAttribute('aria-label', label);
+	el.setAttribute('title', label);
+	const open = (): void => handler(iso);
+	el.addEventListener('click', (e) => { e.stopPropagation(); open(); });
+	el.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+	});
 }
 
 function monthLabel(year: number, month: number): string {
@@ -182,7 +201,12 @@ export function renderMonthGrid(
 			+ (isToday ? ' is-today' : '')
 			+ (cellTasks.length > 0 ? ' has-tasks' : '');
 
-		dayCell.createDiv({ cls: 'dashboard-calendar-cell-num', text: String(d.getDate()) });
+		const numEl = dayCell.createDiv({ cls: 'dashboard-calendar-cell-num', text: String(d.getDate()) });
+		// Full-screen mode: the day number opens the day agenda (add tasks /
+		// see the day's list). Compact & dot modes keep the whole-cell click.
+		if (!opts.compact && !opts.dotMode && opts.onDayNumClick) {
+			wireDayTrigger(numEl, iso, opts.onDayNumClick);
+		}
 
 		if (opts.dotMode) {
 			// Narrow-sidebar mode: just a dot when the day has tasks; days whose
@@ -498,6 +522,8 @@ export function renderWeekTimeGrid(
 		const h = head.createDiv({ cls: 'dashboard-calgrid-dayhead' + (iso === todayIso ? ' is-today' : '') });
 		h.createDiv({ cls: 'dashboard-calgrid-dayhead-wd', text: labels[i] ?? '' });
 		h.createDiv({ cls: 'dashboard-calgrid-dayhead-date', text: `${date.getMonth() + 1}/${date.getDate()}` });
+		// The day header opens that day's agenda (same as month day numbers).
+		if (opts.onDayNumClick) wireDayTrigger(h, iso, opts.onDayNumClick);
 	}
 
 	// All-day strip: untimed tasks of each day as chips (click jumps to source).

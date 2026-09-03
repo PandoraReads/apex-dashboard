@@ -11,9 +11,8 @@ interface GuideFeature {
 /** The capabilities showcased in the announcement modal. Content is refreshed
  *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'history', textKey: 'announce.featureBackfillLabel' },
-	{ icon: 'list-plus', textKey: 'announce.featureTodoTopLabel' },
-	{ icon: 'smartphone', textKey: 'announce.featureMobileLabel' },
+	{ icon: 'database', textKey: 'announce.featureScopeLabel' },
+	{ icon: 'expand', textKey: 'announce.featureSizeLabel' },
 ];
 
 /**
@@ -46,10 +45,15 @@ export class DataviewGuideModal extends Modal {
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
-		body.createEl('p', {
-			text: t('announce.intro'),
-			cls: 'dashboard-dataview-guide-intro',
-		});
+		// Intro is optional per release: an empty announce.intro renders nothing
+		// (no stray empty paragraph above the feature list).
+		const intro = t('announce.intro');
+		if (intro) {
+			body.createEl('p', {
+				text: intro,
+				cls: 'dashboard-dataview-guide-intro',
+			});
+		}
 
 		const list = body.createDiv({ cls: 'dashboard-dataview-guide-features' });
 		for (const feature of GUIDE_FEATURES) {

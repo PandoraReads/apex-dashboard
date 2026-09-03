@@ -177,6 +177,11 @@ export class CalendarMonthModal extends Modal {
 			onBarClick: (iso: string) => {
 				new DayAgendaModal(this.app, iso, viewByDay.get(iso) ?? [], this.cb, this.dashboardFile).open();
 			},
+			// Day numbers (month) / day headers (week): open the day agenda with
+			// the add-task input focused, so tap-type-Enter adds in one flow.
+			onDayNumClick: (iso: string) => {
+				new DayAgendaModal(this.app, iso, viewByDay.get(iso) ?? [], this.cb, this.dashboardFile, true).open();
+			},
 		};
 		const { label } = this.view === 'week'
 			? renderWeekTimeGrid(body, this.weekStart, viewByDay, gridOpts)
@@ -243,13 +248,17 @@ export class DayAgendaModal extends Modal {
 	/** Vault path (no .md required) of the dashboard file, used as the fallback
 	 *  destination when the day has no daily note yet. */
 	private readonly dashboardFile?: string;
+	/** Focus the add-task input on open — for entries that imply "add something"
+	 *  (calendar day-number clicks) rather than "browse the day" (bar clicks). */
+	private readonly focusAddInput: boolean;
 
-	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks, dashboardFile?: string) {
+	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks, dashboardFile?: string, focusAddInput = false) {
 		super(app);
 		this.iso = iso;
 		this.tasks = tasks;
 		this.cb = cb;
 		this.dashboardFile = dashboardFile;
+		this.focusAddInput = focusAddInput;
 	}
 
 	onOpen(): void {
@@ -273,10 +282,10 @@ export class DayAgendaModal extends Modal {
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
 		// Add-task row: optional time (HH:MM) + title + Add. Goes into this
-		// day's daily note (top or bottom, per the calendar setting; created
-		// from the Daily Notes template/path when absent) — or, when the day
-		// has no daily note, to the dashboard file's first checkbox list; see
-		// insertTaskForDay.
+		// day's daily note (top or bottom, per the calendar setting), else —
+		// when that day has no note yet (e.g. a future date) — into today's
+		// daily note, the ⏰/📅 marker keeping the task on this calendar day;
+		// see insertTaskForDay.
 		const addRow = body.createDiv({ cls: 'dashboard-cal-day-add' });
 		const timeInput = addRow.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-cal-day-add-time',
@@ -309,6 +318,8 @@ export class DayAgendaModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
 			text: t('common.close'),
 		}).addEventListener('click', () => this.close());
+
+		if (this.focusAddInput) titleInput.focus();
 	}
 
 	private renderRow(task: VaultTask): HTMLElement {
@@ -350,7 +361,8 @@ export class DayAgendaModal extends Modal {
 
 	/** Add the entered task (optional time + title) for this day: into the day's
 	 *  daily note — top or bottom, per the calendar widget setting — or, when
-	 *  that day has no daily note, to the dashboard file's first checkbox list. */
+	 *  that day has no note yet (e.g. a future date), into today's daily note,
+	 *  the line's ⏰/📅 marker keeping it on this calendar day. */
 	private async addTask(titleInput: HTMLInputElement, timeInput: HTMLInputElement): Promise<void> {
 		const title = titleInput.value.trim();
 		if (!title) return;

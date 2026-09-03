@@ -10,6 +10,7 @@ import {
 	appendChild,
 	demoteToChild,
 	nestIntoTarget,
+	moveTaskBeside,
 	promoteToTopLevel,
 	recalcChecked,
 	archiveCompleted,
@@ -21,6 +22,7 @@ import {
 	insertDocSibling,
 	appendDocChild,
 	demoteDocToChild,
+	moveDocBeside,
 } from './doc-tree';
 import { moveToOwnRow, moveBeside, unpartnerAt } from './column-pairs';
 import { workspaceBackupName } from './workspace-registry';
@@ -222,11 +224,8 @@ export class SyncEngine {
 	async reorderTask(cardId: string, fromPath: TaskPath, toPath: TaskPath, before: boolean): Promise<void> {
 		if (!this.data) return;
 
-		this.data = this.mapCardTasks(this.data, cardId, (tasks) => {
-			const { removed, tasks: t1 } = removeTaskAt(tasks, fromPath);
-			if (!removed) return tasks;
-			return insertSibling(t1, toPath, removed, before);
-		});
+		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
+			moveTaskBeside(tasks, fromPath, toPath, before));
 		await this.writeToDisk();
 	}
 
@@ -714,11 +713,8 @@ export class SyncEngine {
 	async reorderDocs(cardId: string, fromPath: DocPath, toPath: DocPath, before: boolean): Promise<void> {
 		if (!this.data) return;
 
-		this.data = this.mapCardDocs(this.data, cardId, (docs) => {
-			const { removed, docs: d1 } = removeDocAt(docs, fromPath);
-			if (!removed) return docs;
-			return insertDocSibling(d1, toPath, removed, before);
-		});
+		this.data = this.mapCardDocs(this.data, cardId, (docs) =>
+			moveDocBeside(docs, fromPath, toPath, before));
 		await this.writeToDisk();
 	}
 

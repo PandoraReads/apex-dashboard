@@ -5,7 +5,6 @@ import {
 	activityColor,
 } from './pomodoro-service';
 import { openPomodoroTagManager } from './pomodoro-tag-manager';
-import { renderPomodoroGarden } from './pomodoro-garden';
 
 export type PomodoroRangeKey = 'day' | 'week' | 'month' | 'year' | 'all';
 
@@ -208,8 +207,7 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showGoalEditor(); }
 		});
 
-		// Goal gauge (the 270-degree arc design that used to lead the mid
-		// column, relocated here when the focus garden took that slot).
+		// Goal gauge (the 270-degree arc design that used to lead the mid column).
 		const heroPct = goal.goal > 0 ? Math.min(1, goal.completed / goal.goal) : 0;
 		const gSize = 132;
 		const gStroke = 15;
@@ -351,21 +349,9 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	}
 
 	// ===== Mid column =====
-	// The focus garden leads the mid column (it replaced the old goal-gauge
-	// card; today's goal now lives as a gauge in the left column's hero).
-	const gardenSection = midCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
-	const gardenHead = gardenSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title-row' });
-	gardenHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: t('pomodoro.gardenTitle') });
-	gardenHead.createDiv({ cls: 'dashboard-pomodoro-stats-section-hint', text: t('pomodoro.gardenHint') });
-	const gardenContainer = gardenSection.createDiv({ cls: 'dashboard-pomodoro-garden' });
-
 	const donutSection = midCol.createDiv({ cls: 'dashboard-pomodoro-stats-section' });
 	const donutTitle = donutSection.createDiv({ cls: 'dashboard-pomodoro-stats-section-title', text: '' });
 	const donutContainer = donutSection.createDiv({ cls: 'dashboard-pomodoro-donut-container dashboard-pomodoro-donut-container--wide' });
-
-	function renderGarden(): void {
-		renderPomodoroGarden(gardenContainer, service);
-	}
 
 	function renderDonut(): void {
 		donutContainer.empty();
@@ -840,7 +826,6 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 	function renderAll(): void {
 		insightEl.textContent = service.getInsight();
 		renderKpis();
-		renderGarden();
 		renderDonut();
 		renderTrend();
 		renderHourDistribution();

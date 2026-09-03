@@ -1621,9 +1621,11 @@ export class DashboardView extends ItemView implements HoverParent {
 					groupMode: result.groupMode === 'folder' ? 'folder' : undefined,
 					showProperties: result.showProperties ? undefined : false,
 					propertyLimit: result.propertyLimit,
+					visibleProperties: result.visibleProperties,
 				});
 			},
 			libraryConfig?.groupMode,
+			libraryConfig?.visibleProperties,
 		);
 		modal.open();
 	}

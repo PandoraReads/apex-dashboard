@@ -1,6 +1,6 @@
 import { App, MarkdownView, Modal, TFile, WorkspaceLeaf, setIcon } from 'obsidian';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { applyModalTheme, removeNativeModalCloseButton } from './modal-theme';
 
 const MODE_STORAGE_KEY = 'apex-dashboard-note-popover-mode';
 type NoteViewMode = 'source' | 'preview';
@@ -34,6 +34,9 @@ export class NotePopoverModal extends Modal {
 		const { contentEl, modalEl } = this;
 		modalEl.addClass('note-popover-modal-wrap');
 		applyModalTheme(modalEl);
+		// The actions row below renders its own close button; Obsidian 1.13+
+		// also auto-renders a native one in this corner — drop the duplicate.
+		removeNativeModalCloseButton(modalEl);
 		contentEl.empty();
 		contentEl.addClass('note-popover-modal');
 

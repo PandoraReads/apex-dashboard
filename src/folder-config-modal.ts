@@ -3,6 +3,7 @@ import { t } from './i18n';
 import { extractFrontmatterProperties, getAllTags, renderTagsSelector } from './library-section';
 import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
+import { VisiblePropertiesEditor } from './visible-properties-editor';
 
 export interface FolderConfigResult {
 	folders: string[];
@@ -15,6 +16,8 @@ export interface FolderConfigResult {
 	groupMode: 'property' | 'folder';
 	showProperties: boolean;
 	propertyLimit: number;
+	/** Hand-picked card properties (order preserved); undefined = automatic. */
+	visibleProperties: string[] | undefined;
 }
 
 /**
@@ -30,6 +33,7 @@ export class FolderConfigModal extends Modal {
 	private groupMode: 'property' | 'folder';
 	private showProperties: boolean;
 	private propertyLimit: number;
+	private visibleProperties: string[];
 	private readonly onSave: (result: FolderConfigResult) => void;
 
 	constructor(
@@ -42,6 +46,7 @@ export class FolderConfigModal extends Modal {
 		currentPropertyLimit: number | undefined,
 		onSave: (result: FolderConfigResult) => void,
 		currentGroupMode?: 'property' | 'folder',
+		currentVisibleProperties?: string[],
 	) {
 		super(app);
 		this.folders = [...currentFolders];
@@ -51,6 +56,7 @@ export class FolderConfigModal extends Modal {
 		this.groupMode = currentGroupMode ?? 'property';
 		this.showProperties = currentShowProperties !== false;
 		this.propertyLimit = currentPropertyLimit ?? 6;
+		this.visibleProperties = [...(currentVisibleProperties ?? [])];
 		this.onSave = onSave;
 	}
 
@@ -133,19 +139,35 @@ export class FolderConfigModal extends Modal {
 		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
 		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.initialExcludeFolders);
 
-		// Tags filter
+		// Tags filter, with a search box to narrow the chip list when the vault
+		// has too many tags to scan by eye.
 		const tagsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		tagsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.tagsFilter') });
+		const tagSearchRow = tagsSection.createDiv({ cls: 'dashboard-media-folder-input-row dashboard-library-tag-search-row' });
+		const tagSearchInput = tagSearchRow.createEl('input', {
+			cls: 'dashboard-media-filter-folder dashboard-library-tag-search',
+			attr: { type: 'text', placeholder: t('library.searchTags') },
+		});
 		const tagsContainer = tagsSection.createDiv({ cls: 'dashboard-library-filter-values' });
 		const allTags = getAllTags(this.app);
 		const renderTags = (): void => {
-			renderTagsSelector(tagsContainer, allTags, this.selectedTags, (tag) => {
+			const query = tagSearchInput.value.trim().toLowerCase();
+			const visible = query ? allTags.filter(tag => tag.toLowerCase().includes(query)) : allTags;
+			// renderTagsSelector's own empty state means "vault has no tags";
+			// a search that filters everything out needs a distinct message.
+			if (visible.length === 0 && allTags.length > 0) {
+				tagsContainer.empty();
+				tagsContainer.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noMatchingTags') });
+				return;
+			}
+			renderTagsSelector(tagsContainer, visible, this.selectedTags, (tag) => {
 				this.selectedTags = this.selectedTags.includes(tag)
 					? this.selectedTags.filter(tg => tg !== tag)
 					: [...this.selectedTags, tag];
 				renderTags();
 			});
 		};
+		tagSearchInput.addEventListener('input', () => renderTags());
 		renderTags();
 
 		// Kanban group-by: property vs subfolder mode. The property picker only
@@ -210,6 +232,10 @@ export class FolderConfigModal extends Modal {
 			this.propertyLimit = Math.max(0, Math.min(20, Math.floor(Number(limitInput.value) || 6)));
 		});
 
+		// Pinned properties: picked keys show first (all of them); only cards
+		// hitting none fall back to the automatic slice above.
+		const pinnedEditor = new VisiblePropertiesEditor(this.app, propsSection, this.visibleProperties);
+
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
@@ -221,6 +247,7 @@ export class FolderConfigModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		}).addEventListener('click', () => {
+			const picked = pinnedEditor.value;
 			this.onSave({
 				folders: this.folders,
 				excludeFolders: excludeEditor.value,
@@ -229,6 +256,7 @@ export class FolderConfigModal extends Modal {
 				groupMode: this.groupMode,
 				showProperties: this.showProperties,
 				propertyLimit: this.propertyLimit,
+				visibleProperties: picked.length > 0 ? picked : undefined,
 			});
 			this.close();
 		});

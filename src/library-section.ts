@@ -3,10 +3,10 @@ import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
 import { t, getLanguage } from './i18n';
 import { attachNoteHover } from './hover-preview';
-import { MultiFolderSelectModal } from './folder-config-modal';
 import { showConfirmDialog } from './confirm-dialog';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 import { KANBAN_FILE_DRAG_TYPE } from './dnd';
+import { resolveCoverAsObjectUrl } from './book-service';
 
 // Set once per render by renderLibrarySection so the grid/list/table/kanban
 // renderers can route opens through the note popover and attach hover previews
@@ -294,15 +294,26 @@ function closeCalendarPopup(): void {
 	}
 }
 
-function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: (date: string) => void): void {
+/**
+ * Quick-filter date range picker: one calendar where the first click picks the
+ * start date and the second the end date (earlier/later order auto-swapped;
+ * completing the pair commits immediately). The bottom buttons let a lone
+ * first click be saved as an open-ended range, or bail out.
+ */
+function showCalendarPopup(
+	anchor: HTMLElement,
+	initialStart: string,
+	initialEnd: string,
+	onSelect: (start: string, end: string) => void,
+): void {
 	closeCalendarPopup();
 
-		const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-library-calendar-popup' });
+	const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-library-calendar-popup' });
 
 	const dashboardRoot = anchor.closest('.apex-dashboard-root') as HTMLElement;
 	if (dashboardRoot) {
 		const rs = getComputedStyle(dashboardRoot);
-		const themeVars = ['--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-border-card',
+		const themeVars = ['--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-bg-modal', '--db-border-card',
 			'--db-text', '--db-text-muted', '--db-accent', '--db-radius-md', '--db-radius-sm', '--db-font'];
 		themeVars.forEach(v => {
 			const val = rs.getPropertyValue(v).trim();
@@ -310,9 +321,11 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 		});
 	}
 
+	// Opaque surface: the old glass card token let the page bleed through and
+	// made the dates unreadable. Dark themes define a dedicated --db-bg-modal;
+	// every theme's --db-bg is opaque.
 	popup.setCssProps({
-		background: 'var(--db-bg-card, rgba(255, 255, 255, 0.06))',
-		backdropFilter: 'blur(16px)',
+		background: 'var(--db-bg-modal, var(--db-bg, #1e1e2e))',
 		color: 'var(--db-text, var(--text-normal))',
 		borderColor: 'var(--db-border-card, rgba(255,255,255,0.1))',
 	});
@@ -329,24 +342,16 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 		popup.style.left = `${rect.left}px`;
 	}
 
-	let selectedYear: number;
-	let selectedMonth: number;
-	let selectedDay: number;
+	let rangeStart = initialStart;
+	let rangeEnd = initialEnd;
+	// First click of an in-progress pair, waiting for the end-date click.
+	let pendingStart: string | null = null;
 
 	const now = new Date();
-	if (initialValue) {
-		const dp = initialValue.split('-').map(Number);
-		selectedYear = dp[0] ?? now.getFullYear();
-		selectedMonth = (dp[1] ?? now.getMonth() + 1) - 1;
-		selectedDay = dp[2] ?? now.getDate();
-	} else {
-		selectedYear = now.getFullYear();
-		selectedMonth = now.getMonth();
-		selectedDay = now.getDate();
-	}
-
-	const viewYear = { value: selectedYear };
-	const viewMonth = { value: selectedMonth };
+	const anchorDate = initialStart || initialEnd;
+	const dp = anchorDate.split('-').map(Number);
+	const viewYear = { value: dp[0] && Number.isFinite(dp[0]) ? dp[0] : now.getFullYear() };
+	const viewMonth = { value: dp[1] && Number.isFinite(dp[1]) ? (dp[1] - 1) : now.getMonth() };
 	const lang = getLanguage();
 	const dayNames = lang === 'zh' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
@@ -356,13 +361,23 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 	const nextBtn = calNav.createEl('button', { text: '>' });
 
 	const calGrid = popup.createDiv({ cls: 'dashboard-task-reminder-calendar' });
+	const statusLine = popup.createDiv({ cls: 'dashboard-library-calendar-status' });
 
 	const btnRow = popup.createDiv({ cls: 'dashboard-task-reminder-popup-btns' });
 	btnRow.createEl('button', { cls: 'mod-cta', text: t('common.save') });
 	btnRow.createEl('button', { text: t('common.cancel') });
 
+	const fmt = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+	const renderStatus = () => {
+		if (pendingStart) statusLine.setText(`${pendingStart} ~ …`);
+		else if (rangeStart || rangeEnd) statusLine.setText(`${rangeStart || '…'} ~ ${rangeEnd || '…'}`);
+		else statusLine.setText(t('library.pickRangeHint'));
+	};
+
 	const renderCalendar = () => {
 		calGrid.empty();
+		renderStatus();
 		const y = viewYear.value;
 		const m = viewMonth.value;
 		monthLabel.setText(`${y}-${String(m + 1).padStart(2, '0')}`);
@@ -382,17 +397,30 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 			calGrid.createEl('button', { cls: 'dashboard-task-reminder-calendar-day dashboard-task-reminder-calendar-day--other-month', text: String(d) });
 		}
 
+		const hasRange = !!(rangeStart && rangeEnd);
 		for (let d = 1; d <= daysInMonth; d++) {
+			const ds = fmt(y, m, d);
 			const cls = ['dashboard-task-reminder-calendar-day'];
 			if (isCurrentMonth && d === today.getDate()) cls.push('dashboard-task-reminder-calendar-day--today');
-			if (y === selectedYear && m === selectedMonth && d === selectedDay) cls.push('dashboard-task-reminder-calendar-day--selected');
+			if (ds === rangeStart || ds === rangeEnd || ds === pendingStart) cls.push('dashboard-task-reminder-calendar-day--selected');
+			else if (hasRange && ds > rangeStart && ds < rangeEnd) cls.push('dashboard-task-reminder-calendar-day--in-range');
 			const dayBtn = calGrid.createEl('button', { cls: cls.join(' '), text: String(d) });
 			dayBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				selectedYear = y;
-				selectedMonth = m;
-				selectedDay = d;
-				renderCalendar();
+				if (pendingStart === null) {
+					pendingStart = ds;
+					renderCalendar();
+					return;
+				}
+				// Second click completes the pair; earlier/later auto-swaps and a
+				// same-day double click is a single-day range.
+				const s = pendingStart < ds ? pendingStart : ds;
+				const en = pendingStart < ds ? ds : pendingStart;
+				pendingStart = null;
+				rangeStart = s;
+				rangeEnd = en;
+				onSelect(s, en);
+				closeCalendarPopup();
 			});
 		}
 
@@ -419,8 +447,8 @@ function showCalendarPopup(anchor: HTMLElement, initialValue: string, onSelect: 
 
 	btnRow.querySelector('.mod-cta')!.addEventListener('click', (e) => {
 		e.stopPropagation();
-		const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
-		onSelect(date);
+		// A lone first click commits as an open-ended range.
+		onSelect(pendingStart ?? rangeStart, rangeEnd);
 		closeCalendarPopup();
 	});
 
@@ -490,8 +518,38 @@ export function renderLibrarySection(
 
 	// View mode toggle
 	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle' });
-	const viewModes: LibraryViewMode[] = ['grid', 'list', 'table', 'kanban'];
-	const viewIcons: Record<string, string> = { grid: 'layout-grid', list: 'list', table: 'table', kanban: 'columns' };
+	const viewModes: LibraryViewMode[] = ['grid', 'gallery', 'list', 'table', 'kanban'];
+	const viewIcons: Record<string, string> = { grid: 'layout-grid', gallery: 'image', list: 'list', table: 'table', kanban: 'columns' };
+
+	// Card size toggle (small / medium / large) — meaningful only for the two
+	// card views, so it hides while list/table/kanban is active.
+	const cardViews: LibraryViewMode[] = ['grid', 'gallery'];
+	const sizeToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-library-size-toggle' });
+	const sizeLabels: Record<NonNullable<LibraryConfig['cardSize']>, string> = { small: 'S', medium: 'M', large: 'L' };
+	const buildSizeToggle = (): void => {
+		sizeToggle.empty();
+		const current = config.cardSize ?? 'medium';
+		for (const s of ['small', 'medium', 'large'] as const) {
+			const btn = sizeToggle.createDiv({
+				cls: 'dashboard-library-view-btn' + (s === current ? ' active' : ''),
+				attr: { 'aria-label': t(`library.size${s.charAt(0).toUpperCase()}${s.slice(1)}`) },
+			});
+			btn.textContent = sizeLabels[s];
+			btn.addEventListener('click', () => {
+				const newConfig = { ...config, cardSize: s };
+				onConfigChange(newConfig);
+				Object.assign(config, { cardSize: s });
+				buildSizeToggle();
+				renderContent(config);
+			});
+		}
+	};
+	const applySizeToggleVisibility = (mode: LibraryViewMode): void => {
+		sizeToggle.toggleClass('is-hidden', !cardViews.includes(mode));
+	};
+	buildSizeToggle();
+	applySizeToggleVisibility(config.viewMode);
+
 	for (const mode of viewModes) {
 		const btn = viewToggle.createDiv({
 			cls: 'dashboard-library-view-btn' + (mode === config.viewMode ? ' active' : ''),
@@ -505,6 +563,7 @@ export function renderLibrarySection(
 			const newConfig = { ...config, viewMode: mode };
 			onConfigChange(newConfig);
 			Object.assign(config, { viewMode: mode });
+			applySizeToggleVisibility(mode);
 			currentPage = 1;
 			renderContent(config);
 		});
@@ -515,9 +574,6 @@ export function renderLibrarySection(
 		setIcon(filterBtn, 'filter');
 		filterBtn.title = t('library.quickFilter');
 
-		// Filter tag
-		const filterTag = toolbar.createDiv({ cls: 'dashboard-library-filter-tags' });
-
 		// Quick date filter state (separate from config.filters)
 		let quickProp: 'created' | 'modified' = config.quickDateFilter?.property ?? 'created';
 		let quickStart = config.quickDateFilter?.start ?? '';
@@ -527,6 +583,8 @@ export function renderLibrarySection(
 
 		// Popup
 		let filterPopup: HTMLElement | null = null;
+	// Legacy funnel folders (folderFilter): the quick-filter popup no longer
+	// edits them, but they still filter and the popup's clear button drops them.
 	let funnelFolders: string[] = [...(config.folderFilter ?? [])];
 
 
@@ -543,7 +601,6 @@ export function renderLibrarySection(
 			onConfigChange({ ...config });
 			currentPage = 1;
 			renderContent(config);
-			renderFilterTag();
 			updateFilterBtnState();
 		}
 
@@ -552,7 +609,6 @@ export function renderLibrarySection(
 			onConfigChange({ ...config });
 			currentPage = 1;
 			renderContent(config);
-			renderFilterTag();
 			updateFilterBtnState();
 		}
 
@@ -581,9 +637,11 @@ export function renderLibrarySection(
 				zIndex: '10000',
 			});
 
-			// Property selector
-			const propRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
-			propRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('library.filterProperty') });
+			// Popup title
+			filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-title', text: t('library.quickFilterTitle') });
+
+			// Property selector + single date-range button in one row
+			const propRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row dashboard-library-quickfilter-row--main' });
 			const propSelect = propRow.createEl('select', { cls: 'dashboard-library-filter-popup-prop' });
 			propSelect.createEl('option', { text: t('library.created'), attr: { value: 'created' } });
 			propSelect.createEl('option', { text: t('library.modified'), attr: { value: 'modified' } });
@@ -591,33 +649,15 @@ export function renderLibrarySection(
 			propSelect.addEventListener('change', () => {
 				quickProp = propSelect.value as 'created' | 'modified';
 			});
-
-			// Date range
-			const dateRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
-			dateRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('library.filterDateRange') });
-			const dateWrap = dateRow.createDiv({ cls: 'dashboard-library-filter-popup-dates' });
-			const startBtn = dateWrap.createEl('button', {
-				cls: 'dashboard-library-filter-date-btn' + (quickStart ? ' has-value' : ''),
-				text: quickStart || t('library.dateStart'),
+			const rangeBtn = propRow.createEl('button', {
+				cls: 'dashboard-library-filter-date-btn dashboard-library-filter-range-btn' + (quickStart || quickEnd ? ' has-value' : ''),
+				text: (quickStart || quickEnd) ? `${quickStart || '…'} ~ ${quickEnd || '…'}` : t('library.filterDateRange'),
 			});
-			const endBtn = dateWrap.createEl('button', {
-				cls: 'dashboard-library-filter-date-btn' + (quickEnd ? ' has-value' : ''),
-				text: quickEnd || t('library.dateEnd'),
-			});
-
-			startBtn.addEventListener('click', (ev) => {
+			rangeBtn.addEventListener('click', (ev) => {
 				ev.stopPropagation();
-				showCalendarPopup(startBtn, quickStart, (date) => {
-					quickStart = date;
-					quickDays = 0; // an explicit range replaces the rolling window
-					applyQuickFilter();
-					if (activeDocument.body.contains(filterBtn)) openPopup();
-				});
-			});
-			endBtn.addEventListener('click', (ev) => {
-				ev.stopPropagation();
-				showCalendarPopup(endBtn, quickEnd, (date) => {
-					quickEnd = date;
+				showCalendarPopup(rangeBtn, quickStart, quickEnd, (start, end) => {
+					quickStart = start;
+					quickEnd = end;
 					quickDays = 0; // an explicit range replaces the rolling window
 					applyQuickFilter();
 					if (activeDocument.body.contains(filterBtn)) openPopup();
@@ -648,59 +688,12 @@ export function renderLibrarySection(
 				});
 			}
 
-			// Folder filter
-			const folderRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
-			folderRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('media.filterFolder') });
-			const folderChipsHost = folderRow.createDiv({ cls: 'dashboard-alltasks-exclude-chips' });
-			const folderAddRow = folderRow.createDiv({ cls: 'dashboard-media-folder-input-row' });
-			const folderInput = folderAddRow.createEl('input', {
-				cls: 'dashboard-media-filter-folder',
-				attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder') },
-			});
-			const folderBrowseBtn = folderAddRow.createEl('button', { cls: 'dashboard-media-folder-browse', text: t('media.browseFolder') });
-			folderBrowseBtn.addEventListener('click', () => {
-				// Multi-select: pick every funnel folder at once. Funnel folders are OR
-				// unions, so parents/children stay independently tickable.
-				new MultiFolderSelectModal(app, funnelFolders, (folders) => {
-					funnelFolders = folders;
-					applyFunnelFolders();
-					renderFolderChips();
-				}).open();
-			});
-			const renderFolderChips = (): void => {
-				folderChipsHost.empty();
-				if (funnelFolders.length === 0) {
-					folderChipsHost.createDiv({ cls: 'dashboard-library-filter-empty', text: t('folder.noFolders') });
-					return;
-				}
-				for (const folder of funnelFolders) {
-					const chip = folderChipsHost.createDiv({ cls: 'dashboard-alltasks-exclude-chip' });
-					chip.createSpan({ text: folder });
-					const x = chip.createSpan({ cls: 'dashboard-alltasks-exclude-chip-x', text: '×' });
-					x.addEventListener('click', () => {
-						funnelFolders = funnelFolders.filter(f => f !== folder);
-						applyFunnelFolders();
-						renderFolderChips();
-					});
-				}
-			};
-			const addFunnelFolder = (): void => {
-				const folder = folderInput.value.trim().replace(/^\/+|\/+$/g, '');
-				folderInput.value = '';
-				if (!folder) return;
-				if (funnelFolders.some(f => f.toLowerCase() === folder.toLowerCase())) return;
-				funnelFolders = [...funnelFolders, folder];
-				applyFunnelFolders();
-				renderFolderChips();
-			};
-			folderInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addFunnelFolder(); } });
-			renderFolderChips();
-
-			// Clear button
+			// Clear button. Also drops legacy funnel folders configured by older
+			// versions (the popup no longer edits them).
 			if (quickStart || quickEnd || quickDays > 0 || funnelFolders.length > 0) {
 				const clearBtn = filterPopup.createEl('button', {
 					cls: 'dashboard-library-filter-popup-clear',
-					text: t('reminder.clearReminder'),
+					text: t('library.clearFilters'),
 				});
 				clearBtn.addEventListener('click', (ev) => {
 					ev.stopPropagation();
@@ -719,46 +712,6 @@ export function renderLibrarySection(
 			if (filterPopup) {
 				filterPopup.remove();
 				filterPopup = null;
-			}
-		}
-
-		function renderFilterTag(): void {
-			filterTag.empty();
-			if (quickDays > 0) {
-				const propLabel = t(quickProp === 'modified' ? 'library.modified' : 'library.created');
-				const tag = filterTag.createDiv({
-					cls: 'dashboard-library-filter-tag',
-					text: `${propLabel} · ${t('library.lastNDays', { n: quickDays })}`,
-				});
-				const x = tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' });
-				x.addEventListener('click', () => {
-					quickDays = 0;
-					applyQuickFilter();
-				});
-			} else if (quickStart || quickEnd) {
-				const start = quickStart || '...';
-				const end = quickEnd || '...';
-				const tag = filterTag.createDiv({
-					cls: 'dashboard-library-filter-tag',
-					text: `${quickProp}: ${start} ~ ${end}`,
-				});
-				const x = tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' });
-				x.addEventListener('click', () => {
-					quickStart = '';
-					quickEnd = '';
-					applyQuickFilter();
-					openPopup();
-				});
-			}
-			for (const folder of funnelFolders) {
-				const tag = filterTag.createDiv({ cls: 'dashboard-library-filter-tag' });
-				const label = tag.createSpan({ cls: 'dashboard-library-filter-tag-label', text: folder.split('/').filter(Boolean).pop() ?? folder });
-				label.title = folder;
-				const x = tag.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' });
-				x.addEventListener('click', () => {
-					funnelFolders = funnelFolders.filter(f => f !== folder);
-					applyFunnelFolders();
-				});
 			}
 		}
 
@@ -783,7 +736,8 @@ export function renderLibrarySection(
 			closePopup();
 		});
 
-		renderFilterTag();
+		// An active filter highlights the button (accent color); the details
+		// live only inside the popup, so the toolbar stays uncluttered.
 		updateFilterBtnState();
 
 
@@ -912,6 +866,9 @@ export function renderLibrarySection(
 		switch (currentConfig.viewMode) {
 			case 'grid':
 				renderGridView(contentArea, pageResults, app, isFolder, currentConfig);
+				break;
+			case 'gallery':
+				renderGalleryView(contentArea, pageResults, app, isFolder, currentConfig);
 				break;
 			case 'list':
 				renderListView(contentArea, pageResults, app);
@@ -1053,7 +1010,26 @@ async function trashLibraryFile(app: App, file: TFile): Promise<void> {
 }
 
 function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig): void {
-	const grid = container.createDiv({ cls: 'dashboard-library-grid' });
+	renderFileCards(container, results, app, showTags, config, { covers: false });
+}
+
+/** Gallery view: the familiar card grid with a frontmatter-driven cover
+ *  image on top of each card (see {@link extractCoverValue}). */
+function renderGalleryView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig): void {
+	renderFileCards(container, results, app, showTags, config, { covers: true });
+}
+
+interface FileCardRenderOptions {
+	/** Gallery mode: render cover slots and drop the cover field from badges. */
+	covers: boolean;
+}
+
+function renderFileCards(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig, opts: FileCardRenderOptions): void {
+	// Card size narrows/widens the auto-fill column track (covers follow via
+	// aspect-ratio). 'medium' is the un-suffixed default, so legacy sections
+	// keep the exact old layout.
+	const sizeClass = config.cardSize && config.cardSize !== 'medium' ? ` dashboard-library-cards--${config.cardSize}` : '';
+	const grid = container.createDiv({ cls: (opts.covers ? 'dashboard-library-gallery' : 'dashboard-library-grid') + sizeClass });
 	const showProperties = config.showProperties !== false;
 	const propertyLimit = Math.max(0, config.propertyLimit ?? 6);
 
@@ -1061,6 +1037,24 @@ function renderGridView(container: HTMLElement, results: LibraryFileResult[], ap
 		const card = grid.createDiv({ cls: 'dashboard-library-card' });
 		attachItemHover(app, card, result.file);
 		card.addEventListener('click', () => openFile(app, result.file));
+
+		// Cover slot (gallery only). Created up-front so the async fill has a
+		// stable target; removed again when nothing resolves. The winning field
+		// is dropped from the property badges below so a rendered cover never
+		// also shows up as a "封面: x.png" text badge.
+		let badgeFrontmatter = result.frontmatter;
+		if (opts.covers) {
+			const cover = extractCoverValue(result.frontmatter);
+			if (cover) {
+				badgeFrontmatter = omitFrontmatterKey(result.frontmatter, cover.key);
+				const coverEl = card.createDiv({ cls: 'dashboard-library-card-cover' });
+				void resolveLibraryCover(cover.value, result.file, app).then(url => {
+					if (!coverEl.isConnected) return;
+					if (url) coverEl.style.backgroundImage = `url(${url})`;
+					else coverEl.remove();
+				});
+			}
+		}
 
 		card.createDiv({ cls: 'dashboard-library-card-title', text: result.basename });
 
@@ -1104,22 +1098,151 @@ function renderGridView(container: HTMLElement, results: LibraryFileResult[], ap
 
 		// Frontmatter property badges (excludes position; tags are rendered above
 		// for folder sections). Capped to keep cards a uniform, bounded size.
-		if (showProperties && propertyLimit > 0) {
+		// visibleProperties is the primary mode: a card matching at least one
+		// picked property shows exactly those (uncapped); only cards matching
+		// none fall back to the automatic first-propertyLimit slice, so the two
+		// settings complement each other.
+		const hasPicks = (config.visibleProperties?.length ?? 0) > 0;
+		if (showProperties && (propertyLimit > 0 || hasPicks)) {
 			const badges = card.createDiv({ cls: 'dashboard-library-badges' });
-			let count = 0;
-			for (const [key, rawValue] of Object.entries(result.frontmatter)) {
-				if (count >= propertyLimit) break;
-				if (key === 'position' || key === 'tags') continue;
-				const val = formatBadgeValue(rawValue);
+			const keys = selectBadgeKeys(badgeFrontmatter, config.visibleProperties, propertyLimit);
+			for (const key of keys) {
+				const val = formatBadgeValue(badgeFrontmatter[key]);
 				if (val === null) continue;
 				const badge = badges.createDiv({ cls: 'dashboard-library-badge' });
 				badge.createDiv({ cls: 'dashboard-library-badge-key', text: key });
 				badge.createDiv({ cls: 'dashboard-library-badge-val', text: val });
-				count++;
 			}
-			if (count === 0) badges.remove();
+			if (keys.length === 0) badges.remove();
 		}
 	}
+}
+
+/** Immutable single-key omission; returns the original object when the key is
+ *  absent so the no-cover path allocates nothing. */
+function omitFrontmatterKey(frontmatter: Record<string, unknown>, key: string): Record<string, unknown> {
+	if (!(key in frontmatter)) return frontmatter;
+	const next: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(frontmatter)) {
+		if (k !== key) next[k] = v;
+	}
+	return next;
+}
+
+export interface CoverCandidate {
+	/** The frontmatter key the reference came from (to drop it from badges). */
+	key: string;
+	/** Normalized reference string ready for {@link resolveLibraryCover}. */
+	value: string;
+}
+
+const IMAGE_REF_RE = /\.(png|jpe?g|webp|gif|avif|bmp|svg)(?:[?#]|$)/i;
+
+/** Does this string reference an image file (by extension or data: URI)? */
+function isImageRef(value: string): boolean {
+	return value.startsWith('data:image/') || IMAGE_REF_RE.test(value);
+}
+
+/** Coerce a frontmatter value into a cover reference string, unwrapping the
+ *  shapes note properties commonly hold: quoted strings, wikilink/embed
+ *  syntax (`![[cover.png]]`, alias split), markdown images, `<img>` tags and
+ *  lists (first image-shaped entry wins). Null when nothing usable is in
+ *  there. */
+function normalizeCoverValue(value: unknown): string | null {
+	if (value == null || value instanceof Date) return null;
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const normalized = normalizeCoverValue(item);
+			if (normalized && isImageRef(normalized)) return normalized;
+		}
+		return null;
+	}
+	if (typeof value === 'object') return null;
+	let s = str(value).trim();
+	if (!s) return null;
+	s = s.replace(/^["']+|["']+$/g, '').trim();
+	const wikilink = /^!?\[\[([^[\]]+)\]\]$/.exec(s);
+	if (wikilink) {
+		s = wikilink[1]!.split('|')[0]!.trim();
+	} else {
+		const mdImage = /^!\[[^\]]*\]\(([^()]+)\)$/.exec(s);
+		if (mdImage) {
+			s = mdImage[1]!.trim();
+		} else {
+			const imgTag = /^<img\b[^>]*\bsrc=["']([^"']+)["']/i.exec(s);
+			if (imgTag) s = imgTag[1]!.trim();
+		}
+	}
+	return s.length > 0 ? s : null;
+}
+
+/**
+ * Pick the cover reference for a note, if any. Explicit keys win (`封面` /
+ * `cover`, case-insensitive — any non-empty value counts); otherwise the
+ * first remaining field whose value looks like an image file (extension or
+ * data: URI; `tags`/`position` skipped). The winning key is returned too so
+ * the gallery view can drop it from the property badges.
+ */
+export function extractCoverValue(frontmatter: Record<string, unknown>): CoverCandidate | null {
+	for (const [key, value] of Object.entries(frontmatter)) {
+		if (key !== '封面' && key.toLowerCase() !== 'cover') continue;
+		const normalized = normalizeCoverValue(value);
+		if (normalized) return { key, value: normalized };
+	}
+	for (const [key, value] of Object.entries(frontmatter)) {
+		if (key === 'tags' || key === 'position') continue;
+		const normalized = normalizeCoverValue(value);
+		if (normalized && isImageRef(normalized)) return { key, value: normalized };
+	}
+	return null;
+}
+
+/**
+ * Resolve a cover reference (see {@link extractCoverValue}) into a URL usable
+ * in CSS url(). Absolute-ish references (http/data/file/drive-letter) go
+ * straight to the shared resolver; vault-shaped ones resolve Obsidian-style
+ * first (bare filename / wikilink target, relative to the note) and fall back
+ * to the resolver's vault-root / disk handling. '' when nothing loads, so the
+ * caller drops the cover slot and the card stays in its no-cover layout.
+ */
+async function resolveLibraryCover(raw: string, file: TFile, app: App): Promise<string> {
+	if (/^(https?:|data:|file:)/i.test(raw) || /^[a-zA-Z]:[\\/]/.test(raw)) {
+		return resolveCoverAsObjectUrl(raw, app);
+	}
+	const dest = app.metadataCache.getFirstLinkpathDest(raw, file.path);
+	if (dest) return resolveCoverAsObjectUrl(dest.path, app);
+	return resolveCoverAsObjectUrl(raw, app);
+}
+
+/**
+ * Which frontmatter keys a card should show as badges, and in what order.
+ *
+ * Primary mode (`visibleProperties` non-empty): the picked keys the note
+ * actually has, in pick order — all of them, uncapped; keys missing from the
+ * note (or with empty/unformattable values) are skipped.
+ *
+ * Fallback mode (note hits no pick, or no picks at all): the note's own key
+ * order, capped at `autoLimit` formattable keys — identical to the historical
+ * behavior, so existing sections render unchanged.
+ */
+export function selectBadgeKeys(
+	frontmatter: Record<string, unknown>,
+	visibleProperties: readonly string[] | undefined,
+	autoLimit: number,
+): string[] {
+	const showable = (key: string, value: unknown): boolean =>
+		key !== 'tags' && key !== 'position' && formatBadgeValue(value) !== null;
+
+	const picks = visibleProperties ?? [];
+	const hits = picks.filter(key => key in frontmatter && showable(key, frontmatter[key]));
+	if (hits.length > 0) return hits;
+
+	const auto: string[] = [];
+	for (const [key, value] of Object.entries(frontmatter)) {
+		if (auto.length >= autoLimit) break;
+		if (showable(key, value)) auto.push(key);
+	}
+	return auto;
 }
 
 /** Coerce a frontmatter value into a compact badge string, or null to hide it. */

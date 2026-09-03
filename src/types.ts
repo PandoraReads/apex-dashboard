@@ -433,7 +433,7 @@ export interface DashboardCard {
 	trackerConfig?: TrackerConfig;
 }
 
-export type LibraryViewMode = 'grid' | 'list' | 'table' | 'kanban';
+export type LibraryViewMode = 'grid' | 'gallery' | 'list' | 'table' | 'kanban';
 
 export interface PropertyFilter {
 	property: string;
@@ -454,8 +454,17 @@ export interface LibraryConfig {
 	pageSize?: number;
 	/** Grid card view: show note frontmatter properties as key:value badges. Defaults to true. */
 	showProperties?: boolean;
-	/** Grid card view: max number of property badges per card. Defaults to 6. */
+	/** Grid card view: max number of property badges per card. Defaults to 6.
+	    Applies to cards that hit none of `visibleProperties` (fallback mode). */
 	propertyLimit?: number;
+	/** Grid/gallery card size. Defaults to 'medium'. Only affects the card
+	    views — list/table/kanban ignore it. */
+	cardSize?: 'small' | 'medium' | 'large';
+	/** Grid card view: hand-picked properties to show (order preserved). A card
+	    matching at least one shows exactly those matches; a card matching none
+	    falls back to the automatic first-`propertyLimit` display. Empty/undefined
+	    = automatic mode for every card. */
+	visibleProperties?: string[];
 	/** Quick date filter. When `days` is set it is a rolling "last N days"
 	    window evaluated relative to today (start/end ignored); otherwise the
 	    fixed start/end date range applies. */

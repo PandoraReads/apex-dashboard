@@ -4115,28 +4115,6 @@
 	opacity: 0.92;
 }
 
-/* Focus garden — pseudo-3D plot leading the mid column */
-.dashboard-pomodoro-garden {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
-
-.dashboard-pomodoro-garden-svg {
-	width: 100%;
-	height: auto;
-	display: block;
-	border-radius: 10px;
-}
-
-.dashboard-pomodoro-garden-stats {
-	display: flex;
-	justify-content: space-between;
-	font-size: 0.6em;
-	color: var(--db-text-muted);
-	padding: 0 6px;
-}
-
 .dashboard-pomodoro-kpi-group--hist .dashboard-pomodoro-stats-card-value {
 	font-size: 0.85em;
 }
@@ -11787,6 +11765,30 @@
 	color: #fff !important;
 }
 
+/* Days between the range edges: accent-tinted band, square corners so the
+   highlight reads as one continuous strip between the two selected days. */
+.dashboard-library-calendar-popup .dashboard-task-reminder-calendar-day--in-range {
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 20%, transparent) !important;
+	border-radius: 0;
+}
+
+/* Current pick state under the grid ("start ~ …" while choosing). */
+.dashboard-library-calendar-status {
+	font-size: 0.6875em;
+	color: var(--db-text-muted, var(--text-muted));
+	text-align: center;
+}
+
+/* Config-modal filter value chips: cap the chip cloud so a property with many
+   distinct values scrolls instead of stretching the modal. */
+.dashboard-library-value-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	max-height: 200px;
+	overflow-y: auto;
+}
+
 .dashboard-library-calendar-popup .dashboard-task-reminder-calendar-day--other-month {
 	color: var(--db-text-muted, var(--text-faint));
 }
@@ -12776,6 +12778,25 @@
 	color: var(--db-text-muted, var(--text-muted));
 }
 
+/* Mobile: unify section search inputs — every search box (library, media and
+   dataview sections) takes its own full toolbar row, so all read the same
+   width instead of the desktop flex-grow vs fixed-110px split. */
+.is-mobile .dashboard-library-search,
+.is-mobile .dashboard-dataview-search {
+	flex: 1 1 100%;
+	width: auto;
+	min-width: 0;
+	max-width: none;
+}
+/* Dataview toolbar is nowrap on desktop; on mobile let the search box wrap to
+   its own row (count / page-size / view toggle flow to a second row) and align
+   its horizontal inset with the library toolbar's card padding. */
+.is-mobile .dashboard-dataview-toolbar {
+	flex-wrap: wrap;
+	padding-left: 8px;
+	padding-right: 8px;
+}
+
 .dashboard-library-sort {
 	padding: 4px 8px;
 	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
@@ -12965,12 +12986,50 @@
 	margin-top: 4px;
 	padding: 12px;
 	border-radius: var(--db-radius-md, 10px);
-	border: 1px solid #e0e0e0;
-	background: #ffffff;
+	border: 1px solid var(--db-border-card, #e0e0e0);
+	background: var(--db-bg-modal, var(--db-bg, #ffffff));
 	max-width: 320px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 	z-index: 10000;
-	color: #1a1a1a;
+	color: var(--db-text, #1a1a1a);
+}
+
+/* Quick-filter popup internals (title row, property+range row, preset row). */
+.dashboard-library-quickfilter-title {
+	font-size: 0.8125em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+	margin-bottom: 8px;
+}
+
+.dashboard-library-quickfilter-row {
+	margin-bottom: 8px;
+}
+
+.dashboard-library-quickfilter-label {
+	display: block;
+	font-size: 0.75em;
+	color: var(--db-text-muted, var(--text-muted));
+	margin-bottom: 4px;
+}
+
+.dashboard-library-quickfilter-row--main {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dashboard-library-quickfilter-row--main .dashboard-library-filter-popup-prop {
+	flex: 1;
+	min-width: 0;
+}
+
+.dashboard-library-filter-range-btn {
+	flex-shrink: 0;
+	white-space: nowrap;
+	max-width: 170px;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .dashboard-library-filter-popup-row {
@@ -13009,24 +13068,24 @@
 .dashboard-library-filter-date-btn {
 	cursor: pointer;
 	padding: 4px 10px;
-	border: 1px solid #ddd;
+	border: 1px solid var(--db-border-card, #ddd);
 	border-radius: 6px;
-	background: #f5f5f5;
-	color: #888;
+	background: var(--db-bg-card, #f5f5f5);
+	color: var(--db-text-muted, #888);
 	font-size: 0.75em;
 	font-family: var(--db-font, var(--font-interface));
 	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-library-filter-date-btn:hover {
-	border-color: var(--interactive-accent, #7c3aed);
-	color: #333;
+	border-color: var(--db-accent, var(--interactive-accent, #7c3aed));
+	color: var(--db-text, #333);
 }
 
 .dashboard-library-filter-date-btn.has-value {
-	color: var(--interactive-accent, #7c3aed);
-	border-color: var(--interactive-accent, #7c3aed);
-	background: rgba(139, 92, 246, 0.08);
+	color: var(--db-accent, var(--interactive-accent, #7c3aed));
+	border-color: var(--db-accent, var(--interactive-accent, #7c3aed));
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 10%, transparent);
 }
 
 .dashboard-library-filter-popup-values {
@@ -13084,6 +13143,16 @@
 	gap: 8px;
 }
 
+/* Card size variants (toolbar S/M/L toggle) shared by grid and gallery.
+   'medium' is the un-suffixed default above. */
+.dashboard-library-grid.dashboard-library-cards--small {
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.dashboard-library-grid.dashboard-library-cards--large {
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
 .dashboard-library-card {
 	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
 	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
@@ -13094,6 +13163,42 @@
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+}
+
+/* ===== Gallery view (card grid with frontmatter-driven covers) ===== */
+.dashboard-library-gallery {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 10px;
+}
+
+.dashboard-library-gallery.dashboard-library-cards--small {
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+/* Small gallery cards square their covers (1:1) for a tighter, uniform wall;
+   medium/large keep the wider 16:10 default set on .dashboard-library-card-cover. */
+.dashboard-library-gallery.dashboard-library-cards--small .dashboard-library-card-cover {
+	aspect-ratio: 1 / 1;
+}
+
+.dashboard-library-gallery.dashboard-library-cards--large {
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+/* The S/M/L selector only applies to the card views; hidden elsewhere. */
+.dashboard-library-size-toggle.is-hidden {
+	display: none;
+}
+
+.dashboard-library-card-cover {
+	aspect-ratio: 16 / 10;
+	flex: none;
+	border-radius: var(--db-radius-sm, 6px);
+	background-color: var(--db-bg-card-hover, rgba(255, 255, 255, 0.10));
+	background-size: cover;
+	background-position: center;
+	overflow: hidden;
 }
 
 .dashboard-library-card:hover {
@@ -13167,6 +13272,9 @@
 
 .dashboard-library-value-search {
 	width: 100%;
+	/* Cap at the toolbar search width so it doesn't stretch across the whole
+	   filter-header row; chips below stay reachable by eye. */
+	max-width: 240px;
 	padding: 4px 8px;
 	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
 	border-radius: var(--db-radius-sm, 6px);
@@ -13592,7 +13700,11 @@
 
 .dashboard-library-config-number {
 	width: 64px;
-	padding: 2px 6px;
+	/* Explicit height: Obsidian's app.css inflates native number inputs past
+	   the compact select/text controls these sit beside in the config modals. */
+	height: 26px;
+	padding: 0 6px;
+	box-sizing: border-box;
 	font-size: 0.75em;
 	background: var(--db-bg-input, var(--background-modifier-form-field));
 	border: 1px solid var(--db-border-card, var(--background-modifier-border));
@@ -13684,6 +13796,16 @@
 
 .dashboard-folder-browse-btn:hover {
 	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.12));
+}
+
+/* Tag-filter search (folder config modal): capped at the toolbar search
+   width instead of stretching full-row, with breathing room before chips. */
+.dashboard-library-tag-search-row {
+	margin-bottom: 8px;
+}
+
+.dashboard-library-tag-search {
+	max-width: 240px;
 }
 
 .dashboard-library-filter-values {
@@ -14111,8 +14233,12 @@
 }
 
 /* The popover header has its own close button in the actions row; hide the
-   native modal close button so only one is shown. */
-.note-popover-modal-wrap .modal-close-button {
+   native modal close button so only one is shown. Obsidian 1.13+ desktop
+   renders it as .modal-header-button (older/mobile builds: .modal-close-button)
+   — the TS side also removes the node (removeNativeModalCloseButton); this CSS
+   is the belt-and-suspenders fallback. */
+.note-popover-modal-wrap .modal-close-button,
+.note-popover-modal-wrap .modal-header-button {
 	display: none;
 }
 
@@ -15164,6 +15290,19 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-accent, var(--text-accent));
 	font-weight: 700;
 }
+/* Full-screen month: the day number opens the day agenda (add tasks) */
+.dashboard-calendar.is-full .dashboard-calendar-cell-num.is-clickable {
+	cursor: pointer; border-radius: 4px; margin: -2px -5px; padding: 2px 5px;
+	align-self: flex-start;
+}
+.dashboard-calendar.is-full .dashboard-calendar-cell-num.is-clickable:hover {
+	background: var(--db-bg-hover, rgba(255,255,255,0.06));
+	color: var(--db-text, var(--text-normal));
+}
+.dashboard-calendar.is-full .dashboard-calendar-cell-num.is-clickable:focus-visible {
+	outline: 2px solid var(--db-accent, var(--interactive-accent));
+	outline-offset: 1px;
+}
 
 /* Week view: vertical list of 7 day rows (distinct from the month grid) */
 .dashboard-calendar.dashboard-calendar--week { display: flex; flex-direction: column; gap: 4px; }
@@ -15219,6 +15358,15 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 /* Add-task row in the day agenda modal (time + title + Add -> daily note) */
 .dashboard-cal-day-add { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+/* Equal heights for the add-task row: Chromium renders input[type=time]
+   intrinsically taller than the sibling text input; pin both to the button
+   height so the row lines up. */
+.dashboard-cal-day-add-time,
+.dashboard-cal-day-add-title {
+	height: 34px;
+	padding: 0 10px;
+	box-sizing: border-box;
+}
 .dashboard-cal-day-add-time { width: 92px; flex-shrink: 0; }
 .dashboard-cal-day-add-title { flex: 1; min-width: 0; }
 .dashboard-cal-day-add-btn { flex-shrink: 0; }
@@ -15234,6 +15382,13 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calgrid-dayhead-wd { font-size: 0.6875em; color: var(--db-text-muted, var(--text-muted)); }
 .dashboard-calgrid-dayhead-date { font-size: 0.9375em; font-weight: 600; color: var(--db-text, var(--text-normal)); }
 .dashboard-calgrid-dayhead.is-today .dashboard-calgrid-dayhead-date { color: var(--db-accent, var(--interactive-accent)); }
+/* Week time grid: the day header opens the day agenda (add tasks) */
+.dashboard-calgrid-dayhead.is-clickable { cursor: pointer; border-radius: 4px; }
+.dashboard-calgrid-dayhead.is-clickable:hover { background: var(--db-bg-hover, rgba(255,255,255,0.06)); }
+.dashboard-calgrid-dayhead.is-clickable:focus-visible {
+	outline: 2px solid var(--db-accent, var(--interactive-accent));
+	outline-offset: 1px;
+}
 .dashboard-calgrid-allday {
 	display: grid; grid-template-columns: 52px repeat(7, 1fr);
 	border-bottom: 1px solid var(--db-border-card, rgba(255,255,255,0.08));
@@ -16748,6 +16903,60 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 .dashboard-quicknote-cfg-icon-btn:hover { color: var(--db-accent); border-color: var(--db-accent); }
 .dashboard-quicknote-cfg-icon-btn svg { width: 16px; height: 16px; }
+
+/* Path input row: text input + the browse button from path-picker-modal */
+.dashboard-quicknote-cfg-path-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+}
+.dashboard-quicknote-cfg-path-row .dashboard-modal-input { flex: 1; min-width: 0; }
+.dashboard-pathpicker-btn { flex: 0 0 36px; }
+
+/* Vault path picker modal (compact) */
+.dashboard-pathpicker-body { display: flex; flex-direction: column; gap: 8px; }
+.dashboard-pathpicker-search { width: 100%; }
+.dashboard-pathpicker-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 320px;
+	overflow-y: auto;
+}
+.dashboard-pathpicker-item {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 5px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	cursor: pointer;
+}
+.dashboard-pathpicker-item:hover, .dashboard-pathpicker-item:focus-visible {
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.06));
+	outline: none;
+}
+.dashboard-pathpicker-name {
+	font-size: 0.8125em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.dashboard-pathpicker-parent {
+	font-size: 0.6875em;
+	color: var(--db-text-muted, var(--text-muted));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex-shrink: 1;
+}
+.dashboard-pathpicker-more {
+	font-size: 0.6875em;
+	color: var(--db-text-muted, var(--text-muted));
+	padding: 4px 8px;
+}
 
 /* Icon picker (FuzzySuggestModal suggestions) */
 .dashboard-icon-picker-item {

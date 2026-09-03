@@ -208,6 +208,16 @@ export function serialize(data: DashboardData): string {
 			if (lc.propertyLimit != null) {
 				lines.push(`      propertyLimit: ${lc.propertyLimit}`);
 			}
+			if (lc.visibleProperties && lc.visibleProperties.length > 0) {
+				lines.push(`      visibleProperties:`);
+				for (const p of lc.visibleProperties) {
+					lines.push(`        - "${escapeYamlString(p)}"`);
+				}
+			}
+			// 'medium' is the default card size — only persist the opt-outs.
+			if (lc.cardSize === 'small' || lc.cardSize === 'large') {
+				lines.push(`      cardSize: ${lc.cardSize}`);
+			}
 				if (lc.quickDateFilter) {
 					lines.push(`      quickDateFilter:`);
 					lines.push(`        property: "${lc.quickDateFilter.property}"`);
@@ -902,7 +912,7 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 
 	return {
 		filters,
-		viewMode: (['grid', 'list', 'table', 'kanban'].includes(str(raw.viewMode ?? '')) ? raw.viewMode : 'grid') as import('./types').LibraryViewMode,
+		viewMode: (['grid', 'gallery', 'list', 'table', 'kanban'].includes(str(raw.viewMode ?? '')) ? raw.viewMode : 'grid') as import('./types').LibraryViewMode,
 		sortBy: str(raw.sortBy ?? 'modified'),
 		sortDesc: raw.sortDesc !== false,
 		kanbanGroupBy: raw.kanbanGroupBy ? str(raw.kanbanGroupBy) : undefined,
@@ -910,6 +920,15 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
 		showProperties: raw.showProperties === false ? false : undefined,
 		propertyLimit: typeof raw.propertyLimit === 'number' ? raw.propertyLimit : undefined,
+		visibleProperties: (() => {
+			const list = Array.isArray(raw.visibleProperties)
+				? raw.visibleProperties.map((v: unknown) => str(v)).filter(s => s.length > 0)
+				: [];
+			return list.length > 0 ? [...new Set(list)] : undefined;
+		})(),
+		cardSize: ['small', 'medium', 'large'].includes(str(raw.cardSize ?? ''))
+			? (raw.cardSize as import('./types').LibraryConfig['cardSize'])
+			: undefined,
 		folders: Array.isArray(raw.folders) ? raw.folders.map((v: unknown) => String(v)) : (typeof raw.folder === 'string' ? [raw.folder] : undefined),
 		folderFilter: Array.isArray(raw.folderFilter) ? raw.folderFilter.map((v: unknown) => String(v)) : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,

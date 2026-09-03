@@ -49,3 +49,19 @@ export function applyModalTheme(target: HTMLElement): void {
 		if (value) target.style.setProperty(name, value);
 	}
 }
+
+/**
+ * Remove the native modal close button that Obsidian auto-renders in the modal's
+ * top-right corner. Obsidian 1.13+ desktop shows it (as `.modal-header-button`;
+ * older/mobile builds use `.modal-close-button`), which duplicates the close
+ * button our own modal headers already render.
+ *
+ * Removing the node (rather than CSS `display: none`) keeps it immune to theme
+ * specificity fights. Only call this from modals that have their own close
+ * control — for modals that rely on the native button, leave it in place.
+ */
+export function removeNativeModalCloseButton(modalEl: HTMLElement): void {
+	// The button is modalEl's first child; query both class names Obsidian has
+	// shipped so far to cover version drift.
+	modalEl.querySelector(':scope > .modal-header-button, :scope > .modal-close-button')?.remove();
+}

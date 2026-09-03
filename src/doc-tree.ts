@@ -113,3 +113,56 @@ export function promoteDocToTopLevel(docs: DocNode[], path: DocPath): DocNode[] 
 	delete clean.children;
 	return insertDocAt(d1, [], parentIdx + 1, clean);
 }
+
+/** True if `destPath` equals `srcPath` or lies within the subtree rooted at it. */
+function isSelfOrDescendant(srcPath: DocPath, destPath: DocPath): boolean {
+	if (destPath.length < srcPath.length) return false;
+	for (let i = 0; i < srcPath.length; i++) {
+		if (destPath[i] !== srcPath[i]) return false;
+	}
+	return true;
+}
+
+/**
+ * Recompute the destination path after the source was removed.
+ * `removeDocAt` only mutates the source's immediate parent's sibling list, so
+ * the destination shifts iff it shares that parent and sat after the source.
+ */
+function adjustPathAfterRemoval(destPath: DocPath, srcPath: DocPath): DocPath {
+	const parentLen = srcPath.length - 1;
+	if (destPath.length < srcPath.length) return destPath;
+	for (let i = 0; i < parentLen; i++) {
+		if (destPath[i] !== srcPath[i]) return destPath;
+	}
+	if (destPath[parentLen]! > srcPath[parentLen]!) {
+		const next = [...destPath];
+		next[parentLen] = next[parentLen]! - 1;
+		return next;
+	}
+	return destPath;
+}
+
+/**
+ * Move the doc at `srcPath` into the sibling slot beside the doc at `destPath`
+ * (`before` picks the slot above vs below it). Doc-tree mirror of task-tree's
+ * `moveTaskBeside`: both paths are in the ORIGINAL tree's coordinates, so the
+ * destination is re-located after the source is removed — without that shift,
+ * downward drops over-shot by one slot while upward drops landed correctly.
+ *
+ * Dropping beside yourself or one of your own descendants is a no-op.
+ */
+export function moveDocBeside(
+	docs: DocNode[],
+	srcPath: DocPath,
+	destPath: DocPath,
+	before: boolean,
+): DocNode[] {
+	if (srcPath.length === 0 || destPath.length === 0) return docs;
+	if (isSelfOrDescendant(srcPath, destPath)) return docs;
+
+	const { removed, docs: d1 } = removeDocAt(docs, srcPath);
+	if (!removed) return docs;
+
+	const adjustedDest = adjustPathAfterRemoval(destPath, srcPath);
+	return insertDocSibling(d1, adjustedDest, removed, before);
+}

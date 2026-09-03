@@ -204,12 +204,15 @@ function appendAtFileEnd(content: string, taskLine: string): { content: string; 
 /**
  * Write a calendar-added task line for `iso`:
  *
- *  1. the day's daily note exists -> insert per `position`: 'start' at its TOP
- *     (right below frontmatter), 'end' at its bottom;
- *  2. otherwise -> the dashboard file's first checkbox list (appended at its
- *     end; end-of-file when the file has no checkbox list yet);
- *  3. last resort (no dashboard file either) -> create the daily note (template
- *     -seeded) with the task, matching the classic behavior.
+ *  1. the clicked day's daily note exists -> insert per `position`: 'start' at
+ *     its TOP (right below frontmatter), 'end' at its bottom;
+ *  2. no note for that day (e.g. a future date) -> today's daily note, same
+ *     top/end placement — the line's ⏰/📅 marker for `iso` keeps the task on
+ *     the clicked calendar day, only its home file is today's journal;
+ *  3. no note for today either -> the dashboard file's first checkbox list
+ *     (appended at its end; end-of-file when the file has no checkbox list yet);
+ *  4. last resort (no dashboard file either) -> create the daily note for the
+ *     clicked day (template-seeded) with the task, matching the classic behavior.
  *
  * Returns null only when the core Daily Notes plugin is disabled AND the
  * dashboard file is missing — callers surface the enable-hint Notice.
@@ -221,30 +224,19 @@ export async function insertTaskForDay(
 	dashboardFile?: string,
 	position: 'start' | 'end' = 'start',
 ): Promise<TaskInsertTarget | null> {
-	// 1. Existing daily note: top (below frontmatter) or bottom, per setting.
-	const notePath = dailyNotePathFor(app, iso);
-	if (notePath) {
-		const existing = app.vault.getAbstractFileByPath(notePath);
-		if (existing instanceof TFile) {
-			const raw = await app.vault.read(existing);
-			if (position === 'end') {
-				let out = raw;
-				if (out !== '' && !out.endsWith('\n')) out += '\n';
-				// Task lands after the current last line (0-based index).
-				const line = out.split('\n').length - 1;
-				out += `${taskLine}\n`;
-				await app.vault.modify(existing, out);
-				return { file: existing, line, writtenLine: taskLine, kind: 'daily-end' };
-			}
-			const lines = raw.split('\n');
-			const at = topInsertIndex(lines);
-			const out = [...lines.slice(0, at), taskLine, ...lines.slice(at)].join('\n');
-			await app.vault.modify(existing, out);
-			return { file: existing, line: at, writtenLine: taskLine, kind: 'daily-top' };
+	// 1.+2. The clicked day's note first, then today's (skipped when the
+	// clicked day IS today).
+	const todayIso = nowMoment().format('YYYY-MM-DD');
+	for (const dayIso of iso === todayIso ? [iso] : [iso, todayIso]) {
+		const notePath = dailyNotePathFor(app, dayIso);
+		if (!notePath) break; // Daily Notes plugin disabled — no note possible.
+		const note = app.vault.getAbstractFileByPath(notePath);
+		if (note instanceof TFile) {
+			return await insertIntoNote(app, note, await app.vault.read(note), taskLine, position);
 		}
 	}
 
-	// 2. No daily note for the day: the dashboard file's first checkbox list.
+	// 3. No daily note for either day: the dashboard file's first checkbox list.
 	const rawPath = (dashboardFile ?? '').trim();
 	if (rawPath) {
 		const dashPath = rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`;
@@ -257,12 +249,38 @@ export async function insertTaskForDay(
 		}
 	}
 
-	// 3. Last resort: create the day's daily note with the task (classic path).
+	// 4. Last resort: create the clicked day's daily note with the task.
 	const created = await appendTaskToDailyNote(app, iso, taskLine);
 	if (!created) return null;
 	const raw = await app.vault.read(created);
 	const line = Math.max(raw.split('\n').indexOf(taskLine), 0);
 	return { file: created, line, writtenLine: taskLine, kind: 'daily-created' };
+}
+
+/** Insert `taskLine` into the daily note `note` per `position`: 'start' right
+ *  below YAML frontmatter, 'end' at its bottom. `raw` is the note's current
+ *  content (the caller already read it to pick the note). */
+async function insertIntoNote(
+	app: App,
+	note: TFile,
+	raw: string,
+	taskLine: string,
+	position: 'start' | 'end',
+): Promise<TaskInsertTarget> {
+	if (position === 'end') {
+		let out = raw;
+		if (out !== '' && !out.endsWith('\n')) out += '\n';
+		// Task lands after the current last line (0-based index).
+		const line = out.split('\n').length - 1;
+		out += `${taskLine}\n`;
+		await app.vault.modify(note, out);
+		return { file: note, line, writtenLine: taskLine, kind: 'daily-end' };
+	}
+	const lines = raw.split('\n');
+	const at = topInsertIndex(lines);
+	const out = [...lines.slice(0, at), taskLine, ...lines.slice(at)].join('\n');
+	await app.vault.modify(note, out);
+	return { file: note, line: at, writtenLine: taskLine, kind: 'daily-top' };
 }
 
 /**

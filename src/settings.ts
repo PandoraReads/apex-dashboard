@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem } from 'obsidian';
+import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem, type TextComponent } from 'obsidian';
 import type DashboardPlugin from './main';
 import { type DashboardSettings, type CountdownConfig, type BackupPeriod } from './types';
 import { t, setLanguage, type Language } from './i18n';
@@ -12,6 +12,7 @@ import { showConfirmDialog } from './confirm-dialog';
 import { showPromptDialog } from './prompt-dialog';
 import { normalizeWorkspacePath } from './workspace-registry';
 import { DEFAULT_TICKTICK_TZ, isValidTz } from './ticktick-tz';
+import { PathPickerModal } from './path-picker-modal';
 
 export type { DashboardSettings };
 
@@ -241,32 +242,67 @@ export class DashboardSettingTab extends PluginSettingTab {
 
 		this.renderWorkspaceSettings(containerEl);
 
+		let memoInput: TextComponent | undefined;
 		new Setting(containerEl)
 			.setName(t('settings.memoSavePath'))
 			.setDesc(t('settings.memoSavePathDesc'))
-			.addText(text => text
-				.setPlaceholder('Memos')
-				.setValue(this.plugin.settings.memoSavePath)
-				.onChange(async (value) => {
-					this.plugin.settings = {
-						...this.plugin.settings,
-						memoSavePath: value.trim(),
-					};
-					await this.plugin.saveSettings();
+			.addText(text => {
+				memoInput = text;
+				text
+					.setPlaceholder('Memos')
+					.setValue(this.plugin.settings.memoSavePath)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							memoSavePath: value.trim(),
+						};
+						await this.plugin.saveSettings();
+					});
+			})
+			// Browse button: pick an existing folder instead of typing its path.
+			.addExtraButton(btn => btn
+				.setIcon('folder-search')
+				.setTooltip(t('pathPicker.pickFolder'))
+				.onClick(() => {
+					new PathPickerModal(this.app, 'folder', (path) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							memoSavePath: path,
+						};
+						void this.plugin.saveSettings();
+						memoInput?.setValue(path);
+					}).open();
 				}));
 
+		let archiveInput: TextComponent | undefined;
 		new Setting(containerEl)
 			.setName(t('settings.taskArchivePath'))
 			.setDesc(t('settings.taskArchivePathDesc'))
-			.addText(text => text
-				.setPlaceholder('Archive/Done.md')
-				.setValue(this.plugin.settings.taskArchivePath)
-				.onChange(async (value) => {
-					this.plugin.settings = {
-						...this.plugin.settings,
-						taskArchivePath: value.trim(),
-					};
-					await this.plugin.saveSettings();
+			.addText(text => {
+				archiveInput = text;
+				text
+					.setPlaceholder('Archive/Done.md')
+					.setValue(this.plugin.settings.taskArchivePath)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							taskArchivePath: value.trim(),
+						};
+						await this.plugin.saveSettings();
+					});
+			})
+			.addExtraButton(btn => btn
+				.setIcon('file-search')
+				.setTooltip(t('pathPicker.pickFile'))
+				.onClick(() => {
+					new PathPickerModal(this.app, 'file', (path) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							taskArchivePath: path,
+						};
+						void this.plugin.saveSettings();
+						archiveInput?.setValue(path);
+					}).open();
 				}));
 
 		new Setting(containerEl)
