@@ -64,44 +64,65 @@ function buildOrderedActions(actions: QuickAction[], order?: string[], hiddenPre
 	return ordered;
 }
 
+/** Palette-managed widget colors: `bg` paints the widget background, `btn`
+ *  the action buttons inside it. Undefined = theme default. */
+export interface QuickButtonsColors {
+	bg?: string;
+	btn?: string;
+	onChange: (kind: 'bg' | 'btn', color: string | null) => void;
+}
+
 export function renderQuickActions(
 	container: HTMLElement,
 	actions: QuickAction[],
 	onExecute: (action: QuickAction) => void,
 	_onRemove: (index: number) => void,
 	onAdd: () => void,
-	initialPinned?: boolean,
-	onTogglePin?: () => void,
 	order?: string[],
 	onReorder?: (order: string[]) => void,
 	onRemoveByKey?: (key: string) => void,
 	hiddenPresets?: string[],
 	onEdit?: (action: QuickAction) => void,
+	colors?: QuickButtonsColors,
 ): void {
 	const section = container.createDiv({ cls: 'dashboard-section dashboard-quick-actions' });
+	if (colors?.bg) section.style.background = colors.bg;
+	// Button color rides on a custom property so every .dashboard-qa-item picks
+	// it up (see styles.css). The hover state is a darkened mix of the same
+	// color, keeping hover feedback without a second setting.
+	if (colors?.btn) {
+		section.style.setProperty('--qa-btn-bg', colors.btn);
+		section.style.setProperty('--qa-btn-hover', `color-mix(in srgb, ${colors.btn} 88%, rgba(0, 0, 0, 0.45))`);
+	}
 
 	const header = section.createDiv({ cls: 'dashboard-qa-header' });
 	header.createEl('h3', { text: t('quickActions.title'), cls: 'dashboard-section-title' });
 
 	const btnGroup = header.createDiv({ cls: 'dashboard-qa-btn-group' });
 
-	// Pin button (left of add button)
-	if (onTogglePin) {
-		let pinned = initialPinned ?? false;
-		const pinBtn = btnGroup.createEl('button', {
-			cls: 'dashboard-qa-pin-btn',
-			attr: { 'aria-label': 'Toggle pin' },
+	// Palette button: picks the widget's background + button colors (left of
+	// the add button).
+	if (colors) {
+		const paletteBtn = btnGroup.createEl('button', {
+			cls: 'dashboard-qa-palette-btn',
+			attr: { 'aria-label': t('quickActions.bgColor') },
 		});
-		const updatePinIcon = () => {
-			setIcon(pinBtn, pinned ? 'pin' : 'pin-off');
-			pinBtn.toggleClass('dashboard-qa-pin-btn--active', pinned);
-		};
-		updatePinIcon();
-		pinBtn.addEventListener('click', (e) => {
+		setIcon(paletteBtn, 'palette');
+		paletteBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			onTogglePin();
-			pinned = !pinned;
-			updatePinIcon();
+			showPalettePopup(paletteBtn, colors, ({ bg, btn }) => {
+				colors.bg = bg ?? undefined;
+				colors.btn = btn ?? undefined;
+				if (colors.bg) section.style.background = colors.bg;
+				else section.style.removeProperty('background');
+				if (colors.btn) {
+					section.style.setProperty('--qa-btn-bg', colors.btn);
+					section.style.setProperty('--qa-btn-hover', `color-mix(in srgb, ${colors.btn} 88%, rgba(0, 0, 0, 0.45))`);
+				} else {
+					section.style.removeProperty('--qa-btn-bg');
+					section.style.removeProperty('--qa-btn-hover');
+				}
+			});
 		});
 	}
 
@@ -234,6 +255,131 @@ export function renderQuickActions(
 		item.addEventListener('drop', onDrop);
 	}
 
+}
+
+/** Warm-toned color presets for the quick-buttons widget: light creams and
+ *  blushes read as soft panels on light themes; the deep set gives dark-theme
+ *  users matching warm options. Shared by the background and button pickers. */
+const COLOR_PRESETS_WARM = [
+	'#fdf3e3', '#fce9dc', '#fbe4e4', '#f9e8ef', '#f5e9d7',
+	'#3b2c21', '#4a2b1e', '#3d2028', '#453019', '#2f2317',
+];
+
+let activePalettePopup: HTMLElement | null = null;
+
+function closePalettePopup(): void {
+	if (activePalettePopup) {
+		activePalettePopup.remove();
+		activePalettePopup = null;
+	}
+}
+
+/** One labeled picker section (swatches + custom input + reset) inside the
+ *  palette popup. Returns nothing; every pick calls back immediately. */
+function renderColorPickerSection(
+	host: HTMLElement,
+	label: string,
+	current: string | null,
+	onPick: (color: string | null) => void,
+): void {
+	host.createDiv({ cls: 'dashboard-qa-picker-label', text: label });
+	const swatchHost = host.createDiv({ cls: 'dashboard-qa-swatch-row' });
+	const swatches: HTMLElement[] = [];
+	const markActive = () => {
+		swatches.forEach(s => s.toggleClass('active', s.dataset.color === (current ?? '')));
+	};
+	for (const color of COLOR_PRESETS_WARM) {
+		const swatch = swatchHost.createDiv({ cls: 'dashboard-qa-swatch' });
+		swatch.dataset.color = color;
+		swatch.style.background = color;
+		swatch.addEventListener('click', () => {
+			current = color;
+			markActive();
+			onPick(color);
+		});
+		swatches.push(swatch);
+	}
+	markActive();
+
+	const customRow = host.createDiv({ cls: 'dashboard-qa-swatch-custom' });
+	const colorInput = customRow.createEl('input', {
+		cls: 'dashboard-qa-color-input',
+		attr: { type: 'color', 'aria-label': t('quickActions.bgColorCustom') },
+	});
+	colorInput.value = current ?? '#fdf3e3';
+	colorInput.addEventListener('input', () => {
+		current = colorInput.value;
+		markActive();
+		onPick(colorInput.value);
+	});
+	customRow.createSpan({ text: t('quickActions.bgColorCustom'), cls: 'dashboard-qa-swatch-custom-label' });
+
+	const resetBtn = host.createEl('button', {
+		cls: 'dashboard-qa-swatch-reset',
+		text: t('quickActions.bgColorReset'),
+	});
+	resetBtn.addEventListener('click', () => {
+		current = null;
+		markActive();
+		onPick(null);
+	});
+}
+
+/** Palette popup anchored to the palette button: two labeled picker sections —
+ *  widget background color and button color. Every pick persists through
+ *  `colors.onChange` and re-applies live through `onApply`. */
+function showPalettePopup(
+	anchor: HTMLElement,
+	colors: QuickButtonsColors,
+	onApply: (next: { bg?: string; btn?: string }) => void,
+): void {
+	closePalettePopup();
+
+	const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-qa-palette-popup' });
+	const dashboardRoot = anchor.closest('.apex-dashboard-root');
+	if (dashboardRoot) {
+		const rs = getComputedStyle(dashboardRoot);
+		for (const v of ['--db-bg', '--db-bg-card', '--db-bg-modal', '--db-border-card', '--db-text', '--db-text-muted', '--db-accent', '--db-radius-md', '--db-radius-sm', '--db-font']) {
+			const val = rs.getPropertyValue(v).trim();
+			if (val) popup.style.setProperty(v, val);
+		}
+	}
+	popup.setCssProps({
+		background: 'var(--db-bg-modal, var(--db-bg-card, #ffffff))',
+		color: 'var(--db-text, var(--text-normal))',
+		borderColor: 'var(--db-border-card, rgba(255,255,255,0.1))',
+	});
+
+	const rect = anchor.getBoundingClientRect();
+	popup.setCssProps({ position: 'fixed', top: `${rect.bottom + 4}px` });
+	const popupWidth = 224;
+	if (rect.left + popupWidth > window.innerWidth) {
+		popup.style.right = `${window.innerWidth - rect.right}px`;
+	} else {
+		popup.style.left = `${rect.left}px`;
+	}
+
+	const working = { bg: colors.bg, btn: colors.btn };
+	const apply = (kind: 'bg' | 'btn', color: string | null) => {
+		if (kind === 'bg') working.bg = color ?? undefined;
+		else working.btn = color ?? undefined;
+		colors.onChange(kind, color);
+		onApply({ ...working });
+	};
+
+	renderColorPickerSection(popup, t('quickActions.bgColor'), colors.bg ?? null, (c) => apply('bg', c));
+	popup.createDiv({ cls: 'dashboard-qa-picker-divider' });
+	renderColorPickerSection(popup, t('quickActions.btnColor'), colors.btn ?? null, (c) => apply('btn', c));
+
+	const outsideClick = (ev: MouseEvent) => {
+		if (!popup.contains(ev.target as Node) && !anchor.contains(ev.target as Node)) {
+			closePalettePopup();
+			activeDocument.removeEventListener('mousedown', outsideClick);
+		}
+	};
+	window.setTimeout(() => activeDocument.addEventListener('mousedown', outsideClick), 0);
+
+	activePalettePopup = popup;
 }
 
 export class AddActionModal extends Modal {

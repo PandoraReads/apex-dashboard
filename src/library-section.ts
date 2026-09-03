@@ -7,6 +7,8 @@ import { showConfirmDialog } from './confirm-dialog';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 import { KANBAN_FILE_DRAG_TYPE } from './dnd';
 import { resolveCoverAsObjectUrl } from './book-service';
+import { applyModalTheme } from './modal-theme';
+import { GALLERY_COVER_PLACEHOLDER_DATA_URL } from './assets/gallery-cover-placeholder';
 
 // Set once per render by renderLibrarySection so the grid/list/table/kanban
 // renderers can route opens through the note popover and attach hover previews
@@ -310,24 +312,18 @@ function showCalendarPopup(
 
 	const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-library-calendar-popup' });
 
-	const dashboardRoot = anchor.closest('.apex-dashboard-root') as HTMLElement;
-	if (dashboardRoot) {
-		const rs = getComputedStyle(dashboardRoot);
-		const themeVars = ['--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-bg-modal', '--db-border-card',
-			'--db-text', '--db-text-muted', '--db-accent', '--db-radius-md', '--db-radius-sm', '--db-font'];
-		themeVars.forEach(v => {
-			const val = rs.getPropertyValue(v).trim();
-			if (val) popup.style.setProperty(v, val);
-		});
-	}
+	// Mirror the active dashboard's full --db-* token set (theme + light/dark
+	// + user overrides) onto the popup — it lives on <body>, outside the root.
+	applyModalTheme(popup);
 
 	// Opaque surface: the old glass card token let the page bleed through and
-	// made the dates unreadable. Dark themes define a dedicated --db-bg-modal;
-	// every theme's --db-bg is opaque.
+	// made the dates unreadable. Prefer the dedicated modal surfaces (dark
+	// themes define them); fall back to the always-opaque --db-bg and finally
+	// Obsidian's own background — never a hardcoded color.
 	popup.setCssProps({
-		background: 'var(--db-bg-modal, var(--db-bg, #1e1e2e))',
+		background: 'var(--db-bg-modal, var(--db-bg, var(--background-primary)))',
 		color: 'var(--db-text, var(--text-normal))',
-		borderColor: 'var(--db-border-card, rgba(255,255,255,0.1))',
+		borderColor: 'var(--db-border-card, var(--background-modifier-border))',
 	});
 
 	const rect = anchor.getBoundingClientRect();
@@ -616,17 +612,9 @@ export function renderLibrarySection(
 			closePopup();
 			filterPopup = activeDocument.body.createDiv({ cls: 'dashboard-library-filter-popup' });
 
-			// Inherit theme from dashboard
-			const dashboardRoot = filterBtn.closest('.apex-dashboard-root') as HTMLElement;
-			if (dashboardRoot) {
-				const rs = getComputedStyle(dashboardRoot);
-				['--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-border-card',
-					'--db-text', '--db-text-muted', '--db-accent', '--db-radius-md', '--db-radius-sm', '--db-font',
-					'--db-bg-input', '--db-bg-hover', '--db-bg-btn', '--db-text-normal', '--db-border-input'].forEach(v => {
-					const val = rs.getPropertyValue(v).trim();
-					if (val) filterPopup!.style.setProperty(v, val);
-				});
-			}
+			// Mirror the active dashboard's --db-* tokens onto the popup — it
+			// lives on <body>, outside the themed root.
+			applyModalTheme(filterPopup);
 
 			// Position below the filter button
 			const rect = filterBtn.getBoundingClientRect();
@@ -1024,6 +1012,18 @@ interface FileCardRenderOptions {
 	covers: boolean;
 }
 
+/** Turn a cover slot into a themed placeholder: the bundled default image when
+ *  available, otherwise a faint image icon over a soft accent wash. Used when
+ *  a note carries no cover info at all, or when its cover fails to resolve. */
+function renderPlaceholderCover(coverEl: HTMLElement): void {
+	coverEl.addClass('dashboard-library-card-cover--placeholder');
+	if (GALLERY_COVER_PLACEHOLDER_DATA_URL) {
+		coverEl.style.backgroundImage = `url(${GALLERY_COVER_PLACEHOLDER_DATA_URL})`;
+	} else {
+		setIcon(coverEl, 'image');
+	}
+}
+
 function renderFileCards(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig, opts: FileCardRenderOptions): void {
 	// Card size narrows/widens the auto-fill column track (covers follow via
 	// aspect-ratio). 'medium' is the un-suffixed default, so legacy sections
@@ -1051,8 +1051,14 @@ function renderFileCards(container: HTMLElement, results: LibraryFileResult[], a
 				void resolveLibraryCover(cover.value, result.file, app).then(url => {
 					if (!coverEl.isConnected) return;
 					if (url) coverEl.style.backgroundImage = `url(${url})`;
-					else coverEl.remove();
+					// Resolution failed (bad path, offline remote): the note
+					// effectively has no cover — fall through to the placeholder.
+					else renderPlaceholderCover(coverEl);
 				});
+			} else {
+				// No cover info at all: a themed placeholder keeps gallery
+				// cards a uniform height instead of a bare title card.
+				renderPlaceholderCover(card.createDiv({ cls: 'dashboard-library-card-cover' }));
 			}
 		}
 

@@ -51,7 +51,7 @@ export class CountdownSettingsModal extends Modal {
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 
-		// Date row with calendar picker
+		// Date row with calendar picker (time is picked inside the popup too)
 		const dateRow = form.createDiv({ cls: 'dashboard-modal-countdown-row' });
 		dateRow.createEl('label', { text: t('countdown.targetDate'), cls: 'dashboard-modal-countdown-label' });
 
@@ -63,31 +63,6 @@ export class CountdownSettingsModal extends Modal {
 			e.stopPropagation();
 			this.showCalendarPopup(dateTrigger, dateText);
 		});
-
-		// Time row with hour/minute selects
-		const timeRow = form.createDiv({ cls: 'dashboard-modal-countdown-row' });
-		timeRow.createEl('label', { text: t('countdown.targetTime'), cls: 'dashboard-modal-countdown-label' });
-
-		const timeWrap = timeRow.createDiv({ cls: 'dashboard-countdown-time-wrap' });
-
-		const hourSelect = timeWrap.createEl('select', { cls: 'dashboard-countdown-time-select' });
-		for (let h = 0; h < 24; h++) {
-			const opt = hourSelect.createEl('option', { text: String(h).padStart(2, '0'), attr: { value: String(h) } });
-			if (h === this.selectedHour) opt.selected = true;
-		}
-
-		timeWrap.createSpan({ cls: 'dashboard-countdown-time-sep', text: ':' });
-
-		const minuteSelect = timeWrap.createEl('select', { cls: 'dashboard-countdown-time-select' });
-		for (let m = 0; m < 60; m += 5) {
-			const opt = minuteSelect.createEl('option', { text: String(m).padStart(2, '0'), attr: { value: String(m) } });
-			if (m === this.selectedMinute) opt.selected = true;
-		}
-		// Also add exact minute if not a multiple of 5
-		if (this.selectedMinute % 5 !== 0) {
-			const opt = minuteSelect.createEl('option', { text: String(this.selectedMinute).padStart(2, '0'), attr: { value: String(this.selectedMinute) } });
-			opt.selected = true;
-		}
 
 		// Display mode
 		const modeRow = form.createDiv({ cls: 'dashboard-modal-countdown-row' });
@@ -128,10 +103,9 @@ export class CountdownSettingsModal extends Modal {
 			text: t('common.save'),
 		});
 		saveBtn.addEventListener('click', () => {
-			const h = parseInt(hourSelect.value, 10);
-			const m = parseInt(minuteSelect.value, 10);
+			// Time lives on the instance (picked inside the calendar popup).
 			const dateTime = this.selectedDate
-				? `${this.selectedDate}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+				? `${this.selectedDate}T${String(this.selectedHour).padStart(2, '0')}:${String(this.selectedMinute).padStart(2, '0')}`
 				: '';
 			this.onSave({
 				...this.config,
@@ -195,26 +169,41 @@ export class CountdownSettingsModal extends Modal {
 		const viewMonth = { value: selectedMonth };
 		const lang = getLanguage();
 		const dayNames = lang === 'zh' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+		const monthNames = lang === 'zh'
+			? ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+			: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+		// Two-level header: < > navigate months (or years in the year-month
+		// panel); the label button toggles between the day grid and the
+		// year-month panel for fast jumps across years.
 		const calNav = popup.createDiv({ cls: 'dashboard-task-reminder-calendar-nav' });
 		const prevBtn = calNav.createEl('button', { text: '<' });
-		const monthLabel = calNav.createSpan();
+		const monthLabel = calNav.createEl('button', { cls: 'dashboard-countdown-cal-label' });
 		const nextBtn = calNav.createEl('button', { text: '>' });
 
-		const calGrid = popup.createDiv({ cls: 'dashboard-task-reminder-calendar' });
-
+		// The panel swaps between the day grid and the year-month picker;
+		// the time row and action buttons stay put below it.
+		const calBody = popup.createDiv();
+		const timeRow = popup.createDiv({ cls: 'dashboard-countdown-popup-time' });
 		const btnRow = popup.createDiv({ cls: 'dashboard-task-reminder-popup-btns' });
 		btnRow.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.save') });
 		btnRow.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--cancel', text: t('common.cancel') });
 
+		const ymMode = { value: false };
+
 		const renderCalendar = () => {
-			calGrid.empty();
+			calBody.empty();
+			if (ymMode.value) {
+				renderYearMonthPanel();
+				return;
+			}
+			const grid = calBody.createDiv({ cls: 'dashboard-task-reminder-calendar' });
 			const y = viewYear.value;
 			const m = viewMonth.value;
 			monthLabel.setText(`${y}-${String(m + 1).padStart(2, '0')}`);
 
 			for (const d of dayNames) {
-				calGrid.createDiv({ cls: 'dashboard-task-reminder-calendar-header', text: d });
+				grid.createDiv({ cls: 'dashboard-task-reminder-calendar-header', text: d });
 			}
 
 			const firstDay = new Date(y, m, 1).getDay();
@@ -225,14 +214,14 @@ export class CountdownSettingsModal extends Modal {
 
 			for (let i = firstDay - 1; i >= 0; i--) {
 				const d = daysInPrev - i;
-				calGrid.createEl('button', { cls: 'dashboard-task-reminder-calendar-day dashboard-task-reminder-calendar-day--other-month', text: String(d) });
+				grid.createEl('button', { cls: 'dashboard-task-reminder-calendar-day dashboard-task-reminder-calendar-day--other-month', text: String(d) });
 			}
 
 			for (let d = 1; d <= daysInMonth; d++) {
 				const cls = ['dashboard-task-reminder-calendar-day'];
 				if (isCurrentMonth && d === today.getDate()) cls.push('dashboard-task-reminder-calendar-day--today');
 				if (y === selectedYear && m === selectedMonth && d === selectedDay) cls.push('dashboard-task-reminder-calendar-day--selected');
-				const dayBtn = calGrid.createEl('button', { cls: cls.join(' '), text: String(d) });
+				const dayBtn = grid.createEl('button', { cls: cls.join(' '), text: String(d) });
 				dayBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
 					selectedYear = y;
@@ -245,23 +234,80 @@ export class CountdownSettingsModal extends Modal {
 			const totalCells = firstDay + daysInMonth;
 			const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
 			for (let d = 1; d <= remaining; d++) {
-				calGrid.createEl('button', { cls: 'dashboard-task-reminder-calendar-day dashboard-task-reminder-calendar-day--other-month', text: String(d) });
+				grid.createEl('button', { cls: 'dashboard-task-reminder-calendar-day dashboard-task-reminder-calendar-day--other-month', text: String(d) });
 			}
+		};
+
+		/** Year-month picker: the top nav already shows the year and steps by
+		 *  years, so this panel is just the 12 month cells. */
+		const renderYearMonthPanel = () => {
+			const panel = calBody.createDiv({ cls: 'dashboard-countdown-ym-panel' });
+			monthLabel.setText(String(viewYear.value));
+
+			const monthGrid = panel.createDiv({ cls: 'dashboard-countdown-ym-grid' });
+			for (let m = 0; m < 12; m++) {
+				const cls = ['dashboard-countdown-ym-cell'];
+				if (viewYear.value === selectedYear && m === selectedMonth) cls.push('dashboard-task-reminder-calendar-day--selected');
+				const monthBtn = monthGrid.createEl('button', { cls: cls.join(' '), text: monthNames[m] });
+				monthBtn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					viewMonth.value = m;
+					ymMode.value = false;
+					renderCalendar();
+				});
+			}
+		};
+
+		// Header navigation: months in the day grid, years in the year-month
+		// panel; the label button toggles between the two views.
+		const step = (dir: number): void => {
+			if (ymMode.value) {
+				viewYear.value += dir;
+			} else {
+				viewMonth.value += dir;
+				if (viewMonth.value < 0) { viewMonth.value = 11; viewYear.value--; }
+				if (viewMonth.value > 11) { viewMonth.value = 0; viewYear.value++; }
+			}
+			renderCalendar();
 		};
 
 		prevBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			viewMonth.value--;
-			if (viewMonth.value < 0) { viewMonth.value = 11; viewYear.value--; }
-			renderCalendar();
+			step(-1);
 		});
 
 		nextBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			viewMonth.value++;
-			if (viewMonth.value > 11) { viewMonth.value = 0; viewYear.value++; }
+			step(1);
+		});
+
+		monthLabel.addEventListener('click', (e) => {
+			e.stopPropagation();
+			ymMode.value = !ymMode.value;
 			renderCalendar();
 		});
+
+		// Time row: hour and minute pick inside the popup, so one Save commit
+		// carries both the date and the time.
+		timeRow.createSpan({ cls: 'dashboard-countdown-popup-time-label', text: t('countdown.targetTime') });
+		const hourSelect = timeRow.createEl('select', { cls: 'dashboard-countdown-time-select' });
+		for (let h = 0; h < 24; h++) {
+			const opt = hourSelect.createEl('option', { text: String(h).padStart(2, '0'), attr: { value: String(h) } });
+			if (h === this.selectedHour) opt.selected = true;
+		}
+		timeRow.createSpan({ cls: 'dashboard-countdown-time-sep', text: ':' });
+		const minuteSelect = timeRow.createEl('select', { cls: 'dashboard-countdown-time-select' });
+		for (let m = 0; m < 60; m += 5) {
+			const opt = minuteSelect.createEl('option', { text: String(m).padStart(2, '0'), attr: { value: String(m) } });
+			if (m === this.selectedMinute) opt.selected = true;
+		}
+		// Also offer the exact stored minute when it is not a multiple of 5.
+		if (this.selectedMinute % 5 !== 0) {
+			const opt = minuteSelect.createEl('option', { text: String(this.selectedMinute).padStart(2, '0'), attr: { value: String(this.selectedMinute) } });
+			opt.selected = true;
+		}
+		hourSelect.addEventListener('change', () => { this.selectedHour = parseInt(hourSelect.value, 10) || 0; });
+		minuteSelect.addEventListener('change', () => { this.selectedMinute = parseInt(minuteSelect.value, 10) || 0; });
 
 		btnRow.querySelector('.dashboard-modal-btn--confirm')!.addEventListener('click', (e) => {
 			e.stopPropagation();
@@ -278,8 +324,18 @@ export class CountdownSettingsModal extends Modal {
 		renderCalendar();
 		this.calendarPopup = popup;
 
+		// Swallow mousedowns inside the popup so the document-level outside
+		// click handler never sees them — clicking the native time <select>
+		// (whose dropdown lives outside the DOM tree) used to read as an
+		// outside click and close the popup instantly.
+		popup.addEventListener('mousedown', (e) => e.stopPropagation());
+
 		const outsideClick = (ev: MouseEvent) => {
-			if (!popup.contains(ev.target as Node) && !anchor.contains(ev.target as Node)) {
+			const target = ev.target as Element | null;
+			// Native select dropdown layers can report detached or option
+			// targets; never treat them as outside.
+			if (target && typeof target.matches === 'function' && target.matches('select, option')) return;
+			if (!popup.contains(target) && !anchor.contains(target)) {
 				this.closeCalendarPopup();
 				activeDocument.removeEventListener('mousedown', outsideClick);
 			}

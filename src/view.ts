@@ -1,4 +1,4 @@
-import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Platform, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
@@ -347,6 +347,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			!!this.pomodoroService,
 			!!this.readingService,
 			!!this.holidayData && Object.keys(this.holidayData).length > 0,
+			JSON.stringify([data.quickActions, data.quickActionOrder, data.hiddenPresets]),
 		);
 		const preserveWidgets = !!this.sidebarWidgetsEl && this.sidebarWidgetsSig === widgetSig;
 
@@ -408,6 +409,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		// padding + 1/5 of the content width = the center column's left edge).
 		// Rebuilt every render so the active highlight always matches settings.
 		renderWorkspaceSwitcher(bannerEl, this.plugin);
+
+		// Sidebar pin — desktop-only, bottom-left corner of the banner. Moved
+		// here out of the quick-actions header because quick buttons became a
+		// hideable sidebar widget (the pin must survive hiding them).
+		this.renderBannerPinButton(bannerEl);
 
 		if (this.bannerCollapsed && window.innerWidth > 640) {
 			bannerEl.addClass('dashboard-banner--collapsed');
@@ -817,8 +823,6 @@ export class DashboardView extends ItemView implements HoverParent {
 						})();
 					},
 					() => this.openAddActionModal(),
-					undefined,
-					undefined,
 					this.data.quickActionOrder,
 					(order) => { void this.sync.reorderQuickActions(order); },
 					(key) => {
@@ -863,6 +867,53 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		renderSidebarWeekCalendar(scroll);
 
+		// Quick buttons participate in the widget drag/reorder system now; the
+		// renderer adds them to the widget area like any other sidebar widget.
+		const renderQuickActionsWidget = (container: HTMLElement): void => {
+			if (!this.data) return;
+			renderQuickActions(
+				container,
+				this.data.quickActions,
+				(action) => { void this.executeAction(action); },
+				(index) => {
+					void showConfirmDialog(this.app, {
+						title: t('common.confirmDelete'),
+						message: t('common.confirmDeleteMessage'),
+					}).then(confirmed => {
+						if (confirmed) void this.sync.removeQuickAction(index);
+					});
+				},
+				() => this.openAddActionModal(),
+				this.data.quickActionOrder,
+				(order) => { void this.sync.reorderQuickActions(order); },
+				(key) => {
+					void showConfirmDialog(this.app, {
+						title: t('common.confirmDelete'),
+						message: t('common.confirmDeleteMessage'),
+					}).then(confirmed => {
+						if (confirmed) void this.sync.removeQuickActionByKey(key);
+					});
+				},
+				this.data.hiddenPresets,
+				(action) => this.openEditActionModal(action),
+				{
+					bg: this.plugin.settings.quickButtonsBgColor,
+					btn: this.plugin.settings.quickButtonsBtnColor,
+					onChange: (kind, color) => {
+						void (async () => {
+							this.plugin.settings = {
+								...this.plugin.settings,
+								...(kind === 'bg'
+									? { quickButtonsBgColor: color ?? undefined }
+									: { quickButtonsBtnColor: color ?? undefined }),
+							};
+							await this.plugin.saveSettings();
+						})();
+					},
+				},
+			);
+		};
+
 		// Preserve: reuse the detached widgets DOM when the signature matched.
 		// Either way, track the live element for the next render's detach step.
 		this.sidebarWidgetsEl = renderSidebarWidgets(
@@ -884,25 +935,37 @@ export class DashboardView extends ItemView implements HoverParent {
 			},
 			reuseWidgets,
 			(file, line) => this.openNote(file, undefined, line),
+			renderQuickActionsWidget,
 		);
 
-		renderQuickActions(
+		const docs = getRecentDocs(this.app, this.plugin.settings.recentDocCount);
+		renderRecentDocs(
 			scroll,
-			this.data.quickActions,
-			(action) => { void this.executeAction(action); },
-			(index) => {
-				void showConfirmDialog(this.app, {
-					title: t('common.confirmDelete'),
-					message: t('common.confirmDeleteMessage'),
-				}).then(confirmed => {
-					if (confirmed) void this.sync.removeQuickAction(index);
-				});
-			},
-			() => this.openAddActionModal(),
-			this.sidebarPinned,
-			() => {
-				this.sidebarPinned = !this.sidebarPinned;
-				this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', String(this.sidebarPinned));
+			docs,
+			(path) => { void this.navigateToPath(path); },
+		);
+	}
+
+	/** Desktop-only sidebar pin, anchored at the banner's bottom-left corner.
+	 *  Distinct from the banner-collapse bookmark button (top-right,
+	 *  .dashboard-banner-pin-btn): this one pins/unpins the sidebar. */
+	private renderBannerPinButton(bannerEl: HTMLElement): void {
+		if (Platform.isMobile) return;
+		const pinBtn = bannerEl.createEl('button', {
+			cls: 'dashboard-sidebar-pin-btn',
+			attr: { 'aria-label': 'Toggle sidebar pin' },
+		});
+		const update = () => {
+			setIcon(pinBtn, this.sidebarPinned ? 'pin' : 'pin-off');
+			pinBtn.toggleClass('dashboard-sidebar-pin-btn--active', this.sidebarPinned);
+		};
+		update();
+		pinBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.sidebarPinned = !this.sidebarPinned;
+			this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', String(this.sidebarPinned));
+			const sidebar = this.containerEl.querySelector('.dashboard-sidebar');
+			if (sidebar) {
 				if (this.sidebarPinned) {
 					sidebar.addClass('dashboard-sidebar--pinned');
 					sidebar.removeClass('dashboard-sidebar--expanded');
@@ -913,27 +976,9 @@ export class DashboardView extends ItemView implements HoverParent {
 					sidebar.addClass('dashboard-sidebar--collapsed');
 					this.sidebarExpanded = false;
 				}
-			},
-			this.data.quickActionOrder,
-			(order) => { void this.sync.reorderQuickActions(order); },
-			(key) => {
-				void showConfirmDialog(this.app, {
-					title: t('common.confirmDelete'),
-					message: t('common.confirmDeleteMessage'),
-				}).then(confirmed => {
-					if (confirmed) void this.sync.removeQuickActionByKey(key);
-				});
-			},
-			this.data.hiddenPresets,
-			(action) => this.openEditActionModal(action),
-		);
-
-		const docs = getRecentDocs(this.app, this.plugin.settings.recentDocCount);
-		renderRecentDocs(
-			scroll,
-			docs,
-			(path) => { void this.navigateToPath(path); },
-		);
+			}
+			update();
+		});
 	}
 
 	private setupSidebarBehavior(sidebar: HTMLElement, root: HTMLElement): void {

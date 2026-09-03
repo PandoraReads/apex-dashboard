@@ -13,8 +13,13 @@ import { showPromptDialog } from './prompt-dialog';
 import { normalizeWorkspacePath } from './workspace-registry';
 import { DEFAULT_TICKTICK_TZ, isValidTz } from './ticktick-tz';
 import { PathPickerModal } from './path-picker-modal';
+import { SUPPORT_IMAGE_DATA_URL } from './assets/support-image';
 
 export type { DashboardSettings };
+
+/** The three settings pages, shared by the declarative (1.13+) navigable
+ *  definitions and the pre-1.13 fallback tab bar. */
+type SettingsPage = 'general' | 'widgets' | 'coffee';
 
 export class DashboardSettingTab extends PluginSettingTab {
 	plugin: DashboardPlugin;
@@ -25,13 +30,14 @@ export class DashboardSettingTab extends PluginSettingTab {
 	}
 
 	/**
-	 * Declarative settings bridge (Obsidian 1.13+): the tab is exposed as one
-	 * inline group of section renderers — a single vertical page, no
-	 * navigable sub-pages — so each section becomes individually searchable
-	 * in Obsidian's unified settings search. The definitions re-render the
-	 * exact same imperative sections display() draws — same functions, one
-	 * source — so pre-1.13 builds (which never call this) and new builds
-	 * cannot drift.
+	 * Declarative settings bridge (Obsidian 1.13+): one inline group whose
+	 * first row is a horizontal tab bar (常规 / 小组件 / Buy Me a Coffee,
+	 * defaulting to 常规). Every section stays a real definition row — tagged
+	 * with its page and hidden via CSS while another tab is active — so
+	 * Obsidian's unified settings search keeps indexing them all. Tab clicks
+	 * only toggle row visibility in place; `update()` re-renders through the
+	 * same callbacks and re-applies `activePage`, so no drift between the
+	 * declarative path and the pre-1.13 fallback.
 	 */
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		// Each section renders inside one definition row. Obsidian styles rows
@@ -44,51 +50,42 @@ export class DashboardSettingTab extends PluginSettingTab {
 			setting.settingEl.addClass('dashboard-settings-section');
 			setting.settingEl.empty();
 		};
+		// Tag a section row with its page and hide it when another tab is
+		// active (re-evaluated on every update() re-render).
+		const onPage = (page: SettingsPage) => (setting: Setting) => {
+			setting.settingEl.dataset.settingsPage = page;
+			setting.settingEl.toggleClass('dashboard-settings-page-hidden', this.activePage !== page);
+		};
 		return [
 			{
 				type: 'group',
 				items: [
 					{
 						name: t('settings.general'),
+						searchable: false, // the tab bar, not a setting
+						render: (setting) => {
+							asBlock(setting);
+							this.renderTabBar(setting.settingEl);
+						},
+					},
+					{
+						name: t('settings.general'),
 						desc: t('settings.languageDesc'),
 						aliases: [t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.workspaceList')],
 						render: (setting) => {
 							asBlock(setting);
+							onPage('general')(setting);
 							this.renderGeneralSettings(setting.settingEl);
 						},
 					},
 					{
-						name: t('settings.widgetTheme'),
-						desc: t('settings.widgetWeatherEnabledDesc'),
-						aliases: [t('settings.widgetWeatherEnabled'), t('settings.countdownEnabled'), t('settings.wereadApiKey'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.ticktickRegion'), t('settings.widgetHabitEnabled'), t('settings.widgetExpenseEnabled')],
+						name: t('settings.dataServices'),
+						desc: t('settings.wereadApiKeyDesc'),
+						aliases: [t('settings.wereadApiKey'), t('settings.ticktickRegion'), t('settings.ticktickCookie')],
 						render: (setting) => {
 							asBlock(setting);
-							this.renderWidgetSettings(setting.settingEl);
-						},
-					},
-					{
-						name: t('settings.widgetLunar'),
-						desc: t('settings.widgetLunarEnabledDesc'),
-						render: (setting) => {
-							asBlock(setting);
-							this.renderLunarSettings(setting.settingEl);
-						},
-					},
-					{
-						name: t('settings.widgetYearProgress'),
-						desc: t('settings.widgetYearProgressEnabledDesc'),
-						render: (setting) => {
-							asBlock(setting);
-							this.renderYearProgressSettings(setting.settingEl);
-						},
-					},
-					{
-						name: t('settings.widgetCalendar'),
-						desc: t('settings.widgetCalendarEnabledDesc'),
-						aliases: [t('settings.widgetCalendarExclude')],
-						render: (setting) => {
-							asBlock(setting);
-							this.renderCalendarSettings(setting.settingEl);
+							onPage('general')(setting);
+							this.renderServiceSettings(setting.settingEl);
 						},
 					},
 					{
@@ -97,6 +94,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 						aliases: [t('settings.backupPeriod'), t('settings.restoreLatest')],
 						render: (setting) => {
 							asBlock(setting);
+							onPage('general')(setting);
 							this.renderBackupSettings(setting.settingEl);
 						},
 					},
@@ -105,7 +103,69 @@ export class DashboardSettingTab extends PluginSettingTab {
 						searchable: false, // a footer, not a setting
 						render: (setting) => {
 							asBlock(setting);
+							onPage('general')(setting);
 							setting.settingEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
+						},
+					},
+					{
+						name: t('settings.widgetTheme'),
+						desc: t('settings.widgetWeatherEnabledDesc'),
+						aliases: [t('settings.widgetWeatherEnabled'), t('settings.widgetQuickActionsEnabled'), t('settings.countdownEnabled'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.widgetHabitEnabled'), t('settings.widgetExpenseEnabled')],
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderWeatherSettings(setting.settingEl);
+						},
+					},
+					{
+						name: t('settings.widgetCalendar'),
+						desc: t('settings.widgetCalendarEnabledDesc'),
+						aliases: [t('settings.widgetCalendarExclude')],
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderCalendarSettings(setting.settingEl);
+						},
+					},
+					{
+						// Continuation of the widgetTheme block (pomodoro,
+						// reading, habit, expense, countdown) — rendered between
+						// the calendar section above and the lunar/year sections
+						// below. The cards stay searchable through the
+						// widgetTheme entry's aliases.
+						name: t('settings.widgetTheme'),
+						searchable: false,
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderWidgetSettings(setting.settingEl);
+						},
+					},
+					{
+						name: t('settings.widgetLunar'),
+						desc: t('settings.widgetLunarEnabledDesc'),
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderLunarSettings(setting.settingEl);
+						},
+					},
+					{
+						name: t('settings.widgetYearProgress'),
+						desc: t('settings.widgetYearProgressEnabledDesc'),
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderYearProgressSettings(setting.settingEl);
+						},
+					},
+					{
+						name: t('settings.tabAbout'),
+						searchable: false, // pure content, not a setting
+						render: (setting) => {
+							asBlock(setting);
+							onPage('coffee')(setting);
+							this.renderCoffeeSettings(setting.settingEl);
 						},
 					},
 				],
@@ -113,7 +173,47 @@ export class DashboardSettingTab extends PluginSettingTab {
 		];
 	}
 
-	/** Fallback renderer for Obsidian < 1.13 (declarative API absent). */
+	/** The three pages, shared by the declarative tab bar and the pre-1.13
+	 *  fallback (and remembered across update() re-renders). */
+	private activePage: SettingsPage = 'general';
+
+	private settingsTabs(): Array<{ key: SettingsPage; label: string; icon: string }> {
+		return [
+			{ key: 'general', label: t('settings.tabGeneral'), icon: 'settings' },
+			{ key: 'widgets', label: t('settings.tabWidgets'), icon: 'layout-grid' },
+			{ key: 'coffee', label: t('settings.tabAbout'), icon: 'user-round' },
+		];
+	}
+
+	/** Horizontal tab bar. In the declarative path a click flips row
+	 *  visibility in place (no re-render, scroll kept); the fallback passes
+	 *  onSwitch to redraw the active page. */
+	private renderTabBar(host: HTMLElement, onSwitch?: () => void): void {
+		const bar = host.createDiv({ cls: 'dashboard-settings-tabs' });
+		for (const tab of this.settingsTabs()) {
+			const btn = bar.createDiv({
+				cls: 'dashboard-settings-tab' + (tab.key === this.activePage ? ' active' : ''),
+			});
+			setIcon(btn.createSpan({ cls: 'dashboard-settings-tab-icon' }), tab.icon);
+			btn.createSpan({ text: tab.label });
+			btn.addEventListener('click', () => {
+				this.activePage = tab.key;
+				if (onSwitch) {
+					onSwitch();
+					return;
+				}
+				// Declarative path: toggle the tagged section rows in place.
+				this.containerEl.querySelectorAll<HTMLElement>('[data-settings-page]').forEach((row) => {
+					row.toggleClass('dashboard-settings-page-hidden', row.dataset.settingsPage !== this.activePage);
+				});
+				bar.querySelectorAll('.dashboard-settings-tab').forEach(b => b.removeClass('active'));
+				btn.addClass('active');
+			});
+		}
+	}
+
+	/** Fallback renderer for Obsidian < 1.13 (declarative API absent): the
+	 *  same horizontal tab bar, switching by redrawing the active page. */
 	display(): void {
 		this.renderFallback();
 	}
@@ -121,19 +221,25 @@ export class DashboardSettingTab extends PluginSettingTab {
 	private renderFallback(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		this.renderGeneralSettings(containerEl);
 
-		this.renderWidgetSettings(containerEl);
+		const barHost = containerEl.createDiv();
+		this.renderTabBar(barHost, () => this.renderFallback());
 
-		this.renderLunarSettings(containerEl);
-
-		this.renderYearProgressSettings(containerEl);
-
-		this.renderCalendarSettings(containerEl);
-
-		this.renderBackupSettings(containerEl);
-
-		containerEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
+		const host = containerEl.createDiv({ cls: 'dashboard-settings-tab-body' });
+		if (this.activePage === 'general') {
+			this.renderGeneralSettings(host);
+			this.renderServiceSettings(host);
+			this.renderBackupSettings(host);
+			containerEl.createDiv({ cls: 'dashboard-settings-footer', text: "crafted by Pandora's Digital Garden" });
+		} else if (this.activePage === 'widgets') {
+			this.renderWeatherSettings(host);
+			this.renderCalendarSettings(host);
+			this.renderWidgetSettings(host);
+			this.renderLunarSettings(host);
+			this.renderYearProgressSettings(host);
+		} else {
+			this.renderCoffeeSettings(host);
+		}
 	}
 
 	/** Redraw when the sections themselves change (a widget toggled on/off,
@@ -464,8 +570,27 @@ export class DashboardSettingTab extends PluginSettingTab {
 				}));
 	}
 
-	private renderWidgetSettings(containerEl: HTMLElement): void {
+	/** Widgets tab, part 1: the section heading + weather card. Kept separate
+	 *  from {@link renderWidgetSettings} so the calendar section can sit
+	 *  directly beneath the weather card in the tab's card order. */
+	private renderWeatherSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName(t('settings.widgetTheme')).setHeading();
+
+		// --- Quick buttons card ---
+		const quickActionsCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(quickActionsCard)
+			.setName(t('settings.widgetQuickActionsEnabled'))
+			.setDesc(t('settings.widgetQuickActionsEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetQuickActionsEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetQuickActionsEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+				}));
 
 		// --- Weather card ---
 		const weatherCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
@@ -506,7 +631,12 @@ export class DashboardSettingTab extends PluginSettingTab {
 					this.attachCitySuggest(text.inputEl);
 				});
 		}
+	}
 
+	/** Widgets tab, part 2: pomodoro, reading, habit, expense, countdown.
+	 *  Countdown renders after the expense card (the tab order is weather →
+	 *  calendar → these five, with countdown last). */
+	private renderWidgetSettings(containerEl: HTMLElement): void {
 		// --- Pomodoro card ---
 		const pomodoroCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(pomodoroCard)
@@ -634,27 +764,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 					}));
 		}
 
-		// --- Countdown card ---
-		const countdownCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
-		new Setting(countdownCard)
-			.setName(t('settings.countdownEnabled'))
-			.setDesc(t('settings.countdownEnabledDesc'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.countdownEnabled)
-				.onChange(async (value) => {
-					this.plugin.settings = {
-						...this.plugin.settings,
-						countdownEnabled: value,
-					};
-					await this.plugin.saveSettings();
-					this.plugin.refreshAllDashboards();
-					this.refresh();
-				}));
-
-		if (this.plugin.settings.countdownEnabled) {
-			this.renderCountdownList(countdownCard);
-		}
-
 		// --- Reading card ---
 		const readingCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(readingCard)
@@ -732,6 +841,106 @@ export class DashboardSettingTab extends PluginSettingTab {
 					this.plugin.refreshAllDashboards();
 				}));
 
+		// --- Countdown card ---
+		const countdownCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(countdownCard)
+			.setName(t('settings.countdownEnabled'))
+			.setDesc(t('settings.countdownEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.countdownEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						countdownEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
+
+		if (this.plugin.settings.countdownEnabled) {
+			this.renderCountdownList(countdownCard);
+		}
+	}
+
+	/** About Author page (the former Buy Me a Coffee): centered bio, projects,
+	 *  social links, contact, and the bundled support image. Layout follows
+	 *  COFFEE_PAGE_DRAFT.md as edited by the author; the support image is
+	 *  base64-bundled (src/assets/support-image.ts) so it renders offline. */
+	private renderCoffeeSettings(containerEl: HTMLElement): void {
+		const wrap = containerEl.createDiv({ cls: 'dashboard-about' });
+
+		wrap.createDiv({ cls: 'dashboard-about-intro-line1', text: t('about.intro1') });
+		wrap.createDiv({ cls: 'dashboard-about-intro-line', text: t('about.intro2') });
+		wrap.createDiv({ cls: 'dashboard-about-intro-line', text: t('about.intro3') });
+
+		wrap.createDiv({ cls: 'dashboard-about-divider' });
+
+		const projects: Array<[string, string]> = [
+			['Apex Dashboard', t('about.projApexDesc')],
+			['Language Made Easy', t('about.projLmeDesc')],
+			['HiLighter', t('about.projHiLighterDesc')],
+		];
+		this.renderAboutSection(wrap, t('about.building'), section => {
+			for (const [name, desc] of projects) {
+				const row = section.createDiv({ cls: 'dashboard-about-project' });
+				row.createSpan({ cls: 'dashboard-about-project-name', text: name });
+				row.createSpan({ cls: 'dashboard-about-project-sep', text: '｜' });
+				row.createSpan({ cls: 'dashboard-about-project-desc', text: desc });
+			}
+		});
+
+		this.renderAboutSection(wrap, t('about.follow'), section => {
+			section.createDiv({ cls: 'dashboard-about-follow-name', text: t('about.followName') });
+			section.createDiv({ cls: 'dashboard-about-follow-platforms', text: t('about.followPlatforms') });
+		});
+
+		this.renderAboutSection(wrap, t('about.contact'), section => {
+			const wechatRow = section.createDiv({ cls: 'dashboard-about-contact-row' });
+			wechatRow.createSpan({ cls: 'dashboard-about-contact-label', text: `${t('about.wechat')}：` });
+			const wechatCode = wechatRow.createSpan({ cls: 'dashboard-about-code', text: 'PandoraReads' });
+			// Tap to copy — the handle is also the community-group contact.
+			wechatCode.addEventListener('click', () => {
+				void navigator.clipboard?.writeText('PandoraReads');
+				new Notice(t('about.copied'));
+			});
+			const ghRow = section.createDiv({ cls: 'dashboard-about-contact-row' });
+			ghRow.createSpan({ cls: 'dashboard-about-contact-label', text: 'GitHub：' });
+			ghRow.createEl('a', {
+				cls: 'dashboard-about-link',
+				text: t('about.githubUser'),
+				attr: { href: 'https://github.com/PandoraReads' },
+			});
+			const mailRow = section.createDiv({ cls: 'dashboard-about-contact-row' });
+			mailRow.createSpan({ cls: 'dashboard-about-contact-label', text: `${t('about.email')}：` });
+			mailRow.createEl('a', {
+				cls: 'dashboard-about-link',
+				text: 'pandorabooks2020@gmail.com',
+				attr: { href: 'mailto:pandorabooks2020@gmail.com' },
+			});
+		});
+
+		this.renderAboutSection(wrap, t('about.support'), section => {
+			section.createDiv({ cls: 'dashboard-about-support-thanks', text: t('about.supportThanks') });
+			const img = section.createEl('img', {
+				cls: 'dashboard-about-support-img',
+				attr: { src: SUPPORT_IMAGE_DATA_URL, alt: t('about.support') },
+			});
+			// Open full-size in a new window so the codes stay scannable.
+			img.addEventListener('click', () => window.open(SUPPORT_IMAGE_DATA_URL, '_blank'));
+		});
+	}
+
+	private renderAboutSection(wrap: HTMLElement, heading: string, fill: (section: HTMLElement) => void): void {
+		const section = wrap.createDiv({ cls: 'dashboard-about-section' });
+		section.createDiv({ cls: 'dashboard-about-section-title', text: heading });
+		fill(section);
+	}
+
+	/** Data-service sections (Weread / TickTick): content sources rendered as
+	 *  their own dashboard sections, NOT sidebar widgets — they live on the
+	 *  General settings page, not the Widgets page. */
+	private renderServiceSettings(containerEl: HTMLElement): void {
 		// --- Weread (WeChat Read) card ---
 		const wereadCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(wereadCard)

@@ -47,6 +47,14 @@ export interface DashboardSettings {
 	widgetExpenseEnabled: boolean;
 	/** Currency symbol shown before amounts in the expense widget/stats (e.g. ¥, $). */
 	expenseCurrency: string;
+	/** Quick-buttons ("快捷按钮") rendered as a draggable sidebar widget. */
+	widgetQuickActionsEnabled: boolean;
+	/** Optional custom background color for the quick-buttons widget (user
+	 *  picked via the palette button; undefined = theme default). */
+	quickButtonsBgColor?: string;
+	/** Optional custom button color for the quick-buttons widget (palette
+	 *  picker; undefined = theme default). */
+	quickButtonsBtnColor?: string;
 	widgetOrder: string[];
 	/** Weread (WeChat Read) official API key (wrk-...), shared account-wide. */
 	wereadApiKey: string;
@@ -225,7 +233,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	expenseCurrency: '¥',
-	widgetOrder: ['weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense'],
+	widgetQuickActionsEnabled: true,
+	widgetOrder: ['quickActions', 'weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense'],
 	wereadApiKey: '',
 	wereadImportPath: 'Weread/划线',
 	ticktickRegion: 'dida365',

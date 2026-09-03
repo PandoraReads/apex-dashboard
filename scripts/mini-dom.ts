@@ -21,7 +21,14 @@ export class El {
 	checked = false;
 	disabled = false;
 	selected = false;
+	/** Inline style bag for positioning code (no layout engine behind it). */
+	style: Record<string, string> = {};
 	parent: El | null = null;
+
+	/** Zero-geometry stand-in for popup positioning code. */
+	getBoundingClientRect(): { top: number; right: number; bottom: number; left: number; width: number; height: number } {
+		return { top: 0, right: 0, bottom: 0, left: 0, width: 0, height: 0 };
+	}
 
 	/** No-op: no real focus in the stand-in. */
 	focus(): void {}
@@ -32,6 +39,13 @@ export class El {
 
 	get parentElement(): El | null {
 		return this.parent;
+	}
+
+	/** True when the node's root is the stubbed <body> (see withBody). */
+	get isConnected(): boolean {
+		let cur: El | null = this;
+		while (cur.parent) cur = cur.parent;
+		return cur.tagName === 'BODY';
 	}
 
 	get firstChild(): El | null {
@@ -72,6 +86,12 @@ export class El {
 	set textContent(v: string) {
 		this.text = v;
 		this.children = [];
+	}
+
+	/** Obsidian helper; same as assigning textContent. */
+	setText(v: string): El {
+		this.textContent = v;
+		return this;
 	}
 
 	appendChild(child: El): El {
@@ -186,6 +206,11 @@ export class El {
 	empty(): El {
 		this.children = [];
 		this.text = '';
+		return this;
+	}
+
+	remove(): El {
+		if (this.parent) this.parent.removeChild(this);
 		return this;
 	}
 }

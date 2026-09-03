@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "2.2.0",
+	"version": "2.2.1",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -17,6 +17,8 @@
 		"test:library-cover": "esbuild scripts/verify-library-cover.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-cover.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-cover.cjs",
 		"test:library-card-size": "esbuild scripts/verify-library-card-size.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-card-size.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-card-size.cjs",
 		"test:media-thumb-size": "esbuild scripts/verify-media-thumb-size.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-media-thumb-size.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-media-thumb-size.cjs",
+		"test:countdown-picker": "esbuild scripts/verify-countdown-picker.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-countdown-picker.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-countdown-picker.cjs",
+		"test:gallery-placeholder": "esbuild scripts/verify-gallery-placeholder.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-gallery-placeholder.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-gallery-placeholder.cjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},

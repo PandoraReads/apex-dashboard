@@ -5,6 +5,14 @@ import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
 import { DataviewGuideModal } from './dataview-guide-modal';
+
+/** Version of the CURRENT announcement content (DataviewGuideModal). The
+ *  announcement pops only when the user's stored version differs from this —
+ *  bump it together with the modal's text when a new announcement ships.
+ *  Patch releases that keep the old content stay silent. Current content
+ *  shipped with 2.2.0. */
+const ANNOUNCE_VERSION = '2.2.0';
+
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
 import { HabitService, registerHabitService } from './habit-service';
@@ -190,11 +198,11 @@ export default class DashboardPlugin extends Plugin {
 
 	/**
 	 * Announcement for the Dataview section + community group. Shown once per
-	 * plugin version on startup (after layout ready) — i.e. on install/update
-	 * of the plugin, not on every Obsidian launch.
+	 * ANNOUNCEMENT content version on startup (after layout ready) — i.e. only
+	 * when the announcement text actually changed, not on every plugin update.
 	 */
 	private maybeShowDataviewGuide(): void {
-		if (this.settings.dataviewGuideShownVersion === this.manifest.version) {
+		if (this.settings.dataviewGuideShownVersion === ANNOUNCE_VERSION) {
 			return;
 		}
 		this.app.workspace.onLayoutReady(() => {
@@ -202,9 +210,9 @@ export default class DashboardPlugin extends Plugin {
 		});
 	}
 
-	/** Record the current version as having shown the dataview announcement. */
+	/** Record the current announcement content as seen. */
 	private async markDataviewGuideSeen(): Promise<void> {
-		this.settings = { ...this.settings, dataviewGuideShownVersion: this.manifest.version };
+		this.settings = { ...this.settings, dataviewGuideShownVersion: ANNOUNCE_VERSION };
 		await this.saveSettings();
 	}
 

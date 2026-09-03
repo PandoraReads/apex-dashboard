@@ -258,6 +258,7 @@ export function sidebarWidgetSignature(
 	hasPomodoro: boolean,
 	hasReading: boolean,
 	hasHolidayData: boolean,
+	quickActionsSig: string,
 ): string {
 	return JSON.stringify({
 		weatherEnabled: settings.widgetWeatherEnabled,
@@ -276,6 +277,11 @@ export function sidebarWidgetSignature(
 		countdownEnabled: settings.countdownEnabled,
 		countdowns: settings.countdowns,
 		readingEnabled: settings.readingEnabled,
+		quickActionsEnabled: settings.widgetQuickActionsEnabled,
+		// Quick buttons live inside the widget area now; their content (actions,
+		// order, hidden presets) must break the reuse signature so add/remove/edit
+		// rebuilds the area instead of re-attaching a stale quick-actions DOM.
+		quickActionsSig,
 		widgetOrder: settings.widgetOrder,
 		hasPomodoro,
 		hasReading,
@@ -301,8 +307,9 @@ export function renderSidebarWidgets(
 	onWidgetReorder?: (order: string[]) => void,
 	reuse?: HTMLElement | null,
 	onOpenNote?: (file: TFile, line?: number) => void,
+	renderQuickActions?: (container: HTMLElement) => void,
 ): HTMLElement | null {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled;
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions);
 	if (!anyEnabled) return null;
 
 	// Unchanged inputs: keep the previous DOM (and its live timers/listeners).
@@ -313,11 +320,18 @@ export function renderSidebarWidgets(
 
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
 
-	const DEFAULT_ORDER = ['lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense'];
+	const DEFAULT_ORDER = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense'];
+	// Legacy: an order saved before quick buttons were a widget lacks the
+	// 'quickActions' key. Render it first there (its historical spot, above the
+	// other widgets) until the user drags it elsewhere.
 	const order = settings.widgetOrder?.length ? settings.widgetOrder : DEFAULT_ORDER;
 
 	type WidgetEntry = { key: string; render: () => void };
 	const enabled: WidgetEntry[] = [];
+	if (settings.widgetQuickActionsEnabled && renderQuickActions) {
+		const renderQuick = renderQuickActions;
+		enabled.push({ key: 'quickActions', render: () => { renderQuick(widgetArea); } });
+	}
 	if (settings.widgetLunarEnabled) {
 		enabled.push({ key: 'lunar', render: () => renderSidebarLunarWidget(widgetArea, holidayData ?? {}, app) });
 	}
@@ -355,7 +369,12 @@ export function renderSidebarWidgets(
 		const childCount = widgetArea.children.length;
 		render();
 		const el = widgetArea.children[childCount] as HTMLElement | undefined;
-		if (el) el.dataset.widgetKey = key;
+		if (el) {
+			el.dataset.widgetKey = key;
+			// The quick-actions section carries its own section classes; give it
+			// the widget class too so it joins the drag-to-reorder system.
+			if (key === 'quickActions') el.addClass('dashboard-sidebar-widget');
+		}
 	}
 
 	if (onWidgetReorder) {
@@ -369,8 +388,10 @@ type WidgetEntry = { key: string; render: () => void };
 function sortByOrder(items: WidgetEntry[], order: string[]): WidgetEntry[] {
 	const orderMap = new Map(order.map((k, i) => [k, i]));
 	const sorted = [...items].sort((a, b) => {
-		const ai = orderMap.get(a.key) ?? order.length;
-		const bi = orderMap.get(b.key) ?? order.length;
+		// quickActions predates the widget system; a saved order without it
+		// keeps it first (its historical spot above the widgets).
+		const ai = orderMap.get(a.key) ?? (a.key === 'quickActions' ? -1 : order.length);
+		const bi = orderMap.get(b.key) ?? (b.key === 'quickActions' ? -1 : order.length);
 		return ai - bi;
 	});
 	return sorted;

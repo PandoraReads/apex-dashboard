@@ -990,7 +990,7 @@
 		--db-text: #FAFAFA;
 		--db-text-muted: #A8A8A8;
 		--db-text-faint: #5C5C5C;
-		--db-text-inverse: rgba(255, 255, 255, 0.96);
+		--db-text-inverse: rgba(0, 0, 0, 0.85);
 		--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
 
 		--db-accent: #00c2ff;
@@ -1112,7 +1112,7 @@
 		--db-text: #FAFAFA;
 		--db-text-muted: #A8A8A8;
 		--db-text-faint: #5C5C5C;
-		--db-text-inverse: rgba(255, 255, 255, 0.96);
+		--db-text-inverse: rgba(0, 0, 0, 0.85);
 		--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
 
 		--db-accent: #e9ff40;
@@ -1338,6 +1338,22 @@
 	border: none;
 }
 
+/* Obsidian's app.css gives every .setting-item's first child a 16px
+ * inline-end margin (spacing for the standard info|control row). Our section
+ * rows start with full-width blocks — the first card / first setting row —
+ * which that margin shrinks by 16px and pushes 16px off the right edge.
+ * Neutralize it so the first card (微信读书 / 番茄钟) and the first setting
+ * (language dropdown) line up with everything below. */
+.setting-item.dashboard-settings-section > *:first-child {
+	margin-inline-end: 0;
+}
+
+/* Sections on an inactive tab. !important: themes restyle .setting-item with
+ * their own display rules, which would resurrect hidden rows. */
+.setting-item.dashboard-settings-section.dashboard-settings-page-hidden {
+	display: none !important;
+}
+
 .dashboard-settings-footer {
 	text-align: center;
 	padding: 30px 0 10px;
@@ -1348,6 +1364,175 @@
 	letter-spacing: 0.03em;
 	user-select: none;
 	pointer-events: none;
+}
+
+/* ===== Settings fallback tab bar (pre-1.13 builds) =====
+ * 1.13+ renders the three pages via Obsidian's native navigable definitions;
+ * this bar only exists in the display() fallback. */
+.dashboard-settings-tabs {
+	display: inline-flex;
+	gap: 2px;
+	padding: 3px;
+	border-radius: var(--db-radius-md, 8px);
+	background: var(--background-modifier-hover);
+	border: 1px solid var(--background-modifier-border);
+	margin-bottom: 16px;
+}
+
+.dashboard-settings-tab {
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 14px;
+	border-radius: var(--db-radius-sm, 6px);
+	font-size: 0.85em;
+	font-weight: 500;
+	color: var(--text-muted);
+	transition: color 0.15s ease, background 0.15s ease;
+}
+
+/* Icon sized to the tab's text so it never dwarfs the label, and vertically
+   centered by the flex row above. */
+.dashboard-settings-tab-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+.dashboard-settings-tab-icon svg {
+	width: 1em;
+	height: 1em;
+}
+
+.dashboard-settings-tab:hover {
+	color: var(--text-normal);
+}
+
+.dashboard-settings-tab.active {
+	background: var(--db-accent, var(--interactive-accent));
+	color: var(--db-text-inverse, var(--text-on-accent, #fff));
+	font-weight: 600;
+}
+
+/* ===== About Author page ===== */
+.dashboard-about {
+	max-width: 520px;
+	margin: 0 auto;
+	text-align: center;
+	padding: 10px 0 24px;
+}
+
+.dashboard-about-intro-line1 {
+	font-size: 0.95em;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin-bottom: 4px;
+}
+
+.dashboard-about-intro-line {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	line-height: 1.6;
+}
+
+.dashboard-about-divider {
+	height: 1px;
+	background: var(--background-modifier-border);
+	margin: 20px auto 6px;
+	max-width: 320px;
+}
+
+.dashboard-about-section {
+	margin-top: 18px;
+}
+
+/* Section headings render as accent-tinted pills — a colored frame that sets
+   them apart from the body text below (theme accent, light/dark adaptive). */
+.dashboard-about-section-title {
+	display: inline-block;
+	font-size: 0.75em;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	padding: 3px 16px;
+	margin-bottom: 12px;
+	border-radius: 999px;
+	color: var(--db-accent, var(--text-accent));
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 12%, transparent);
+	border: 1px solid color-mix(in srgb, var(--db-accent, #8b5cf6) 28%, transparent);
+}
+
+.dashboard-about-project {
+	line-height: 1.9;
+	font-size: 0.85em;
+}
+
+.dashboard-about-project-name {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.dashboard-about-project-sep {
+	color: var(--text-faint);
+	margin: 0 6px;
+}
+
+.dashboard-about-project-desc {
+	color: var(--text-muted);
+}
+
+.dashboard-about-follow-name {
+	font-size: 0.95em;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin-bottom: 4px;
+}
+
+.dashboard-about-follow-platforms {
+	font-size: 0.8em;
+	color: var(--text-muted);
+}
+
+.dashboard-about-contact-row {
+	line-height: 2;
+	font-size: 0.85em;
+}
+
+.dashboard-about-contact-label {
+	color: var(--text-muted);
+}
+
+.dashboard-about-code {
+	font-family: var(--font-monospace);
+	background: var(--background-modifier-hover);
+	border-radius: 4px;
+	padding: 1px 6px;
+	cursor: pointer;
+}
+
+.dashboard-about-code:hover {
+	background: var(--background-modifier-active-hover);
+}
+
+.dashboard-about-link {
+	color: var(--db-accent, var(--text-accent));
+	text-decoration: none;
+}
+
+.dashboard-about-link:hover {
+	text-decoration: underline;
+}
+
+.dashboard-about-support-thanks {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-bottom: 12px;
+}
+
+.dashboard-about-support-img {
+	max-width: 100%;
+	border-radius: var(--db-radius-md, 10px);
+	cursor: zoom-in;
+	border: 1px solid var(--background-modifier-border);
 }
 
 /* ===== Workspace settings (registry rows) ===== */
@@ -1650,7 +1835,7 @@
 		background-color: transparent !important;
 	}
 
-	.dashboard-banner--collapsed > *:not(.dashboard-banner-pin-btn):not(.dashboard-workspace-switcher) {
+	.dashboard-banner--collapsed > *:not(.dashboard-banner-pin-btn):not(.dashboard-workspace-switcher):not(.dashboard-sidebar-pin-btn) {
 		opacity: 0;
 		pointer-events: none;
 		visibility: hidden;
@@ -7828,44 +8013,64 @@
 	opacity: 1;
 }
 
-/* --- Pin button in quick actions header --- */
-.dashboard-qa-pin-btn {
+/* --- Sidebar pin button (banner bottom-left corner) ---
+   Desktop-only. The quick-buttons block became a hideable sidebar widget, so
+   the sidebar pin moved out of its header to the banner's bottom-left corner.
+   Distinct from .dashboard-banner-pin-btn (the top-right banner-collapse
+   bookmark). Faint at rest, full opacity on hover, accent when the sidebar is
+   pinned. */
+.dashboard-sidebar-pin-btn {
+	position: absolute;
+	left: 10px;
+	bottom: 8px;
+	z-index: 5; /* above the stats panel (z-index 1) */
 	background: none !important;
 	border: none !important;
 	box-shadow: none !important;
-	color: var(--db-text-faint);
+	color: rgba(255, 255, 255, 0.45);
 	cursor: pointer;
-	padding: 2px 4px;
+	padding: 4px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	opacity: 0;
-	transition: opacity 0.2s ease, color 0.15s ease;
+	transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
 	line-height: 1;
 	outline: none;
 }
 
-.dashboard-qa-pin-btn svg {
-	width: 14px;
-	height: 14px;
+.dashboard-sidebar-pin-btn svg {
+	width: 15px;
+	height: 15px;
 }
 
-.dashboard-qa-header:hover .dashboard-qa-btn-group .dashboard-qa-pin-btn {
-	opacity: 0.5;
+.dashboard-banner:hover .dashboard-sidebar-pin-btn {
+	opacity: 1;
+	color: rgba(255, 255, 255, 0.85);
 }
 
-.dashboard-qa-pin-btn:hover {
-	opacity: 1 !important;
-	color: var(--db-accent);
+.dashboard-sidebar-pin-btn:hover,
+.dashboard-sidebar-pin-btn:active {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: #ffffff !important;
+	transform: scale(1.15);
 }
 
-.dashboard-qa-pin-btn--active {
-	opacity: 0.4;
-	color: var(--db-accent);
+.dashboard-sidebar-pin-btn--active {
+	opacity: 0.6;
+	color: var(--db-accent, #ffffff);
 }
 
-.dashboard-sidebar--collapsed .dashboard-qa-pin-btn {
-	display: none;
+/* Collapsed banner keeps the pin reachable, tucked at the thin bar's left edge. */
+@media (min-width: 641px) {
+	.dashboard-banner--collapsed > .dashboard-sidebar-pin-btn {
+		opacity: 0.5;
+		bottom: auto;
+		top: -3px;
+		padding: 2px;
+	}
 }
 
 .dashboard-section {
@@ -8096,6 +8301,117 @@
 	outline: none;
 }
 
+/* Palette button (background-color picker), same hover-reveal idiom as add. */
+.dashboard-qa-palette-btn {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint);
+	cursor: pointer;
+	padding: 2px 4px;
+	font-size: 0.65em;
+	display: flex;
+	align-items: center;
+	transition: opacity 0.2s ease, color 0.15s ease;
+	line-height: 1;
+	opacity: 0;
+	outline: none;
+}
+
+.dashboard-qa-header:hover .dashboard-qa-btn-group .dashboard-qa-palette-btn {
+	opacity: 1;
+}
+
+.dashboard-qa-palette-btn:hover {
+	color: var(--db-text) !important;
+}
+
+.dashboard-qa-palette-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* Palette popup: preset swatches, custom color input, reset. */
+.dashboard-qa-palette-popup {
+	padding: 10px;
+	gap: 6px;
+	min-width: 224px;
+}
+
+.dashboard-qa-picker-label {
+	font-size: 0.65em;
+	font-weight: 600;
+	color: var(--db-text-muted, var(--text-muted));
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.dashboard-qa-picker-divider {
+	height: 1px;
+	background: var(--db-border-card, rgba(128, 128, 128, 0.25));
+	margin: 2px 0;
+}
+
+.dashboard-qa-swatch-row {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 6px;
+}
+
+.dashboard-qa-swatch {
+	height: 22px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.35));
+	cursor: pointer;
+	transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.dashboard-qa-swatch:hover {
+	transform: scale(1.08);
+}
+
+.dashboard-qa-swatch.active {
+	box-shadow: 0 0 0 2px var(--db-accent, #6366f1);
+}
+
+.dashboard-qa-swatch-custom {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-qa-color-input {
+	width: 34px;
+	height: 24px;
+	padding: 0;
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.35));
+	border-radius: var(--db-radius-sm, 6px);
+	background: none;
+	cursor: pointer;
+}
+
+.dashboard-qa-swatch-custom-label {
+	font-size: 0.7em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-qa-swatch-reset {
+	margin-top: 2px;
+	padding: 4px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.35));
+	background: none;
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.7em;
+	cursor: pointer;
+	transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.dashboard-qa-swatch-reset:hover {
+	color: var(--db-text, var(--text-normal));
+	border-color: var(--db-accent, #6366f1);
+}
+
 .dashboard-qa-header:hover .dashboard-qa-btn-group .dashboard-qa-add-btn {
 	opacity: 1;
 }
@@ -8110,7 +8426,7 @@
 
 /* Quick Links: fixed height with internal scroll */
 .dashboard-quick-actions {
-	height: 250px;
+	height: 180px;
 	display: flex;
 	flex-direction: column;
 	flex-shrink: 0;
@@ -8139,6 +8455,56 @@
 .dashboard-qa-icon svg {
 	width: 12px;
 	height: 12px;
+}
+
+/* --- Quick-buttons sidebar widget: compact grid styling ---
+   Scoped to .dashboard-sidebar-widgets so the mobile drawer keeps its
+   historical layout: 2 equal columns, minimal radius, hidden scrollbar,
+   tightened header spacing. */
+.dashboard-sidebar-widgets .dashboard-quick-actions {
+	padding: 8px 12px 14px;
+}
+
+.dashboard-sidebar-widgets .dashboard-qa-header {
+	margin: 0 0 2px 0;
+	padding-bottom: 2px;
+}
+
+/* Compact widget title: smaller than the stock section title. */
+.dashboard-sidebar-widgets .dashboard-qa-header .dashboard-section-title {
+	font-size: 0.72em;
+}
+
+.dashboard-sidebar-widgets .dashboard-qa-list {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 5px;
+	/* Hide the scrollbar: scrollbar-width beats any theme's webkit pseudo
+	   styling on current Chromium. */
+	scrollbar-width: none;
+}
+
+.dashboard-sidebar-widgets .dashboard-qa-list::-webkit-scrollbar {
+	display: none !important;
+	width: 0 !important;
+}
+
+.dashboard-sidebar-widgets .dashboard-qa-item {
+	border-radius: 4px;
+	min-width: 0;
+	/* User-picked button color (palette popup) rides on --qa-btn-bg, set
+	   inline on the widget root; falls back to the theme button color. */
+	background: var(--qa-btn-bg, var(--db-bg-btn));
+}
+
+.dashboard-sidebar-widgets .dashboard-qa-item:hover {
+	background: var(--qa-btn-hover, var(--db-bg-btn-hover));
+}
+
+.dashboard-sidebar-widgets .dashboard-qa-name {
+	flex: 1;
+	min-width: 0;
+	max-width: none;
 }
 
 .dashboard-qa-item--preset {
@@ -11099,6 +11465,12 @@
 		display: none !important;
 	}
 
+	/* Sidebar pin follows the sidebar onto mobile: hidden. Platform.isMobile
+	   already skips rendering it; this also covers narrow desktop windows. */
+	.dashboard-sidebar-pin-btn {
+		display: none !important;
+	}
+
 	/* Root: allow vertical scrolling */
 	.apex-dashboard-root {
 		overflow-y: auto;
@@ -11719,6 +12091,72 @@
 	color: var(--db-text, var(--text-normal));
 }
 
+/* The month label doubles as a button toggling the year-month panel. */
+.dashboard-countdown-calendar-popup .dashboard-countdown-cal-label {
+	flex: 1;
+	text-align: center;
+	color: var(--db-text, var(--text-normal));
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 2px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+}
+
+.dashboard-countdown-calendar-popup .dashboard-countdown-cal-label:hover {
+	background: var(--db-bg-hover, var(--background-modifier-hover));
+}
+
+/* Year-month panel: 12 month cells in a 3-column grid. The top nav above it
+   shows the year and its arrows step by years while this panel is open. */
+.dashboard-countdown-ym-panel {
+	padding: 2px 0 4px;
+}
+
+.dashboard-countdown-ym-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 4px;
+	padding: 4px 0;
+}
+
+.dashboard-countdown-ym-cell {
+	padding: 6px 4px;
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-card, var(--background-secondary));
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.75em;
+	cursor: pointer;
+}
+
+.dashboard-countdown-ym-cell:hover {
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-countdown-ym-cell.dashboard-task-reminder-calendar-day--selected {
+	background: var(--db-accent, var(--interactive-accent));
+	color: var(--db-text-inverse, var(--text-on-accent));
+	border-color: transparent;
+}
+
+/* Time row inside the calendar popup (date and time commit together). */
+.dashboard-countdown-popup-time {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 0 6px;
+}
+
+.dashboard-countdown-popup-time-label {
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.75em;
+}
+
+.dashboard-countdown-popup-time .dashboard-countdown-time-sep {
+	color: var(--db-text-muted, var(--text-muted));
+}
+
 .dashboard-countdown-calendar-popup .dashboard-task-reminder-calendar-nav button {
 	color: var(--db-text-muted, var(--text-muted));
 }
@@ -11747,9 +12185,11 @@
 /* Calendar popup on body (outside theme scope) */
 .dashboard-library-calendar-popup,
 .dashboard-task-reminder-popup.dashboard-library-calendar-popup {
-	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
+	/* Opaque surface chain, kept in sync with the inline style TS sets — the
+	   old glass --db-bg-card let the page bleed through behind the dates. */
+	background: var(--db-bg-modal, var(--db-bg, var(--background-primary)));
 	color: var(--db-text, var(--text-normal));
-	border-color: var(--db-border-card, rgba(255, 255, 255, 0.1));
+	border-color: var(--db-border-card, var(--background-modifier-border));
 }
 
 .dashboard-library-calendar-popup .dashboard-task-reminder-calendar-day {
@@ -11762,7 +12202,9 @@
 
 .dashboard-library-calendar-popup .dashboard-task-reminder-calendar-day--selected {
 	background: var(--db-accent, var(--interactive-accent)) !important;
-	color: #fff !important;
+	/* Follow the theme's accent-contrast text (bright accents like onyx's
+	   lemon need dark text — a hardcoded #fff was unreadable there). */
+	color: var(--db-text-inverse, var(--text-on-accent)) !important;
 }
 
 /* Days between the range edges: accent-tinted band, square corners so the
@@ -11887,7 +12329,7 @@
 
 .dashboard-task-reminder-calendar-day--selected {
 	background: var(--db-accent) !important;
-	color: white !important;
+	color: var(--db-text-inverse, var(--text-on-accent)) !important;
 }
 
 .dashboard-task-reminder-calendar-day--other-month {
@@ -12987,7 +13429,7 @@
 	padding: 12px;
 	border-radius: var(--db-radius-md, 10px);
 	border: 1px solid var(--db-border-card, #e0e0e0);
-	background: var(--db-bg-modal, var(--db-bg, #ffffff));
+	background: var(--db-bg-modal, var(--db-bg, var(--background-primary)));
 	max-width: 320px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 	z-index: 10000;
@@ -13199,6 +13641,27 @@
 	background-size: cover;
 	background-position: center;
 	overflow: hidden;
+}
+
+/* Placeholder for notes without any cover info (or whose cover failed to
+   resolve): the bundled default image when present, otherwise a faint image
+   icon over a soft accent wash — both follow the theme tokens. */
+.dashboard-library-card-cover--placeholder {
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--db-accent, #8b5cf6) 14%, transparent),
+		var(--db-bg-card-hover, rgba(127, 127, 127, 0.10))
+	);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+.dashboard-library-card-cover--placeholder svg {
+	width: 26%;
+	height: 26%;
+	opacity: 0.5;
 }
 
 .dashboard-library-card:hover {
