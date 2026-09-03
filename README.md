@@ -109,6 +109,14 @@
 
 > **注意：** 删除、重命名或对分区进行排序，需要在 `dashboard.md` 笔记中进行操作。在笔记中的任何修改，会在工作台界面中直接生效。
 
+## ☕ Buy Me a Coffee
+
+如果 Apex Dashboard 让你的一天更顺手，欢迎请我喝杯咖啡：
+
+<p align="center">
+  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+</p>
+
 ## 更新日志
 
 ### 2.2.0

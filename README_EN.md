@@ -111,6 +111,14 @@ All themes support both Obsidian light and dark modes.
 
 > **Note:** Deleting, renaming, or reordering sections must be done by editing the `dashboard.md` file directly. Any changes made to the note will take effect in the dashboard view immediately.
 
+## ☕ Buy Me a Coffee
+
+If Apex Dashboard makes your day a little better, consider buying me a coffee:
+
+<p align="center">
+  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+</p>
+
 ## What's New
 
 ### 2.2.0
