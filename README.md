@@ -111,7 +111,7 @@
 
 ## ☕ Buy Me a Coffee
 
-如果 Apex Dashboard 让你的一天更顺手，欢迎请我喝杯咖啡：
+如果 Apex Dashboard 让你的 Obsidian 日常更顺手，欢迎请我喝杯咖啡，支持项目持续更新。
 
 <p align="center">
   <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">

@@ -113,7 +113,7 @@ All themes support both Obsidian light and dark modes.
 
 ## ☕ Buy Me a Coffee
 
-If Apex Dashboard makes your day a little better, consider buying me a coffee:
+If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying me a coffee to support continued development.
 
 <p align="center">
   <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
