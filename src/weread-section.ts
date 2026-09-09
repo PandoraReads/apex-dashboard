@@ -1,7 +1,17 @@
 import { App, Notice, setIcon, TFile } from 'obsidian';
 import type { DashboardColumn, WereadConfig, WereadWidget } from './types';
 import { t } from './i18n';
-import { WereadClient, formatReadTime } from './weread-service';
+import { WereadClient, sharedWereadClient, wereadErrorMessage } from './weread-service';
+import { renderWereadStats } from './weread-stats';
+import {
+	applyWereadProgressEntry,
+	filterWereadBooks,
+	groupWereadBooks,
+	mergeNotebookStats,
+	needsProgressFetch,
+} from './weread-shelf-model';
+import { getWereadProgressStore, type WereadProgressEntry, type WereadProgressStore } from './weread-progress-store';
+import type { WereadGroupBy } from './weread-shelf-model';
 
 /** Min book card width + grid gap, used to estimate how many columns fit. */
 const SHELF_CARD_MIN = 110;
@@ -26,7 +36,12 @@ export function renderWereadSection(
 	onReloadReady?: (reload: () => void) => void,
 ): void {
 	const widgets = normalizedWidgets(column.wereadConfig);
-	const client = new WereadClient(apiKey);
+	// Shared app-session client: keeps the response cache (and rate-limit
+	// cooldowns) alive across the frequent dashboard re-renders.
+	const client = sharedWereadClient(apiKey);
+	// Cross-session progress cache (weread-progress.json): after a restart,
+	// fresh persisted entries stand in for the getprogress burst entirely.
+	const store = getWereadProgressStore(app);
 	const host = el.createDiv({ cls: 'dashboard-weread-widgets' });
 	const pageState: Record<string, number> = {};
 
@@ -47,26 +62,39 @@ export function renderWereadSection(
 
 			try {
 				if (w.view === 'stats') {
-					const stats = await client.fetchReadData('overall');
-					content.empty();
-					renderStats(content, stats);
+					// The stats widget owns its lifecycle (period toggle
+					// re-fetches internally); it renders its own loading and
+					// error states inside the body.
+					renderWereadStats(content, client, w, store);
 				} else if (w.view === 'notes') {
 					const notebooks = await client.fetchNotebooks();
 					content.empty();
 					renderNotebooks(content, client, notebooks, app, importPath, pageState, w.id);
 				} else {
-					const allBooks = await client.fetchShelf();
-					if (w.progressFilters?.length) {
-						renderHint(content, t('weread.loadingProgress'), '');
-						await enrichProgress(client, allBooks);
-						content.empty();
+					let allBooks: WereadBookLike[] = await client.fetchShelf();
+					if (w.noteFilters?.length || w.groupBy === 'notes') {
+						const notebooks = await client.fetchNotebooks();
+						allBooks = mergeNotebookStats(allBooks, notebooks);
 					}
-					const books = filterBooks(allBooks, w.progressFilters, w.categoryFilters);
+					// Always enrich: shelf data carries no per-book progress, so
+					// every book needs its /book/getprogress call for a real bar —
+					// not just when a progress filter would silently drop books.
+					// Fresh persisted entries stand in for the call (see the
+					// store); force (header refresh) bypasses freshness.
+					renderHint(content, t('weread.loadingProgress'), '');
+					allBooks = await enrichProgress(client, store, allBooks, force);
+					content.empty();
+					const books = filterWereadBooks(allBooks, {
+						progress: w.progressFilters,
+						contentTypes: w.contentTypeFilters,
+						recency: w.recencyFilters,
+						notes: w.noteFilters,
+					});
 					drawShelf(content, w, books, pageState);
 				}
 			} catch (err) {
 				content.empty();
-				renderHint(content, t('weread.loadFailed'), messageForError(err));
+				renderHint(content, t('weread.loadFailed'), wereadErrorMessage(err));
 			}
 		}
 	};
@@ -77,7 +105,7 @@ export function renderWereadSection(
 
 function normalizedWidgets(cfg?: WereadConfig): WereadWidget[] {
 	if (cfg?.widgets?.length) return cfg.widgets;
-	return [{ id: 'w1', view: 'shelf' }];
+	return [{ id: 'w1', view: 'shelf', groupBy: 'readingState' }];
 }
 
 function drawShelf(content: HTMLElement, w: WereadWidget, books: WereadBookLike[], pageState: Record<string, number>): void {
@@ -87,14 +115,16 @@ function drawShelf(content: HTMLElement, w: WereadWidget, books: WereadBookLike[
 		return;
 	}
 
+	const groupBy = w.groupBy ?? 'readingState';
+	const orderedBooks = groupWereadBooks(books, groupBy).flatMap(group => group.books);
 	const pageSize = computeShelfCapacity(content);
 	// If the page size changed (window/section resized), start from page 1 so
 	// the user doesn't land past the new last page or see a half-empty page.
 	pageState[w.id] = pageState[w.id] ?? 1;
-	const totalPages = Math.max(1, Math.ceil(books.length / pageSize));
+	const totalPages = Math.max(1, Math.ceil(orderedBooks.length / pageSize));
 	const page = Math.min(pageState[w.id] ?? 1, totalPages);
 
-	renderShelf(content, books.slice((page - 1) * pageSize, page * pageSize));
+	renderShelfGroups(content, orderedBooks.slice((page - 1) * pageSize, page * pageSize), groupBy);
 
 	if (totalPages > 1) {
 		const pager = content.createDiv({ cls: 'dashboard-weread-pager' });
@@ -134,41 +164,89 @@ function renderHint(content: HTMLElement, title: string, hint: string): void {
 	if (hint) wrap.createDiv({ cls: 'dashboard-weread-hint-desc', text: hint });
 }
 
-function messageForError(err: unknown): string {
-	const code = err instanceof Error ? err.message : '';
-	if (code === 'WRONG_KEY') return t('weread.wrongKey');
-	if (code === 'UPGRADE_REQUIRED' || code.startsWith('UPGRADE_REQUIRED:')) {
-		// Surface the official upgrade hint from `upgrade_info.message` (if any)
-		// so the user sees what version / step the gateway asked for.
-		const detail = code.startsWith('UPGRADE_REQUIRED:') ? code.slice('UPGRADE_REQUIRED:'.length) : '';
-		return detail ? `${t('weread.upgradeRequired')} ${detail}` : t('weread.upgradeRequired');
-	}
-	if (code.startsWith('NETWORK')) return t('weread.networkError');
-	return code || t('weread.loadFailed');
-}
-
-function filterBooks(books: WereadBookLike[], progressFilters?: string[], categoryFilters?: string[]): WereadBookLike[] {
-	return books.filter(b => {
-		const pOk = !progressFilters?.length || (!!b.readingState && progressFilters.includes(b.readingState));
-		const cOk = !categoryFilters?.length || (!!b.category && categoryFilters.includes(b.category));
-		return pOk && cOk;
-	});
-}
-
-/** Fetch per-book progress (concurrency-limited) and set progress + readingState. */
-async function enrichProgress(client: WereadClient, books: WereadBookLike[]): Promise<void> {
+/**
+ * Fetch per-book progress (concurrency-limited) and set progress + readingState.
+ * A shelf-side `finished` verdict (finishReading) survives: getprogress reports
+ * the last reading position, which can sit below 100 even for finished books.
+ *
+ * Request budget: only books whose progress the shelf cannot already answer
+ * (see needsProgressFetch) are fetched, a fresh persisted entry (cross-session
+ * cache) stands in for the call unless `force`, and the first RATE_LIMITED
+ * aborts the remaining batches — every request during a gateway ban extends
+ * it, so the circuit breaker in WereadClient plus this stop keep re-renders
+ * from feeding the ban. Aborted books fall back to any (even stale) persisted
+ * entry, then shelf-derived values.
+ */
+async function enrichProgress(
+	client: WereadClient,
+	store: WereadProgressStore,
+	books: WereadBookLike[],
+	force = false,
+): Promise<WereadBookLike[]> {
+	await store.load();
+	const enriched: WereadBookLike[] = [];
+	const fetched: Record<string, WereadProgressEntry> = {};
 	const limit = 8;
-	for (let i = 0; i < books.length; i += limit) {
+	let rateLimited = false;
+	for (let i = 0; i < books.length && !rateLimited; i += limit) {
 		const batch = books.slice(i, i + limit);
-		await Promise.all(batch.map(async (b) => {
+		const next = await Promise.all(batch.map(async (book): Promise<WereadBookLike> => {
+			if (!needsProgressFetch(book)) return book;
+			if (!force) {
+				const cached = store.freshEntry(book.bookId);
+				if (cached) return applyWereadProgressEntry(book, cached);
+			}
 			try {
-				const p = await client.fetchProgress(b.bookId);
-				b.progress = p;
-				b.readingState = p >= 100 ? 'finished' : p > 0 ? 'reading' : 'notStarted';
-			} catch {
-				// leave as-is (likely notStarted)
+				const details = await client.fetchProgressDetails(book.bookId);
+				const readingState = details.progress >= 100 || book.readingState === 'finished'
+					? 'finished'
+					: details.progress > 0 ? 'reading' : 'notStarted';
+				fetched[book.bookId] = {
+					progress: details.progress,
+					readingState,
+					readingTime: details.readingTime,
+					lastReadTime: details.lastReadTime,
+					ts: Date.now(),
+				};
+				return {
+					...book,
+					progress: details.progress,
+					readingState,
+					readingTime: details.readingTime ?? book.readingTime,
+					lastReadTime: details.lastReadTime ?? book.lastReadTime,
+				};
+			} catch (err) {
+				if (err instanceof Error && err.message === 'RATE_LIMITED') rateLimited = true;
+				// A stale persisted entry still beats a blank shelf bar.
+				const stale = store.entry(book.bookId);
+				return stale ? applyWereadProgressEntry(book, stale) : book;
 			}
 		}));
+		enriched.push(...next);
+		if (!rateLimited && i + limit < books.length) await sleepMs(200);
+	}
+	store.put(fetched);
+	return enriched;
+}
+
+function sleepMs(ms: number): Promise<void> {
+	return new Promise(r => window.setTimeout(r, ms));
+}
+
+function renderShelfGroups(content: HTMLElement, books: WereadBookLike[], groupBy: WereadGroupBy): void {
+	if (groupBy === 'none') {
+		renderShelf(content, books);
+		return;
+	}
+	const groups = content.createDiv({ cls: 'dashboard-weread-groups' });
+	for (const group of groupWereadBooks(books, groupBy)) {
+		const section = groups.createDiv({ cls: `dashboard-weread-group dashboard-weread-group--${group.key}` });
+		const head = section.createDiv({ cls: 'dashboard-weread-group-head' });
+		const icon = head.createDiv({ cls: 'dashboard-weread-group-icon' });
+		setIcon(icon, groupIcon(group.key));
+		head.createDiv({ cls: 'dashboard-weread-group-name', text: groupLabel(group.key) });
+		head.createDiv({ cls: 'dashboard-weread-group-count', text: String(group.books.length) });
+		renderShelf(section, group.books);
 	}
 }
 
@@ -184,24 +262,58 @@ function renderShelf(content: HTMLElement, books: WereadBookLike[]): void {
 		const info = card.createDiv({ cls: 'dashboard-weread-book-info' });
 		info.createDiv({ cls: 'dashboard-weread-book-title', text: book.title });
 		info.createDiv({ cls: 'dashboard-weread-book-author', text: book.author });
-		if (book.category) info.createDiv({ cls: 'dashboard-weread-book-cat', text: book.category });
+		const meta = info.createDiv({ cls: 'dashboard-weread-book-meta' });
+		meta.createDiv({ cls: 'dashboard-weread-book-kind', text: contentTypeLabel(book.contentType) });
+		const noteTotal = (book.noteCount ?? 0) + (book.reviewCount ?? 0);
+		if (noteTotal > 0) meta.createDiv({ cls: 'dashboard-weread-book-notes', text: t('weread.noteBadge', { count: String(noteTotal) }) });
 		const bar = info.createDiv({ cls: 'dashboard-weread-progress' });
 		bar.createDiv({ cls: 'dashboard-weread-progress-fill' }).style.width = `${book.progress}%`;
-		info.createDiv({ cls: 'dashboard-weread-book-pct', text: `${book.progress}%` });
+		const progressMeta = info.createDiv({ cls: 'dashboard-weread-progress-meta' });
+		progressMeta.createDiv({ cls: 'dashboard-weread-book-state', text: readingStateLabel(book.readingState) });
+		progressMeta.createDiv({ cls: 'dashboard-weread-book-pct', text: `${book.progress}%` });
 	}
 }
 
-function renderStats(content: HTMLElement, stats: WereadStatsLike): void {
-	const wrap = content.createDiv({ cls: 'dashboard-weread-stats' });
-	statCard(wrap, formatReadTime(stats.totalReadTime), t('weread.totalTime'));
-	statCard(wrap, String(stats.readDays), t('weread.readDays'));
-	statCard(wrap, formatReadTime(stats.dayAverageReadTime), t('weread.dailyAvg'));
+function groupLabel(key: string): string {
+	const labels: Record<string, string> = {
+		reading: 'weread.progressReading',
+		finished: 'weread.progressFinished',
+		notStarted: 'weread.progressNotStarted',
+		book: 'weread.contentBook',
+		audio: 'weread.contentAudio',
+		article: 'weread.contentArticle',
+		recent7: 'weread.recent7',
+		recent30: 'weread.recent30',
+		older: 'weread.recentOlder',
+		never: 'weread.recentNever',
+		highlights: 'weread.notesHighlights',
+		ideas: 'weread.notesIdeas',
+		none: 'weread.notesNone',
+	};
+	return t(labels[key] ?? 'weread.groupNone');
 }
 
-function statCard(parent: HTMLElement, value: string, label: string): void {
-	const card = parent.createDiv({ cls: 'dashboard-weread-stat' });
-	card.createDiv({ cls: 'dashboard-weread-stat-value', text: value });
-	card.createDiv({ cls: 'dashboard-weread-stat-label', text: label });
+function groupIcon(key: string): string {
+	if (key === 'reading') return 'book-open';
+	if (key === 'finished') return 'check-circle';
+	if (key === 'audio') return 'headphones';
+	if (key === 'article') return 'file-text';
+	if (key === 'recent7' || key === 'recent30') return 'history';
+	if (key === 'ideas') return 'message-square';
+	if (key === 'highlights') return 'highlighter';
+	return 'book';
+}
+
+function contentTypeLabel(contentType?: WereadBookLike['contentType']): string {
+	if (contentType === 'audio') return t('weread.contentAudio');
+	if (contentType === 'article') return t('weread.contentArticle');
+	return t('weread.contentBook');
+}
+
+function readingStateLabel(state?: WereadBookLike['readingState']): string {
+	if (state === 'finished') return t('weread.progressFinished');
+	if (state === 'reading') return t('weread.progressReading');
+	return t('weread.progressNotStarted');
 }
 
 function renderNotebooks(content: HTMLElement, client: WereadClient, notebooks: WereadNotebookLike[], app: App, importPath: string, pageState: Record<string, number>, widgetId: string): void {
@@ -363,7 +475,21 @@ function yamlScalar(v: string): string {
 
 // Local structural aliases to keep the render functions decoupled from the
 // service's exported interfaces (which carry optional fields).
-type WereadBookLike = { bookId: string; title: string; author: string; cover?: string; progress: number; finished?: boolean; readingTime?: number; category?: string; readingState?: 'notStarted' | 'reading' | 'finished' };
+type WereadBookLike = {
+	bookId: string;
+	title: string;
+	author: string;
+	cover?: string;
+	progress: number;
+	finished?: boolean;
+	readingTime?: number;
+	category?: string;
+	readingState: 'notStarted' | 'reading' | 'finished';
+	contentType: 'book' | 'audio' | 'article';
+	lastReadTime?: number;
+	noteCount?: number;
+	bookmarkCount?: number;
+	reviewCount?: number;
+};
 type WereadNotebookLike = { bookId: string; title: string; author: string; noteCount: number; bookmarkCount: number; reviewCount: number };
 type WereadBookmarkLike = { bookId: string; chapterUid?: number; markText: string };
-type WereadStatsLike = { totalReadTime: number; dayAverageReadTime: number; readDays: number };

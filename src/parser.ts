@@ -231,6 +231,9 @@ export function serialize(data: DashboardData): string {
 				lines.push('      filters:');
 				for (const filter of lc.filters) {
 					lines.push(`        - property: "${escapeYamlString(filter.property)}"`);
+					if (filter.operator && filter.operator !== 'equals') {
+						lines.push(`          operator: "${filter.operator}"`);
+					}
 					if (filter.values.length > 0) {
 						lines.push(`          values: [${filter.values.map(v => `"${escapeYamlString(v)}"`).join(', ')}]`);
 					} else {
@@ -260,6 +263,23 @@ export function serialize(data: DashboardData): string {
 					lines.push('          progressFilters:');
 					for (const p of w.progressFilters) lines.push(`            - ${p}`);
 				}
+				if (w.contentTypeFilters?.length) {
+					lines.push('          contentTypeFilters:');
+					for (const type of w.contentTypeFilters) lines.push(`            - ${type}`);
+				}
+				if (w.recencyFilters?.length) {
+					lines.push('          recencyFilters:');
+					for (const recency of w.recencyFilters) lines.push(`            - ${recency}`);
+				}
+				if (w.noteFilters?.length) {
+					lines.push('          noteFilters:');
+					for (const note of w.noteFilters) lines.push(`            - ${note}`);
+				}
+				if (w.statsItems?.length) {
+					lines.push('          statsItems:');
+					for (const item of w.statsItems) lines.push(`            - ${item}`);
+				}
+				if (w.groupBy && w.groupBy !== 'readingState') lines.push(`          groupBy: ${w.groupBy}`);
 				if (w.categoryFilters?.length) {
 					lines.push('          categoryFilters:');
 					for (const c of w.categoryFilters) lines.push(`            - "${escapeYamlString(c)}"`);
@@ -906,7 +926,9 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 			const dateStart = rec.dateStart ? str(rec.dateStart) : '';
 			const dateEnd = rec.dateEnd ? str(rec.dateEnd) : '';
 			const dateRange = (dateStart || dateEnd) ? { start: dateStart, end: dateEnd } : undefined;
-			filters.push({ property, values, dateRange });
+			const rawOperator = str(rec.operator ?? '');
+			const operator = rawOperator === 'contains' || rawOperator === 'notEquals' ? rawOperator : undefined;
+			filters.push({ property, values, dateRange, operator });
 		}
 	}
 
@@ -948,6 +970,17 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 function parseWereadConfig(raw: Record<string, unknown>): WereadConfig {
 	const validView = (v: unknown): WereadConfig['widgets'][number]['view'] =>
 		['shelf', 'stats', 'notes'].includes(str(v ?? '')) ? str(v) as WereadConfig['widgets'][number]['view'] : 'shelf';
+	const validList = <T extends string>(value: unknown, allowed: readonly T[]): T[] | undefined => {
+		if (!Array.isArray(value)) return undefined;
+		const accepted = value.map(item => str(item)).filter((item): item is T => allowed.includes(item as T));
+		return accepted.length > 0 ? [...new Set(accepted)] : undefined;
+	};
+	const validGroupBy = (value: unknown): WereadConfig['widgets'][number]['groupBy'] => {
+		const groupBy = str(value ?? 'readingState');
+		return ['none', 'readingState', 'contentType', 'recency', 'notes'].includes(groupBy)
+			? groupBy as WereadConfig['widgets'][number]['groupBy']
+			: 'readingState';
+	};
 
 	// New shape: widgets[]
 	if (Array.isArray(raw.widgets)) {
@@ -956,7 +989,16 @@ function parseWereadConfig(raw: Record<string, unknown>): WereadConfig {
 			.map((w, i) => ({
 				id: String((w.id ?? `w${i + 1}`) as string | number | boolean),
 				view: validView(w.view),
-				progressFilters: Array.isArray(w.progressFilters) ? (w.progressFilters as Array<unknown>).map(p => String(p as string | number | boolean)) : undefined,
+				progressFilters: validList(w.progressFilters, ['notStarted', 'reading', 'finished'] as const),
+				contentTypeFilters: validList(w.contentTypeFilters, ['book', 'audio', 'article'] as const),
+				recencyFilters: validList(w.recencyFilters, ['recent7', 'recent30', 'older', 'never'] as const),
+				noteFilters: validList(w.noteFilters, ['highlights', 'ideas', 'none'] as const),
+				// Conditional spread: absent statsItems stays an absent key, so
+				// round-trip equality with the pre-field shape holds.
+				...(validList(w.statsItems, ['kpi', 'trend', 'topRead', 'preferCategory'] as const)
+					? { statsItems: validList(w.statsItems, ['kpi', 'trend', 'topRead', 'preferCategory'] as const) }
+					: {}),
+				groupBy: validGroupBy(w.groupBy),
 				categoryFilters: Array.isArray(w.categoryFilters) ? (w.categoryFilters as Array<unknown>).map(c => String(c as string | number | boolean)) : undefined,
 				title: w.title ? String(w.title as string | number | boolean) : undefined,
 			}));

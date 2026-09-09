@@ -35,7 +35,6 @@ import { FolderConfigModal } from './folder-config-modal';
 import { DataviewConfigModal } from './dataview-config-modal';
 import { MediaConfigModal } from './media-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
-import { fetchWereadCategories } from './weread-service';
 import { fetchTickTickProjects } from './ticktick-config-modal';
 import { TickTickFilterModal } from './ticktick-filter-modal';
 import { TrackerConfigModal } from './tracker-config-modal';
@@ -1487,17 +1486,13 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private openWereadConfigModal(colName: string): void {
 		const column = this.data?.columns.find(col => col.name === colName);
-		const existing = column?.wereadConfig ?? { widgets: [{ id: 'w1', view: 'shelf' as const }] };
-		void (async () => {
-			const categories = await fetchWereadCategories(this.plugin.settings.wereadApiKey);
-			const modal = new WereadConfigModal(
-				this.app,
-				existing,
-				categories,
-				(config) => { void this.sync.updateWereadConfig(colName, config); },
-			);
-			modal.open();
-		})();
+		const existing = column?.wereadConfig ?? { widgets: [{ id: 'w1', view: 'shelf' as const, groupBy: 'readingState' as const }] };
+		const modal = new WereadConfigModal(
+			this.app,
+			existing,
+			(config) => { void this.sync.updateWereadConfig(colName, config); },
+		);
+		modal.open();
 	}
 
 	/**

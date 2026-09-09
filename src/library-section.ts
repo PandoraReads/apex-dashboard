@@ -164,6 +164,7 @@ function evaluateFilter(
 		if (filter.values.length === 0 && !filter.dateRange) return true;
 
 	const prop = filter.property;
+	const operator = filter.operator ?? 'equals';
 
 	if (prop === 'tags') {
 		const fileTags: string[] = [];
@@ -177,6 +178,8 @@ function evaluateFilter(
 		if (cache?.tags) {
 			for (const tag of cache.tags) fileTags.push(tag.tag);
 		}
+		if (operator === 'notEquals') return !fileTags.some(tag => filter.values.includes(tag));
+		if (operator === 'contains') return matchContains(fileTags, filter.values);
 		return fileTags.some(tag => filter.values.includes(tag));
 	}
 
@@ -195,15 +198,34 @@ function evaluateFilter(
 		return filter.values.some(v => file.path.toLowerCase().includes(v.toLowerCase()));
 	}
 
-	// Frontmatter property
+	// Frontmatter property. A file without the property never matches, under
+	// every operator — same convention as Dataview, where a missing field
+	// satisfies no comparison.
 	const value = fm[prop];
 	if (value == null) return false;
 
+	if (operator === 'notEquals') {
+		if (Array.isArray(value)) return !value.some(item => filter.values.includes(String(item)));
+		return !filter.values.includes(str(value));
+	}
+	if (operator === 'contains') {
+		const items = Array.isArray(value) ? value.map(item => str(item)) : [str(value)];
+		return matchContains(items, filter.values);
+	}
 	if (Array.isArray(value)) {
 		return value.some(item => filter.values.includes(String(item)));
 	}
 
 	return filter.values.includes(str(value));
+}
+
+/** Substring match for the contains operator: any item containing any
+    non-empty pattern (case-insensitive). Empty patterns never match — an
+    accidental empty custom value must not turn the filter into "match all". */
+function matchContains(items: string[], patterns: string[]): boolean {
+	const lower = patterns.filter(p => p.length > 0).map(p => p.toLowerCase());
+	if (lower.length === 0) return false;
+	return items.some(s => s.length > 0 && lower.some(p => s.toLowerCase().includes(p)));
 }
 
 function str(v: unknown): string {
@@ -704,6 +726,10 @@ export function renderLibrarySection(
 		}
 
 		function updateFilterBtnState(): void {
+			// An active filter highlights the funnel button only; the specifics
+			// live inside the popup. Surfacing filter details as chips in the
+			// toolbar was tried and reverted at the user's request — sections
+			// must stay visually quiet, matching the folder sections.
 			filterBtn.classList.toggle('active', !!(quickStart || quickEnd || quickDays > 0 || (config.folderFilter?.length ?? 0) > 0));
 		}
 

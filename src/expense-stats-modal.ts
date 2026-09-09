@@ -37,8 +37,9 @@ const TYPES: Array<{ key: ExpenseType; labelKey: string }> = [
 ];
 
 /** Hard cap on rendered record rows (year/history ranges can hold thousands);
- *  the "view all" entry opens the full ledger for everything beyond it. */
-const RECORDS_LIMIT = 20;
+ *  the "view all" entry opens the full ledger for everything beyond it.
+ *  Sized against the records-scroll max-height (500px ≈ 19 visible rows). */
+const RECORDS_LIMIT = 50;
 
 function fmtDate(d: Date): string {
 	const y = d.getFullYear();

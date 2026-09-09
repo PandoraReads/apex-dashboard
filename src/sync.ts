@@ -428,16 +428,16 @@ export class SyncEngine {
 		if (!this.data) return;
 		const uniqueName = this.uniqueColumnName(name);
 
-		// New library sections default to a rolling "last 7 days" window (by
-		// modified date, matching the default modified-desc sort) so the grid
-		// opens focused on recent files. The quick filter can clear or change it.
+		// New library sections start unfiltered. An earlier default pinned a
+		// rolling "modified within 7 days" window here; it silently narrowed
+		// results long after creation and read like a filter bug, so it was
+		// removed — the quick filter remains opt-in via the funnel button.
 		const libraryConfig = sectionType === 'library'
 			? {
 				filters: [] as import('./types').PropertyFilter[],
 				viewMode: 'grid' as import('./types').LibraryViewMode,
 				sortBy: 'modified',
 				sortDesc: true,
-				quickDateFilter: { property: 'modified' as const, start: '', end: '', days: 7 },
 			}
 			: undefined;
 

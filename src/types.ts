@@ -1,6 +1,13 @@
 import type { Language } from './i18n';
 import type { CalendarTaskFilter } from './alltasks-scan';
 import type { TFile } from 'obsidian';
+import type {
+	WereadContentType,
+	WereadGroupBy,
+	WereadNoteState,
+	WereadReadingState,
+	WereadRecency,
+} from './weread-shelf-model';
 
 export interface DashboardSettings {
 	/** Path of the ACTIVE workspace file (no .md extension). */
@@ -447,8 +454,15 @@ export type LibraryViewMode = 'grid' | 'gallery' | 'list' | 'table' | 'kanban';
 export interface PropertyFilter {
 	property: string;
 	values: string[];
+	/** How checked values compare against a file's property value.
+	 *  equals (default): exact match, OR across values.
+	 *  contains: substring match (case-insensitive), values may be free text.
+	 *  notEquals: exclude files whose value exactly equals any checked value. */
+	operator?: PropertyFilterOperator;
 	dateRange?: { start: string; end: string };
 }
+
+export type PropertyFilterOperator = 'equals' | 'contains' | 'notEquals';
 
 export interface LibraryConfig {
 	filters: PropertyFilter[];
@@ -503,12 +517,27 @@ export interface CountdownConfig {
 export interface WereadWidget {
 	id: string;
 	view: 'shelf' | 'stats' | 'notes';
+	/** Stats widget: ordered list of visible blocks (order = display order).
+	 *  Absent = all blocks in the default order. Hidden blocks are simply
+	 *  missing from the list. */
+	statsItems?: WereadStatItem[];
 	/** Shelf progress filter (multi-select): 'notStarted' | 'reading' | 'finished'. Empty = all. */
-	progressFilters?: string[];
-	/** Shelf category filter (multi-select, real top-level categories). Empty = all. */
+	progressFilters?: WereadReadingState[];
+	/** Stable shelf item classes: electronic book, audio, or article collection. */
+	contentTypeFilters?: WereadContentType[];
+	/** Disjoint activity buckets based on the latest reading timestamp. */
+	recencyFilters?: WereadRecency[];
+	/** Note/highlight state from the notebooks endpoint. */
+	noteFilters?: WereadNoteState[];
+	/** Optional visual shelf grouping. Defaults to readingState for new widgets. */
+	groupBy?: WereadGroupBy;
+	/** Legacy genre filter retained for existing dashboard files. */
 	categoryFilters?: string[];
 	title?: string;
 }
+
+/** Blocks of the weread stats widget. */
+export type WereadStatItem = 'kpi' | 'trend' | 'topRead' | 'preferCategory';
 
 /** Weread (WeChat Read) section config. The API key is account-wide (wereadApiKey). */
 export interface WereadConfig {

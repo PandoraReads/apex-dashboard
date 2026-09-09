@@ -5424,7 +5424,7 @@
 
 /* Record table */
 .dashboard-expense-records-scroll {
-	max-height: 340px;
+	max-height: 500px;
 	overflow: auto;
 	scrollbar-width: thin;
 }
@@ -8931,14 +8931,8 @@
 	max-height: 100%;
 }
 
-/* Notes (no cover): max 4 per row, card width matches Projects */
-.dashboard-section-row[data-section-type="notes"] .dashboard-section-cards > .dashboard-card {
-	flex: 1 1 200px;
-	min-width: 200px;
-	max-width: calc(25% - 10px);
-}
-
-/* Memo, Todo, Sticky & Projects: horizontal scroll, no wrap */
+/* Notes, Memo, Todo, Sticky & Projects: horizontal scroll, no wrap */
+.dashboard-section-row[data-section-type="notes"] .dashboard-section-cards,
 .dashboard-section-row[data-section-type="memo"] .dashboard-section-cards,
 .dashboard-section-row[data-section-type="todo"] .dashboard-section-cards,
 .dashboard-section-row[data-section-type="sticky"] .dashboard-section-cards,
@@ -8948,6 +8942,8 @@
 	scrollbar-width: thin;
 }
 
+/* Notes (no cover) & Projects: fixed card width, overflow scrolls horizontally */
+.dashboard-section-row[data-section-type="notes"] .dashboard-section-cards > .dashboard-card,
 .dashboard-section-row[data-section-type="projects"] .dashboard-section-cards > .dashboard-card {
 	flex: 0 0 280px;
 	min-width: 200px;
@@ -14222,6 +14218,26 @@
 	border-color: var(--db-border-input-focus, var(--interactive-accent));
 }
 
+/* Operator select (equals / contains / not equals): same input skin as the
+   property select, but compact — it shares a row with the property select,
+   the value search box and the remove button. */
+.dashboard-library-filter-operator {
+	flex-shrink: 0;
+	max-width: 96px;
+	padding: 4px 6px;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.75em;
+	font-family: var(--db-font, var(--font-interface));
+	outline: none;
+}
+
+.dashboard-library-filter-operator:focus {
+	border-color: var(--db-border-input-focus, var(--interactive-accent));
+}
+
 .dashboard-folder-input-row {
 	display: flex;
 	gap: 8px;
@@ -16045,7 +16061,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 .dashboard-weread-cfg-row {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 6px;
 	padding: 8px;
 	border-radius: var(--db-radius-sm, 6px);
@@ -16107,6 +16123,86 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 .dashboard-weread-content {
 	min-height: 60px;
+}
+
+.dashboard-weread-groups {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.dashboard-weread-group {
+	--weread-group-accent: var(--db-accent, var(--interactive-accent));
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+}
+
+.dashboard-weread-group--finished,
+.dashboard-weread-group--ideas {
+	--weread-group-accent: var(--color-green, #2f9e73);
+}
+
+.dashboard-weread-group--notStarted,
+.dashboard-weread-group--never,
+.dashboard-weread-group--none {
+	--weread-group-accent: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-weread-group--audio,
+.dashboard-weread-group--recent30 {
+	--weread-group-accent: var(--color-orange, #d38345);
+}
+
+.dashboard-weread-group--article,
+.dashboard-weread-group--highlights {
+	--weread-group-accent: var(--color-cyan, #318f9f);
+}
+
+.dashboard-weread-group-head {
+	display: grid;
+	grid-template-columns: 24px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 7px;
+	min-height: 34px;
+	padding: 5px 9px 5px 7px;
+	border-left: 3px solid var(--weread-group-accent);
+	border-radius: 0 var(--db-radius-sm, 6px) var(--db-radius-sm, 6px) 0;
+	background: linear-gradient(90deg, color-mix(in srgb, var(--weread-group-accent) 12%, transparent), transparent 78%);
+}
+
+.dashboard-weread-group-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 7px;
+	color: var(--weread-group-accent);
+	background: color-mix(in srgb, var(--weread-group-accent) 12%, transparent);
+}
+
+.dashboard-weread-group-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-weread-group-name {
+	font-size: 0.78em;
+	font-weight: 650;
+	letter-spacing: 0.01em;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-weread-group-count {
+	min-width: 22px;
+	padding: 1px 7px;
+	border: 1px solid color-mix(in srgb, var(--weread-group-accent) 28%, transparent);
+	border-radius: 999px;
+	font-size: 0.64em;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+	color: var(--weread-group-accent);
 }
 
 .dashboard-heatmap-section-body {
@@ -16187,6 +16283,34 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-text-muted, var(--text-muted));
 }
 
+.dashboard-weread-book-meta,
+.dashboard-weread-progress-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 5px;
+}
+
+.dashboard-weread-book-kind,
+.dashboard-weread-book-notes,
+.dashboard-weread-book-state {
+	font-size: 0.61em;
+	line-height: 1.35;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-weread-book-kind {
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
+}
+
+.dashboard-weread-book-notes {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .dashboard-weread-progress {
 	height: 3px;
 	border-radius: 2px;
@@ -16201,21 +16325,208 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	border-radius: 2px;
 }
 
-.dashboard-weread-stats {
+/* Integrated stat panel, three columns: shelf-distribution donut (tinted
+   left), read-days heatmap (middle), time + daily average stacked (right).
+   One card, internal hairlines only. Donut/heatmap colors follow the shelf
+   groups and banner-heatmap conventions. */
+.dashboard-weread-stat-panel {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 10px;
-}
-
-.dashboard-weread-stat {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 4px;
-	padding: 14px 8px;
+	grid-template-columns: minmax(172px, 0.78fr) minmax(0, 1.75fr) minmax(128px, 0.62fr);
+	align-items: stretch;
 	border-radius: var(--db-radius-md, 10px);
 	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
 	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	overflow: hidden;
+	min-width: 0;
+}
+
+.dashboard-weread-stat-panel-shelf {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 14px 12px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 10%, var(--db-bg-card, rgba(255, 255, 255, 0.06)));
+	border-right: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+}
+
+.dashboard-weread-stat-panel-mid {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 14px 14px;
+	min-width: 0;
+	border-right: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+}
+
+/* Rolling 365-day heatmap (banner-heatmap visual language): column-major
+   weeks — 7 rows, one column per week; column count comes from inline style.
+   Cells are square via aspect-ratio and shrink with the zone width. */
+.dashboard-weread-heatmap {
+	display: grid;
+	grid-auto-flow: column;
+	grid-template-rows: repeat(7, auto);
+	gap: 2px;
+	width: 100%;
+	align-content: stretch;
+}
+
+.dashboard-weread-heatmap-cell {
+	aspect-ratio: 1;
+	border-radius: 2px;
+	min-width: 0;
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.12));
+}
+
+.dashboard-weread-heatmap-cell--l1 { background: var(--db-accent, var(--interactive-accent)); opacity: 0.35; }
+.dashboard-weread-heatmap-cell--l2 { background: var(--db-accent, var(--interactive-accent)); opacity: 0.55; }
+.dashboard-weread-heatmap-cell--l3 { background: var(--db-accent, var(--interactive-accent)); opacity: 0.78; }
+.dashboard-weread-heatmap-cell--l4 { background: var(--db-accent, var(--interactive-accent)); opacity: 1; }
+
+.dashboard-weread-heatmap-cell--today {
+	box-shadow: 0 0 0 1.5px var(--db-text, var(--text-normal));
+}
+
+/* Alignment blanks before the window starts — invisible placeholders. */
+.dashboard-weread-heatmap-cell--blank {
+	background: transparent;
+}
+
+.dashboard-weread-stat-panel-right {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.dashboard-weread-stat-panel-cell {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 12px 10px;
+	min-width: 0;
+}
+
+.dashboard-weread-stat-panel-cell + .dashboard-weread-stat-panel-cell {
+	border-top: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+}
+
+.dashboard-weread-donut-wrap {
+	position: relative;
+	width: 108px;
+	height: 108px;
+	flex-shrink: 0;
+}
+
+.dashboard-weread-donut-svg {
+	display: block;
+}
+
+.dashboard-weread-donut-center {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	pointer-events: none;
+}
+
+.dashboard-weread-donut-total {
+	font-size: 1.15em;
+	font-weight: 700;
+	color: var(--db-text, var(--text-normal));
+	line-height: 1.1;
+}
+
+.dashboard-weread-donut-unit {
+	font-size: 0.6em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-weread-donut-seg--finished {
+	stroke: var(--color-green, #2f9e73);
+}
+
+.dashboard-weread-donut-seg--reading {
+	stroke: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-weread-donut-seg--notStarted {
+	stroke: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-weread-legend {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	width: 100%;
+	max-width: 138px;
+}
+
+.dashboard-weread-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.dashboard-weread-legend-dot--finished,
+.dashboard-weread-legend-dot--reading,
+.dashboard-weread-legend-dot--notStarted {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.dashboard-weread-legend-dot--finished {
+	background: var(--color-green, #2f9e73);
+}
+
+.dashboard-weread-legend-dot--reading {
+	background: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-weread-legend-dot--notStarted {
+	background: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-weread-legend-label {
+	font-size: 0.68em;
+	color: var(--db-text-muted, var(--text-muted));
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-weread-legend-count {
+	font-size: 0.68em;
+	font-weight: 700;
+	color: var(--db-text, var(--text-normal));
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-weread-kpi-value-row {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	flex-wrap: wrap;
+	justify-content: center;
+	min-width: 0;
+}
+
+.dashboard-weread-kpi-caption-extra {
+	font-size: 0.68em;
+	color: var(--db-text-muted, var(--text-muted));
+	font-variant-numeric: tabular-nums;
 }
 
 .dashboard-weread-stat-value {
@@ -16228,6 +16539,274 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	font-size: 0.68em;
 	color: var(--db-text-muted, var(--text-muted));
 	text-align: center;
+}
+
+/* Narrow panes/phones: the three columns stack vertically; the right zone's
+   two cells pair up horizontally to save height. Container query tracks the
+   PANE width (split panes, sidebars) — a plain @media never fires there; the
+   @media copy below is the old-engine fallback. */
+@container (max-width: 520px) {
+	.dashboard-weread-stat-panel {
+		grid-template-columns: 1fr;
+	}
+
+	.dashboard-weread-stat-panel-shelf,
+	.dashboard-weread-stat-panel-mid {
+		border-right: none;
+		border-bottom: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	}
+
+	.dashboard-weread-stat-panel-right {
+		flex-direction: row;
+	}
+
+	.dashboard-weread-stat-panel-cell + .dashboard-weread-stat-panel-cell {
+		border-top: none;
+		border-left: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	}
+}
+
+@media (max-width: 520px) {
+	.dashboard-weread-stat-panel {
+		grid-template-columns: 1fr;
+	}
+
+	.dashboard-weread-stat-panel-shelf,
+	.dashboard-weread-stat-panel-mid {
+		border-right: none;
+		border-bottom: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	}
+
+	.dashboard-weread-stat-panel-right {
+		flex-direction: row;
+	}
+
+	.dashboard-weread-stat-panel-cell + .dashboard-weread-stat-panel-cell {
+		border-top: none;
+		border-left: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	}
+}
+
+/* ===== Reading stats widget (period toggle + 6 KPIs + trend + top/prefer) ===== */
+.dashboard-weread-stats-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	min-width: 0;
+	/* Size container so the KPI bento can re-flow on the PANE's width (split
+	   panes, sidebars), not the viewport — a plain @media never fires there.
+	   Old engines without container queries keep the @media fallback below. */
+	container-type: inline-size;
+}
+
+.dashboard-weread-stats-toggle {
+	display: flex;
+	gap: 2px;
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.12));
+	border-radius: 8px;
+	padding: 2px;
+	width: fit-content;
+	/* Right-aligned: the period switch sits at the row's end, out of the
+	   content's reading line. */
+	margin-left: auto;
+}
+
+.dashboard-weread-stats-toggle-btn {
+	border: none;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.72em;
+	font-weight: 500;
+	padding: 4px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	box-shadow: none;
+}
+
+.dashboard-weread-stats-toggle-btn:hover {
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-weread-stats-toggle-btn.active {
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.10));
+	color: var(--db-text, var(--text-normal));
+	font-weight: 600;
+}
+
+.dashboard-weread-stats-body {
+	/* Blocks flow two per row (双排); the KPI overview spans the full row
+	   (six cards want the width) and the loading/error hint centers itself
+	   across both columns. */
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px;
+	min-width: 0;
+}
+
+.dashboard-weread-stats-body > .dashboard-weread-hint {
+	grid-column: 1 / -1;
+}
+
+.dashboard-weread-stats-block {
+	min-width: 0;
+}
+
+.dashboard-weread-stats-block--wide {
+	grid-column: 1 / -1;
+}
+
+/* Phones: one block per row — half-width charts and lists get too cramped. */
+@media (max-width: 640px) {
+	.dashboard-weread-stats-body {
+		grid-template-columns: 1fr;
+	}
+}
+
+.dashboard-weread-stat-delta {
+	font-size: 0.62em;
+	font-weight: 600;
+	padding: 1px 6px;
+	border-radius: 4px;
+	margin-top: 2px;
+}
+
+.dashboard-weread-stat-delta--up {
+	color: #2ecc71;
+	background: rgba(46, 204, 113, 0.12);
+}
+
+.dashboard-weread-stat-delta--down {
+	color: #e74c3c;
+	background: rgba(231, 76, 60, 0.12);
+}
+
+.dashboard-weread-stats-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.dashboard-weread-stats-section-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.dashboard-weread-stats-section-title {
+	font-size: 0.78em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-weread-streak {
+	font-size: 0.68em;
+	color: var(--db-text-muted, var(--text-muted));
+	font-variant-numeric: tabular-nums;
+	flex-shrink: 0;
+}
+
+.dashboard-weread-trend-svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.dashboard-weread-trend-bar {
+	fill: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-weread-trend-tick {
+	font-size: 9px;
+	fill: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-weread-topread {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dashboard-weread-topread-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.08));
+}
+
+.dashboard-weread-topread-meta {
+	min-width: 0;
+}
+
+.dashboard-weread-topread-title {
+	font-size: 0.74em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-weread-topread-author {
+	font-size: 0.64em;
+	color: var(--db-text-muted, var(--text-muted));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-weread-topread-time {
+	font-size: 0.68em;
+	color: var(--db-accent, var(--interactive-accent));
+	font-variant-numeric: tabular-nums;
+	flex-shrink: 0;
+}
+
+.dashboard-weread-prefercat {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dashboard-weread-prefercat-row {
+	display: grid;
+	grid-template-columns: minmax(56px, 88px) 1fr auto;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.dashboard-weread-prefercat-name {
+	font-size: 0.7em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-weread-prefercat-bar-wrap {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.12));
+	overflow: hidden;
+}
+
+.dashboard-weread-prefercat-bar {
+	height: 100%;
+	border-radius: 3px;
+	background: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-weread-prefercat-val {
+	font-size: 0.64em;
+	color: var(--db-text-muted, var(--text-muted));
+	font-variant-numeric: tabular-nums;
+	flex-shrink: 0;
 }
 
 .dashboard-weread-notebooks {
@@ -16540,7 +17119,38 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 .dashboard-weread-cfg-filter-group {
 	width: 100%;
-	margin-top: 6px;
+}
+
+.dashboard-weread-cfg-grouping {
+	display: grid;
+	grid-template-columns: minmax(90px, auto) minmax(140px, 1fr);
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	margin-top: 4px;
+}
+
+.dashboard-weread-cfg-grouping .dashboard-weread-cfg-filter-label {
+	margin-bottom: 0;
+}
+
+.dashboard-weread-cfg-filter-panel {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 11px 14px;
+	width: 100%;
+	margin-top: 4px;
+	padding: 10px;
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	border-radius: var(--db-radius-md, 10px);
+	background: color-mix(in srgb, var(--db-bg-card, var(--background-secondary)) 82%, transparent);
+}
+
+.dashboard-weread-cfg-filter-panel-title {
+	grid-column: 1 / -1;
+	font-size: 0.72em;
+	font-weight: 650;
+	color: var(--db-text, var(--text-normal));
 }
 
 .dashboard-weread-cfg-filter-label {
@@ -16570,6 +17180,89 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	background: var(--db-accent, var(--interactive-accent));
 	color: #fff;
 	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+/* Stats-block editor rows: drag handle + checkbox + label, one block each. */
+.dashboard-weread-cfg-stats-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-top: 6px;
+}
+
+.dashboard-weread-cfg-stats-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 6px;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.04));
+	position: relative;
+}
+
+.dashboard-weread-cfg-stats-row--hidden {
+	opacity: 0.55;
+}
+
+.dashboard-weread-cfg-stats-row--dragging {
+	opacity: 0.4;
+}
+
+.dashboard-weread-cfg-stats-row--drop-before::before,
+.dashboard-weread-cfg-stats-row--drop-after::after {
+	content: '';
+	position: absolute;
+	left: 4px;
+	right: 4px;
+	height: 2px;
+	border-radius: 1px;
+	background: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-weread-cfg-stats-row--drop-before::before {
+	top: -2px;
+}
+
+.dashboard-weread-cfg-stats-row--drop-after::after {
+	bottom: -2px;
+}
+
+.dashboard-weread-cfg-stats-handle {
+	display: inline-flex;
+	align-items: center;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: grab;
+	flex-shrink: 0;
+}
+
+.dashboard-weread-cfg-stats-handle:active {
+	cursor: grabbing;
+}
+
+.dashboard-weread-cfg-stats-handle--placeholder {
+	visibility: hidden;
+	cursor: default;
+}
+
+.dashboard-weread-cfg-stats-check {
+	margin: 0;
+	flex-shrink: 0;
+}
+
+.dashboard-weread-cfg-stats-label {
+	font-size: 0.8em;
+	color: var(--db-text, var(--text-normal));
+}
+
+@media (max-width: 600px) {
+	.dashboard-weread-cfg-filter-panel {
+		grid-template-columns: 1fr;
+	}
+
+	.dashboard-weread-cfg-grouping {
+		grid-template-columns: 1fr;
+		gap: 4px;
+	}
 }
 
 /* Heatmap year grid: month labels on top, week columns below. */

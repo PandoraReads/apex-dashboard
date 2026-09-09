@@ -1,10 +1,15 @@
 import { App, Modal, setIcon } from 'obsidian';
-import type { LibraryConfig } from './types';
+import type { LibraryConfig, PropertyFilterOperator } from './types';
 import { extractFrontmatterProperties } from './library-section';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
+
+/** Pseudo-properties whose filter branches have fixed semantics (path does
+    substring matching, created/modified use date ranges) — no operator UI. */
+const PSEUDO_PROPERTIES = new Set(['path', 'created', 'modified']);
+const OPERATORS: PropertyFilterOperator[] = ['equals', 'contains', 'notEquals'];
 
 export class LibraryConfigModal extends Modal {
 	private config: LibraryConfig;
@@ -77,12 +82,38 @@ export class LibraryConfigModal extends Modal {
 					renderFilters();
 				});
 
-				// Value search box (right of the property dropdown)
+				// Operator (between the property selector and the value search
+				// box): how checked values compare. Hidden for the
+				// pseudo-properties (path/created/modified) whose filter
+				// branches have fixed semantics of their own.
+				const operator = filter.operator ?? 'equals';
+				if (filter.property && !PSEUDO_PROPERTIES.has(filter.property)) {
+					const opSelect = header.createEl('select', { cls: 'dashboard-library-filter-operator' });
+					opSelect.title = t('library.filterOperator');
+					for (const op of OPERATORS) {
+						const opt = opSelect.createEl('option', {
+							text: t(`library.op${op.charAt(0).toUpperCase()}${op.slice(1)}`),
+							attr: { value: op },
+						});
+						if (op === operator) opt.selected = true;
+					}
+					opSelect.addEventListener('change', () => {
+						filter.operator = opSelect.value as PropertyFilterOperator;
+						renderFilters();
+					});
+				}
+
+				// Value search box (right of the operator dropdown). In contains
+				// mode the placeholder invites free text — Enter adds it as a
+				// custom chip, since a substring usually isn't an existing value.
 				let searchInput: HTMLInputElement | null = null;
 				if (filter.property) {
 					searchInput = header.createEl('input', {
 						cls: 'dashboard-library-value-search',
-						attr: { type: 'text', placeholder: t('library.searchValues') },
+						attr: {
+							type: 'text',
+							placeholder: operator === 'contains' ? t('library.searchValuesContains') : t('library.searchValues'),
+						},
 					});
 				}
 
@@ -105,13 +136,17 @@ export class LibraryConfigModal extends Modal {
 
 					const renderValues = (): void => {
 						valuesList.empty();
-						if (sorted.length === 0) {
+						// Custom values (free text added in contains mode) render
+						// alongside existing values so they stay visible and removable.
+						const existing = new Set(sorted);
+						const all = [...filter.values.filter(v => !existing.has(v)), ...sorted];
+						if (all.length === 0) {
 							valuesList.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noValues') });
 							return;
 						}
 						if (!searchInput) return;
 						const query = searchInput.value.trim().toLowerCase();
-						const visible = query ? sorted.filter(v => v.toLowerCase().includes(query)) : sorted;
+						const visible = query ? all.filter(v => v.toLowerCase().includes(query)) : all;
 						if (visible.length === 0) {
 							valuesList.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noMatchingValues') });
 							return;
@@ -134,6 +169,20 @@ export class LibraryConfigModal extends Modal {
 					};
 
 					searchInput.addEventListener('input', renderValues);
+					// Contains mode: Enter adds the typed text as a custom value —
+					// substrings usually aren't existing values, so the vault's
+					// chip list alone can't express them.
+					if (operator === 'contains') {
+						searchInput.addEventListener('keydown', (ev) => {
+							if (ev.key !== 'Enter') return;
+							ev.preventDefault();
+							const typed = searchInput!.value.trim();
+							if (!typed || filter.values.includes(typed)) return;
+							filter.values = [...filter.values, typed];
+							searchInput!.value = '';
+							renderValues();
+						});
+					}
 					renderValues();
 				}
 			}
