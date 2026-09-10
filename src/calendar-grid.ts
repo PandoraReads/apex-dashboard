@@ -25,10 +25,11 @@ export interface MonthGridOptions {
 	dotMode?: boolean;
 	/** Show each task's time-of-day label (week view). */
 	showTimes?: boolean;
-	/** Dot mode: the pointer enters a day cell that has tasks. `anchor` is the cell
-	 *  element — used by the caller to position a preview popup near it. */
+	/** The pointer entered a day cell that has tasks (dot mode and full mode).
+	 *  `anchor` is the cell element — used by the caller to position a preview
+	 *  popup near it. */
 	onDayHover?: (iso: string, anchor: HTMLElement) => void;
-	/** Dot mode: the pointer left a day cell (or the grid). Caller hides its popup. */
+	/** The pointer left a day cell (or the grid). Caller hides its popup. */
 	onDayLeave?: () => void;
 	/** Full-screen month mode: a continuous multi-day bar was clicked. Opens the
 	 *  day agenda of the bar's first visible day. */
@@ -235,9 +236,10 @@ export function renderMonthGrid(
 			dayCell.addEventListener('click', () => opts.onDayClick?.(iso));
 		}
 
-		// Dot mode hover preview: only fire for cells that actually have tasks,
-		// so empty days stay quiet.
-		if (opts.dotMode && cellTasks.length > 0 && opts.onDayHover) {
+		// Hover preview: dot mode (sidebar) anchors on the cell; full mode
+		// (calendar section) too — cells cap their visible rows, so the popup
+		// surfaces the day's complete list. Compact mode stays preview-less.
+		if (cellTasks.length > 0 && opts.onDayHover && (opts.dotMode || !opts.compact)) {
 			dayCell.addEventListener('mouseenter', () => opts.onDayHover?.(iso, dayCell));
 			dayCell.addEventListener('mouseleave', () => opts.onDayLeave?.());
 			dayCell.addEventListener('focus', () => opts.onDayHover?.(iso, dayCell));

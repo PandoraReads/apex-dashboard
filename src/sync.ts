@@ -496,6 +496,18 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async updateWebConfig(columnName: string, config: import('./types').WebEmbedConfig): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, webConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
 	/** Reorder sections by array index (index-based to avoid name collisions).
 	 *  Vertical drop = "own full-width row": a moved section loses any pairing
 	 *  and never lands between two partners (see moveToOwnRow). from === to is

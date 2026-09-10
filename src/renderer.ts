@@ -8,6 +8,7 @@ import { getMediaTagService } from './media-tags';
 import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
 import { renderDataviewSection, setDataviewApp } from './dataview-section';
+import { renderWebSection } from './web-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { ITEM_DRAG_TYPE } from './dnd';
@@ -26,6 +27,7 @@ import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
 import { renderSidebarYearProgress } from './year-progress-widget';
 import { renderSidebarCalendar } from './calendar-widget';
+import { renderCalendarSection } from './calendar-section';
 import { renderSidebarHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget } from './expense-widget';
 import { SUPPORTED_FILE_EXTS, iconForExtension } from './file-types';
@@ -1708,9 +1710,10 @@ function saveCollapsedSections(app: App, collapsed: Set<string>): void {
 
 function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, callbacks: RenderCallbacks): void {
 	if (Platform.isMobile) return;
-	// Memo sections are driven by a fixed CSS height, so the drag must write
-	// inline height as well; other types only clamp via max-height.
-	const isFixedHeight = getSectionType(column) === 'memo';
+	// Memo and web sections are driven by a fixed CSS height, so the drag must
+	// write inline height as well; other types are content-sized rows where
+	// max-height can only clamp (shrink), never grow.
+	const isFixedHeight = getSectionType(column) === 'memo' || getSectionType(column) === 'web';
 	const handle = el.createDiv({ cls: 'dashboard-section-resize-handle' });
 	handle.addEventListener('mousedown', (e) => {
 		e.preventDefault();
@@ -1757,10 +1760,11 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	// CSS sizing (50vh-family), shrinking card bodies to a sliver.
 	if (!Platform.isMobile && typeof column.height === 'number' && column.height > 0) {
 		el.style.maxHeight = `${column.height}px`;
-		// Memo sections have a fixed CSS height (aligned with Quick Links), so
-		// max-height alone can only shrink them. Write the inline height too so
-		// the drag-resized value can also grow the section past the default.
-		if (sectionType === 'memo') {
+		// Memo (aligned with Quick Links) and web (the frame fills the row)
+		// sections have a fixed CSS height, so max-height alone can only shrink
+		// them. Write the inline height too so the drag-resized value can also
+		// grow the section past the default.
+		if (sectionType === 'memo' || sectionType === 'web') {
 			el.style.height = `${column.height}px`;
 		}
 	}
@@ -1938,10 +1942,28 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		return el;
 	}
 
-	// Calendar section type has been removed — the calendar now lives in the
-	// sidebar as a widget (see renderSidebarCalendar). Any legacy `type: calendar`
-	// column still in a dashboard file simply renders an empty, deletable shell
-	// (falls through to the default tail `return el`).
+	// Calendar section: the sidebar calendar's enlarged view (full month grid
+	// with multi-day bars / week time grid) embedded in the board. Shares the
+	// sidebar widget's scan (calendarExcludeFolders) and refreshes in place on
+	// vault task changes (see refreshCalendarSections).
+	if (sectionType === 'calendar') {
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
+		});
+
+		if (settings) {
+			renderCalendarSection(el, app, settings, callbacks.onOpenNoteAtLine);
+		} else {
+			el.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
+		}
+		return el;
+	}
 
 	// Weread section: reading data from the official API.
 	if (sectionType === 'weread') {
@@ -2086,6 +2108,41 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 
 		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover ?? null, (fn) => { reload = fn; },
 			(cfg) => callbacks.onDataviewConfigChange(column.name, cfg));
+		return el;
+	}
+
+	// Web section: an embedded page. Frameable sites load as an iframe; sites
+	// whose headers refuse framing load in a desktop webview (see web-section).
+	if (sectionType === 'web') {
+		const refreshBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('web.refresh') },
+		});
+		setIcon(refreshBtn, 'refresh-cw');
+		let reload: (() => void) | null = null;
+		refreshBtn.addEventListener('click', () => reload?.());
+
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('web.configure') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
+		});
+
+		renderWebSection(el, column, (fn) => { reload = fn; });
 		return el;
 	}
 
@@ -3233,6 +3290,7 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'dataview') return 'dataview';
 	if (lower === 'weread') return 'weread';
 	if (lower === 'ticktick') return 'ticktick';
+	if (lower === 'web') return 'web';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);

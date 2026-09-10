@@ -7476,13 +7476,6 @@
 	white-space: nowrap;
 }
 
-.dashboard-calendar-day-preview-more {
-	padding: 4px 6px 2px;
-	font-size: 0.85em;
-	color: var(--db-text-muted, var(--text-muted));
-	text-align: center;
-}
-
 .dashboard-calendar.is-compact .dashboard-calendar-cell-list,
 .dashboard-sidebar-calendar .dashboard-calendar.is-compact .dashboard-calendar-more {
 	display: none;
@@ -8656,8 +8649,17 @@
 .dashboard-section-row[data-section-type="weread"],
 .dashboard-section-row[data-section-type="ticktick"],
 .dashboard-section-row[data-section-type="heatmap"],
-.dashboard-section-row[data-section-type="dataview"] {
+.dashboard-section-row[data-section-type="dataview"],
+.dashboard-section-row[data-section-type="web"] {
 	max-height: 800px;
+}
+
+/* Web section: definite height (memo's fixed-height pattern) so the embedded
+   frame fills the row and drag-resize can GROW it, not just clamp it —
+   content-sized rows cannot be enlarged via max-height alone. Mobile
+   overrides this with 70vh in the mobile media block. */
+.dashboard-section-row[data-section-type="web"] {
+	height: 480px;
 }
 
 .dashboard-section-row[data-section-type="images"],
@@ -11821,6 +11823,13 @@
 		display: flex;
 		flex-direction: column;
 		padding: 10px;
+	}
+
+	/* Web sections: taller than the default row — the frame IS the content,
+	 * and the desktop drag-height is ignored on mobile (see renderer), so the
+	 * height must come from CSS here. */
+	.dashboard-section-row[data-section-type="web"] {
+		height: 70vh;
 	}
 
 	.dashboard-section-header {
@@ -15964,6 +15973,52 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 30%, transparent) transparent;
 }
 
+/* Calendar section: the full-screen calendar embedded as a board section.
+   Mirrors the modal's inner layout (wrap-capable nav row + scrollable grid
+   body); grid internals reuse the global calendar/calgrid styles above. */
+.dashboard-section-row[data-section-type="calendar"] {
+	max-height: 800px;
+}
+.dashboard-calendar-section {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+.dashboard-calendar-section-nav {
+	flex-wrap: wrap;
+	row-gap: 8px;
+	margin-bottom: 8px;
+}
+.dashboard-calendar-section-nav .dashboard-calendar-nav-label {
+	flex: 1;
+	text-align: center;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.dashboard-calendar-section-body {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+/* Section month view: shorter day cells than the full-screen modal. The modal
+   is 88vh tall, so its clamp(104px, 16vh, 200px) rows fit; the section caps at
+   800px, where those rows push the grid deep into scrolling. A tighter clamp
+   lets the whole month fit inside the section. */
+.dashboard-calendar-section-body .dashboard-calendar.is-full .dashboard-calendar-cell {
+	height: clamp(64px, 9vh, 120px);
+}
+/* Busy days scroll inside their capped cell (same recipe as the modal). */
+.dashboard-calendar-section-body .dashboard-calendar.is-full .dashboard-calendar-cell-list {
+	flex: 1;
+	gap: 4px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 30%, transparent) transparent;
+}
+
 /* Prompt dialog (text-input variant of the confirm dialog) */
 .dashboard-prompt-input {
 	width: 100%;
@@ -19046,6 +19101,91 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 @keyframes dashboard-dataview-spin {
 	from { transform: rotate(0deg); }
 	to { transform: rotate(360deg); }
+}
+
+/* ==== Web section — embedded page (iframe / desktop webview) ==== */
+
+/* Fill the section row's column flex so the frame takes the remaining
+   bounded height and scrolls itself (mirrors .dashboard-dataview-content).
+   overflow + radius clip the frame's square corners to the theme's. */
+.dashboard-web-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	border-radius: var(--db-radius-md);
+	overflow: hidden;
+}
+
+/* Painted backdrop avoids a transparent flash in dark themes while the frame
+   loads. No sandbox is set on the frame itself (login-walled apps need
+   cookies) — that lives in web-section.ts. */
+.dashboard-web-frame {
+	flex: 1 1 auto;
+	width: 100%;
+	min-height: 0;
+	border: 0;
+	display: block;
+	background: var(--background-primary);
+}
+
+/* Configure-me guide state (no URL yet). */
+.dashboard-web-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 32px 12px;
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-web-empty-icon svg,
+.dashboard-web-fallback-icon svg {
+	width: 28px;
+	height: 28px;
+}
+.dashboard-web-empty-text {
+	font-size: 0.95em;
+}
+.dashboard-web-empty-hint {
+	font-size: 0.85em;
+	opacity: 0.75;
+}
+
+/* Fallback card: site refused framing (mobile) or page failed to load. */
+.dashboard-web-fallback {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 28px 16px;
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-web-fallback-text {
+	text-align: center;
+}
+.dashboard-web-fallback-host {
+	font-weight: 600;
+	word-break: break-all;
+}
+.dashboard-web-fallback-url {
+	font-size: 0.85em;
+	opacity: 0.7;
+	word-break: break-all;
+}
+.dashboard-web-fallback-btn {
+	margin-top: 8px;
+	padding: 6px 14px;
+	border: 1px solid var(--db-accent, var(--text-accent));
+	border-radius: var(--db-radius-sm, 8px);
+	background: transparent;
+	color: var(--db-accent, var(--text-accent));
+	font-size: 0.9em;
+	cursor: pointer;
+}
+.dashboard-web-fallback-btn:hover {
+	background: var(--db-accent, var(--text-accent));
+	color: var(--db-bg-section, var(--background-primary));
 }
 
 /* External (http) links rendered from field values */

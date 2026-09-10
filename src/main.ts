@@ -10,8 +10,8 @@ import { DataviewGuideModal } from './dataview-guide-modal';
  *  announcement pops only when the user's stored version differs from this —
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
- *  shipped with 2.2.0. */
-const ANNOUNCE_VERSION = '2.2.0';
+ *  shipped with 2.3.0. */
+const ANNOUNCE_VERSION = '2.3.0';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';

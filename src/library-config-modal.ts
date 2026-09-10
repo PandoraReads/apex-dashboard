@@ -176,10 +176,10 @@ export class LibraryConfigModal extends Modal {
 						searchInput.addEventListener('keydown', (ev) => {
 							if (ev.key !== 'Enter') return;
 							ev.preventDefault();
-							const typed = searchInput!.value.trim();
+							const typed = searchInput.value.trim();
 							if (!typed || filter.values.includes(typed)) return;
 							filter.values = [...filter.values, typed];
-							searchInput!.value = '';
+							searchInput.value = '';
 							renderValues();
 						});
 					}

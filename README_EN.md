@@ -21,10 +21,13 @@ Organize your vault documents into project cards. Each card links to related not
 A compact, list-style section for organizing reference documents and quick-access files. Displays up to 5 cards per row without cover images for maximum density.
 
 ### 📅 Calendar
-A native month-grid calendar of every dated task across your vault (no dataview or external plugin needed). Each day cell lists its tasks; click a day for its agenda. Open a full-screen calendar with month navigation and inline toggling. Multi-day events with `[start::]` / `[end::]` span across days.
+A native month-grid calendar of every dated task across your vault (no dataview or external plugin needed). Each day cell lists its tasks; click a day for its agenda. Open a full-screen calendar with month navigation and inline toggling. Multi-day events with `[start::]` / `[end::]` span across days. The sidebar widget's enlarged view is also available as a **Calendar section** embedded in the board — full month grid (with multi-day bars), week time grid, task filter, and today jump; click a day number to add a task for that day (written into the daily note or the dashboard todo list).
 
 ### 🔍 Dataview
 Query your vault with a built-in DQL engine — no Dataview plugin required. Add a Dataview section and write queries like `TABLE file.name, rating FROM "Books" WHERE rating >= 4 SORT rating DESC`. Supports `TABLE`, `LIST`, `TASK`, `CALENDAR`, and `HEATMAP` outputs over folders, tags, and links (`FROM`), with `WHERE`, `SORT`, `GROUP BY`, `FLATTEN`, and `LIMIT` clauses, ~40 built-in functions, all `file.*` implicit fields, YAML frontmatter, and inline fields (`[key:: value]`). The config modal validates syntax live and ships one-click sample queries. `TASK` checkboxes write back to the source note, `CALENDAR` plots a month grid, and `HEATMAP` plots a year contribution grid from any numeric field. Results refresh on demand via the section's refresh button.
+
+### 🌐 Web
+Embed any web page right in a section — paste a URL and browse it like an in-board browser pane. **Auto mode** prechecks the site's framing policy: frameable sites embed directly as an iframe, while refusers switch to a desktop webview (with its own persistent login — recommended for Keep, Todoist web, and other sign-in apps); mobile shows a fallback card with an open-in-browser button. You can also force iframe/webview mode and scale the page 0.5–2× for dense web apps. Prefer https sites on mobile; embedding is read-oriented — popups and downloads belong in a real browser.
 
 ### ⚡ Quick Actions
 Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
@@ -51,7 +54,7 @@ A customizable banner with an inspirational quote and optional background image.
 Drag cards between sections to reorganize your workspace. Drag task items within Todo cards to reorder. Drag document links between project/note cards.
 
 ### 🧩 Custom Sections
-**12 section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Weread**, and **TickTick** — each with its own layout and behavior, so the board fits your workflow.
+**14 section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Calendar**, **Weread**, **TickTick**, and **Web** — each with its own layout and behavior, so the board fits your workflow.
 
 ### 🕐 Recent Documents
 The sidebar shows recently edited files with relative timestamps, so you can jump back into your latest work.
@@ -120,6 +123,11 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 </p>
 
 ## What's New
+
+### 2.3.0
+- **Calendar section** — The sidebar calendar's enlarged view embedded right in the board: full month grid (multi-day events as continuous bars) and week time grid, month/week switching, task filter, and a Today jump. Hover a date to peek the day's complete task list; click a date number to add a task for that day (written into the daily note or the dashboard todo list). Tasks aggregate the whole vault and the grid refreshes in place as notes change.
+- **Web embed section** — Pin any web page to the board: enter a URL and it embeds. Auto mode pre-checks the site's framing policy — frameable sites load as an iframe, refusers switch to a desktop webview (persistent login; great for Google Keep or TickTick web), and mobile shows a fallback card with an open-in-browser button. Manual iframe/webview lock and 0.5–2x zoom are supported.
+- **Fix: the delete-confirm dialog darkened the screen on every Enter press** — The dialog never claimed focus or keys, so each Enter re-triggered the still-focused delete button underneath and stacked another half-black overlay. It now focuses the safe default button on open with clear Enter/Escape semantics — no more stacking.
 
 ### 2.2.0
 - **Gallery view** — Library and folder sections gain a gallery view: cards render cover images (from `封面`/`cover` fields or any image-shaped value) with an S/M/L size toggle on the toolbar, persisted per section; the small tier squares covers 1:1, medium/large keep 16:10

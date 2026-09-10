@@ -6,6 +6,7 @@ import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConf
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
+import { refreshCalendarSections } from './calendar-section';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
 import { getHabitService } from './habit-service';
@@ -33,6 +34,7 @@ import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
 import { DataviewConfigModal } from './dataview-config-modal';
+import { WebConfigModal } from './web-config-modal';
 import { MediaConfigModal } from './media-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
 import { fetchTickTickProjects } from './ticktick-config-modal';
@@ -283,7 +285,21 @@ export class DashboardView extends ItemView implements HoverParent {
 		const plan = planDashboardUpdate(previous, data, source);
 		if (plan.kind === 'none') return;
 		if (plan.kind === 'sections') {
-			const refreshed = plan.names.every((name) => this.refreshSectionInPlace(name));
+			// A height-only change on a calendar or web section is already live
+			// in the DOM (the resize handle writes the inline height as it
+			// drags); rebuilding would reset the calendar's month/week navigation
+			// or reload the web section's embedded page for no gain.
+			// Skip those; every other change re-renders as usual.
+			const buildable = plan.names.filter((name) => {
+				if (!previous) return true;
+				const idx = data.columns.findIndex(c => c.name === name);
+				const before = previous.columns[idx];
+				const after = data.columns[idx];
+				if (!before || !after || (after.sectionType !== 'calendar' && after.sectionType !== 'web')) return true;
+				return JSON.stringify({ ...before, height: undefined }) !== JSON.stringify({ ...after, height: undefined });
+			});
+			if (buildable.length === 0) return;
+			const refreshed = buildable.every((name) => this.refreshSectionInPlace(name));
 			if (refreshed) return;
 		}
 		this.render(data);
@@ -454,6 +470,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openWereadConfigModal(columnName);
 			} else if (col?.sectionType === 'dataview') {
 				this.openDataviewConfigModal(columnName);
+			} else if (col?.sectionType === 'web') {
+				this.openWebConfigModal(columnName);
 			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
 				this.openMediaConfigModal(columnName);
 			} else {
@@ -1013,6 +1031,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		return {
 			onCardEdit: (card: DashboardCard) => this.openCardEditModal(card),
 			onOpenNoteInPopover: (file: TFile, subpath?: string) => this.openNote(file, subpath),
+			onOpenNoteAtLine: (file: TFile, line?: number) => this.openNote(file, undefined, line),
 			onCardDelete: async (cardId: string) => {
 				const confirmed = await showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
@@ -1368,6 +1387,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.openWereadConfigModal(name);
 		} else if (sectionType === 'dataview') {
 			this.openDataviewConfigModal(name);
+		} else if (sectionType === 'web') {
+			this.openWebConfigModal(name);
 		}
 	}
 
@@ -1468,6 +1489,20 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existing,
 			(config) => { void this.sync.updateDataviewConfig(colName, config); },
+		);
+		modal.open();
+	}
+
+	/** Web section: URL + engine mode + zoom. Saving goes through the plain
+	 *  sync path — handleDataUpdate('local') rebuilds the section in place,
+	 *  reloading the frame with the new URL. */
+	private openWebConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const existing = column?.webConfig ?? { url: '' };
+		const modal = new WebConfigModal(
+			this.app,
+			existing,
+			(config) => { void this.sync.updateWebConfig(colName, config); },
 		);
 		modal.open();
 	}
@@ -1970,6 +2005,9 @@ export class DashboardView extends ItemView implements HoverParent {
 			const callbacks = this.createCallbacks();
 			if (hasScanning) {
 				refreshScanningSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
+				// Calendar sections refresh their grid in place (nav/filter state
+				// preserved) instead of going through refreshScanningSections.
+				refreshCalendarSections(kanban);
 			}
 			if (structure && hasMedia) {
 				refreshMediaSections(kanban, data, callbacks, this.app, this.plugin.settings, this);

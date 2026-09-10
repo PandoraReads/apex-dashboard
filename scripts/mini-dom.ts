@@ -41,6 +41,16 @@ export class El {
 		return this.parent;
 	}
 
+	/** True when `node` is this element or a descendant (real-DOM parity). */
+	contains(node: El | null): boolean {
+		let cur: El | null = node;
+		while (cur) {
+			if (cur === this) return true;
+			cur = cur.parent;
+		}
+		return false;
+	}
+
 	/** True when the node's root is the stubbed <body> (see withBody). */
 	get isConnected(): boolean {
 		let cur: El | null = this;
@@ -91,6 +101,15 @@ export class El {
 	/** Obsidian helper; same as assigning textContent. */
 	setText(v: string): El {
 		this.textContent = v;
+		return this;
+	}
+
+	/** Append a raw text node (renderTextWithLinks writes plain segments this
+	 *  way). Accumulates into the node's own text slot; like the real DOM this
+	 *  coexists with child elements, but the stand-in's textContent getter only
+	 *  surfaces it when the node has no element children. */
+	appendText(v: string): El {
+		this.text += v;
 		return this;
 	}
 

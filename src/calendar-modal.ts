@@ -32,15 +32,16 @@ function lookupDashboardPlugin(app: App): DashboardPluginHandle | undefined {
 		.plugins?.plugins?.['apex-dashboard'];
 }
 
-/** Current persisted filter; unknown or hand-edited values normalize to 'all'. */
-function readCalendarTaskFilter(app: App): CalendarTaskFilter {
+/** Current persisted filter; unknown or hand-edited values normalize to 'all'.
+ *  Shared with the calendar section (the choice applies to both surfaces). */
+export function readCalendarTaskFilter(app: App): CalendarTaskFilter {
 	const raw = lookupDashboardPlugin(app)?.settings?.calendarTaskFilter;
 	return raw !== undefined && CALENDAR_TASK_FILTERS.includes(raw) ? raw : 'all';
 }
 
 /** Persist the filter (spread-replace + save). When the plugin can't be
- *  reached the in-modal choice still applies for this session. */
-function writeCalendarTaskFilter(app: App, filter: CalendarTaskFilter): void {
+ *  reached the in-view choice still applies for this session. */
+export function writeCalendarTaskFilter(app: App, filter: CalendarTaskFilter): void {
 	const plugin = lookupDashboardPlugin(app);
 	if (!plugin?.settings) return;
 	plugin.settings = { ...plugin.settings, calendarTaskFilter: filter };

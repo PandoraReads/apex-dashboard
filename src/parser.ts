@@ -18,13 +18,14 @@ import type {
 	WereadConfig,
 	TickTickConfig,
 	DataviewConfig,
+	WebEmbedConfig,
 } from './types';
 import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
 import { normalizeColumnPairs } from './column-pairs';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
-const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky']);
+const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
 // does not register them as tags. Restore the '#' here; legacy '#xxxxxx' values
@@ -310,6 +311,21 @@ export function serialize(data: DashboardData): string {
 				}
 			}
 		}
+		if (col.webConfig) {
+			const wc = col.webConfig;
+			lines.push('    web:');
+			// JSON.stringify yields a valid double-quoted YAML scalar and safely
+			// escapes embedded quotes/backslashes (same trick as the dataview
+			// query; a URL's :, #, ? and & need no escaping inside quotes).
+			lines.push(`      url: ${JSON.stringify(wc.url)}`);
+			// 'auto' is the default mode — only persist the explicit overrides.
+			if (wc.mode === 'iframe' || wc.mode === 'webview') {
+				lines.push(`      mode: ${wc.mode}`);
+			}
+			if (typeof wc.zoom === 'number' && wc.zoom !== 1) {
+				lines.push(`      zoom: ${wc.zoom}`);
+			}
+		}
 	}
 
 	lines.push('---');
@@ -319,7 +335,7 @@ export function serialize(data: DashboardData): string {
 		lines.push(`## ${column.name}`);
 		lines.push('');
 
-		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview') continue;
+		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview' || column.sectionType === 'web') continue;
 
 		for (const card of column.cards) {
 			lines.push(`### ${card.title}`);
@@ -807,7 +823,7 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number; half?: boolean }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -819,12 +835,13 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		wereadConfig: item.weread ? parseWereadConfig(item.weread as Record<string, unknown>) : undefined,
 		ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
 		dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
+		webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
 		height: typeof item.height === 'number' ? item.height : undefined,
 		half: item.half === true ? true : undefined,
 	}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; height?: number; half?: boolean }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -859,6 +876,7 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			wereadConfig: def?.wereadConfig,
 			ticktickConfig: def?.ticktickConfig,
 			dataviewConfig: def?.dataviewConfig,
+			webConfig: def?.webConfig,
 			height: def?.height,
 			half: def?.half,
 		};
@@ -1031,6 +1049,18 @@ function parseDataviewConfig(raw: Record<string, unknown>): DataviewConfig {
 		title: title && title.length > 0 ? title : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
 	};
+}
+
+function parseWebConfig(raw: Record<string, unknown>): WebEmbedConfig {
+	const url = str(raw.url ?? '');
+	// 'auto' (and anything invalid) normalizes to undefined — the default —
+	// so a hand-written `mode: auto` round-trips to no line at all.
+	const mode = raw.mode === 'iframe' || raw.mode === 'webview' ? raw.mode : undefined;
+	const zoomRaw = typeof raw.zoom === 'number' ? raw.zoom : undefined;
+	// Out-of-range and 1 values drop to undefined: 1 is the default zoom, and
+	// dropping it keeps serialize(parse(serialize(x))) === serialize(x).
+	const zoom = zoomRaw != null && zoomRaw >= 0.5 && zoomRaw <= 2 && zoomRaw !== 1 ? zoomRaw : undefined;
+	return { url, mode, zoom };
 }
 
 function splitByH2(body: string): Array<{ heading: string; content: string }> {

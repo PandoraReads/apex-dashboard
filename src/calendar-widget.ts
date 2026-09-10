@@ -17,11 +17,11 @@ import { renderTextWithLinks } from './renderer';
 
 /** Module-level hover-preview state, so only one popup ever exists and it can be
  *  torn down across re-renders. Mirrors the single-popup discipline used elsewhere
- *  (e.g. note-popover) rather than a per-cell instance. */
+ *  (e.g. note-popover) rather than a per-cell instance. Shared by the sidebar
+ *  widget and the calendar section via scheduleDayPreview. */
 let hoverTimer: number | null = null;
 let hoverPopup: HTMLElement | null = null;
 const HOVER_DELAY_MS = 350;
-const PREVIEW_MAX_TASKS = 8;
 
 /** Per-widget reload functions keyed by the widget's root element, so vault task
  *  changes can refresh the grid in place (re-scan + re-render into the live
@@ -48,6 +48,17 @@ export function closeDayPreview(): void {
 	if (hoverPopup) { hoverPopup.remove(); hoverPopup = null; }
 }
 
+/** Schedule the day-preview popup after the hover delay, cancelling any pending
+ *  show. Shared by the sidebar widget and the calendar section so only one
+ *  timer/popup can ever exist across both surfaces. */
+export function scheduleDayPreview(anchor: HTMLElement, iso: string, tasks: VaultTask[], app: App): void {
+	if (hoverTimer !== null) window.clearTimeout(hoverTimer);
+	hoverTimer = window.setTimeout(() => {
+		hoverTimer = null;
+		showDayPreview(anchor, iso, tasks, app);
+	}, HOVER_DELAY_MS);
+}
+
 /** Render one compact, non-interactive task row for the preview list. Visually
  *  matches the calendar's task rows (time prefix, priority bar, overdue tint,
  *  day-origin marker). */
@@ -66,8 +77,9 @@ function renderPreviewTask(task: VaultTask, iso: string, app: App): HTMLElement 
 	return row;
 }
 
-/** Build and position the preview popup near `anchor`, listing the day's tasks.
- *  Clamps to the viewport so it never spills off-screen. */
+/** Build and position the preview popup near `anchor`, listing the day's tasks
+ *  — all of them; the list scrolls inside the popup's capped height. Clamps to
+ *  the viewport so it never spills off-screen. */
 function showDayPreview(anchor: HTMLElement, iso: string, tasks: VaultTask[], app: App): void {
 	// A newer hover superseded this one while its timer was pending.
 	if (hoverTimer !== null) { window.clearTimeout(hoverTimer); hoverTimer = null; }
@@ -81,15 +93,8 @@ function showDayPreview(anchor: HTMLElement, iso: string, tasks: VaultTask[], ap
 
 	const list = popup.createDiv({ cls: 'dashboard-calendar-day-preview-list' });
 	const sorted = tasks.slice().sort(byDayTaskTime(iso));
-	const shown = sorted.slice(0, PREVIEW_MAX_TASKS);
-	for (const task of shown) {
+	for (const task of sorted) {
 		list.appendChild(renderPreviewTask(task, iso, app));
-	}
-	if (sorted.length > PREVIEW_MAX_TASKS) {
-		list.createDiv({
-			cls: 'dashboard-calendar-day-preview-more',
-			text: t('calendar.moreCount', { count: sorted.length - PREVIEW_MAX_TASKS }),
-		});
 	}
 
 	// Position: anchor to the right of the cell, fall back to left if no room,
@@ -216,18 +221,15 @@ export function renderSidebarCalendar(
 		const onDayClick = (iso: string): void => {
 			new DayAgendaModal(app, iso, byDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile).open();
 		};
-		// Hover preview only on desktop (no hover on touch). Shows the day's task
-		// list next to the cell after a short delay; cancelled if the pointer moves on.
+		// Hover preview only on desktop (no hover on touch). Shows the day's
+		// full task list next to the cell after a short delay; cancelled if the
+		// pointer moves on.
 		const hoverEnabled = !Platform.isMobile;
 		const onDayHover = hoverEnabled
 			? (iso: string, anchor: HTMLElement): void => {
 				const tasks = byDay.get(iso) ?? [];
 				if (tasks.length === 0) return;
-				if (hoverTimer !== null) window.clearTimeout(hoverTimer);
-				hoverTimer = window.setTimeout(() => {
-					hoverTimer = null;
-					showDayPreview(anchor, iso, tasks, app);
-				}, HOVER_DELAY_MS);
+				scheduleDayPreview(anchor, iso, tasks, app);
 			}
 			: undefined;
 		const onDayLeave = hoverEnabled

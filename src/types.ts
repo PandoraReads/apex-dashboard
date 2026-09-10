@@ -586,6 +586,23 @@ export interface DataviewConfig {
 	excludeFolders?: string[];
 }
 
+/** Web embed section config (sectionType 'web'). The URL is the sole required
+ *  field; the section embeds that page as an iframe (or, on desktop, an
+ *  Electron webview for sites that refuse framing — see web-precheck). */
+export interface WebEmbedConfig {
+	/** Page to embed. Must be a valid http(s) URL once normalized
+	 *  (normalizeWebUrl in web-precheck adds the https:// scheme when missing). */
+	url: string;
+	/** Embed engine. 'auto' (default) prechecks the site's framing headers and
+	 *  picks: frameable -> iframe, refuser -> desktop webview / mobile fallback
+	 *  card. 'iframe'/'webview' force one engine, skipping the precheck. */
+	mode?: 'auto' | 'iframe' | 'webview';
+	/** Display zoom, 0.5–2 (default 1). Shrinks dense web apps (Keep-style)
+	 *  so they fit a half-width section. iframe -> css zoom, webview ->
+	 *  setZoomFactor after dom-ready. */
+	zoom?: number;
+}
+
 export interface DashboardColumn {
 	name: string;
 	color: string;
@@ -598,6 +615,8 @@ export interface DashboardColumn {
 	ticktickConfig?: TickTickConfig;
 	/** Dataview section config (sectionType 'dataview'). */
 	dataviewConfig?: DataviewConfig;
+	/** Web embed section config (sectionType 'web'). */
+	webConfig?: WebEmbedConfig;
 	/** User-set max height in px (drag-resize, desktop only). */
 	height?: number;
 	/** Side-by-side pairing: two adjacent `half` columns render as one row
@@ -618,6 +637,8 @@ export interface RenderCallbacks {
 	onCardEdit(card: DashboardCard): void;
 	/** subpath is the raw `#heading` / `#^block` fragment of a wikilink, when present. */
 	onOpenNoteInPopover(this: void, file: TFile, subpath?: string): void;
+	/** Open a note scrolled to a 1-based line (calendar section/agenda task jumps). */
+	onOpenNoteAtLine?(this: void, file: TFile, line?: number): void;
 	onCardDelete(cardId: string): void;
 	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;

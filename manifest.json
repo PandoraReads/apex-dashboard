@@ -2,7 +2,7 @@
 	"id": "apex-dashboard",
 	"name": "Apex Dashboard",
 	"minAppVersion": "1.8.7",
-	"version": "2.2.2",
+	"version": "2.3.0",
 	"description": "Your personal command center — memos, todos, and projects in one stunning glassmorphism dashboard.",
 	"author": "PandoraReads",
 	"isDesktopOnly": false

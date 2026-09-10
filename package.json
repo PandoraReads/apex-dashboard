@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "2.2.2",
+	"version": "2.3.0",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -13,6 +13,8 @@
 		"test:visible-properties": "esbuild scripts/verify-visible-properties.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-visible-properties.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-visible-properties.cjs",
 		"test:calendar-task-insert": "esbuild scripts/verify-calendar-task-insert.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-calendar-task-insert.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-calendar-task-insert.cjs",
 		"test:calendar-daynum": "esbuild scripts/verify-calendar-daynum.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-calendar-daynum.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-calendar-daynum.cjs",
+		"test:calendar-section": "esbuild scripts/verify-calendar-section.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-calendar-section.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-calendar-section.cjs",
+		"test:confirm-dialog": "esbuild scripts/verify-confirm-dialog.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-confirm-dialog.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-confirm-dialog.cjs",
 		"test:path-picker": "esbuild scripts/verify-path-picker.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-path-picker.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-path-picker.cjs",
 		"test:library-cover": "esbuild scripts/verify-library-cover.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-cover.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-cover.cjs",
 		"test:library-card-size": "esbuild scripts/verify-library-card-size.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-card-size.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-card-size.cjs",
@@ -23,6 +25,7 @@
 		"test:property-operator": "esbuild scripts/verify-property-operator.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-property-operator.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-property-operator.cjs",
 		"test:weread-progress": "esbuild scripts/verify-weread-progress.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weread-progress.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weread-progress.cjs",
 		"test:weread-stats": "esbuild scripts/verify-weread-stats.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weread-stats.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weread-stats.cjs",
+		"test:web-section": "esbuild scripts/verify-web-section.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-web-section.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-web-section.cjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},
