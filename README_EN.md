@@ -69,14 +69,14 @@ The sidebar shows recently edited files with relative timestamps, so you can jum
 
 | Theme | Style |
 |-------|-------|
-| **Earth** | Warm organic tones, parchment textures |
-| **Nordic** | Clean minimal with blue accents |
-| **Aurora** | Frosted glass with animated aurora gradient |
+| **Earth** | Tuscan sun: parchment with 32s drifting warm washes, terracotta accent and olive notes |
+| **Nordic** | Polar fjord: frost aurora washes over cool white, glacier-teal accent |
+| **Pony** | High-saturation MLP-inspired rainbow: six candy aurora bands over a night sky, one pony hue per section |
 | **Island** (default) | Animal Crossing pastels, forest green and ocean blue |
 | **Tundra** | Cold gray + avocado green aurora, sage glass cards |
 | **Blossom** | Rose glass glow, transparent sections |
-| **Matcha** | Morandi green, solid warm tones |
-| **Lilac** | Morandi purple, soft and muted |
+| **Matcha** | Tea-bowl aesthetic: 26s tea-garden washes, cream ceramic cards, deep matcha accent with gold notes |
+| **Lilac** | Impressionist bed: slow 28s drifting washes behind translucent ivory cards, wisteria accent |
 | **Neon** | Near-black with neon magenta accent, identical in light & dark |
 | **Volt** | Near-black with electric cyan accent, identical in light & dark |
 | **Magma** | Warm near-black with lava orange accent, identical in light & dark |
@@ -123,6 +123,15 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 </p>
 
 ## What's New
+
+### 2.4.0
+- **Five themes reborn** — Pony, Lilac, Earth, Nordic, and Matcha all gained slow drifting wash backgrounds (26–32s, breathing rather than showing off; auto-pinned on mobile and under reduced-motion) plus opaque modal insurance (no more white-on-white dialogs on light Obsidian bases)
+- **Pony (formerly Aurora)** — High-saturation MLP rainbow: six candy aurora bands cycling over a night sky, and every section wears its own pony hue on the title (memo=Pinkie pink, todo=Applejack amber, notes=Fluttershy butter, projects=Rainbow Dash blue, library=Twilight violet…), with matching card hover glows and a candy progress gradient
+- **Lilac** — Impressionist bed: wisteria/rose/ivory watercolors drifting over 28s behind translucent ivory cards, with a wisteria accent that finally stands apart from the ground
+- **Earth** — Tuscan sun: honey/terracotta/olive light crawling across parchment over 32s, warm-glass sections over solid cream cards, terracotta accent
+- **Nordic** — Polar fjord: frost-blue/ice-cyan/indigo/mint aurora over cool white, glacier-teal accent — the flat slate slabs are gone
+- **Matcha** — Tea-bowl aesthetic: tea-garden washes behind translucent cream ceramic cards, deep matcha accent clearly separated from the sage ground (they used to be near-identical), gold notes throughout
+- **Global fix** — Four hardcoded purple active states (add-section cards, weread options…) now derive from each theme's accent; every theme benefits
 
 ### 2.3.0
 - **Calendar section** — The sidebar calendar's enlarged view embedded right in the board: full month grid (multi-day events as continuous bars) and week time grid, month/week switching, task filter, and a Today jump. Hover a date to peek the day's complete task list; click a date number to add a task for that day (written into the daily note or the dashboard todo list). Tasks aggregate the whole vault and the grid refreshes in place as notes change.

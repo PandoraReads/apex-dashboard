@@ -13,279 +13,438 @@
    THEME VARIABLE DEFINITIONS
    ================================================================= */
 
-/* ----- 1. AURORA (极光) ----- */
+/* ----- 1. AURORA (宝莉 / Pony) — night sky + rainbow, MLP-inspired ----- */
+/* Neutral glass surfaces carry the content; saturation lives in the drifting
+   rainbow aurora, the per-section pony hues, and the candy progress gradient. */
 .apex-dashboard-root[data-theme="aurora"] {
-		--db-bg: #0f0a1e;
-		--db-bg-section: rgba(139, 92, 246, 0.05);
+	--db-bg: #0b1226;
+	--db-bg-section: rgba(255, 255, 255, 0.035);
 	--db-bg-card: rgba(255, 255, 255, 0.06);
 	--db-bg-card-hover: rgba(255, 255, 255, 0.10);
-		--db-bg-sidebar: rgba(139, 92, 246, 0.05);
+	--db-bg-sidebar: rgba(255, 255, 255, 0.04);
 	--db-bg-input: rgba(255, 255, 255, 0.05);
-		--db-bg-btn: rgba(139, 92, 246, 0.10);
-		--db-bg-btn-hover: rgba(139, 92, 246, 0.18);
-		--db-bg-banner: rgba(168, 85, 247, 0.15);
+	--db-bg-btn: rgba(255, 255, 255, 0.07);
+	--db-bg-btn-hover: rgba(255, 255, 255, 0.12);
+	--db-bg-banner: rgba(53, 195, 255, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(255, 255, 255, 0.05);
 	--db-bg-hover-strong: rgba(255, 255, 255, 0.09);
 	--db-bg-add-section: rgba(255, 255, 255, 0.02);
-		--db-bg-drop-indicator: rgba(139, 92, 246, 0.08);
+	--db-bg-drop-indicator: rgba(53, 195, 255, 0.10);
 
 	--db-border: rgba(255, 255, 255, 0.08);
 	--db-border-card: rgba(255, 255, 255, 0.10);
 	--db-border-section: rgba(255, 255, 255, 0.07);
 	--db-border-sidebar: rgba(255, 255, 255, 0.07);
 	--db-border-input: rgba(255, 255, 255, 0.08);
-		--db-border-input-focus: rgba(139, 92, 246, 0.6);
+	--db-border-input-focus: rgba(53, 195, 255, 0.6);
 	--db-border-btn: rgba(255, 255, 255, 0.10);
-		--db-border-add-section: rgba(139, 92, 246, 0.15);
+	--db-border-add-section: rgba(53, 195, 255, 0.18);
 
-	--db-text: #e8f0f8;
-	--db-text-muted: #94a8c0;
-	--db-text-faint: #5a7088;
+	--db-text: #eaf2ff;
+	--db-text-muted: #9db2d8;
+	--db-text-faint: #5d7195;
 	--db-text-inverse: rgba(255, 255, 255, 0.95);
 	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
 
-		--db-accent: #a78bfa;
-		--db-accent-light: #6366f1;
-	--db-danger: #f43f5e;
+	/* Rainbow Dash cyan — bright accent, light enough that CTAs flip to dark text */
+	--db-accent: #35c3ff;
+	--db-accent-light: #7ad9ff;
+	--db-danger: #ff4d6d;
 
-	--db-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
-		--db-shadow-card-hover: 0 6px 24px rgba(139, 92, 246, 0.15), 0 0 16px rgba(99, 102, 241, 0.08);
+	--db-shadow-card: 0 2px 12px rgba(2, 8, 26, 0.4);
+	--db-shadow-card-hover: 0 6px 24px rgba(2, 8, 26, 0.5), 0 0 18px rgba(53, 195, 255, 0.10);
 	--db-backdrop-blur: blur(12px);
 
 	--db-radius-sm: 8px;
 	--db-radius-md: 14px;
 	--db-radius-lg: 18px;
 
-		--db-font: 'Outfit', 'LXGW WenKai', var(--font-interface);
-		--db-progress-from: #a78bfa;
-		--db-progress-to: #6366f1;
-		--db-checkbox: #a78bfa;
-		--db-quote-border: #6366f1;
-		--db-link: #a78bfa;
+	--db-font: 'Outfit', 'LXGW WenKai', var(--font-interface);
+	/* Candy gradient: Pinkie pink flowing into Rainbow Dash cyan */
+	--db-progress-from: #ff5fb0;
+	--db-progress-to: #35c3ff;
+	--db-checkbox: #35c3ff;
+	--db-quote-border: #ff5fb0;
+	--db-link: #35c3ff;
 
-	/* Aurora gradient */
+	/* Opaque modal surfaces — without these a light Obsidian base theme paints
+	   dialogs white under the near-white aurora text (same trap neon/onyx hit). */
+	--db-bg-modal: #0e1530;
+	--db-bg-modal-raised: rgba(255, 255, 255, 0.06);
+
+	/* Per-section pony hue fallback (unset types inherit Rainbow Dash cyan). */
+	--db-sec-hue: #35c3ff;
+	--db-sec-glow: rgba(53, 195, 255, 0.14);
+
+	/* Rainbow aurora — two full candy-band cycles so any resting frame shows
+	   four-plus hues across the screen while the drift sweeps the full rainbow */
 	--db-aurora-bg: linear-gradient(135deg,
-			#0f0a1e 0%,
-			rgba(139, 92, 246, 0.10) 20%,
-			rgba(99, 102, 241, 0.08) 40%,
-			rgba(168, 85, 247, 0.06) 60%,
-			rgba(79, 70, 229, 0.08) 80%,
-			#0f0a1e 100%);
-	--db-aurora-size: 400% 400%;
+			#0b1226 0%,
+			rgba(255, 77, 126, 0.16) 8%,
+			rgba(255, 152, 56, 0.15) 17%,
+			rgba(255, 217, 61, 0.13) 25%,
+			rgba(62, 224, 127, 0.15) 33%,
+			rgba(53, 195, 255, 0.20) 42%,
+			rgba(157, 107, 255, 0.15) 50%,
+			rgba(255, 77, 126, 0.16) 58%,
+			rgba(255, 152, 56, 0.15) 67%,
+			rgba(255, 217, 61, 0.13) 75%,
+			rgba(62, 224, 127, 0.15) 83%,
+			rgba(53, 195, 255, 0.20) 92%,
+			#0b1226 100%);
+	--db-aurora-size: 220% 220%;
 	--db-aurora-speed: 12s;
 }
-	.theme-light .apex-dashboard-root[data-theme="aurora"] {
-		--db-bg: #f3f0ff;
-		--db-bg-section: rgba(139, 92, 246, 0.06);
-		--db-bg-card-hover: rgba(255, 255, 255, 0.70);
-		--db-bg-sidebar: rgba(139, 92, 246, 0.06);
-		--db-bg-input: rgba(139, 92, 246, 0.05);
-		--db-bg-btn: rgba(139, 92, 246, 0.08);
-		--db-bg-btn-hover: rgba(139, 92, 246, 0.14);
-		--db-bg-banner: rgba(168, 85, 247, 0.10);
-		--db-bg-hover: rgba(139, 92, 246, 0.06);
-		--db-bg-hover-strong: rgba(139, 92, 246, 0.10);
-		--db-bg-add-section: rgba(139, 92, 246, 0.04);
-		--db-bg-drop-indicator: rgba(139, 92, 246, 0.08);
-		--db-border: rgba(139, 92, 246, 0.10);
-		--db-border-card: rgba(139, 92, 246, 0.12);
-		--db-border-section: rgba(139, 92, 246, 0.08);
-		--db-border-sidebar: rgba(139, 92, 246, 0.08);
-		--db-border-input: rgba(139, 92, 246, 0.10);
-		--db-border-input-focus: rgba(139, 92, 246, 0.5);
-		--db-border-btn: rgba(139, 92, 246, 0.12);
-		--db-text: #1e293b;
-		--db-text-muted: #475569;
-		--db-text-faint: #94a3b8;
-		--db-accent: #7c3aed;
-		--db-accent-light: #6366f1;
-		--db-shadow-card: 0 2px 12px rgba(139, 92, 246, 0.06);
-		--db-shadow-card-hover: 0 8px 32px rgba(139, 92, 246, 0.10), 0 4px 16px rgba(0, 0, 0, 0.06);
-		--db-progress-from: #7c3aed;
-		--db-progress-to: #6366f1;
-		--db-checkbox: #7c3aed;
-		--db-quote-border: #6366f1;
-		--db-link: #7c3aed;
-		--db-aurora-bg: linear-gradient(135deg,
-				#f3f0ff 0%,
-				rgba(139, 92, 246, 0.08) 20%,
-				rgba(99, 102, 241, 0.06) 40%,
-				rgba(168, 85, 247, 0.05) 60%,
-				rgba(79, 70, 229, 0.06) 80%,
-				#f3f0ff 100%);
-	}
 
-/* ----- 2. EARTH ----- */
+/* Ponyville daytime — cotton-candy sky, white glass, deepened accents */
+.theme-light .apex-dashboard-root[data-theme="aurora"] {
+	--db-bg: #f2f6ff;
+	--db-bg-section: rgba(255, 255, 255, 0.55);
+	--db-bg-card-hover: rgba(255, 255, 255, 0.85);
+	--db-bg-sidebar: rgba(255, 255, 255, 0.50);
+	--db-bg-input: rgba(255, 255, 255, 0.65);
+	--db-bg-btn: rgba(255, 255, 255, 0.70);
+	--db-bg-btn-hover: rgba(255, 255, 255, 0.92);
+	--db-bg-banner: rgba(2, 132, 199, 0.08);
+	--db-bg-hover: rgba(42, 60, 105, 0.06);
+	--db-bg-hover-strong: rgba(42, 60, 105, 0.11);
+	--db-bg-add-section: rgba(255, 255, 255, 0.40);
+	--db-bg-drop-indicator: rgba(2, 132, 199, 0.10);
+	--db-border: rgba(42, 60, 105, 0.10);
+	--db-border-card: rgba(42, 60, 105, 0.12);
+	--db-border-section: rgba(42, 60, 105, 0.08);
+	--db-border-sidebar: rgba(42, 60, 105, 0.08);
+	--db-border-input: rgba(42, 60, 105, 0.12);
+	--db-border-input-focus: rgba(2, 132, 199, 0.5);
+	--db-border-btn: rgba(42, 60, 105, 0.12);
+	--db-text: #1e2a4a;
+	--db-text-muted: #47597e;
+	--db-text-faint: #8a99b8;
+	--db-accent: #0284c7;
+	--db-accent-light: #38bdf8;
+	--db-shadow-card: 0 2px 12px rgba(31, 45, 90, 0.08);
+	--db-shadow-card-hover: 0 8px 32px rgba(31, 45, 90, 0.12), 0 4px 16px rgba(0, 0, 0, 0.05);
+	--db-progress-from: #e0218a;
+	--db-progress-to: #0284c7;
+	--db-checkbox: #0284c7;
+	--db-quote-border: #e0218a;
+	--db-link: #0284c7;
+	--db-bg-modal: #ffffff;
+	--db-bg-modal-raised: rgba(42, 60, 105, 0.05);
+	--db-sec-hue: #0284c7;
+	--db-sec-glow: rgba(2, 132, 199, 0.14);
+	--db-aurora-bg: linear-gradient(135deg,
+			#f2f6ff 0%,
+			rgba(53, 195, 255, 0.12) 18%,
+			rgba(157, 107, 255, 0.10) 38%,
+			rgba(255, 95, 176, 0.10) 58%,
+			rgba(255, 217, 61, 0.12) 78%,
+			#f2f6ff 100%);
+}
+
+/* --- Per-section pony hues (dark): each section type gets its own Mane-Six
+   color. memo=Pinkie, sticky=Rarity lavender, todo=Applejack, notes=Fluttershy,
+   projects=Rainbow Dash, library=Twilight; the rest round out the rainbow. --- */
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="memo"] { --db-sec-hue: #ff5fb0; --db-sec-glow: rgba(255, 95, 176, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #c084fc; --db-sec-glow: rgba(192, 132, 252, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="todo"] { --db-sec-hue: #ffb03a; --db-sec-glow: rgba(255, 176, 58, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="notes"] { --db-sec-hue: #ffdf5e; --db-sec-glow: rgba(255, 223, 94, 0.15); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #40b5ff; --db-sec-glow: rgba(64, 181, 255, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #a06bff; --db-sec-glow: rgba(160, 107, 255, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #2fd6b5; --db-sec-glow: rgba(47, 214, 181, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="ticktick"] { --db-sec-hue: #4ade80; --db-sec-glow: rgba(74, 222, 128, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="calendar"] { --db-sec-hue: #ff7a6b; --db-sec-glow: rgba(255, 122, 107, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="heatmap"] { --db-sec-hue: #ff6b81; --db-sec-glow: rgba(255, 107, 129, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #35e0e8; --db-sec-glow: rgba(53, 224, 232, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #7f8cff; --db-sec-glow: rgba(127, 140, 255, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #ff4d7e; --db-sec-glow: rgba(255, 77, 126, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #e879f9; --db-sec-glow: rgba(232, 121, 249, 0.16); }
+
+/* --- Light-mode pony hues: same identities, deepened for contrast on the
+   cotton-candy sky (butter yellow in particular must go amber). --- */
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="memo"] { --db-sec-hue: #e0218a; --db-sec-glow: rgba(224, 33, 138, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #a21caf; --db-sec-glow: rgba(162, 28, 175, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="todo"] { --db-sec-hue: #d97706; --db-sec-glow: rgba(217, 119, 6, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="notes"] { --db-sec-hue: #ca8a04; --db-sec-glow: rgba(202, 138, 4, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #0369a1; --db-sec-glow: rgba(3, 105, 161, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #7c3aed; --db-sec-glow: rgba(124, 58, 237, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #0d9488; --db-sec-glow: rgba(13, 148, 136, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="ticktick"] { --db-sec-hue: #16a34a; --db-sec-glow: rgba(22, 163, 74, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="calendar"] { --db-sec-hue: #ea580c; --db-sec-glow: rgba(234, 88, 12, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="heatmap"] { --db-sec-hue: #dc2626; --db-sec-glow: rgba(220, 38, 38, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #0e7490; --db-sec-glow: rgba(14, 116, 144, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #4f46e5; --db-sec-glow: rgba(79, 70, 229, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #e11d48; --db-sec-glow: rgba(225, 29, 72, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #c026d3; --db-sec-glow: rgba(192, 38, 211, 0.14); }
+
+/* --- Rainbow identity consumption: the title wears its hue and cards glow
+   the same color on hover (the crown hairline was tried and retired — the
+   title color alone carries the per-section identity). Selectors outrank the
+   base .dashboard-section-row/.dashboard-card rules, so placement before them
+   in the file is safe. --- */
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row .dashboard-section-title {
+	color: var(--db-sec-hue);
+}
+
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row .dashboard-card:hover {
+	border-color: var(--db-sec-glow);
+	box-shadow: var(--db-shadow-card-hover), 0 0 18px var(--db-sec-glow);
+}
+
+
+/* ----- 2. EARTH (托斯卡纳暖阳) — parchment + slow warm sunlight ----- */
+/* Afternoon sun drifting across a plaster wall: honey, terracotta and olive
+   washes breathe behind warm-glass sections; cards stay solid cream. */
 .apex-dashboard-root[data-theme="earth"] {
-	--db-bg: #F5EFE6;
-	--db-bg-section: #EDE5D8;
-	--db-bg-card: #FAF6F0;
-	--db-bg-card-hover: #FFFFFF;
-	--db-bg-sidebar: #EDE5D8;
-	--db-bg-input: rgba(120, 80, 40, 0.04);
-	--db-bg-btn: #E0D5C5;
-	--db-bg-btn-hover: #D5C8B5;
-	--db-bg-banner: rgba(217, 119, 6, 0.1);
+	--db-bg: #f3ecdf;
+	--db-bg-section: rgba(250, 244, 232, 0.55);
+	--db-bg-card: #FBF7EE;
+	--db-bg-card-hover: #FFFDF7;
+	--db-bg-sidebar: rgba(250, 244, 232, 0.45);
+	--db-bg-input: rgba(188, 90, 52, 0.05);
+	--db-bg-btn: #efe5d2;
+	--db-bg-btn-hover: #e8dbc4;
+	--db-bg-banner: rgba(217, 119, 6, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(60,30,10,0.5) 0%, rgba(60,30,10,0.2) 100%);
-	--db-bg-hover: rgba(120, 80, 40, 0.06);
-	--db-bg-hover-strong: rgba(120, 80, 40, 0.1);
-	--db-bg-add-section: rgba(217, 119, 6, 0.06);
-	--db-bg-drop-indicator: rgba(217, 119, 6, 0.1);
+	--db-bg-hover: rgba(188, 90, 52, 0.06);
+	--db-bg-hover-strong: rgba(188, 90, 52, 0.10);
+	--db-bg-add-section: rgba(250, 244, 232, 0.40);
+	--db-bg-drop-indicator: rgba(188, 90, 52, 0.12);
 
-	--db-border: rgba(107, 143, 94, 0.12);
-	--db-border-card: #D5C8B5;
-	--db-border-section: #D5C8B5;
-	--db-border-sidebar: #D5C8B5;
-	--db-border-input: #D5C8B5;
-	--db-border-input-focus: #d97706;
-	--db-border-btn: #D5C8B5;
-	--db-border-add-section: #d97706;
+	--db-border: rgba(146, 116, 82, 0.18);
+	--db-border-card: rgba(146, 116, 82, 0.22);
+	--db-border-section: rgba(146, 116, 82, 0.12);
+	--db-border-sidebar: rgba(146, 116, 82, 0.12);
+	--db-border-input: rgba(146, 116, 82, 0.25);
+	--db-border-input-focus: #bc5a34;
+	--db-border-btn: rgba(146, 116, 82, 0.20);
+	--db-border-add-section: rgba(188, 90, 52, 0.35);
 
-	--db-text: #3D2B1F;
-	--db-text-muted: #6B5040;
-	--db-text-faint: #8B7060;
+	--db-text: #38291c;
+	--db-text-muted: #6d5646;
+	--db-text-faint: #a08770;
 	--db-text-inverse: rgba(255, 255, 255, 0.95);
 	--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
 
-	--db-accent: #6b8f5e;
-	--db-accent-light: #a3b899;
+	/* Terracotta pottery */
+	--db-accent: #bc5a34;
+	--db-accent-light: #d98a5f;
 	--db-danger: #dc2626;
 
-	--db-shadow-card: 0 2px 8px rgba(60, 80, 50, 0.08);
-	--db-shadow-card-hover: 0 6px 20px rgba(60, 80, 50, 0.14);
+	--db-shadow-card: 0 2px 8px rgba(160, 110, 70, 0.10);
+	--db-shadow-card-hover: 0 6px 20px rgba(160, 110, 70, 0.16), 0 0 18px rgba(217, 119, 6, 0.10);
 	--db-backdrop-blur: none;
 
-	--db-radius-sm: 8px;
+	--db-radius-sm: 10px;
 	--db-radius-md: 14px;
 	--db-radius-lg: 18px;
 
-		--db-font: 'Merriweather', 'Noto Serif SC', var(--font-interface);
+	--db-font: 'Merriweather', 'Noto Serif SC', var(--font-interface);
 	--db-progress-from: #d97706;
 	--db-progress-to: #65a30d;
 	--db-checkbox: #65a30d;
-	--db-quote-border: #d97706;
-	--db-link: #d97706;
+	--db-quote-border: #bc5a34;
+	--db-link: #bc5a34;
+
+	/* Opaque modal surfaces matching the cream cards */
+	--db-bg-modal: #FBF7EE;
+	--db-bg-modal-raised: rgba(188, 90, 52, 0.05);
+
+	/* Warm sunlight washes */
+	--db-aurora-bg: linear-gradient(135deg,
+		#f3ecdf 0%,
+		rgba(217, 119, 6, 0.16) 16%,
+		rgba(194, 96, 61, 0.15) 34%,
+		rgba(255, 244, 214, 0.26) 52%,
+		rgba(120, 144, 90, 0.14) 70%,
+		rgba(217, 150, 90, 0.16) 86%,
+		#f3ecdf 100%);
+	--db-aurora-size: 250% 250%;
+	--db-aurora-speed: 32s;
 }
 .theme-dark .apex-dashboard-root[data-theme="earth"] {
-	--db-bg: #1c1812;
-	--db-bg-section: #252018;
-	--db-bg-card: #1e1a14;
-	--db-bg-card-hover: #28221a;
-	--db-bg-sidebar: #252018;
-	--db-bg-input: rgba(255, 255, 255, 0.04);
-	--db-bg-btn: #3a3228;
-	--db-bg-btn-hover: #4a4038;
-	--db-bg-banner: rgba(143, 184, 130, 0.06);
+	/* Dark soil with ember glows */
+	--db-bg: #221b11;
+	--db-bg-section: rgba(48, 39, 25, 0.55);
+	--db-bg-card: #2b2315;
+	--db-bg-card-hover: #362c1a;
+	--db-bg-sidebar: rgba(48, 39, 25, 0.45);
+	--db-bg-input: rgba(232, 160, 104, 0.06);
+	--db-bg-btn: #3a2f1d;
+	--db-bg-btn-hover: #473a24;
+	--db-bg-banner: rgba(232, 160, 104, 0.06);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(255, 255, 255, 0.04);
 	--db-bg-hover-strong: rgba(255, 255, 255, 0.07);
-	--db-bg-add-section: rgba(143, 184, 130, 0.05);
-	--db-border: #3a3228;
-	--db-border-card: #3a3228;
-	--db-border-section: #3a3228;
-	--db-border-sidebar: #3a3228;
-	--db-border-input: rgba(143, 184, 130, 0.12);
-	--db-border-input-focus: #8fb882;
-	--db-text: #e8ddd0;
-	--db-text-muted: #b8a890;
-	--db-text-faint: #887868;
-	--db-accent: #8fb882;
-	--db-accent-light: #b8d4ae;
-	--db-danger: #ef4444;
-	--db-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
-		--db-shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.25);
-	--db-progress-from: #8fb882;
-	--db-progress-to: #b8d4ae;
-	--db-checkbox: #8fb882;
-	--db-quote-border: #b8d4ae;
-	--db-link: #8fb882;
+	--db-bg-add-section: rgba(232, 160, 104, 0.05);
+	--db-bg-drop-indicator: rgba(232, 160, 104, 0.10);
+
+	--db-border: rgba(120, 90, 55, 0.28);
+	--db-border-card: rgba(120, 90, 55, 0.32);
+	--db-border-section: rgba(120, 90, 55, 0.20);
+	--db-border-sidebar: rgba(120, 90, 55, 0.20);
+	--db-border-input: rgba(120, 90, 55, 0.35);
+	--db-border-input-focus: #e8a068;
+	--db-border-btn: rgba(120, 90, 55, 0.30);
+	--db-border-add-section: rgba(232, 160, 104, 0.30);
+
+	--db-text: #ece0cf;
+	--db-text-muted: #c4b099;
+	--db-text-faint: #94825f;
+	--db-accent: #e8a068;
+	--db-accent-light: #f0bc8f;
+	--db-danger: #f87171;
+	--db-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+	--db-shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.3), 0 0 18px rgba(217, 119, 6, 0.12);
+	--db-progress-from: #d97706;
+	--db-progress-to: #e8a068;
+	--db-checkbox: #e8a068;
+	--db-quote-border: #d97706;
+	--db-link: #e8a068;
+	--db-bg-modal: #2b2315;
+	--db-bg-modal-raised: rgba(232, 160, 104, 0.06);
+	--db-aurora-bg: linear-gradient(135deg,
+		#221b11 0%,
+		rgba(217, 119, 6, 0.15) 18%,
+		rgba(194, 96, 61, 0.12) 40%,
+		rgba(143, 184, 130, 0.10) 62%,
+		rgba(255, 200, 130, 0.11) 80%,
+		#221b11 100%);
 }
 
-/* ----- 5. NORDIC ----- */
+
+/* ----- 5. NORDIC (极夜峡湾) — frost aurora over cool white ----- */
+/* The land of aurora borealis: icy cyan, frost blue and mint washes drifting
+   behind cool-glass sections. Tight radii keep the minimal identity. */
 .apex-dashboard-root[data-theme="nordic"] {
-	--db-bg: #F8FAFC;
-	--db-bg-section: #F1F5F9;
-	--db-bg-card: #FFFFFF;
-	--db-bg-card-hover: #FFFFFF;
-	--db-bg-sidebar: #F1F5F9;
-	--db-bg-input: rgba(59, 130, 246, 0.04);
-	--db-bg-btn: #E2E8F0;
-	--db-bg-btn-hover: #CBD5E1;
-	--db-bg-banner: rgba(59, 130, 246, 0.08);
+	--db-bg: #f7fafc;
+	--db-bg-section: rgba(255, 255, 255, 0.60);
+	--db-bg-card: #ffffff;
+	--db-bg-card-hover: #fdfeff;
+	--db-bg-sidebar: rgba(255, 255, 255, 0.50);
+	--db-bg-input: rgba(43, 187, 215, 0.05);
+	--db-bg-btn: #e8eef6;
+	--db-bg-btn-hover: #dbe6f3;
+	--db-bg-banner: rgba(43, 187, 215, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(30,58,95,0.5) 0%, rgba(30,58,95,0.2) 100%);
-	--db-bg-hover: rgba(59, 130, 246, 0.05);
-	--db-bg-hover-strong: rgba(59, 130, 246, 0.08);
-	--db-bg-add-section: rgba(59, 130, 246, 0.04);
-	--db-bg-drop-indicator: rgba(59, 130, 246, 0.08);
+	--db-bg-hover: rgba(43, 187, 215, 0.06);
+	--db-bg-hover-strong: rgba(43, 187, 215, 0.12);
+	--db-bg-add-section: rgba(255, 255, 255, 0.50);
+	--db-bg-drop-indicator: rgba(43, 187, 215, 0.12);
 
-	--db-border: #E2E8F0;
-	--db-border-card: #E2E8F0;
-	--db-border-section: #E2E8F0;
-	--db-border-sidebar: #E2E8F0;
-	--db-border-input: #E2E8F0;
-	--db-border-input-focus: #3b82f6;
-	--db-border-btn: #E2E8F0;
-	--db-border-add-section: #94a3b8;
+	--db-border: rgba(100, 125, 165, 0.16);
+	--db-border-card: rgba(100, 125, 165, 0.20);
+	--db-border-section: rgba(100, 125, 165, 0.12);
+	--db-border-sidebar: rgba(100, 125, 165, 0.12);
+	--db-border-input: rgba(100, 125, 165, 0.24);
+	--db-border-input-focus: #177d95;
+	--db-border-btn: rgba(100, 125, 165, 0.18);
+	--db-border-add-section: rgba(100, 125, 165, 0.35);
 
-	--db-text: #1e293b;
-	--db-text-muted: #475569;
-	--db-text-faint: #94a3b8;
+	--db-text: #16233c;
+	--db-text-muted: #48586f;
+	--db-text-faint: #8b9bb0;
 	--db-text-inverse: rgba(255, 255, 255, 0.95);
 	--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
 
-	--db-accent: #3b82f6;
-	--db-accent-light: #0ea5e9;
+	/* Glacier teal #2BBBD7 — darkened to #177d95 in light mode for text contrast */
+	--db-accent: #177d95;
+	--db-accent-light: #2bbbd7;
 	--db-danger: #ef4444;
 
-	--db-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
-	--db-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+	--db-shadow-card: 0 1px 3px rgba(43, 187, 215, 0.10);
+	--db-shadow-card-hover: 0 4px 12px rgba(43, 187, 215, 0.12), 0 0 16px rgba(103, 232, 249, 0.12);
 	--db-backdrop-blur: none;
 
 	--db-radius-sm: 6px;
 	--db-radius-md: 8px;
 	--db-radius-lg: 10px;
 
-		--db-font: 'DM Sans', 'Noto Sans SC', var(--font-interface);
-	--db-progress-from: #3b82f6;
-	--db-progress-to: #0ea5e9;
-	--db-checkbox: #3b82f6;
+	--db-font: 'DM Sans', 'Noto Sans SC', var(--font-interface);
+	--db-progress-from: #177d95;
+	--db-progress-to: #22d3ee;
+	--db-checkbox: #177d95;
 	--db-quote-border: #0ea5e9;
-	--db-link: #3b82f6;
+	--db-link: #177d95;
+
+	/* Opaque modal surfaces */
+	--db-bg-modal: #ffffff;
+	--db-bg-modal-raised: rgba(43, 187, 215, 0.05);
+
+	/* Frost aurora washes */
+	--db-aurora-bg: linear-gradient(135deg,
+		#f7fafc 0%,
+		rgba(147, 197, 253, 0.18) 16%,
+		rgba(103, 232, 249, 0.14) 34%,
+		rgba(165, 180, 252, 0.12) 52%,
+		rgba(167, 243, 208, 0.10) 70%,
+		rgba(147, 197, 253, 0.14) 86%,
+		#f7fafc 100%);
+	--db-aurora-size: 250% 250%;
+	--db-aurora-speed: 26s;
 }
 .theme-dark .apex-dashboard-root[data-theme="nordic"] {
-	--db-bg: #0f172a;
-	--db-bg-section: #1e293b;
-	--db-bg-card: #1e293b;
-	--db-bg-card-hover: #263348;
-	--db-bg-sidebar: #1e293b;
-	--db-bg-input: rgba(59, 130, 246, 0.06);
-	--db-bg-btn: #334155;
-	--db-bg-btn-hover: #475569;
-	--db-bg-banner: rgba(59, 130, 246, 0.08);
+	/* Fjord night with cold aurora */
+	--db-bg: #101828;
+	--db-bg-section: rgba(30, 41, 59, 0.55);
+	--db-bg-card: #1a2436;
+	--db-bg-card-hover: #223049;
+	--db-bg-sidebar: rgba(30, 41, 59, 0.45);
+	--db-bg-input: rgba(43, 187, 215, 0.06);
+	--db-bg-btn: #2a3850;
+	--db-bg-btn-hover: #34445f;
+	--db-bg-banner: rgba(43, 187, 215, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
-	--db-bg-hover: rgba(59, 130, 246, 0.06);
-	--db-bg-hover-strong: rgba(59, 130, 246, 0.1);
-	--db-bg-add-section: rgba(59, 130, 246, 0.04);
-	--db-border: #334155;
-	--db-border-card: #334155;
-	--db-border-section: #334155;
-	--db-border-sidebar: #334155;
-	--db-border-input: #334155;
-	--db-border-input-focus: #60a5fa;
-	--db-text: #e2e8f0;
-	--db-text-muted: #94a3b8;
+	--db-bg-hover: rgba(43, 187, 215, 0.06);
+	--db-bg-hover-strong: rgba(43, 187, 215, 0.12);
+	--db-bg-add-section: rgba(43, 187, 215, 0.05);
+	--db-bg-drop-indicator: rgba(43, 187, 215, 0.12);
+
+	--db-border: rgba(88, 130, 190, 0.16);
+	--db-border-card: rgba(88, 130, 190, 0.20);
+	--db-border-section: rgba(88, 130, 190, 0.12);
+	--db-border-sidebar: rgba(88, 130, 190, 0.12);
+	--db-border-input: rgba(88, 130, 190, 0.24);
+	--db-border-input-focus: #2bbbd7;
+	--db-border-btn: rgba(88, 130, 190, 0.18);
+	--db-border-add-section: rgba(88, 130, 190, 0.35);
+
+	--db-text: #e5edf8;
+	--db-text-muted: #9db0c8;
 	--db-text-faint: #64748b;
-	--db-accent: #60a5fa;
-	--db-accent-light: #38bdf8;
+	--db-accent: #2bbbd7;
+	--db-accent-light: #63d6e8;
 	--db-danger: #f87171;
-	--db-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
-		--db-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.2);
-	--db-progress-from: #60a5fa;
-	--db-progress-to: #38bdf8;
-	--db-checkbox: #60a5fa;
-	--db-quote-border: #38bdf8;
-	--db-link: #60a5fa;
+	--db-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.35);
+	--db-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.25), 0 0 16px rgba(43, 187, 215, 0.14);
+	--db-progress-from: #2bbbd7;
+	--db-progress-to: #22d3ee;
+	--db-checkbox: #2bbbd7;
+	--db-quote-border: #22d3ee;
+	--db-link: #2bbbd7;
+	--db-bg-modal: #1a2436;
+	--db-bg-modal-raised: rgba(43, 187, 215, 0.06);
+	--db-aurora-bg: linear-gradient(135deg,
+		#101828 0%,
+		rgba(34, 211, 238, 0.13) 16%,
+		rgba(96, 165, 250, 0.12) 34%,
+		rgba(129, 140, 248, 0.10) 52%,
+		rgba(52, 211, 153, 0.10) 70%,
+		rgba(43, 187, 215, 0.14) 86%,
+		#101828 100%);
+}
+
+
+/* Earth + Nordic: drifting wash backgrounds (same mechanism as lilac) */
+.apex-dashboard-root[data-theme="earth"],
+.apex-dashboard-root[data-theme="nordic"] {
+	background: var(--db-aurora-bg);
+	background-size: var(--db-aurora-size);
+	animation: db-aurora-shift var(--db-aurora-speed) ease-in-out infinite;
+	transition: color 0.3s ease;
+	will-change: background-position;
+	backface-visibility: hidden;
 }
 
 /* ----- 6. ISLAND (动物森友会 — 淡彩无人岛) ----- */
@@ -661,241 +820,285 @@
 	overflow: visible;
 }
 
-	/* ----- 13. MATCHA (抹茶) — Morandi green, solid warm ----- */
-	.apex-dashboard-root[data-theme="matcha"] {
-		--db-bg: #b8c8ac;
-		--db-bg-section: transparent;
-		--db-bg-card: #dde4d0;
-		--db-bg-card-hover: #e8eee0;
-		--db-bg-sidebar: transparent;
-		--db-bg-input: rgba(143, 170, 152, 0.08);
-		--db-bg-btn: #c8d4bc;
-		--db-bg-btn-hover: #bcc8b0;
-		--db-bg-banner: rgba(200, 184, 144, 0.08);
-		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
-		--db-bg-hover: rgba(143, 170, 152, 0.06);
-		--db-bg-hover-strong: rgba(143, 170, 152, 0.10);
-		--db-bg-add-section: rgba(143, 170, 152, 0.06);
-		--db-bg-drop-indicator: rgba(143, 170, 152, 0.10);
+	/* ----- 13. MATCHA (抹茶·茶碗) — cream ceramic bowl, deep matcha accent ----- */
+/* The old sage-on-sage palette collapsed bg into accent. Now the bowl itself
+   is warm sage/cream and the tea is DEEP matcha green with gold notes —
+   distinct lightness, distinct role. Washes drift at tea-ceremony pace. */
+.apex-dashboard-root[data-theme="matcha"] {
+	--db-bg: #98a184;
+	--db-bg-section: transparent;
+	--db-bg-card: rgba(243, 239, 226, 0.88);
+	--db-bg-card-hover: rgba(248, 245, 235, 0.96);
+	--db-bg-sidebar: transparent;
+	--db-bg-input: rgba(79, 112, 40, 0.06);
+	--db-bg-btn: #d9d2ba;
+	--db-bg-btn-hover: #cfc7ac;
+	--db-bg-banner: rgba(200, 169, 106, 0.12);
+	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
+	--db-bg-hover: rgba(79, 112, 40, 0.06);
+	--db-bg-hover-strong: rgba(79, 112, 40, 0.11);
+	--db-bg-add-section: rgba(243, 239, 226, 0.25);
+	--db-bg-drop-indicator: rgba(110, 148, 52, 0.14);
 
-		--db-border: #a0b094;
-		--db-border-card: #b0c0a4;
-		--db-border-section: transparent;
-		--db-border-sidebar: transparent;
-		--db-border-input: #b0c0a4;
-		--db-border-input-focus: #8faa98;
-		--db-border-btn: #a0b094;
-		--db-border-add-section: rgba(143, 170, 152, 0.20);
+	--db-border: rgba(90, 100, 65, 0.20);
+	--db-border-card: rgba(90, 100, 65, 0.24);
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: rgba(90, 100, 65, 0.28);
+	--db-border-input-focus: #4f7028;
+	--db-border-btn: rgba(90, 100, 65, 0.22);
+	--db-border-add-section: rgba(79, 112, 40, 0.30);
 
-		--db-text: #2a3628;
-		--db-text-muted: #4a6050;
-		--db-text-faint: #6a8070;
-		--db-text-inverse: rgba(255, 255, 255, 0.95);
-		--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
+	--db-text: #333d28;
+	--db-text-muted: #5c6848;
+	--db-text-faint: #8a9478;
+	--db-text-inverse: rgba(255, 255, 255, 0.95);
+	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
 
-		--db-accent: #7a9a80;
-		--db-accent-light: #a89068;
-		--db-danger: #c84040;
+	/* Deep matcha — clearly darker and yellower than the sage bowl */
+	--db-accent: #4a6a24;
+	--db-accent-light: #6e9434;
+	--db-danger: #c9184a;
 
-		--db-shadow-card: 0 2px 8px rgba(100, 130, 100, 0.10);
-		--db-shadow-card-hover: 0 4px 16px rgba(100, 130, 100, 0.15);
-		--db-backdrop-blur: none;
+	--db-shadow-card: 0 2px 10px rgba(80, 95, 55, 0.14);
+	--db-shadow-card-hover: 0 8px 28px rgba(80, 95, 55, 0.20), 0 0 18px rgba(110, 148, 52, 0.12);
+	--db-backdrop-blur: none;
 
-		--db-radius-sm: 10px;
-		--db-radius-md: 14px;
-		--db-radius-lg: 18px;
+	--db-radius-sm: 10px;
+	--db-radius-md: 16px;
+	--db-radius-lg: 20px;
 
-		--db-font: 'Nunito', 'LXGW WenKai', var(--font-interface);
-		--db-progress-from: #7a9a80;
-		--db-progress-to: #a89068;
-		--db-checkbox: #7a9a80;
-		--db-quote-border: #a89068;
-		--db-link: #7a9a80;
+	--db-font: 'Nunito', 'LXGW WenKai', var(--font-interface);
+	/* Tea-ceremony duo: matcha into gold */
+	--db-progress-from: #6e9434;
+	--db-progress-to: #c8a96a;
+	--db-checkbox: #4f7028;
+	--db-quote-border: #b08d4f;
+	--db-link: #4f7028;
 
-		--db-aurora-bg: linear-gradient(135deg,
-			#b8c8ac 0%,
-			rgba(143, 170, 152, 0.12) 18%,
-			rgba(168, 144, 104, 0.08) 36%,
-			rgba(122, 154, 128, 0.10) 54%,
-			rgba(143, 170, 152, 0.06) 72%,
-			#b8c8ac 100%);
-		--db-aurora-size: 400% 400%;
-		--db-aurora-speed: 14s;
-	}
-	.theme-light .apex-dashboard-root[data-theme="matcha"] {
-		--db-bg: #dde6d8;
-		--db-bg-section: transparent;
-		--db-bg-card: #e8efe4;
-		--db-bg-card-hover: #f0f5ec;
-		--db-bg-sidebar: transparent;
-		--db-bg-input: rgba(143, 170, 152, 0.08);
-		--db-bg-btn: #c0ccb4;
-		--db-bg-btn-hover: #b4c2a8;
-		--db-bg-banner: rgba(200, 184, 144, 0.10);
-		--db-bg-overlay: linear-gradient(135deg, rgba(30,40,30,0.4) 0%, rgba(30,40,30,0.15) 100%);
-		--db-bg-hover: rgba(143, 170, 152, 0.06);
-		--db-bg-hover-strong: rgba(143, 170, 152, 0.10);
-		--db-bg-add-section: rgba(143, 170, 152, 0.05);
+	/* Opaque modal surfaces matching the cream cards */
+	--db-bg-modal: #f1edde;
+	--db-bg-modal-raised: rgba(79, 112, 40, 0.05);
 
-		--db-border: #b8c8ac;
-		--db-border-card: #b8c8ac;
-		--db-border-section: transparent;
-		--db-border-sidebar: transparent;
-		--db-border-input: #b8c8ac;
-		--db-border-input-focus: #6a8a78;
-		--db-border-btn: #a8b89c;
+	/* Tea garden washes: matcha, gold, cream, deep tea */
+	--db-aurora-bg: linear-gradient(135deg,
+		#98a184 0%,
+		rgba(110, 148, 52, 0.18) 16%,
+		rgba(200, 169, 106, 0.16) 34%,
+		rgba(245, 240, 222, 0.18) 52%,
+		rgba(79, 112, 40, 0.14) 70%,
+		rgba(200, 169, 106, 0.12) 86%,
+		#98a184 100%);
+	--db-aurora-size: 250% 250%;
+	--db-aurora-speed: 26s;
+}
 
-		--db-text: #1a2a1e;
-		--db-text-muted: #4a6050;
-		--db-text-faint: #809888;
+/* Morning matcha latte — rice-paper base, green only where the tea is */
+.theme-light .apex-dashboard-root[data-theme="matcha"] {
+	--db-bg: #f1efe3;
+	--db-bg-section: transparent;
+	--db-bg-card: rgba(255, 254, 248, 0.85);
+	--db-bg-card-hover: rgba(255, 255, 252, 0.95);
+	--db-bg-sidebar: transparent;
+	--db-bg-input: rgba(79, 112, 40, 0.05);
+	--db-bg-btn: #e6e2cf;
+	--db-bg-btn-hover: #ddd7bf;
+	--db-bg-banner: rgba(110, 148, 52, 0.08);
+	--db-bg-overlay: linear-gradient(135deg, rgba(30,40,30,0.4) 0%, rgba(30,40,30,0.15) 100%);
+	--db-bg-hover: rgba(79, 112, 40, 0.05);
+	--db-bg-hover-strong: rgba(79, 112, 40, 0.09);
+	--db-bg-add-section: rgba(255, 254, 248, 0.50);
+	--db-bg-drop-indicator: rgba(79, 112, 40, 0.10);
 
-		--db-accent: #6a8a78;
-		--db-accent-light: #a89068;
-		--db-danger: #dc2626;
+	--db-border: rgba(70, 84, 50, 0.14);
+	--db-border-card: rgba(70, 84, 50, 0.18);
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: rgba(70, 84, 50, 0.22);
+	--db-border-input-focus: #4f7028;
+	--db-border-btn: rgba(70, 84, 50, 0.16);
+	--db-border-add-section: rgba(70, 84, 50, 0.25);
 
-		--db-shadow-card: 0 2px 8px rgba(143, 170, 152, 0.08);
-		--db-shadow-card-hover: 0 4px 16px rgba(143, 170, 152, 0.12);
-		--db-backdrop-blur: none;
+	--db-text: #2c3520;
+	--db-text-muted: #57624a;
+	--db-text-faint: #94a088;
 
-		--db-progress-from: #6a8a78;
-		--db-progress-to: #a89068;
-		--db-checkbox: #6a8a78;
-		--db-quote-border: #a89068;
-		--db-link: #6a8a78;
+	--db-accent: #4a6a24;
+	--db-accent-light: #6e9434;
+	--db-danger: #d6336c;
 
-		--db-aurora-bg: linear-gradient(135deg,
-			#dde6d8 0%,
-			rgba(106, 138, 120, 0.10) 18%,
-			rgba(168, 144, 104, 0.06) 36%,
-			rgba(106, 138, 120, 0.08) 54%,
-			rgba(143, 170, 152, 0.04) 72%,
-			#dde6d8 100%);
-	}
+	--db-shadow-card: 0 2px 10px rgba(110, 148, 52, 0.10);
+	--db-shadow-card-hover: 0 8px 28px rgba(110, 148, 52, 0.14), 0 0 18px rgba(200, 169, 106, 0.10);
 
-	/* Matcha: gradient background */
-	.apex-dashboard-root[data-theme="matcha"] {
-		background: var(--db-aurora-bg);
-		transition: color 0.3s ease;
-	}
+	--db-progress-from: #4f7028;
+	--db-progress-to: #c8a96a;
+	--db-checkbox: #4f7028;
+	--db-quote-border: #b08d4f;
+	--db-link: #4f7028;
 
-	/* ----- 14. LILAC (丁香) — Morandi purple, solid warm ----- */
-	.apex-dashboard-root[data-theme="lilac"] {
-		--db-bg: #a898b4;
-		--db-bg-section: transparent;
-		--db-bg-card: #d4cce0;
-		--db-bg-card-hover: #e0d8e8;
-		--db-bg-sidebar: transparent;
-		--db-bg-input: rgba(184, 160, 200, 0.08);
-		--db-bg-btn: #b8a8c4;
-		--db-bg-btn-hover: #ac9cb8;
-		--db-bg-banner: rgba(208, 184, 184, 0.08);
-		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
-		--db-bg-hover: rgba(184, 160, 200, 0.06);
-		--db-bg-hover-strong: rgba(184, 160, 200, 0.10);
-		--db-bg-add-section: rgba(184, 160, 200, 0.06);
-		--db-bg-drop-indicator: rgba(184, 160, 200, 0.10);
+	--db-bg-modal: #ffffff;
+	--db-bg-modal-raised: rgba(79, 112, 40, 0.05);
 
-		--db-border: #9890a4;
-		--db-border-card: #a898b8;
-		--db-border-section: transparent;
-		--db-border-sidebar: transparent;
-		--db-border-input: #a898b8;
-		--db-border-input-focus: #b8a0c8;
-		--db-border-btn: #9888a4;
-		--db-border-add-section: rgba(184, 160, 200, 0.20);
+	--db-aurora-bg: linear-gradient(135deg,
+		#f1efe3 0%,
+		rgba(110, 148, 52, 0.14) 18%,
+		rgba(200, 169, 106, 0.12) 38%,
+		rgba(150, 162, 132, 0.12) 58%,
+		rgba(245, 240, 222, 0.18) 78%,
+		#f1efe3 100%);
+}
 
-		--db-text: #281e30;
-		--db-text-muted: #5a4068;
-		--db-text-faint: #786080;
-		--db-text-inverse: rgba(255, 255, 255, 0.95);
-		--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
+/* Matcha: slow tea-garden washes drifting behind the cream cards */
+.apex-dashboard-root[data-theme="matcha"] {
+	background: var(--db-aurora-bg);
+	background-size: var(--db-aurora-size);
+	animation: db-aurora-shift var(--db-aurora-speed) ease-in-out infinite;
+	transition: color 0.3s ease;
+	will-change: background-position;
+	backface-visibility: hidden;
+}
 
-		--db-accent: #8868a0;
-		--db-accent-light: #a88888;
-		--db-danger: #c84040;
 
-		--db-shadow-card: 0 2px 8px rgba(140, 110, 160, 0.10);
-		--db-shadow-card-hover: 0 4px 16px rgba(140, 110, 160, 0.15);
-		--db-backdrop-blur: none;
+/* ----- 14. LILAC (丁香) — impressionist garden, ivory blooms ----- */
+/* The washes drift slowly (28s) behind solid ivory cards: a living lilac bed
+   instead of the old flat Morandi slab. Motion guards live with the aurora
+   ones (reduced-motion + mobile pin). */
+.apex-dashboard-root[data-theme="lilac"] {
+	--db-bg: #9b87b4;
+	--db-bg-section: transparent;
+	--db-bg-card: rgba(248, 243, 251, 0.75);
+	--db-bg-card-hover: rgba(252, 248, 254, 0.86);
+	--db-bg-sidebar: transparent;
+	--db-bg-input: rgba(122, 88, 168, 0.08);
+	--db-bg-btn: #e7ddf1;
+	--db-bg-btn-hover: #ddd0ea;
+	--db-bg-banner: rgba(255, 143, 171, 0.10);
+	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
+	--db-bg-hover: rgba(122, 88, 168, 0.08);
+	--db-bg-hover-strong: rgba(122, 88, 168, 0.14);
+	--db-bg-add-section: rgba(255, 255, 255, 0.10);
+	--db-bg-drop-indicator: rgba(157, 78, 221, 0.15);
 
-		--db-radius-sm: 10px;
-		--db-radius-md: 14px;
-		--db-radius-lg: 18px;
+	--db-border: rgba(58, 44, 74, 0.10);
+	--db-border-card: rgba(122, 88, 168, 0.16);
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: rgba(122, 88, 168, 0.20);
+	--db-border-input-focus: #9d4edd;
+	--db-border-btn: rgba(58, 44, 74, 0.10);
+	--db-border-add-section: rgba(243, 237, 248, 0.45);
 
-		--db-font: 'Nunito', 'LXGW WenKai', var(--font-interface);
-		--db-progress-from: #8868a0;
-		--db-progress-to: #a88888;
-		--db-checkbox: #8868a0;
-		--db-quote-border: #a88888;
-		--db-link: #8868a0;
+	--db-text: #3a2c4a;
+	--db-text-muted: #6d5880;
+	--db-text-faint: #9d8ca8;
+	--db-text-inverse: rgba(255, 255, 255, 0.95);
+	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
 
-		--db-aurora-bg: linear-gradient(135deg,
-			#a898b4 0%,
-			rgba(136, 104, 160, 0.12) 18%,
-			rgba(168, 136, 136, 0.08) 36%,
-			rgba(184, 160, 200, 0.10) 54%,
-			rgba(136, 104, 160, 0.06) 72%,
-			#a898b4 100%);
-		--db-aurora-size: 400% 400%;
-		--db-aurora-speed: 14s;
-	}
-	.theme-light .apex-dashboard-root[data-theme="lilac"] {
-		--db-bg: #ddd4e4;
-		--db-bg-section: transparent;
-		--db-bg-card: #e4dce8;
-		--db-bg-card-hover: #ece4f0;
-		--db-bg-sidebar: transparent;
-		--db-bg-input: rgba(184, 160, 200, 0.08);
-		--db-bg-btn: #c4b8cc;
-		--db-bg-btn-hover: #b8a8c0;
-		--db-bg-banner: rgba(208, 184, 184, 0.10);
-		--db-bg-overlay: linear-gradient(135deg, rgba(40,20,40,0.4) 0%, rgba(40,20,40,0.15) 100%);
-		--db-bg-hover: rgba(184, 160, 200, 0.06);
-		--db-bg-hover-strong: rgba(184, 160, 200, 0.10);
-		--db-bg-add-section: rgba(184, 160, 200, 0.05);
+	/* Wisteria violet — clearly distinct from the lavender bed */
+	--db-accent: #9d4edd;
+	--db-accent-light: #c77dff;
+	--db-danger: #c9184a;
 
-		--db-border: #b8a8c4;
-		--db-border-card: #b8a8c4;
-		--db-border-section: transparent;
-		--db-border-sidebar: transparent;
-		--db-border-input: #b8a8c4;
-		--db-border-input-focus: #9070a8;
-		--db-border-btn: #a898b4;
+	--db-shadow-card: 0 2px 10px rgba(94, 61, 122, 0.16);
+	--db-shadow-card-hover: 0 8px 28px rgba(94, 61, 122, 0.24), 0 2px 10px rgba(230, 73, 128, 0.10);
+	--db-backdrop-blur: none;
 
-		--db-text: #1a101e;
-		--db-text-muted: #5a4068;
-		--db-text-faint: #908098;
+	--db-radius-sm: 10px;
+	--db-radius-md: 16px;
+	--db-radius-lg: 20px;
 
-		--db-accent: #9070a8;
-		--db-accent-light: #a88888;
-		--db-danger: #dc2626;
+	--db-font: 'Nunito', 'LXGW WenKai', var(--font-interface);
+	/* Candy gradient: pale wisteria into rose */
+	--db-progress-from: #c77dff;
+	--db-progress-to: #ff8fab;
+	--db-checkbox: #9d4edd;
+	--db-quote-border: #e64980;
+	--db-link: #9d4edd;
 
-		--db-shadow-card: 0 2px 8px rgba(184, 160, 200, 0.08);
-		--db-shadow-card-hover: 0 4px 16px rgba(184, 160, 200, 0.12);
-		--db-backdrop-blur: none;
+	/* Opaque modal surfaces matching the ivory cards */
+	--db-bg-modal: #f3edf8;
+	--db-bg-modal-raised: rgba(157, 78, 221, 0.06);
 
-		--db-progress-from: #9070a8;
-		--db-progress-to: #a88888;
-		--db-checkbox: #9070a8;
-		--db-quote-border: #a88888;
-		--db-link: #9070a8;
+	/* Garden washes: dusty rose, wisteria, ivory glow, deep violet */
+	--db-aurora-bg: linear-gradient(135deg,
+		#9b87b4 0%,
+		rgba(205, 141, 161, 0.30) 16%,
+		rgba(157, 123, 216, 0.28) 33%,
+		rgba(255, 240, 245, 0.18) 50%,
+		rgba(122, 88, 168, 0.30) 66%,
+		rgba(255, 143, 171, 0.22) 82%,
+		#9b87b4 100%);
+	--db-aurora-size: 260% 260%;
+	--db-aurora-speed: 28s;
+}
 
-		--db-aurora-bg: linear-gradient(135deg,
-			#ddd4e4 0%,
-			rgba(144, 112, 168, 0.10) 18%,
-			rgba(168, 136, 136, 0.06) 36%,
-			rgba(144, 112, 168, 0.08) 54%,
-			rgba(184, 160, 200, 0.04) 72%,
-			#ddd4e4 100%);
-	}
+/* Morning lilac — watercolor paper with blush and periwinkle washes */
+.theme-light .apex-dashboard-root[data-theme="lilac"] {
+	--db-bg: #f7f2fb;
+	--db-bg-section: transparent;
+	--db-bg-card: rgba(255, 255, 255, 0.72);
+	--db-bg-card-hover: rgba(255, 255, 255, 0.86);
+	--db-bg-sidebar: transparent;
+	--db-bg-input: rgba(125, 44, 191, 0.06);
+	--db-bg-btn: #ece4f4;
+	--db-bg-btn-hover: #e2d5ee;
+	--db-bg-banner: rgba(125, 44, 191, 0.05);
+	--db-bg-overlay: linear-gradient(135deg, rgba(40,20,40,0.4) 0%, rgba(40,20,40,0.15) 100%);
+	--db-bg-hover: rgba(125, 44, 191, 0.06);
+	--db-bg-hover-strong: rgba(125, 44, 191, 0.10);
+	--db-bg-add-section: rgba(255, 255, 255, 0.50);
+	--db-bg-drop-indicator: rgba(125, 44, 191, 0.12);
 
-	/* Lilac: gradient background */
-	.apex-dashboard-root[data-theme="lilac"] {
-		background: var(--db-aurora-bg);
-		transition: color 0.3s ease;
-	}
+	--db-border: rgba(61, 42, 94, 0.10);
+	--db-border-card: rgba(61, 42, 94, 0.12);
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: rgba(61, 42, 94, 0.16);
+	--db-border-input-focus: #7b2cbf;
+	--db-border-btn: rgba(61, 42, 94, 0.10);
+	--db-border-add-section: rgba(61, 42, 94, 0.20);
 
-	/* ----- 15. NEON (霓虹) — Near-black + neon magenta, identical in light & dark ----- */
+	--db-text: #241b33;
+	--db-text-muted: #5d4a72;
+	--db-text-faint: #9488a3;
+
+	--db-accent: #7b2cbf;
+	--db-accent-light: #9d4edd;
+	--db-danger: #d6336c;
+
+	--db-shadow-card: 0 2px 10px rgba(157, 123, 216, 0.10);
+	--db-shadow-card-hover: 0 8px 28px rgba(157, 123, 216, 0.16), 0 2px 10px rgba(230, 73, 128, 0.08);
+
+	--db-progress-from: #9d4edd;
+	--db-progress-to: #e64980;
+	--db-checkbox: #7b2cbf;
+	--db-quote-border: #d6336c;
+	--db-link: #7b2cbf;
+
+	--db-bg-modal: #ffffff;
+	--db-bg-modal-raised: rgba(125, 44, 191, 0.05);
+
+	--db-aurora-bg: linear-gradient(135deg,
+		#f7f2fb 0%,
+		rgba(157, 123, 216, 0.18) 18%,
+		rgba(255, 143, 171, 0.16) 38%,
+		rgba(122, 162, 247, 0.14) 58%,
+		rgba(205, 180, 239, 0.16) 78%,
+		#f7f2fb 100%);
+}
+
+/* Lilac: slow garden wash drifting behind the ivory cards */
+.apex-dashboard-root[data-theme="lilac"] {
+	background: var(--db-aurora-bg);
+	background-size: var(--db-aurora-size);
+	animation: db-aurora-shift var(--db-aurora-speed) ease-in-out infinite;
+	transition: color 0.3s ease;
+	will-change: background-position;
+	backface-visibility: hidden;
+}
+
+
+/* ----- 15. NEON (霓虹) — Near-black + neon magenta, identical in light & dark ----- */
 	.apex-dashboard-root[data-theme="neon"] {
 		--db-bg: #0a0a0c;
 		/* Opaque modal-layer surface: dialogs render outside this root where the
@@ -1589,7 +1792,11 @@
 /* Respect reduced-motion: stop the aurora drift for users who disable animation */
 @media (prefers-reduced-motion: reduce) {
 	.apex-dashboard-root[data-theme="aurora"],
-	.apex-dashboard-root[data-theme="tundra"] {
+	.apex-dashboard-root[data-theme="tundra"],
+	.apex-dashboard-root[data-theme="lilac"],
+	.apex-dashboard-root[data-theme="earth"],
+	.apex-dashboard-root[data-theme="nordic"],
+	.apex-dashboard-root[data-theme="matcha"] {
 		animation: none;
 		/* Pin to the animation's start frame — without this the 400%-sized
 		   gradient falls back to background-position 0% 0% (top-left corner),
@@ -1605,7 +1812,11 @@
    (the glow band sits exactly where the drift starts); desktop keeps the drift. */
 @media (max-width: 640px) {
 	.apex-dashboard-root[data-theme="aurora"],
-	.apex-dashboard-root[data-theme="tundra"] {
+	.apex-dashboard-root[data-theme="tundra"],
+	.apex-dashboard-root[data-theme="lilac"],
+	.apex-dashboard-root[data-theme="earth"],
+	.apex-dashboard-root[data-theme="nordic"],
+	.apex-dashboard-root[data-theme="matcha"] {
 		animation: none;
 		background-position: 0% 50%;
 		will-change: auto;
@@ -8942,7 +9153,7 @@
 .dashboard-section-type-btn.active {
 	color: var(--db-accent) !important;
 	border-color: var(--db-accent) !important;
-	background: rgba(139, 92, 246, 0.08) !important;
+	background: color-mix(in srgb, var(--db-accent) 10%, transparent) !important;
 }
 
 .dashboard-section-confirm-btn {
@@ -9317,7 +9528,7 @@
 
 .dashboard-add-section-card.active {
 	border-color: var(--db-accent, var(--interactive-accent));
-	background: rgba(139, 92, 246, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
 }
 
 .dashboard-add-section-card-icon svg {
@@ -10937,68 +11148,68 @@
 
 /* Nordic: modal — clean minimal with blue accent */
 
-/* -- Aurora: glass glow, soft rounded -- */
-.apex-dashboard-root[data-theme="aurora"] .dashboard-card:hover {
-	box-shadow: 0 6px 24px rgba(139, 92, 246, 0.12), 0 0 16px rgba(168, 85, 247, 0.06);
-	border-color: rgba(139, 92, 246, 0.2);
-}
-
+/* -- Aurora: rainbow glow, soft rounded -- */
+/* The memo textarea lives inside a section row, so --db-sec-glow resolves to
+   that section's pony hue. Modal inputs live OUTSIDE the dashboard root —
+   --db-sec-* is not in the applyModalTheme mirror list there, so they derive
+   the glow from --db-accent (which is mirrored) instead. */
 .apex-dashboard-root[data-theme="aurora"] .dashboard-memo-textarea:focus {
-	border-color: rgba(139, 92, 246, 0.4);
-	box-shadow: 0 0 16px rgba(139, 92, 246, 0.08);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 16px var(--db-sec-glow);
 }
 
 .apex-dashboard-root[data-theme="aurora"] .dashboard-modal-input:focus {
-	border-color: rgba(139, 92, 246, 0.4);
-	box-shadow: 0 0 16px rgba(139, 92, 246, 0.08);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 16px color-mix(in srgb, var(--db-accent) 18%, transparent);
 }
 
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row--drag-over {
-	border-color: rgba(139, 92, 246, 0.4);
-	box-shadow: 0 0 20px rgba(139, 92, 246, 0.06);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 20px var(--db-sec-glow);
 }
 
 .apex-dashboard-root[data-theme="aurora"] .dashboard-add-section {
 	border-radius: var(--db-radius-lg, 14px);
-	border-color: rgba(139, 92, 246, 0.15);
+	border-color: var(--db-border-add-section);
 }
 
 .apex-dashboard-root[data-theme="aurora"] .dashboard-add-section:hover {
-	border-color: rgba(139, 92, 246, 0.4);
-	box-shadow: 0 0 12px rgba(139, 92, 246, 0.06);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 12px var(--db-sec-glow);
 }
 
-/* -- Earth: pill-shaped, warm organic -- */
+/* -- Earth: pill-shaped, warm terracotta -- */
 
 .apex-dashboard-root[data-theme="earth"] .dashboard-add-section {
 	border-radius: 16px;
-	border-color: rgba(217, 119, 6, 0.25);
+	border-color: rgba(188, 90, 52, 0.35);
 }
 
 .apex-dashboard-root[data-theme="earth"] .dashboard-add-section:hover {
-	border-color: #d97706;
+	border-color: #bc5a34;
+	box-shadow: 0 0 12px rgba(217, 119, 6, 0.12);
 }
 
 /* -- Nordic: clean minimal with subtle accent border -- */
 .apex-dashboard-root[data-theme="nordic"] .dashboard-card {
-	border: 1px solid rgba(59, 130, 246, 0.1);
+	border: 1px solid rgba(43, 187, 215, 0.14);
 }
 
 .theme-dark .apex-dashboard-root[data-theme="nordic"] .dashboard-card {
-	border-color: rgba(96, 165, 250, 0.15);
+	border-color: rgba(43, 187, 215, 0.18);
 }
 
 .apex-dashboard-root[data-theme="nordic"] .dashboard-add-section {
-	border-color: rgba(148, 163, 184, 0.3);
+	border-color: rgba(100, 125, 165, 0.4);
 	border-radius: 8px;
 }
 
 .theme-dark .apex-dashboard-root[data-theme="nordic"] .dashboard-add-section {
-	border-color: rgba(100, 116, 139, 0.25);
+	border-color: rgba(88, 130, 190, 0.35);
 }
 
 .apex-dashboard-root[data-theme="nordic"] .dashboard-add-section:hover {
-	border-color: #3b82f6;
+	border-color: #177d95;
 }
 
 /* -- Island: Animal Crossing — forest greens, ocean accents, 3D press -- */
@@ -11229,58 +11440,59 @@
 
 /* Blossom: modal — rose glass with warm glow */
 
-/* -- Matcha: gentle green glow -- */
+/* -- Matcha: deep matcha + gold tea glow -- */
 .apex-dashboard-root[data-theme="matcha"] .dashboard-card:hover {
-	box-shadow: 0 6px 24px rgba(143, 170, 152, 0.12), 0 0 16px rgba(200, 184, 144, 0.06);
-	border-color: rgba(143, 170, 152, 0.2);
+	box-shadow: 0 6px 24px rgba(80, 95, 55, 0.18), 0 0 16px rgba(110, 148, 52, 0.12);
+	border-color: rgba(110, 148, 52, 0.30);
 }
 .apex-dashboard-root[data-theme="matcha"] .dashboard-memo-textarea:focus {
-	border-color: rgba(143, 170, 152, 0.4);
-	box-shadow: 0 0 16px rgba(143, 170, 152, 0.08);
+	border-color: rgba(79, 112, 40, 0.45);
+	box-shadow: 0 0 16px rgba(110, 148, 52, 0.12);
 }
 .apex-dashboard-root[data-theme="matcha"] .dashboard-modal-input:focus {
-	border-color: rgba(143, 170, 152, 0.4);
-	box-shadow: 0 0 16px rgba(143, 170, 152, 0.08);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 16px color-mix(in srgb, var(--db-accent) 18%, transparent);
 }
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section-row--drag-over {
-	border-color: rgba(143, 170, 152, 0.4);
-	box-shadow: 0 0 20px rgba(143, 170, 152, 0.06);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 20px color-mix(in srgb, var(--db-accent) 14%, transparent);
 }
 .apex-dashboard-root[data-theme="matcha"] .dashboard-add-section {
 	border-radius: var(--db-radius-lg, 14px);
-	border-color: rgba(143, 170, 152, 0.15);
+	border-color: rgba(79, 112, 40, 0.30);
 }
 .apex-dashboard-root[data-theme="matcha"] .dashboard-add-section:hover {
-	border-color: rgba(143, 170, 152, 0.4);
-	box-shadow: 0 0 12px rgba(143, 170, 152, 0.06);
+	border-color: #4a6a24;
+	box-shadow: 0 0 12px rgba(110, 148, 52, 0.14);
 }
 /* Matcha: modal — soft green glass */
 
-/* -- Lilac: gentle purple glow -- */
+/* -- Lilac: wisteria + rose garden glow -- */
 .apex-dashboard-root[data-theme="lilac"] .dashboard-card:hover {
-	box-shadow: 0 6px 24px rgba(184, 160, 200, 0.12), 0 0 16px rgba(208, 184, 184, 0.06);
-	border-color: rgba(184, 160, 200, 0.2);
+	box-shadow: 0 6px 24px rgba(94, 61, 122, 0.20), 0 0 16px rgba(230, 73, 128, 0.10);
+	border-color: rgba(157, 78, 221, 0.35);
 }
 .apex-dashboard-root[data-theme="lilac"] .dashboard-memo-textarea:focus {
-	border-color: rgba(184, 160, 200, 0.4);
-	box-shadow: 0 0 16px rgba(184, 160, 200, 0.08);
+	border-color: rgba(157, 78, 221, 0.45);
+	box-shadow: 0 0 16px rgba(157, 78, 221, 0.10);
 }
 .apex-dashboard-root[data-theme="lilac"] .dashboard-modal-input:focus {
-	border-color: rgba(184, 160, 200, 0.4);
-	box-shadow: 0 0 16px rgba(184, 160, 200, 0.08);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 16px color-mix(in srgb, var(--db-accent) 18%, transparent);
 }
 .apex-dashboard-root[data-theme="lilac"] .dashboard-section-row--drag-over {
-	border-color: rgba(184, 160, 200, 0.4);
-	box-shadow: 0 0 20px rgba(184, 160, 200, 0.06);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 20px color-mix(in srgb, var(--db-accent) 14%, transparent);
 }
 .apex-dashboard-root[data-theme="lilac"] .dashboard-add-section {
 	border-radius: var(--db-radius-lg, 14px);
-	border-color: rgba(184, 160, 200, 0.15);
+	border-color: var(--db-border-add-section);
 }
 .apex-dashboard-root[data-theme="lilac"] .dashboard-add-section:hover {
-	border-color: rgba(184, 160, 200, 0.4);
-	box-shadow: 0 0 12px rgba(184, 160, 200, 0.06);
+	border-color: var(--db-border-input-focus);
+	box-shadow: 0 0 12px color-mix(in srgb, var(--db-accent) 16%, transparent);
 }
+
 /* Lilac: modal — soft purple glass */
 
 /* -- Dusk: dreamy cloud-soft modal -- */
@@ -16992,7 +17204,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 .dashboard-weread-option.active {
 	border-color: var(--db-accent, var(--interactive-accent));
-	background: rgba(139, 92, 246, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
 }
 
 .dashboard-weread-option-label {
@@ -17545,7 +17757,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 /* Section header view-toggle active state (TickTick today/lists) */
 .dashboard-section-header-actions .dashboard-section-add-btn.active {
 	color: var(--db-accent, var(--interactive-accent));
-	background: rgba(139, 92, 246, 0.12);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
 }
 
 /* TickTick lists view: horizontal scroll row (like todo section cards) */
