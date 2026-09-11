@@ -13,6 +13,8 @@ interface GuideFeature {
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
 	{ icon: 'calendar-days', textKey: 'announce.featureScopeLabel' },
 	{ icon: 'globe', textKey: 'announce.featureSizeLabel' },
+	{ icon: 'image', textKey: 'announce.featureAlbumLabel' },
+	{ icon: 'music', textKey: 'announce.featureMusicLabel' },
 ];
 
 /**

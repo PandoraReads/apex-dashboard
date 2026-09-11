@@ -10,9 +10,11 @@ import { ThemeStudioModal } from './theme-studio-modal';
 import { QuickNoteConfigModal } from './quick-note-config-modal';
 import { showConfirmDialog } from './confirm-dialog';
 import { showPromptDialog } from './prompt-dialog';
+import { getMusicService } from './music-service';
 import { normalizeWorkspacePath } from './workspace-registry';
 import { DEFAULT_TICKTICK_TZ, isValidTz } from './ticktick-tz';
 import { PathPickerModal } from './path-picker-modal';
+import { normalizeTransition } from './album-widget';
 import { SUPPORT_IMAGE_DATA_URL } from './assets/support-image';
 
 export type { DashboardSettings };
@@ -110,7 +112,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					{
 						name: t('settings.widgetTheme'),
 						desc: t('settings.widgetWeatherEnabledDesc'),
-						aliases: [t('settings.widgetWeatherEnabled'), t('settings.widgetQuickActionsEnabled'), t('settings.countdownEnabled'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.widgetHabitEnabled'), t('settings.widgetExpenseEnabled')],
+						aliases: [t('settings.widgetWeatherEnabled'), t('settings.widgetQuickActionsEnabled'), t('settings.countdownEnabled'), t('settings.pomodoroEnabled'), t('settings.readingEnabled'), t('settings.widgetHabitEnabled'), t('settings.widgetExpenseEnabled'), t('settings.widgetMusic')],
 						render: (setting) => {
 							asBlock(setting);
 							onPage('widgets')(setting);
@@ -157,6 +159,15 @@ export class DashboardSettingTab extends PluginSettingTab {
 							asBlock(setting);
 							onPage('widgets')(setting);
 							this.renderYearProgressSettings(setting.settingEl);
+						},
+					},
+					{
+						name: t('settings.widgetAlbum'),
+						desc: t('settings.widgetAlbumEnabledDesc'),
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderAlbumSettings(setting.settingEl);
 						},
 					},
 					{
@@ -841,6 +852,26 @@ onyx: t('settings.styleOnyx'),
 					this.plugin.refreshAllDashboards();
 				}));
 
+		// --- Music player card (desktop-only widget) ---
+		const musicCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(musicCard)
+			.setName(t('settings.widgetMusic'))
+			.setDesc(t('settings.widgetMusicDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetMusicEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetMusicEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					// Disabling the widget stops playback too (no zombie audio
+					// behind a hidden UI).
+					if (!value) getMusicService()?.pause();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
+
 		// --- Countdown card ---
 		const countdownCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(countdownCard)
@@ -1145,6 +1176,139 @@ onyx: t('settings.styleOnyx'),
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
 					this.refresh();
+				}));
+	}
+
+	/** Widgets tab: photo-album card (slideshow of a vault folder). */
+	private renderAlbumSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName(t('settings.widgetAlbum')).setHeading();
+
+		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(card)
+			.setName(t('settings.widgetAlbumEnabled'))
+			.setDesc(t('settings.widgetAlbumEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetAlbumEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetAlbumEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
+
+		if (!this.plugin.settings.widgetAlbumEnabled) return;
+
+		let folderInput: TextComponent | undefined;
+		new Setting(card)
+			.setName(t('settings.widgetAlbumFolder'))
+			.setDesc(t('settings.widgetAlbumFolderDesc'))
+			.addText(text => {
+				folderInput = text;
+				text
+					.setPlaceholder(t('settings.widgetAlbumFolderPlaceholder'))
+					.setValue(this.plugin.settings.widgetAlbumFolder)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetAlbumFolder: value.trim().replace(/^\/+|\/+$/g, ''),
+						};
+						await this.plugin.saveSettings();
+						// The widget signature covers the folder, so this
+						// rebuilds the sidebar album at the new location.
+						this.plugin.refreshAllDashboards();
+					});
+			})
+			// Browse button: pick an existing folder instead of typing its path.
+			.addExtraButton(btn => btn
+				.setIcon('folder-search')
+				.setTooltip(t('pathPicker.pickFolder'))
+				.onClick(() => {
+					new PathPickerModal(this.app, 'folder', (path) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetAlbumFolder: path,
+						};
+						void this.plugin.saveSettings();
+						folderInput?.setValue(path);
+						this.plugin.refreshAllDashboards();
+					}).open();
+				}));
+
+		new Setting(card)
+			.setName(t('settings.widgetAlbumRatio'))
+			.setDesc(t('settings.widgetAlbumRatioDesc'))
+			.addDropdown(dropdown => {
+				dropdown
+					.addOption('1:1', t('settings.widgetAlbumRatioSquare'))
+					.addOption('3:4', t('settings.widgetAlbumRatioPortrait'))
+					.setValue(this.plugin.settings.widgetAlbumRatio)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetAlbumRatio: value === '3:4' ? '3:4' : '1:1',
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					});
+			});
+
+		new Setting(card)
+			.setName(t('settings.widgetAlbumTransition'))
+			.setDesc(t('settings.widgetAlbumTransitionDesc'))
+			.addDropdown(dropdown => {
+				dropdown
+					.addOption('fade', t('settings.widgetAlbumTransitionFade'))
+					.addOption('slide-left', t('settings.widgetAlbumTransitionSlideLeft'))
+					.addOption('slide-right', t('settings.widgetAlbumTransitionSlideRight'))
+					.addOption('zoom', t('settings.widgetAlbumTransitionZoom'))
+					.setValue(normalizeTransition(this.plugin.settings.widgetAlbumTransition))
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetAlbumTransition: normalizeTransition(value),
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					});
+			});
+
+		const INTERVAL_PRESETS = [3, 5, 8, 10, 15, 30, 60];
+		new Setting(card)
+			.setName(t('settings.widgetAlbumInterval'))
+			.setDesc(t('settings.widgetAlbumIntervalDesc'))
+			.addDropdown(dropdown => {
+				const current = this.plugin.settings.widgetAlbumIntervalSec;
+				// Guard hand-edited data.json: show the stored value even when
+				// it is not one of the presets, instead of a blank select.
+				if (!INTERVAL_PRESETS.includes(current)) dropdown.addOption(String(current), `${current}s`);
+				for (const sec of INTERVAL_PRESETS) dropdown.addOption(String(sec), `${sec}s`);
+				dropdown
+					.setValue(String(current))
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							widgetAlbumIntervalSec: Number(value),
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					});
+			});
+
+		new Setting(card)
+			.setName(t('settings.widgetAlbumRecursive'))
+			.setDesc(t('settings.widgetAlbumRecursiveDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetAlbumRecursive)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetAlbumRecursive: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
 				}));
 	}
 

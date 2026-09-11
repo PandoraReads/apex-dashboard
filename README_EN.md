@@ -33,7 +33,7 @@ Embed any web page right in a section — paste a URL and browse it like an in-b
 Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
 
 ### 🌤️ Sidebar Widgets
-The left sidebar features 9 independently toggleable, drag-reorderable widgets:
+The left sidebar features 11 independently toggleable, drag-reorderable widgets:
 
 - **Weather** — Real-time weather with current temperature, feels-like, humidity, wind speed, and a 5-day forecast with daily high/low temperatures. Powered by Open-Meteo (no API key needed). City search with geocoding autocomplete for precise location
 - **Lunar Almanac** — Traditional Chinese lunar date, festivals, and daily do/don't guidance
@@ -44,6 +44,8 @@ The left sidebar features 9 independently toggleable, drag-reorderable widgets:
 - **Calendar** — Month/week grid aggregating every dated task across the vault; click a day for its agenda and add tasks that write into that day's daily note; multi-day events span across days
 - **Habit Check-in** — Daily check-offs per habit, with yesterday backfill, streaks, and heatmap stats
 - **Expense Tracker** — Quick expense/income entry (notes, backdating, custom categories) with today's totals and week/month/year/all-time stats; the ledger adds filtering, inline editing, and CSV import/export
+- **Photo Album** — A digital photo frame for any vault folder: auto-rotation with hover pause, manual prev/next and an index badge, 1:1 or 3:4 panel ratio, four transitions (fade / push left / push right / zoom), 3–60s interval, subfolders included by default. The opening photo is time-seeded (never always the same one), the next one is preloaded, and vault add/delete/rename refreshes the list in place without losing your position
+- **Music** — Search and play free NetEase Cloud Music tracks from the sidebar: no account needed, VIP-only tracks are skipped with a notice, paste a playlist link to import, volume and repeat controls, persisted playlist with lazy cover backfill, and an optional floating mini player bar that keeps working with the dashboard closed (desktop only)
 
 The sidebar also hosts the **week calendar strip** (compact 7 days, today highlighted), **recent documents**, and the **scroll-to-top** button; phones get the same widget bar, and widget data union-merges across devices.
 
@@ -123,6 +125,12 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 </p>
 
 ## What's New
+
+### 2.5.0
+- **Photo Album widget** — Point it at a vault folder and it rotates through the images like a digital photo frame: hover to pause, manual prev/next (which re-arms the auto timer so it never double-skips), index badge, 1:1 or 3:4 panel ratio, four transitions (fade / push left / push right / zoom) driven by a two-layer ping-pong, 3–60s interval, subfolders included by default. The opening photo is time-seeded, the next one preloaded, and vault add/delete/rename refreshes the list in place — a surviving current photo keeps playing undisturbed
+- **Music widget** — Search and play free NetEase Cloud Music tracks in the sidebar: no account, VIP-only tracks skipped with a notice, playlist import from a link, volume and repeat controls, persisted playlist with lazy cover backfill, and an optional floating mini player bar that survives closing the dashboard (desktop only)
+- **Fixed: controls inside widgets triggered drag-to-reorder** — Sidebar widgets were draggable as a whole, so pressing and dragging a volume slider, input, select or button was read as a reorder gesture (most visible on the music panel's volume knob). Dragging is now armed per gesture: pressing a form control or button leaves it off, pressing plain widget surface turns it on — consistent across every widget
+- **Announcement modal** — Retitled to "2 sections + 2 widgets" and now introduces the album and music widgets alongside the calendar and web sections
 
 ### 2.4.1
 - **Vermilion theme (formerly Mono, reborn)** — The funereal pure black/white pairing is cured: warm rice-paper ground and blue-undertone sumi ink replace the neutral grays, a 40s ink-wash drift (slowest of all themes) breathes behind the cards, and one cinnabar seal-red accent (links, checkboxes, focus, progress) lands like the stamp on a scroll — the black/white pairing stays, the mood moves from funeral to study

@@ -2944,6 +2944,163 @@
 	padding: 8px 0;
 }
 
+/* Album Widget */
+.dashboard-sidebar-album-frame {
+	position: relative;
+	aspect-ratio: 1 / 1;
+	border-radius: var(--db-radius-sm);
+	overflow: hidden;
+}
+
+/* Two ping-pong photo layers. The transition lives on the base layer (banner
+   house pattern); per-mode start states pin the incoming layer before the run
+   pass, --instant suppresses transitions during that setup. */
+.dashboard-sidebar-album-layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transition: opacity 0.6s ease, transform 0.6s ease;
+	user-select: none;
+	pointer-events: none;
+}
+
+.dashboard-sidebar-album-layer--instant {
+	transition: none !important;
+}
+
+.dashboard-sidebar-album-layer--top {
+	z-index: 2;
+}
+
+.dashboard-sidebar-album-layer--bottom {
+	z-index: 1;
+}
+
+.dashboard-sidebar-album-layer--start-fade {
+	opacity: 0;
+}
+
+.dashboard-sidebar-album-layer--start-zoom {
+	opacity: 0;
+	transform: scale(1.06);
+}
+
+.dashboard-sidebar-album-layer--start-slide-in-right {
+	transform: translateX(100%);
+}
+
+.dashboard-sidebar-album-layer--start-slide-in-left {
+	transform: translateX(-100%);
+}
+
+.dashboard-sidebar-album-layer--run-slide-out-left {
+	transform: translateX(-100%);
+}
+
+.dashboard-sidebar-album-layer--run-slide-out-right {
+	transform: translateX(100%);
+}
+
+.dashboard-sidebar-album-index {
+	position: absolute;
+	right: 6px;
+	bottom: 6px;
+	background: rgba(0, 0, 0, 0.45);
+	color: #fff;
+	font-size: 0.65em;
+	padding: 1px 7px;
+	border-radius: 999px;
+	pointer-events: none;
+	user-select: none;
+}
+
+.dashboard-sidebar-album-nav {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 24px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: none;
+	background: rgba(0, 0, 0, 0.35);
+	color: #fff;
+	cursor: pointer;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s ease, visibility 0.15s ease;
+	box-shadow: none;
+}
+
+.dashboard-sidebar-album-nav:hover {
+	background: rgba(0, 0, 0, 0.6);
+}
+
+.dashboard-sidebar-album-nav svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-sidebar-album-nav--prev {
+	left: 0;
+	border-radius: 0 var(--db-radius-sm) var(--db-radius-sm) 0;
+}
+
+.dashboard-sidebar-album-nav--next {
+	right: 0;
+	border-radius: var(--db-radius-sm) 0 0 var(--db-radius-sm);
+}
+
+.dashboard-sidebar-album-frame:hover .dashboard-sidebar-album-nav {
+	opacity: 0.9;
+	visibility: visible;
+}
+
+/* Single photo: no rotation, hide the nav buttons and index badge. */
+.dashboard-sidebar-album--single .dashboard-sidebar-album-nav,
+.dashboard-sidebar-album--single .dashboard-sidebar-album-index {
+	display: none;
+}
+
+/* Portrait panels: 3:4 frame and placeholder instead of the 1:1 default. */
+.dashboard-sidebar-album--ratio-3-4 .dashboard-sidebar-album-frame,
+.dashboard-sidebar-album--ratio-3-4 .dashboard-sidebar-album-placeholder {
+	aspect-ratio: 3 / 4;
+}
+
+.dashboard-sidebar-album-placeholder {
+	aspect-ratio: 1 / 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	border: 1px dashed var(--db-border-card);
+	border-radius: var(--db-radius-sm);
+	color: var(--db-text-muted);
+	font-size: 0.75em;
+	user-select: none;
+}
+
+.dashboard-sidebar-album-placeholder-icon {
+	display: flex;
+	opacity: 0.5;
+}
+
+.dashboard-sidebar-album-placeholder-icon svg {
+	width: 22px;
+	height: 22px;
+}
+
+.dashboard-sidebar-album-placeholder-text {
+	padding: 0 10px;
+	text-align: center;
+}
+
 /* Countdown Modal */
 .dashboard-modal-countdown-row {
 	display: flex;
@@ -20019,4 +20176,355 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-floating-mini--pinned {
 	right: auto;
 	bottom: auto;
+}
+
+/* Music Widget (NetEase free playback, desktop only) */
+.dashboard-sidebar-music-top {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	margin-bottom: 8px;
+}
+
+.dashboard-sidebar-music-title-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	opacity: 0.85;
+	/* Theme accent, matching the other widgets' title icons (habit etc.). */
+	color: var(--db-accent);
+}
+
+.dashboard-sidebar-music-title-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-sidebar-music-top-spacer {
+	flex: 1;
+}
+
+.dashboard-sidebar-music-icon-btn {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	opacity: 0.35;
+	color: var(--db-text-muted);
+	transition: opacity 0.15s;
+	flex-shrink: 0;
+}
+
+.dashboard-sidebar-music-icon-btn:hover {
+	opacity: 0.8;
+}
+
+.dashboard-sidebar-music-icon-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-sidebar-music-play {
+	opacity: 0.65;
+	color: var(--db-text);
+}
+
+.dashboard-sidebar-music-play:hover {
+	opacity: 0.95;
+}
+
+.dashboard-sidebar-music-play svg {
+	width: 16px;
+	height: 16px;
+}
+
+.dashboard-sidebar-music-now {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.dashboard-sidebar-music-cover {
+	position: relative;
+	width: 44px;
+	height: 44px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--db-radius-sm, 6px);
+	overflow: hidden;
+	background: var(--db-bg-section, rgba(127, 127, 127, 0.08));
+}
+
+.dashboard-sidebar-music-cover-img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.dashboard-sidebar-music-cover-glyph {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--db-text-muted);
+	opacity: 0.4;
+}
+
+.dashboard-sidebar-music-cover-glyph svg {
+	width: 18px;
+	height: 18px;
+}
+
+.dashboard-sidebar-music-info {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.dashboard-sidebar-music-name {
+	font-size: 0.78em;
+	font-weight: 600;
+	color: var(--db-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-sidebar-music-artist {
+	font-size: 0.65em;
+	color: var(--db-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-sidebar-music-lyric {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.68em;
+	color: var(--db-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	user-select: none;
+}
+
+.dashboard-sidebar-music-progress {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.dashboard-sidebar-music-time {
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	min-width: 28px;
+	user-select: none;
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-sidebar-music-progress .dashboard-sidebar-music-time:last-child {
+	text-align: right;
+}
+
+.dashboard-sidebar-music-bar {
+	flex: 1;
+	cursor: pointer;
+	min-width: 0;
+}
+
+.dashboard-sidebar-music-controls {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.dashboard-sidebar-music-vol-area input[type='range'] {
+	width: 58px;
+	accent-color: var(--db-accent);
+}
+
+.dashboard-sidebar-music-panel {
+	margin-top: 6px;
+}
+
+.dashboard-sidebar-music-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px;
+	border-radius: var(--db-radius-sm, 6px);
+	cursor: pointer;
+}
+
+.dashboard-sidebar-music-row:hover {
+	background: var(--db-bg-card-hover, rgba(127, 127, 127, 0.1));
+}
+
+.dashboard-sidebar-music-row--active {
+	background: color-mix(in srgb, var(--db-accent) 12%, transparent);
+}
+
+.dashboard-sidebar-music-row--active .dashboard-sidebar-music-row-name {
+	color: var(--db-accent);
+}
+
+.dashboard-sidebar-music-row--vip {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.dashboard-sidebar-music-row-play {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--db-accent);
+}
+
+.dashboard-sidebar-music-row-play svg {
+	width: 10px;
+	height: 10px;
+}
+
+.dashboard-sidebar-music-row-label {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.dashboard-sidebar-music-row-name {
+	font-size: 0.7em;
+	color: var(--db-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-sidebar-music-row-sub {
+	font-size: 0.6em;
+	color: var(--db-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-sidebar-music-vip-badge {
+	flex-shrink: 0;
+	font-size: 0.55em;
+	font-weight: 700;
+	padding: 1px 4px;
+	border-radius: 4px;
+	color: var(--db-bg-card, #fff);
+	background: color-mix(in srgb, var(--db-accent) 65%, var(--db-text-muted));
+	user-select: none;
+}
+
+.dashboard-sidebar-music-row-del {
+	width: 18px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	cursor: pointer;
+	opacity: 0.25;
+	color: var(--db-text-muted);
+}
+
+.dashboard-sidebar-music-row-del:hover {
+	opacity: 0.75;
+}
+
+.dashboard-sidebar-music-row-del svg {
+	width: 11px;
+	height: 11px;
+}
+
+.dashboard-sidebar-music-results {
+	max-height: 200px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	margin-top: 4px;
+}
+
+.dashboard-sidebar-music-search-input,
+.dashboard-sidebar-music-import-input {
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+	background: var(--db-bg-section, rgba(127, 127, 127, 0.08));
+	border: 1px solid var(--db-border-card);
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text);
+	font-size: 0.68em;
+	padding: 5px 8px;
+	outline: none;
+}
+
+.dashboard-sidebar-music-search-input:focus,
+.dashboard-sidebar-music-import-input:focus {
+	border-color: var(--db-accent);
+}
+
+.dashboard-sidebar-music-search-input::placeholder,
+.dashboard-sidebar-music-import-input::placeholder {
+	color: var(--db-text-muted);
+}
+
+.dashboard-sidebar-music-import-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 6px;
+}
+
+.dashboard-sidebar-music-import-input {
+	flex: 1;
+	width: auto;
+}
+
+.dashboard-sidebar-music-text-btn {
+	flex-shrink: 0;
+	font-size: 0.62em;
+	padding: 4px 9px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card);
+	color: var(--db-text);
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.dashboard-sidebar-music-text-btn:hover {
+	border-color: var(--db-accent);
+	color: var(--db-accent);
+}
+
+.dashboard-sidebar-music-empty {
+	font-size: 0.65em;
+	color: var(--db-text-muted);
+	padding: 10px 4px;
+	text-align: center;
+	user-select: none;
+}
+
+.dashboard-sidebar-music-panel-foot {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 4px;
 }

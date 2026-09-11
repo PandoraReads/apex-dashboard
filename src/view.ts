@@ -9,6 +9,9 @@ import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-wi
 import { refreshCalendarSections } from './calendar-section';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
+import { refreshAlbumWidget, destroyAlbumWidgets } from './album-widget';
+import { refreshMusicWidget } from './music-widget';
+import { getMusicService } from './music-service';
 import { getHabitService } from './habit-service';
 import { getExpenseService } from './expense-service';
 import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
@@ -121,6 +124,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private readingService: ReadingService | null = null;
 	private habitUnsubscribe: (() => void) | null = null;
 	private expenseUnsubscribe: (() => void) | null = null;
+	private musicUnsubscribe: (() => void) | null = null;
 	private pomodoroUnsubscribe: (() => void) | null = null;
 	private readingUnsubscribe: (() => void) | null = null;
 	private holidayData: Record<string, HolidayInfo> = {};
@@ -138,6 +142,8 @@ export class DashboardView extends ItemView implements HoverParent {
 	private sidebarWidgetsSig: string | null = null;
 	private sidebarCalendarTimer: number | null = null;
 	private readonly SIDEBAR_CALENDAR_DEBOUNCE = 500;
+	private albumRefreshTimer: number | null = null;
+	private readonly ALBUM_REFRESH_DEBOUNCE = 500;
 	private isOpening = false;
 	private isOpen = false;
 	private lifecycleRevision = 0;
@@ -219,6 +225,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		// in one view refreshes the widget and banner in all of them.
 		this.habitUnsubscribe = getHabitService()?.subscribe(() => this.onHabitChanged()) ?? null;
 		this.expenseUnsubscribe = getExpenseService()?.subscribe(() => this.onExpenseChanged()) ?? null;
+		// Music is desktop-only (no service on mobile → null subscription).
+		this.musicUnsubscribe = getMusicService()?.subscribe(() => this.onMusicChanged()) ?? null;
 		// Focus re-sync merges another device's records and notifies — refresh
 		// the pomodoro/reading widgets without restarting the timers.
 		this.pomodoroUnsubscribe = this.pomodoroService.subscribe(() => this.onPomodoroDataChanged());
@@ -263,6 +271,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.habitUnsubscribe = null;
 		this.expenseUnsubscribe?.();
 		this.expenseUnsubscribe = null;
+		this.musicUnsubscribe?.();
+		this.musicUnsubscribe = null;
 		this.pomodoroUnsubscribe?.();
 		this.pomodoroUnsubscribe = null;
 		this.readingUnsubscribe?.();
@@ -1806,6 +1816,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.debouncedRefreshSections(structure);
 			this.debouncedRefreshSidebarCalendar();
 			this.debouncedRefreshBannerStats();
+			this.debouncedRefreshAlbumWidget();
 		};
 
 		const createRef = events.on('create', () => handler(true));
@@ -1846,6 +1857,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			window.clearTimeout(this.sidebarCalendarTimer);
 			this.sidebarCalendarTimer = null;
 		}
+		if (this.albumRefreshTimer) {
+			window.clearTimeout(this.albumRefreshTimer);
+			this.albumRefreshTimer = null;
+		}
 		if (this.libraryRefreshTimer) {
 			window.clearTimeout(this.libraryRefreshTimer);
 			this.libraryRefreshTimer = null;
@@ -1863,6 +1878,27 @@ export class DashboardView extends ItemView implements HoverParent {
 			const root = this.containerEl.children[1] as HTMLElement | undefined;
 			if (root) refreshSidebarTaskCalendar(root);
 		}, this.SIDEBAR_CALENDAR_DEBOUNCE);
+	}
+
+	/** Re-scan the album folder when images are added/deleted/renamed in the
+	 *  vault. In-place via the widget's controller: an unchanged path list
+	 *  leaves the slideshow position and timer untouched. */
+	private debouncedRefreshAlbumWidget(): void {
+		if (!this.plugin.settings.widgetAlbumEnabled) return;
+		if (!this.plugin.settings.widgetAlbumFolder.trim()) return;
+		if (this.albumRefreshTimer) window.clearTimeout(this.albumRefreshTimer);
+		this.albumRefreshTimer = window.setTimeout(() => {
+			this.albumRefreshTimer = null;
+			const root = this.containerEl.children[1] as HTMLElement | undefined;
+			if (root) refreshAlbumWidget(root, this.plugin.settings, this.app);
+		}, this.ALBUM_REFRESH_DEBOUNCE);
+	}
+
+	/** Music state changed (transport tick, playlist edit from any surface):
+	 *  refresh only the derived parts of the sidebar widget. Desktop-only. */
+	private onMusicChanged(): void {
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		if (root) refreshMusicWidget(root);
 	}
 
 	/** Habit data changed (toggle/add/rename/remove from any view or overlay):
@@ -2042,6 +2078,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  live DOM inside it) must survive; a fresh widgets render re-wires them. */
 	private runCleanup(preserveSidebarWidgets = false): void {
 		destroyAllCharts(preserveSidebarWidgets ? this.sidebarWidgetsEl : null);
+		destroyAlbumWidgets(preserveSidebarWidgets ? this.sidebarWidgetsEl : null);
 		if (!preserveSidebarWidgets) {
 			if (this.pomodoroService) {
 				this.pomodoroService.setOnTick(null);

@@ -54,6 +54,29 @@ export interface DashboardSettings {
 	widgetExpenseEnabled: boolean;
 	/** Currency symbol shown before amounts in the expense widget/stats (e.g. ¥, $). */
 	expenseCurrency: string;
+	/** Photo-album widget: auto-rotating slideshow of a vault folder's images. */
+	widgetAlbumEnabled: boolean;
+	/** Vault folder whose images the album rotates through ('' = unset). */
+	widgetAlbumFolder: string;
+	/** Seconds each photo stays on screen before auto-advancing. */
+	widgetAlbumIntervalSec: number;
+	/** Include images from subfolders of the album folder. */
+	widgetAlbumRecursive: boolean;
+	/** Panel aspect ratio of the album frame ('1:1' square, '3:4' portrait). */
+	widgetAlbumRatio: '1:1' | '3:4';
+	/** Photo transition animation between slides ('fade' default). */
+	widgetAlbumTransition: 'fade' | 'slide-left' | 'slide-right' | 'zoom';
+	/** Music player widget: search & play NetEase free songs in the sidebar
+	    (desktop only; no account, VIP tracks are skipped). */
+	widgetMusicEnabled: boolean;
+	/** Player volume 0-1. */
+	musicVolume: number;
+	/** Repeat mode of the music player. */
+	musicRepeatMode: MusicRepeatMode;
+	/** Persisted playlist; cover URLs are lazily backfilled and then saved. */
+	musicPlaylist: MusicTrack[];
+	/** Highlighted track index restored on restart; playback never auto-resumes. */
+	musicCurrentIndex: number;
 	/** Quick-buttons ("快捷按钮") rendered as a draggable sidebar widget. */
 	widgetQuickActionsEnabled: boolean;
 	/** Optional custom background color for the quick-buttons widget (user
@@ -240,8 +263,19 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	expenseCurrency: '¥',
+	widgetAlbumEnabled: false,
+	widgetAlbumFolder: '',
+	widgetAlbumIntervalSec: 8,
+	widgetAlbumRecursive: true,
+	widgetAlbumRatio: '1:1',
+	widgetAlbumTransition: 'fade',
+	widgetMusicEnabled: false,
+	musicVolume: 0.8,
+	musicRepeatMode: 'list',
+	musicPlaylist: [] as MusicTrack[],
+	musicCurrentIndex: -1,
 	widgetQuickActionsEnabled: true,
-	widgetOrder: ['quickActions', 'weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense'],
+	widgetOrder: ['quickActions', 'weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'],
 	wereadApiKey: '',
 	wereadImportPath: 'Weread/划线',
 	ticktickRegion: 'dida365',
@@ -512,6 +546,29 @@ export interface CountdownConfig {
 	displayMode: 'days' | 'hours' | 'minutes';
 	reminderDays: number;
 }
+
+/** One playable NetEase track. Shared by search results, playlist imports and
+    the persisted sidebar playlist. `fee` drives playability: 0/8 are free,
+    1/2/4 need an account the widget deliberately does not have. */
+export interface MusicTrack {
+	/** NetEase song id. */
+	id: number;
+	/** Song title. */
+	name: string;
+	/** artists[].name joined with ' / '. */
+	artist: string;
+	/** Album name. */
+	album: string;
+	/** Song duration in milliseconds (API original). */
+	durationMs: number;
+	/** NetEase fee flag: 0|8 free, 1 VIP, 2|4 album purchase. */
+	fee: number;
+	/** Cover URL, lazily backfilled from /api/song/detail then persisted. */
+	picUrl?: string;
+}
+
+/** Repeat mode of the music player widget. */
+export type MusicRepeatMode = 'list' | 'one' | 'shuffle';
 
 /** One widget within a weread section (a section stacks multiple, top-to-bottom). */
 export interface WereadWidget {

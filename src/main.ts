@@ -1,4 +1,4 @@
-import { Notice, Plugin, TAbstractFile, TFile } from 'obsidian';
+import { Notice, Platform, Plugin, TAbstractFile, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
@@ -10,13 +10,14 @@ import { DataviewGuideModal } from './dataview-guide-modal';
  *  announcement pops only when the user's stored version differs from this —
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
- *  shipped with 2.3.0. */
-const ANNOUNCE_VERSION = '2.3.0';
+ *  shipped with 2.5.0. */
+const ANNOUNCE_VERSION = '2.5.0';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
 import { HabitService, registerHabitService } from './habit-service';
 import { ExpenseService, registerExpenseService } from './expense-service';
+import { MusicService, registerMusicService } from './music-service';
 import { generateDefaultMarkdown } from './parser';
 import {
 	alignWorkspaceNames,
@@ -78,6 +79,8 @@ export default class DashboardPlugin extends Plugin {
 	mediaTagService!: MediaTagService;
 	habitService!: HabitService;
 	expenseService!: ExpenseService;
+	/** Desktop-only NetEase player; its detached <audio> must outlive views. */
+	musicService?: MusicService;
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
@@ -101,6 +104,15 @@ export default class DashboardPlugin extends Plugin {
 		await Promise.all([this.habitService.load(), this.expenseService.load()]);
 		registerHabitService(this.habitService);
 		registerExpenseService(this.expenseService);
+
+		// Music player is desktop-only (mobile never registers the service, so
+		// the widget renderer is inert there). Playback must survive closing the
+		// dashboard view — hence plugin-level.
+		if (!Platform.isMobile) {
+			this.musicService = new MusicService(this);
+			await this.musicService.load();
+			registerMusicService(this.musicService);
+		}
 
 		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
 
@@ -226,6 +238,8 @@ export default class DashboardPlugin extends Plugin {
 		this.habitService.destroy();
 		registerExpenseService(null);
 		this.expenseService.destroy();
+		registerMusicService(null);
+		this.musicService?.destroy();
 	}
 
 	private async openDashboard(): Promise<void> {

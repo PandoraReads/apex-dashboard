@@ -30,6 +30,8 @@ import { renderSidebarCalendar } from './calendar-widget';
 import { renderCalendarSection } from './calendar-section';
 import { renderSidebarHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget } from './expense-widget';
+import { renderSidebarAlbumWidget } from './album-widget';
+import { renderSidebarMusicWidget } from './music-widget';
 import { SUPPORTED_FILE_EXTS, iconForExtension } from './file-types';
 import type { HolidayInfo } from './holiday-service';
 import { CountdownSettingsModal } from './countdown-modal';
@@ -276,6 +278,16 @@ export function sidebarWidgetSignature(
 		habitEnabled: settings.widgetHabitEnabled,
 		expenseEnabled: settings.widgetExpenseEnabled,
 		expenseCurrency: settings.expenseCurrency,
+		albumEnabled: settings.widgetAlbumEnabled,
+		albumFolder: settings.widgetAlbumFolder,
+		albumIntervalSec: settings.widgetAlbumIntervalSec,
+		albumRecursive: settings.widgetAlbumRecursive,
+		// Playlist content itself must NOT enter the signature: every add would
+		// rebuild the whole widget area. The service subscription refreshes it
+		// in place instead; only the enable flag matters here.
+		musicEnabled: settings.widgetMusicEnabled && !Platform.isMobile,
+		albumRatio: settings.widgetAlbumRatio,
+		albumTransition: settings.widgetAlbumTransition,
 		countdownEnabled: settings.countdownEnabled,
 		countdowns: settings.countdowns,
 		readingEnabled: settings.readingEnabled,
@@ -311,7 +323,7 @@ export function renderSidebarWidgets(
 	onOpenNote?: (file: TFile, line?: number) => void,
 	renderQuickActions?: (container: HTMLElement) => void,
 ): HTMLElement | null {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions);
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || settings.widgetAlbumEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || (settings.widgetMusicEnabled && !Platform.isMobile);
 	if (!anyEnabled) return null;
 
 	// Unchanged inputs: keep the previous DOM (and its live timers/listeners).
@@ -322,7 +334,7 @@ export function renderSidebarWidgets(
 
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
 
-	const DEFAULT_ORDER = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense'];
+	const DEFAULT_ORDER = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'];
 	// Legacy: an order saved before quick buttons were a widget lacks the
 	// 'quickActions' key. Render it first there (its historical spot, above the
 	// other widgets) until the user drags it elsewhere.
@@ -357,6 +369,12 @@ export function renderSidebarWidgets(
 	}
 	if (settings.widgetExpenseEnabled) {
 		enabled.push({ key: 'expense', render: () => renderSidebarExpenseWidget(widgetArea, app) });
+	}
+	if (settings.widgetAlbumEnabled) {
+		enabled.push({ key: 'album', render: () => renderSidebarAlbumWidget(widgetArea, settings, app) });
+	}
+	if (settings.widgetMusicEnabled && !Platform.isMobile) {
+		enabled.push({ key: 'music', render: () => renderSidebarMusicWidget(widgetArea) });
 	}
 	if (settings.countdownEnabled) {
 		for (const cd of settings.countdowns ?? []) {
@@ -408,10 +426,26 @@ function setupWidgetDnD(
 
 	const widgets = () => widgetArea.querySelectorAll('.dashboard-sidebar-widget');
 
+	/** Controls whose own pointer gesture must not be hijacked by the widget's
+	 *  drag-to-reorder: the music volume slider, text inputs, selects, buttons
+	 *  and links. A native HTML5 drag starts on ANY mousedown inside a
+	 *  `draggable` ancestor, so `draggable` is armed per gesture instead of
+	 *  once at setup: pressing a control leaves it off (the control keeps its
+	 *  drag/select behaviour), pressing plain widget surface turns it on.
+	 *  `[data-no-drag]` is the opt-out hook for clickable non-form elements
+	 *  (playlist rows and similar) that want the same protection. */
+	const DRAG_BLOCKED = 'input, textarea, select, button, a[href], [contenteditable], [data-no-drag]';
+
 	widgets().forEach(el => {
 		const wEl = el as HTMLElement;
-		wEl.setAttribute('draggable', 'true');
+		wEl.setAttribute('draggable', 'false');
 		wEl.dataset.widgetKey ??= wEl.dataset.widgetKey ?? '';
+
+		wEl.addEventListener('mousedown', (e) => {
+			const target = e.target as HTMLElement | null;
+			const blocked = e.button !== 0 || !!target?.closest(DRAG_BLOCKED);
+			wEl.setAttribute('draggable', blocked ? 'false' : 'true');
+		});
 
 		wEl.addEventListener('dragstart', (e) => {
 			draggedKey = wEl.dataset.widgetKey ?? null;
@@ -423,6 +457,7 @@ function setupWidgetDnD(
 		});
 
 		wEl.addEventListener('dragend', () => {
+			wEl.setAttribute('draggable', 'false');
 			wEl.removeClass('dashboard-sidebar-widget--dragging');
 			widgets().forEach(el2 => el2.removeClass('dashboard-sidebar-widget--drag-over'));
 			draggedKey = null;
