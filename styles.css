@@ -8862,7 +8862,7 @@
    so paired rows can fall back to full width in narrow panes (split panes
    track the pane, not the viewport — same rationale as the quicknote bar). */
 .dashboard-kanban {
-	--db-kanban-gap: 16px;
+	--db-kanban-gap: 10px;
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
@@ -8883,7 +8883,10 @@
 	background: var(--db-bg-section);
 	border: 1px solid var(--db-border-section);
 	border-radius: var(--db-radius-lg);
-	padding: 16px;
+	/* Vertical padding tightened from 16px (title-to-edge, content-to-handle)
+	   to buy content space; horizontal stays 16px so the half-row pairing
+	   basis and card gutters are untouched. */
+	padding: 12px 16px;
 	transition: border-color 0.2s ease, background 0.2s ease;
 	backdrop-filter: var(--db-backdrop-blur);
 	-webkit-backdrop-filter: var(--db-backdrop-blur);
@@ -8910,7 +8913,7 @@
    an orphan half slips through (hand-edited file mid-normalization); with a
    partner the two 50% bases exactly fill the line, so grow never engages. */
 .dashboard-section-row--half {
-	flex: 1 1 calc(50% - var(--db-kanban-gap, 16px) / 2);
+	flex: 1 1 calc(50% - var(--db-kanban-gap, 10px) / 2);
 	min-width: 0;
 }
 
@@ -8957,7 +8960,7 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 12px;
+	margin-bottom: 8px;
 	flex-shrink: 0;
 }
 
@@ -9069,7 +9072,7 @@
 	order: 999;
 	align-self: stretch;
 	height: 8px;
-	margin-top: 4px;
+	margin-top: 2px;
 	cursor: ns-resize;
 	border-bottom: 2px solid transparent;
 	transition: border-color 0.2s ease;
@@ -18109,9 +18112,11 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	gap: 10px;
 	padding: 5px 8px;
 	min-height: calc(1.6em + 18px);
-	margin-bottom: -6px;
-	/* Full-line anchor in the wrap kanban (would otherwise shrink to content
-	   width); border-box keeps the border inside the 100% basis. */
+	/* No extra margin: the kanban's --db-kanban-gap (10px) is itself the bar-to-
+	   first-section distance, and it deliberately equals the sidebar's
+	   inter-widget gap so the first section top aligns with the first sidebar
+	   widget top. (Was margin-bottom: -6px to shave the old 16px gap down to
+	   10px — if the kanban gap ever changes again, revisit this comment.) */
 	box-sizing: border-box;
 	flex: 0 0 100%;
 	background: color-mix(in srgb, var(--db-accent) 6%, var(--db-bg-section));
