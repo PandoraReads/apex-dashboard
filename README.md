@@ -65,7 +65,6 @@
 
 ![主题预览](screenshot2.png)
 ![主题预览](screenshot3.png)
-![主题预览](screenshot4.png)
 
 13 款精心设计的主题，各具风格：
 

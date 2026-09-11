@@ -65,7 +65,6 @@ The sidebar shows recently edited files with relative timestamps, so you can jum
 
 ![Themes Preview](screenshot2.png)
 ![Themes Preview](screenshot3.png)
-![Themes Preview](screenshot4.png)
 
 13 handcrafted themes, each with distinct visual identity:
 
