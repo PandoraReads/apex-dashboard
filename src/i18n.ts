@@ -134,7 +134,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.styleVolt': 'Volt',
 		'settings.styleMagma': 'Magma',
 		'settings.styleOnyx': 'Onyx',
-		'settings.styleMono': 'Mono',
+		'settings.styleMono': 'Vermilion',
 
 		// Appearance Studio (Theme Studio)
 		'themeStudio.title': 'Appearance',
@@ -1514,7 +1514,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.styleVolt': '电光',
 		'settings.styleMagma': '熔岩',
 		'settings.styleOnyx': '曜黑',
-		'settings.styleMono': '墨白',
+		'settings.styleMono': '朱砂',
 
 		// Appearance Studio（外观定制）
 		'themeStudio.title': '外观',

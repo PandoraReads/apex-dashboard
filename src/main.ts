@@ -27,7 +27,7 @@ import {
 } from './workspace-registry';
 
 /** All valid style preset keys — single source of truth for migration. */
-const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'neon', 'volt', 'magma', 'onyx', 'mono'] as const;
+const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'blossom', 'lilac', 'island', 'tundra', 'matcha', 'mono', 'neon', 'volt', 'magma', 'onyx'] as const;
 
 /** Removed or renamed presets mapped to a sensible replacement. */
 const DEPRECATED_STYLE_PRESETS: Readonly<Record<string, string>> = {
@@ -114,7 +114,7 @@ export default class DashboardPlugin extends Plugin {
 			id: 'cycle-theme',
 			name: t('main.cycleTheme'),
 			callback: async () => {
-				const themes = ['earth', 'nordic', 'aurora', 'island', 'tundra', 'blossom', 'matcha', 'lilac', 'neon', 'volt', 'magma', 'onyx', 'mono'];
+				const themes = ['earth', 'nordic', 'aurora', 'blossom', 'lilac', 'island', 'tundra', 'matcha', 'mono', 'neon', 'volt', 'magma', 'onyx'];
 				const idx = themes.indexOf(this.settings.stylePreset);
 				const next = themes[(idx + 1) % themes.length] ?? 'earth';
 				this.settings = { ...this.settings, stylePreset: next };

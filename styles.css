@@ -1345,108 +1345,145 @@
 		transition: color 0.3s ease;
 	}
 
-	/* ----- 19. MONO (墨白) — Pure black/white minimal, system-adaptive ----- */
-	.apex-dashboard-root[data-theme="mono"] {
-		--db-bg: #ffffff;
-		--db-bg-section: transparent;
-		--db-bg-card: #ffffff;
-		--db-bg-card-hover: #f5f5f5;
-		--db-bg-sidebar: transparent;
-		--db-bg-input: #f7f7f7;
-		--db-bg-btn: #f7f7f7;
-		--db-bg-btn-hover: #f0f0f0;
-		--db-bg-banner: #f7f7f7;
-		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 100%);
-		--db-bg-hover: #f5f5f5;
-		--db-bg-hover-strong: #eeeeee;
-		--db-bg-add-section: #fafafa;
-		--db-bg-drop-indicator: rgba(0, 0, 0, 0.06);
+	/* ----- 19. MONO (朱砂 / Vermilion) — sumi ink on rice paper, seal-red accent ----- */
+/* Pure neutral black/white read funereal. The fix keeps the ink/paper pairing:
+   warm rice-paper ground, blue-undertone sumi ink, a whisper of ink-wash
+   drift, and ONE cinnabar seal accent like the red stamp on a scroll. */
+.apex-dashboard-root[data-theme="mono"] {
+	--db-bg: #faf9f4;
+	--db-bg-section: transparent;
+	--db-bg-card: #fefdf9;
+	--db-bg-card-hover: #f5f3ea;
+	--db-bg-sidebar: transparent;
+	--db-bg-input: #f3f1e8;
+	--db-bg-btn: #f3f1e8;
+	--db-bg-btn-hover: #ebe8dc;
+	--db-bg-banner: #f1efe6;
+	--db-bg-overlay: linear-gradient(135deg, rgba(20,24,28,0.55) 0%, rgba(20,24,28,0.25) 100%);
+	--db-bg-hover: #f2f0e7;
+	--db-bg-hover-strong: #e9e7dc;
+	--db-bg-add-section: #f6f4ec;
+	--db-bg-drop-indicator: rgba(192, 68, 46, 0.08);
 
-		--db-border: #e2e2e2;
-		--db-border-card: #e2e2e2;
-		--db-border-section: transparent;
-		--db-border-sidebar: transparent;
-		--db-border-input: #e2e2e2;
-		--db-border-input-focus: #0a0a0a;
-		--db-border-btn: #e2e2e2;
-		--db-border-add-section: #e2e2e2;
+	--db-border: #dedcd2;
+	--db-border-card: #dedcd2;
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: #dedcd2;
+	--db-border-input-focus: #c0442e;
+	--db-border-btn: #dedcd2;
+	--db-border-add-section: #cfcdc2;
 
-		--db-text: #0a0a0a;
-		--db-text-muted: #525252;
-		--db-text-faint: #a3a3a3;
-		--db-text-inverse: #ffffff;
-		--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
+	--db-text: #1d2126;
+	--db-text-muted: #4e5658;
+	--db-text-faint: #9aa3a6;
+	--db-text-inverse: #ffffff;
+	--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
 
-		--db-accent: #0a0a0a;
-		--db-accent-light: #404040;
-		--db-danger: #dc2626;
+	/* Cinnabar seal — the single red stamp on the ink painting */
+	--db-accent: #c0442e;
+	--db-accent-light: #d96a4f;
+	--db-danger: #dc2626;
 
-		--db-shadow-card: none;
-		--db-shadow-card-hover: none;
-		--db-backdrop-blur: none;
+	--db-shadow-card: 0 1px 2px rgba(29, 33, 38, 0.05);
+	--db-shadow-card-hover: 0 4px 16px rgba(29, 33, 38, 0.08);
+	--db-backdrop-blur: none;
 
-		--db-radius-sm: 4px;
-		--db-radius-md: 8px;
-		--db-radius-lg: 12px;
+	--db-radius-sm: 4px;
+	--db-radius-md: 8px;
+	--db-radius-lg: 12px;
 
-		--db-font: 'Inter', 'DM Sans', 'Noto Sans SC', var(--font-interface);
-		--db-progress-from: #0a0a0a;
-		--db-progress-to: #a3a3a3;
-		--db-checkbox: #0a0a0a;
-		--db-quote-border: #0a0a0a;
-		--db-link: #0a0a0a;
-	}
-	.theme-dark .apex-dashboard-root[data-theme="mono"] {
-		--db-bg: #0a0a0a;
-		--db-bg-section: transparent;
-		--db-bg-card: #141414;
-		--db-bg-card-hover: #1c1c1c;
-		--db-bg-sidebar: transparent;
-		--db-bg-input: #161616;
-		--db-bg-btn: #161616;
-		--db-bg-btn-hover: #1f1f1f;
-		--db-bg-banner: #141414;
-		--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.35) 100%);
-		--db-bg-hover: #1c1c1c;
-		--db-bg-hover-strong: #262626;
-		--db-bg-add-section: #141414;
-		--db-bg-drop-indicator: rgba(255, 255, 255, 0.08);
+	--db-font: 'Inter', 'DM Sans', 'Noto Sans SC', var(--font-interface);
+	/* Seal vermilion dissolving into ink */
+	--db-progress-from: #c0442e;
+	--db-progress-to: #4e5658;
+	--db-checkbox: #c0442e;
+	--db-quote-border: #1d2126;
+	--db-link: #c0442e;
 
-		--db-border: #2a2a2a;
-		--db-border-card: #2a2a2a;
-		--db-border-section: transparent;
-		--db-border-sidebar: transparent;
-		--db-border-input: #2a2a2a;
-		--db-border-input-focus: #fafafa;
-		--db-border-btn: #2a2a2a;
-		--db-border-add-section: #2a2a2a;
+	/* Opaque modal surfaces */
+	--db-bg-modal: #fefdf9;
+	--db-bg-modal-raised: rgba(29, 33, 38, 0.04);
 
-		--db-text: #fafafa;
-		--db-text-muted: #a3a3a3;
-		--db-text-faint: #525252;
-		--db-text-inverse: #0a0a0a;
-		--db-text-inverse-muted: rgba(0, 0, 0, 0.5);
+	/* 墨分五色: barely-there ink stains diffusing across the paper */
+	--db-aurora-bg: linear-gradient(135deg,
+		#faf9f4 0%,
+		rgba(78, 86, 88, 0.045) 18%,
+		rgba(29, 33, 38, 0.03) 40%,
+		rgba(157, 163, 166, 0.05) 58%,
+		rgba(29, 33, 38, 0.035) 80%,
+		#faf9f4 100%);
+	--db-aurora-size: 250% 250%;
+	--db-aurora-speed: 40s;
+}
+.theme-dark .apex-dashboard-root[data-theme="mono"] {
+	/* Night ink — lifted off pure black, warm paper-white text */
+	--db-bg: #111417;
+	--db-bg-section: transparent;
+	--db-bg-card: #171b1f;
+	--db-bg-card-hover: #1f2429;
+	--db-bg-sidebar: transparent;
+	--db-bg-input: #1a1f24;
+	--db-bg-btn: #1a1f24;
+	--db-bg-btn-hover: #232930;
+	--db-bg-banner: #16191d;
+	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.35) 100%);
+	--db-bg-hover: #1c2126;
+	--db-bg-hover-strong: #262c32;
+	--db-bg-add-section: #16191d;
+	--db-bg-drop-indicator: rgba(224, 91, 69, 0.10);
 
-		--db-accent: #fafafa;
-		--db-accent-light: #d4d4d4;
-		--db-danger: #ef4444;
+	--db-border: #262b30;
+	--db-border-card: #262b30;
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: #262b30;
+	--db-border-input-focus: #e05b45;
+	--db-border-btn: #262b30;
+	--db-border-add-section: #2e343a;
 
-		--db-shadow-card: none;
-		--db-shadow-card-hover: none;
+	--db-text: #f4f2ea;
+	--db-text-muted: #b8b5aa;
+	--db-text-faint: #6b6f73;
+	--db-text-inverse: #ffffff;
+	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
 
-		--db-progress-from: #fafafa;
-		--db-progress-to: #525252;
-		--db-checkbox: #fafafa;
-		--db-quote-border: #fafafa;
-		--db-link: #fafafa;
-	}
-	/* Mono: flat solid background, no gradient — same in light & dark */
-	.apex-dashboard-root[data-theme="mono"] {
-		background: var(--db-bg);
-		transition: color 0.3s ease;
-	}
+	--db-accent: #e05b45;
+	--db-accent-light: #ef8a70;
+	--db-danger: #ef4444;
 
-	/* ===== Shared: transparent sections for neon, volt, magma, onyx, mono ===== */
+	--db-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+	--db-shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+	--db-progress-from: #e05b45;
+	--db-progress-to: #b8b5aa;
+	--db-checkbox: #e05b45;
+	--db-quote-border: #f4f2ea;
+	--db-link: #e05b45;
+
+	--db-bg-modal: #171b1f;
+	--db-bg-modal-raised: rgba(244, 242, 234, 0.05);
+
+	--db-aurora-bg: linear-gradient(135deg,
+		#111417 0%,
+		rgba(244, 242, 234, 0.05) 20%,
+		rgba(157, 163, 166, 0.04) 45%,
+		rgba(244, 242, 234, 0.035) 70%,
+		#111417 100%);
+}
+
+/* Mono: ink-wash drift — monochrome, the slowest of all themes */
+.apex-dashboard-root[data-theme="mono"] {
+	background: var(--db-aurora-bg);
+	background-size: var(--db-aurora-size);
+	animation: db-aurora-shift var(--db-aurora-speed) ease-in-out infinite;
+	transition: color 0.3s ease;
+	will-change: background-position;
+	backface-visibility: hidden;
+}
+
+
+/* ===== Shared: transparent sections for neon, volt, magma, onyx, mono ===== */
 .apex-dashboard-root[data-theme="neon"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="volt"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="magma"] .dashboard-section-row,
@@ -1796,7 +1833,8 @@
 	.apex-dashboard-root[data-theme="lilac"],
 	.apex-dashboard-root[data-theme="earth"],
 	.apex-dashboard-root[data-theme="nordic"],
-	.apex-dashboard-root[data-theme="matcha"] {
+	.apex-dashboard-root[data-theme="matcha"],
+	.apex-dashboard-root[data-theme="mono"] {
 		animation: none;
 		/* Pin to the animation's start frame — without this the 400%-sized
 		   gradient falls back to background-position 0% 0% (top-left corner),
@@ -1816,7 +1854,8 @@
 	.apex-dashboard-root[data-theme="lilac"],
 	.apex-dashboard-root[data-theme="earth"],
 	.apex-dashboard-root[data-theme="nordic"],
-	.apex-dashboard-root[data-theme="matcha"] {
+	.apex-dashboard-root[data-theme="matcha"],
+	.apex-dashboard-root[data-theme="mono"] {
 		animation: none;
 		background-position: 0% 50%;
 		will-change: auto;

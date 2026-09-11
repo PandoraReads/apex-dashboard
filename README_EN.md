@@ -72,16 +72,16 @@ The sidebar shows recently edited files with relative timestamps, so you can jum
 | **Earth** | Tuscan sun: parchment with 32s drifting warm washes, terracotta accent and olive notes |
 | **Nordic** | Polar fjord: frost aurora washes over cool white, glacier-teal accent |
 | **Pony** | High-saturation MLP-inspired rainbow: six candy aurora bands over a night sky, one pony hue per section |
+| **Blossom** | Rose glass glow, transparent sections |
+| **Lilac** | Impressionist bed: slow 28s drifting washes behind translucent ivory cards, wisteria accent |
 | **Island** (default) | Animal Crossing pastels, forest green and ocean blue |
 | **Tundra** | Cold gray + avocado green aurora, sage glass cards |
-| **Blossom** | Rose glass glow, transparent sections |
 | **Matcha** | Tea-bowl aesthetic: 26s tea-garden washes, cream ceramic cards, deep matcha accent with gold notes |
-| **Lilac** | Impressionist bed: slow 28s drifting washes behind translucent ivory cards, wisteria accent |
+| **Vermilion** | Ink minimalism: rice-paper ground and sumi ink, 40s ink-wash drift, one cinnabar seal accent |
 | **Neon** | Near-black with neon magenta accent, identical in light & dark |
 | **Volt** | Near-black with electric cyan accent, identical in light & dark |
 | **Magma** | Warm near-black with lava orange accent, identical in light & dark |
 | **Onyx** | Pure black with lemon accent, identical in light & dark |
-| **Mono** | Pure black/white minimal, no glass or gradients |
 
 All themes support both Obsidian light and dark modes.
 
@@ -123,6 +123,11 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 </p>
 
 ## What's New
+
+### 2.4.1
+- **Vermilion theme (formerly Mono, reborn)** — The funereal pure black/white pairing is cured: warm rice-paper ground and blue-undertone sumi ink replace the neutral grays, a 40s ink-wash drift (slowest of all themes) breathes behind the cards, and one cinnabar seal-red accent (links, checkboxes, focus, progress) lands like the stamp on a scroll — the black/white pairing stays, the mood moves from funeral to study
+- **Theme renamed** — Mono is now Vermilion; existing installs keep their selection untouched
+- **Theme order** — Blossom and Lilac moved after Pony, Vermilion after Matcha; dropdown, cycle command, and the README table are in sync
 
 ### 2.4.0
 - **Five themes reborn** — Pony, Lilac, Earth, Nordic, and Matcha all gained slow drifting wash backgrounds (26–32s, breathing rather than showing off; auto-pinned on mobile and under reduced-motion) plus opaque modal insurance (no more white-on-white dialogs on light Obsidian bases)
@@ -349,7 +354,7 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 - **Collapsible subtasks** — Tasks with subtasks can now be collapsed; the collapsed state persists across reloads. Only items with children show a toggle arrow, so leaf items carry no extra left padding and lists stay compact
 - **Nested document links (sub-documents) in project cards** — Document links in project cards now support nesting just like subtasks: drag one onto another to nest it (before / after / nest drop zones), and collapse a parent's sub-documents. Saved as indented Markdown nested lists so links stay valid in every Obsidian view (no code-block breakage from indentation)
 - **Nested tasks (subtasks)** — Tasks now support multi-level nesting, persisted as indented Markdown. Drag a task onto another to nest it (before / after / nest drop zones), reorder tasks, or move them across cards. On mobile, long-press to drag and swipe horizontally to nest/unnest. Checking a parent task checks all of its children
-- **Two new themes: Mono & Onyx** — Added Mono (pure black/white minimal, no glass or gradients, system-adaptive) and Onyx (pure black with a lemon accent, identical in light & dark). Removed the Spring (Prism) theme
+- **Two new themes: Mono & Onyx** — Added Mono (pure black/white minimal; since renamed to Vermilion — ink minimalism with a cinnabar seal accent) and Onyx (pure black with a lemon accent, identical in light & dark). Removed the Spring (Prism) theme
 - **Heatmap widget enhancements** — The sidebar heatmap can now resolve daily journal files from a configurable folder, supports a custom display title, and offers two range modes: rolling (last N days) or period (current month / quarter / year)
 - **Sidebar calendar auto-refresh** — The sidebar week calendar now updates its "today" highlight and dates automatically after midnight, even when the dashboard view is pinned open (previously it stayed frozen on the day it was first opened)
 - **Quick action custom naming** — When adding a file or command quick action, you can now set a custom display name (and choose an icon) on the confirm step, instead of being stuck with the default name

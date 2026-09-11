@@ -281,19 +281,19 @@ export class DashboardSettingTab extends PluginSettingTab {
 			.setDesc(t('settings.stylePresetDesc'))
 			.addDropdown(dropdown => dropdown
 				.addOptions({
-					earth: t('settings.styleEarth'),
-					nordic: t('settings.styleNordic'),
-					aurora: t('settings.styleAurora'),
-					island: t('settings.styleIsland'),
-					tundra: t('settings.styleTundra'),
-					blossom: t('settings.styleBlossom'),
-					matcha: t('settings.styleMatcha'),
-					lilac: t('settings.styleLilac'),
-					neon: t('settings.styleNeon'),
-					volt: t('settings.styleVolt'),
-					magma: t('settings.styleMagma'),
-					onyx: t('settings.styleOnyx'),
-					mono: t('settings.styleMono'),
+earth: t('settings.styleEarth'),
+nordic: t('settings.styleNordic'),
+aurora: t('settings.styleAurora'),
+blossom: t('settings.styleBlossom'),
+lilac: t('settings.styleLilac'),
+island: t('settings.styleIsland'),
+tundra: t('settings.styleTundra'),
+matcha: t('settings.styleMatcha'),
+mono: t('settings.styleMono'),
+neon: t('settings.styleNeon'),
+volt: t('settings.styleVolt'),
+magma: t('settings.styleMagma'),
+onyx: t('settings.styleOnyx'),
 				})
 				.setValue(this.plugin.settings.stylePreset)
 				.onChange(async (value) => {
