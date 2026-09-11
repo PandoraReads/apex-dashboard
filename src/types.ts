@@ -593,10 +593,6 @@ export interface WebEmbedConfig {
 	/** Page to embed. Must be a valid http(s) URL once normalized
 	 *  (normalizeWebUrl in web-precheck adds the https:// scheme when missing). */
 	url: string;
-	/** Embed engine. 'auto' (default) prechecks the site's framing headers and
-	 *  picks: frameable -> iframe, refuser -> desktop webview / mobile fallback
-	 *  card. 'iframe'/'webview' force one engine, skipping the precheck. */
-	mode?: 'auto' | 'iframe' | 'webview';
 	/** Display zoom, 0.5–2 (default 1). Shrinks dense web apps (Keep-style)
 	 *  so they fit a half-width section. iframe -> css zoom, webview ->
 	 *  setZoomFactor after dom-ready. */

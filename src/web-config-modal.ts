@@ -4,19 +4,16 @@ import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { isValidWebUrl, normalizeWebUrl } from './web-precheck';
 
-type WebMode = NonNullable<WebEmbedConfig['mode']>;
-
-const MODES: ReadonlyArray<{ value: WebMode; key: string }> = [
-	{ value: 'auto', key: 'web.modeAuto' },
-	{ value: 'iframe', key: 'web.modeIframe' },
-	{ value: 'webview', key: 'web.modeWebview' },
-];
+/** Single-select zoom presets — dense web apps shrink, sparse pages grow.
+ *  1 (100%) is the default and persists as no zoom line at all. */
+const ZOOM_PRESETS: ReadonlyArray<number> = [0.5, 0.75, 0.9, 1, 1.1, 1.25];
 
 /**
- * Configuration modal for a Web section: the URL to embed, the engine mode
- * (auto / forced iframe / forced desktop webview), and a display zoom.
- * Structure mirrors DataviewConfigModal (same modal theme preamble, section
- * layout, and footer) so it reads as a sibling at a glance.
+ * Configuration modal for a Web section: the URL to embed and a display zoom.
+ * The engine (iframe vs desktop webview) is chosen automatically by the
+ * section's precheck — there is deliberately no manual override. Structure
+ * mirrors DataviewConfigModal (same modal theme preamble, section layout, and
+ * footer) so it reads as a sibling at a glance.
  */
 export class WebConfigModal extends Modal {
 	private config: WebEmbedConfig;
@@ -65,38 +62,24 @@ export class WebConfigModal extends Modal {
 		this.errorEl = urlSection.createDiv({ cls: 'dashboard-dataview-validation' });
 		this.validate();
 
-		// Engine mode chips: auto prechecks the site; iframe/webview force one
-		// engine (useful to correct a misjudged precheck or pin a login app).
-		const modeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
-		modeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('web.modeLabel') });
-		const chipsHost = modeSection.createDiv({ cls: 'dashboard-dataview-sample-chips' });
-		const current = this.config.mode ?? 'auto';
-		for (const mode of MODES) {
+		// Display zoom: preset chips shrink dense web apps (Keep-style) to fit
+		// a section, or grow sparse pages. Replaces the old free-form number
+		// input; 100% = native size and persists as no zoom at all.
+		const zoomSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		zoomSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('web.zoomLabel') });
+		const chipsHost = zoomSection.createDiv({ cls: 'dashboard-web-zoom-chips' });
+		const currentZoom = this.config.zoom ?? 1;
+		for (const preset of ZOOM_PRESETS) {
 			const chip = chipsHost.createDiv({
-				cls: 'dashboard-dataview-sample-chip' + (mode.value === current ? ' active' : ''),
-				text: t(mode.key),
+				cls: 'dashboard-web-zoom-chip' + (preset === currentZoom ? ' active' : ''),
+				text: `${Math.round(preset * 100)}%`,
 			});
 			chip.addEventListener('click', () => {
-				this.config = { ...this.config, mode: mode.value };
-				chipsHost.querySelectorAll('.dashboard-dataview-sample-chip').forEach(c => c.removeClass('active'));
+				this.config = { ...this.config, zoom: preset === 1 ? undefined : preset };
+				chipsHost.querySelectorAll('.dashboard-web-zoom-chip').forEach(c => c.removeClass('active'));
 				chip.addClass('active');
 			});
 		}
-		modeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('web.modeHint') });
-
-		// Display zoom: shrinks dense web apps to fit a section.
-		const zoomSection = body.createDiv({ cls: 'dashboard-library-config-section' });
-		zoomSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('web.zoomLabel') });
-		const zoomInput = zoomSection.createEl('input', {
-			cls: 'dashboard-task-input',
-			attr: { type: 'number', step: '0.05', min: '0.5', max: '2' },
-		});
-		zoomInput.value = this.config.zoom != null ? String(this.config.zoom) : '';
-		zoomInput.addEventListener('change', () => {
-			const value = Number(zoomInput.value);
-			const valid = zoomInput.value !== '' && Number.isFinite(value) && value >= 0.5 && value <= 2;
-			this.config = { ...this.config, zoom: valid ? value : undefined };
-		});
 
 		// Footer. Save does not gate on a valid URL: the parser tolerates any
 		// string and the section renders a configure-me empty state, so a
@@ -112,7 +95,6 @@ export class WebConfigModal extends Modal {
 		}).addEventListener('click', () => {
 			this.onSave({
 				url: this.config.url.trim(),
-				mode: this.config.mode,
 				zoom: this.config.zoom,
 			});
 			this.close();

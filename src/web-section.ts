@@ -80,13 +80,13 @@ function resolveFrameColorScheme(): 'dark' | 'light' {
 }
 
 /**
- * Web section: embeds a configured URL in place. Engine choice per render:
+ * Web section: embeds a configured URL in place. Engine choice is automatic:
  * frameable sites load as an iframe; sites whose headers refuse framing load
  * in a desktop Electron webview (a separate browsing context the refusal
  * headers do not govern); mobile has no webview and shows a fallback card
- * with an open-in-browser button. In auto mode the iframe mounts OPTIMISTICALLY
- * and the precheck (web-precheck.ts) runs silently in the background — a
- * blocked verdict swaps the engine; an allowed verdict changes nothing.
+ * with an open-in-browser button. The iframe mounts OPTIMISTICALLY and the
+ * precheck (web-precheck.ts) runs silently in the background — a blocked
+ * verdict swaps the engine; an allowed verdict changes nothing.
  *
  * Like dataview-section: a reloadRegister closure powers the header refresh
  * button (re-probe policy + rebuild), and there is deliberately no vault-event
@@ -225,13 +225,13 @@ export function renderWebSection(
 		retry.addEventListener('click', () => render());
 	}
 
-	function renderFallback(target: string, hintKey: 'web.mobileBlocked' | 'web.webviewMobile'): void {
+	function renderFallback(target: string): void {
 		content.empty();
 		mounted = 'fallback';
 		const wrap = content.createDiv({ cls: 'dashboard-web-fallback' });
 		const icon = wrap.createDiv({ cls: 'dashboard-web-fallback-icon' });
 		setIcon(icon, 'globe');
-		wrap.createDiv({ cls: 'dashboard-web-fallback-text', text: t(hintKey) });
+		wrap.createDiv({ cls: 'dashboard-web-fallback-text', text: t('web.mobileBlocked') });
 		let host = target;
 		try { host = new URL(target).hostname; } catch { /* keep raw string */ }
 		wrap.createDiv({ cls: 'dashboard-web-fallback-host', text: host });
@@ -262,25 +262,16 @@ export function renderWebSection(
 			return;
 		}
 
-		if (config.mode === 'iframe') {
-			mountIframe(target);
-			return;
-		}
-		if (config.mode === 'webview') {
-			if (Platform.isMobile) renderFallback(target, 'web.webviewMobile');
-			else if (webviewFailed) mountIframe(target);
-			else mountWebview(target, my);
-			return;
-		}
-
-		// auto: a cached verdict picks the engine up front. unknown means a
-		// past precheck failed at the network layer — frame optimistically
-		// rather than blocking the embed behind a dead probe.
+		// Engine choice is fully automatic: a cached verdict picks up front,
+		// otherwise the iframe mounts optimistically and the background probe
+		// (below) swaps it. 'unknown' means a past precheck failed at the
+		// network layer — frame optimistically rather than blocking the embed
+		// behind a dead probe.
 		const applyVerdict = (blocked: boolean): void => {
 			if (!blocked) {
 				mountIframe(target);
 			} else if (Platform.isMobile) {
-				renderFallback(target, 'web.mobileBlocked');
+				renderFallback(target);
 			} else if (webviewFailed) {
 				mountIframe(target);
 			} else {

@@ -8250,6 +8250,42 @@
 	opacity: 1;
 }
 
+/* Tablet reset — same trap as the scroll-top / quicknote-chip fixes elsewhere
+   in this file: Obsidian ships `.is-tablet button:not(.clickable-icon)
+   { padding: var(--size-4-1) var(--size-4-5) }` (specificity 0,2,1 since
+   :not() counts its argument), which beats every plain-class `padding` below
+   (0,1,0). Under the app stylesheet's global border-box, any compact icon
+   button narrower than the 40px combined padding gets inflated into a pill
+   and its flex-centered svg (default flex-shrink) collapses to zero width —
+   the blank-icon-button bug seen on tablets: deformed ovals for quick-action
+   edit/remove, empty browse buttons in the path-picker rows, and the same
+   crush for every other fixed-width icon button below. Qualify with `button`
+   to tie at 0,2,1 and win by source order (plugin styles load after app.css).
+   Phones carry .is-mobile without .is-tablet and desktop matches neither, so
+   both keep the base styles. */
+.is-tablet button.dashboard-qa-remove,
+.is-tablet button.dashboard-qa-edit,
+.is-tablet button.dashboard-quicknote-cfg-icon-btn,
+.is-tablet button.dashboard-quicknote-cfg-del,
+.is-tablet button.dashboard-library-table-delete,
+.is-tablet button.dashboard-media-delete,
+.is-tablet button.dashboard-media-icon-btn,
+.is-tablet button.dashboard-weread-cfg-op,
+.is-tablet button.dashboard-weread-notebook-import,
+.is-tablet button.dashboard-theme-studio-color-clear,
+.is-tablet button.note-popover-btn {
+	padding: 0;
+}
+
+/* Compact buttons whose intended padding is non-zero: restore each inset
+   rather than flattening to 0. */
+.is-tablet button.dashboard-qa-add-btn,
+.is-tablet button.dashboard-qa-palette-btn { padding: 2px 4px; }
+.is-tablet button.dashboard-weread-pager-btn { padding: 0 6px; }
+.is-tablet button.dashboard-workspace-btn { padding: 0 3px; }
+.is-tablet button.dashboard-workspace-add-btn { padding: 0; }
+.is-tablet button.dashboard-banner-pin-btn { padding: 4px; }
+
 .dashboard-qa-header {
 	display: flex;
 	justify-content: space-between;
@@ -8776,7 +8812,9 @@
 }
 
 /* Section resize handle (desktop only) — transparent border revealed on hover,
-   mirroring the memo card resize handle. Sits at the bottom via flex order. */
+   mirroring the memo card resize handle. Sits at the bottom via flex order.
+   position+z-index keep the strip hit-testable above an embedded web frame in
+   edge cases where the frame's surface ends up over the row's bottom edge. */
 .dashboard-section-resize-handle {
 	order: 999;
 	align-self: stretch;
@@ -8785,6 +8823,17 @@
 	cursor: ns-resize;
 	border-bottom: 2px solid transparent;
 	transition: border-color 0.2s ease;
+	position: relative;
+	z-index: 2;
+}
+
+/* Drag shield: while any section is being height-dragged, embedded frames
+   must not eat pointer input — the OS routes mouse events over an
+   iframe/webview to the guest page, so mousemove/mouseup on the document
+   stop arriving the moment the cursor crosses one, freezing the drag. */
+.dashboard-frames-muted iframe,
+.dashboard-frames-muted webview {
+	pointer-events: none;
 }
 
 .dashboard-section-row:hover > .dashboard-section-resize-handle,
@@ -9136,7 +9185,9 @@
 }
 
 /* Full-line anchor: these are flex items of the wrap kanban now and would
-   otherwise shrink to content width. */
+   otherwise shrink to content width. position+z-index keep the button
+   clickable/painted above an embedded web frame in edge cases where the
+   frame's surface ends up over the line below it. */
 .dashboard-add-section {
 	display: flex;
 	align-items: center;
@@ -9154,6 +9205,8 @@
 	font-size: 0.82em;
 	cursor: pointer;
 	transition: background 0.15s ease, border-color 0.15s ease;
+	position: relative;
+	z-index: 2;
 }
 
 .dashboard-add-section:hover {
@@ -19186,6 +19239,34 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-web-fallback-btn:hover {
 	background: var(--db-accent, var(--text-accent));
 	color: var(--db-bg-section, var(--background-primary));
+}
+
+/* Web config modal — zoom preset chips (single-select, with a visible active
+   state — the dataview sample chips have none and read as dead buttons when
+   reused as a selector). */
+.dashboard-web-zoom-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.dashboard-web-zoom-chip {
+	padding: 4px 10px;
+	border-radius: 12px;
+	font-size: 11.5px;
+	cursor: pointer;
+	color: var(--db-text, var(--text-normal));
+	background: var(--db-bg-card, var(--background-modifier-hover));
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	transition: background 0.12s ease, border-color 0.12s ease;
+}
+.dashboard-web-zoom-chip:hover {
+	background: var(--db-bg-hover, var(--background-modifier-hover));
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-web-zoom-chip.active {
+	background: var(--db-accent, var(--interactive-accent));
+	color: var(--db-bg, var(--text-on-accent));
+	border-color: transparent;
 }
 
 /* External (http) links rendered from field values */

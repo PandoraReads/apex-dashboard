@@ -1721,22 +1721,40 @@ function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, cal
 		const startY = e.clientY;
 		const startHeight = el.offsetHeight;
 		el.addClass('dashboard-section-row--resizing');
+		// Drag shield: an embedded frame (web section iframe/webview) swallows
+		// mouse events over its surface — the guest page receives them, the
+		// document does not — so a drag would freeze the first time the cursor
+		// crossed a frame, losing the mouseup the same way. Muting pointer
+		// events on every frame in the dashboard keeps the drag stream whole.
+		const shieldHost = el.closest('.apex-dashboard-root') ?? el.parentElement;
+		shieldHost?.addClass('dashboard-frames-muted');
 
 		const onMove = (ev: MouseEvent) => {
+			// The row can be torn down mid-drag by a re-render; resizing a
+			// detached element is stale work, so stop (and lift the shield now
+			// rather than at the next drag).
+			if (!el.isConnected) {
+				stopDrag();
+				return;
+			}
 			const delta = ev.clientY - startY;
 			const newHeight = Math.max(160, Math.min(2000, startHeight + delta));
 			el.style.maxHeight = `${newHeight}px`;
 			if (isFixedHeight) el.style.height = `${newHeight}px`;
 		};
 		const onUp = (ev: MouseEvent) => {
-			activeDocument.removeEventListener('mousemove', onMove);
-			activeDocument.removeEventListener('mouseup', onUp);
-			el.removeClass('dashboard-section-row--resizing');
+			stopDrag();
 			const finalHeight = Math.max(160, Math.min(2000, startHeight + (ev.clientY - startY)));
 			if (finalHeight !== column.height) {
 				callbacks.onColumnHeightChange(column.name, finalHeight);
 			}
 		};
+		function stopDrag(): void {
+			activeDocument.removeEventListener('mousemove', onMove);
+			activeDocument.removeEventListener('mouseup', onUp);
+			el.removeClass('dashboard-section-row--resizing');
+			shieldHost?.removeClass('dashboard-frames-muted');
+		}
 		activeDocument.addEventListener('mousemove', onMove);
 		activeDocument.addEventListener('mouseup', onUp);
 	});

@@ -318,10 +318,6 @@ export function serialize(data: DashboardData): string {
 			// escapes embedded quotes/backslashes (same trick as the dataview
 			// query; a URL's :, #, ? and & need no escaping inside quotes).
 			lines.push(`      url: ${JSON.stringify(wc.url)}`);
-			// 'auto' is the default mode — only persist the explicit overrides.
-			if (wc.mode === 'iframe' || wc.mode === 'webview') {
-				lines.push(`      mode: ${wc.mode}`);
-			}
 			if (typeof wc.zoom === 'number' && wc.zoom !== 1) {
 				lines.push(`      zoom: ${wc.zoom}`);
 			}
@@ -1053,14 +1049,14 @@ function parseDataviewConfig(raw: Record<string, unknown>): DataviewConfig {
 
 function parseWebConfig(raw: Record<string, unknown>): WebEmbedConfig {
 	const url = str(raw.url ?? '');
-	// 'auto' (and anything invalid) normalizes to undefined — the default —
-	// so a hand-written `mode: auto` round-trips to no line at all.
-	const mode = raw.mode === 'iframe' || raw.mode === 'webview' ? raw.mode : undefined;
+	// Legacy `mode:` lines (the engine became fully automatic) are read-and-
+	// dropped: a pre-2.3.1 pinned iframe/webview mode falls away on the next
+	// save and the section follows the automatic route from then on.
 	const zoomRaw = typeof raw.zoom === 'number' ? raw.zoom : undefined;
 	// Out-of-range and 1 values drop to undefined: 1 is the default zoom, and
 	// dropping it keeps serialize(parse(serialize(x))) === serialize(x).
 	const zoom = zoomRaw != null && zoomRaw >= 0.5 && zoomRaw <= 2 && zoomRaw !== 1 ? zoomRaw : undefined;
-	return { url, mode, zoom };
+	return { url, zoom };
 }
 
 function splitByH2(body: string): Array<{ heading: string; content: string }> {

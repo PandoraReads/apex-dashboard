@@ -18,7 +18,7 @@ import { renderWebSection } from '../src/web-section';
 // Web section: config persistence round-trips through the hand-rolled YAML
 // serializer; the framing-policy precheck classifies response headers and
 // caches verdicts; the render state machine picks iframe / webview / fallback
-// per mode, platform, and verdict — with an epoch guard against late async
+// per platform and verdict — with an epoch guard against late async
 // callbacks and a webview-attach timeout that escapes to the iframe.
 
 const flush = (): Promise<void> => new Promise(r => setTimeout(r, 20));
@@ -39,13 +39,13 @@ function fakeFetcher(responses: Array<Record<string, string> | Error>): HeaderFe
 const DENY: Record<string, string> = { 'x-frame-options': 'DENY' };
 const CLEAN: Record<string, string> = { 'content-type': 'text/html' };
 
-function webColumn(name: string, url: string, mode?: 'auto' | 'iframe' | 'webview', zoom?: number): DashboardColumn {
+function webColumn(name: string, url: string, zoom?: number): DashboardColumn {
 	return {
 		name,
 		color: '#e11d48',
 		sectionType: 'web',
 		cards: [],
-		webConfig: { url, mode, zoom },
+		webConfig: { url, zoom },
 	};
 }
 
@@ -88,28 +88,29 @@ async function main(): Promise<void> {
 	/* ---------------- A. parser round-trip ---------------- */
 
 	// 1. Full config serializes every field and parses back equal.
-	const full = dataWith(webColumn('Keep', 'https://keep.google.com/u/0/', 'webview', 0.75));
+	const full = dataWith(webColumn('Keep', 'https://keep.google.com/u/0/', 0.75));
 	const md1 = serialize(full);
 	assert.ok(md1.includes('type: web'), '1: type line');
 	assert.ok(md1.includes('web:'), '1: web block');
 	assert.ok(md1.includes('url: "https://keep.google.com/u/0/"'), '1: url line');
-	assert.ok(md1.includes('mode: webview'), '1: mode line');
 	assert.ok(md1.includes('zoom: 0.75'), '1: zoom line');
+	assert.ok(!/mode:/.test(md1), '1: engine is automatic — no mode line');
 	const back1 = parse(md1).columns[0]!;
 	assert.equal(back1.sectionType, 'web', '1: sectionType survives');
-	assert.deepEqual(back1.webConfig, { url: 'https://keep.google.com/u/0/', mode: 'webview', zoom: 0.75 }, '1: config deep-equal');
+	assert.deepEqual(back1.webConfig, { url: 'https://keep.google.com/u/0/', zoom: 0.75 }, '1: config deep-equal');
 
 	// 2. Minimal config emits no mode/zoom lines.
 	const md2 = serialize(dataWith(webColumn('Blog', 'https://example.com')));
 	assert.ok(!/mode:/.test(md2), '2: no mode line');
 	assert.ok(!/zoom:/.test(md2), '2: no zoom line');
 
-	// 3. Hand-written `mode: auto` / `zoom: 1` normalize away (round-trip exact).
+	// 3. Hand-written legacy `mode:` / default `zoom: 1` normalize away
+	// (round-trip exact): the engine is automatic and old pinned modes drop.
 	const noisy = parse(serialize(dataWith(webColumn('N', 'https://x.com'))).replace(
 		'    web:\n      url: "https://x.com"',
-		'    web:\n      url: "https://x.com"\n      mode: auto\n      zoom: 1',
+		'    web:\n      url: "https://x.com"\n      mode: webview\n      zoom: 1',
 	)).columns[0]!;
-	assert.equal(noisy.webConfig?.mode, undefined, '3: auto normalizes out');
+	assert.equal((noisy.webConfig as unknown as Record<string, unknown>).mode, undefined, '3: legacy mode drops');
 	assert.equal(noisy.webConfig?.zoom, undefined, '3: zoom 1 normalizes out');
 
 	// 4. Special characters in the URL survive the round-trip.
@@ -122,7 +123,7 @@ async function main(): Promise<void> {
 	assert.equal(parse(md5).columns[0]!.sectionType, 'web', '5: web in SECTION_TYPES');
 
 	// 6. Idempotent serialize and no card body for web sections.
-	const once = serialize(dataWith(webColumn('I', 'https://i.com', 'iframe', 1.5)));
+	const once = serialize(dataWith(webColumn('I', 'https://i.com', 1.5)));
 	assert.equal(serialize(parse(once)), once, '6: serialize(parse(serialize)) === serialize');
 	assert.ok(!once.includes('### '), '6: no card headings in body');
 
@@ -202,14 +203,17 @@ async function main(): Promise<void> {
 	findByClass(empty.host, 'dashboard-web-fallback-btn')[0]!.click();
 	assert.ok(routed, '14: configure button dispatched the config event');
 
-	// 15. Forced iframe mode skips the precheck entirely.
+	// 15. A cached allowed verdict picks the iframe up front — no probe runs.
 	clearPrecheckCache();
-	const forced = render(webColumn('F', 'https://frame.me', 'iframe'));
-	const frame15 = findTag(forced.host, 'iframe')[0]!;
+	await precheckEmbed('https://frame.me', fakeFetcher([CLEAN]));
+	const neverProbe = fakeFetcher([new Error('probe must not run')]);
+	const cached = render(webColumn('F', 'https://frame.me'), { fetcher: neverProbe });
+	const frame15 = findTag(cached.host, 'iframe')[0]!;
 	assert.ok(frame15, '15: iframe mounted');
 	assert.equal(frame15.getAttribute('src'), 'https://frame.me', '15: src set');
 	assert.equal(frame15.getAttribute('referrerpolicy'), 'no-referrer', '15: referrer policy set');
 	assert.equal(frame15.getAttribute('sandbox'), null, '15: no sandbox (login-capable)');
+	assert.equal(neverProbe.calls.length, 0, '15: cached verdict skipped the probe');
 
 	// 16. auto + blocked verdict + desktop -> webview with isolated partition.
 	clearPrecheckCache();
@@ -237,10 +241,6 @@ async function main(): Promise<void> {
 		const before = opened.length;
 		findByClass(card, 'dashboard-web-fallback-btn')[0]!.click();
 		assert.equal(opened.length, before + 1, '17: open-in-browser button works');
-
-		// Forced webview on mobile also degrades to the card.
-		const mobileForced = render(webColumn('MF', 'https://deny.com', 'webview'));
-		assert.ok(findByClass(mobileForced.host, 'dashboard-web-fallback')[0]!, '17: forced webview -> card on mobile');
 	} finally {
 		Platform.isMobile = wasMobile;
 	}
@@ -282,9 +282,10 @@ async function main(): Promise<void> {
 	assert.ok(findTag(refreshing.host, 'webview')[0], '20: re-probe re-landed the webview');
 	assert.equal(findTag(refreshing.host, 'iframe').length, 0, '20: swap cleared the optimistic iframe');
 
-	// 21. Zoom applies to the iframe path.
+	// 21. Zoom applies to the iframe path (the optimistic iframe mounts
+	// synchronously, so the css zoom is set before any verdict arrives).
 	clearPrecheckCache();
-	const zoomed = render(webColumn('Z', 'https://zoom.com', 'iframe', 0.75));
+	const zoomed = render(webColumn('Z', 'https://zoom.com', 0.75), { fetcher: fakeFetcher([CLEAN]) });
 	const frame21 = findTag(zoomed.host, 'iframe')[0]!;
 	assert.equal((frame21 as unknown as { style: Record<string, string> }).style.zoom, '0.75', '21: css zoom set');
 
