@@ -45,7 +45,7 @@ The left sidebar features 11 independently toggleable, drag-reorderable widgets:
 - **Habit Check-in** — Daily check-offs per habit, with yesterday backfill, streaks, and heatmap stats
 - **Expense Tracker** — Quick expense/income entry (notes, backdating, custom categories) with today's totals and week/month/year/all-time stats; the ledger adds filtering, inline editing, and CSV import/export
 - **Photo Album** — A digital photo frame for any vault folder: auto-rotation with hover pause, manual prev/next and an index badge, 1:1 or 3:4 panel ratio, four transitions (fade / push left / push right / zoom), 3–60s interval, subfolders included by default. The opening photo is time-seeded (never always the same one), the next one is preloaded, and vault add/delete/rename refreshes the list in place without losing your position
-- **Music** — Search and play free NetEase Cloud Music tracks from the sidebar: no account needed, VIP-only tracks are skipped with a notice, paste a playlist link to import, volume and repeat controls, persisted playlist with lazy cover backfill, and an optional floating mini player bar that keeps working with the dashboard closed (desktop only)
+- **Music** — Search and play free NetEase Cloud Music tracks from the sidebar: optional NetEase account login in settings for account-authorized member tracks, paste a playlist link to import, volume and repeat controls, persisted playlist with lazy cover backfill, and an optional floating mini player bar that keeps working with the dashboard closed (desktop only)
 
 The sidebar also hosts the **week calendar strip** (compact 7 days, today highlighted), **recent documents**, and the **scroll-to-top** button; phones get the same widget bar, and widget data union-merges across devices.
 
@@ -125,9 +125,16 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 2.5.1
+- **NetEase account sign-in** — On desktop, open the official NetEase page from Settings → Widgets → Music (phone or QR login) and play with your account's entitlements — membership and purchased tracks play in full. Credentials go directly to NetEase; the session lives in a device-local Electron partition, never in plugin data or vault sync, and is cleared on sign-out. Anonymous use is unchanged
+- **Move cards across sections** — Drag a card's title bar to move it between Todo, Memo and Sticky; tasks and check states survive Todo↔Memo conversions and note links travel along; note cards (with or without covers) can enter all three sections too
+- **Banner quote font** — Next to the quote color picker, a custom font name (e.g. KaiTi, Georgia) now styles the quote and author line; reset returns to the theme default
+- **Taller mobile library/folder sections** — Row height 50vh→60vh plus a slimmer toolbar (count/page-size tucked away): grid view shows 3-4 cards on mainstream phones. Tablets and desktop unchanged
+- **Fix: dragged cards occasionally vanishing** — Hardened the drop-target resolution and write ordering; cards no longer disappear after a cross-section drag followed by reload
+
 ### 2.5.0
 - **Photo Album widget** — Point it at a vault folder and it rotates through the images like a digital photo frame: hover to pause, manual prev/next (which re-arms the auto timer so it never double-skips), index badge, 1:1 or 3:4 panel ratio, four transitions (fade / push left / push right / zoom) driven by a two-layer ping-pong, 3–60s interval, subfolders included by default. The opening photo is time-seeded, the next one preloaded, and vault add/delete/rename refreshes the list in place — a surviving current photo keeps playing undisturbed
-- **Music widget** — Search and play free NetEase Cloud Music tracks in the sidebar: no account, VIP-only tracks skipped with a notice, playlist import from a link, volume and repeat controls, persisted playlist with lazy cover backfill, and an optional floating mini player bar that survives closing the dashboard (desktop only)
+- **Music widget** — Search and play free NetEase Cloud Music tracks in the sidebar: optional NetEase account login in settings for account-authorized member tracks, playlist import from a link, volume and repeat controls, persisted playlist with lazy cover backfill, and an optional floating mini player bar that survives closing the dashboard (desktop only)
 - **Fixed: controls inside widgets triggered drag-to-reorder** — Sidebar widgets were draggable as a whole, so pressing and dragging a volume slider, input, select or button was read as a reorder gesture (most visible on the music panel's volume knob). Dragging is now armed per gesture: pressing a form control or button leaves it off, pressing plain widget surface turns it on — consistent across every widget
 - **Announcement modal** — Retitled to "2 sections + 2 widgets" and now introduces the album and music widgets alongside the calendar and web sections
 
@@ -468,3 +475,13 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 ## License
 
 0BSD
+
+### NetEase account login and privacy
+
+On desktop, open Settings → Apex Dashboard → Widgets → Music and select Phone / NetEase sign in. Complete phone login on the official site if offered; NetEase may require QR login. There is no separate SMS endpoint in this plugin. Membership, purchases and regional rights are checked by NetEase; trial clips are not played as full tracks.
+
+Credentials are submitted directly to NetEase. The plugin uses the local session for account and playback URL requests. Cookies remain in an isolated local Obsidian Electron session, outside data.json and vault sync. Sign out stops playback and clears that local session. Sign in again if it expires. No third-party proxy is used.
+
+### Move cards between sections
+
+Drag a card header between Todo, Memo and Sticky sections. Notes with or without covers can also move into these sections. Memo destinations show the original text, tasks and links as a memo. Todo destinations keep existing tasks and turn other non-empty text lines and note links into unchecked items. Sticky destinations preserve the original card appearance, including whether a note has a cover. Changes persist across reloads. Moving a board card does not move or delete linked vault files.

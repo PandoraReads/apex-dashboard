@@ -219,7 +219,7 @@ function renderPlaylistRows(refs: MusicWidgetRefs, state: MusicPlayerState | nul
 	if (refs.panelMode !== 'playlist' || !state) return;
 	const service = getMusicService();
 	if (!service) return;
-	const sig = `${state.currentIndex}|${state.playlist.map(tr => tr.id).join(',')}`;
+	const sig = `${service.account.loggedIn}|${state.currentIndex}|${state.playlist.map(tr => tr.id).join(',')}`;
 	if (sig === refs.listSignature) return;
 	refs.listSignature = sig;
 	refs.panel.empty();
@@ -229,7 +229,7 @@ function renderPlaylistRows(refs: MusicWidgetRefs, state: MusicPlayerState | nul
 	state.playlist.forEach((track, i) => {
 		const row = refs.panel.createDiv({
 			cls: 'dashboard-sidebar-music-row' + (i === state.currentIndex ? ' dashboard-sidebar-music-row--active' : '')
-				+ (isPlayableByFee(track.fee) ? '' : ' dashboard-sidebar-music-row--vip'),
+				+ (isPlayableByFee(track.fee, service.account.loggedIn) ? '' : ' dashboard-sidebar-music-row--vip'),
 		});
 		if (i === state.currentIndex) {
 			const dot = row.createDiv({ cls: 'dashboard-sidebar-music-row-play' });

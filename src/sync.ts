@@ -1,3 +1,4 @@
+import { moveDashboardCard } from './card-move';
 import { App, TFile } from 'obsidian';
 import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
@@ -612,27 +613,9 @@ export class SyncEngine {
 	async moveCard(cardId: string, targetColumn: string, targetIndex: number): Promise<void> {
 		if (!this.data) return;
 
-		let movedCard: DashboardCard | null = null;
-
-		const columnsWithout = this.data.columns.map(col => {
-			const idx = col.cards.findIndex(c => c.id === cardId);
-			if (idx !== -1) {
-				movedCard = { ...col.cards[idx]!, column: targetColumn };
-				return { ...col, cards: [...col.cards.slice(0, idx), ...col.cards.slice(idx + 1)] };
-			}
-			return col;
-		});
-
-		if (!movedCard) return;
-
-		const newColumns = columnsWithout.map(col => {
-			if (col.name !== targetColumn) return col;
-			const cards = [...col.cards];
-			cards.splice(targetIndex, 0, movedCard!);
-			return { ...col, cards };
-		});
-
-		this.data = { ...this.data, columns: newColumns };
+		const next = moveDashboardCard(this.data, cardId, targetColumn, targetIndex);
+		if (next === this.data) return;
+		this.data = next;
 		await this.writeToDisk();
 	}
 
@@ -707,7 +690,7 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async updateMemoCard(cardId: string, updates: { body: string; blockquote: string }): Promise<void> {
+	async updateMemoCard(cardId: string, updates: Pick<DashboardCard, 'body' | 'blockquote'> & Partial<Pick<DashboardCard, 'tasks' | 'docs' | 'wikiLink' | 'url' | 'type'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {

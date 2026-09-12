@@ -1,3 +1,4 @@
+import { renderMusicAccountSettings } from './music-account-settings';
 import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem, type TextComponent } from 'obsidian';
 import type DashboardPlugin from './main';
 import { type DashboardSettings, type CountdownConfig, type BackupPeriod } from './types';
@@ -852,7 +853,7 @@ onyx: t('settings.styleOnyx'),
 					this.plugin.refreshAllDashboards();
 				}));
 
-		// --- Music player card (desktop-only widget) ---
+		// --- Music player card (desktop + tablet widget) ---
 		const musicCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(musicCard)
 			.setName(t('settings.widgetMusic'))
@@ -871,6 +872,8 @@ onyx: t('settings.styleOnyx'),
 					this.plugin.refreshAllDashboards();
 					this.refresh();
 				}));
+
+		renderMusicAccountSettings(musicCard);
 
 		// --- Countdown card ---
 		const countdownCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });

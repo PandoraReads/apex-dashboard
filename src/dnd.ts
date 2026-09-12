@@ -123,6 +123,7 @@ export function setupDragAndDrop(
 				updateSectionDropIndicator(state, container, colEl, e.clientX, e.clientY);
 				return;
 			}
+			if (state.draggingCardId && !colEl.querySelector('.dashboard-section-cards')) return;
 			e.preventDefault();
 			if (e.dataTransfer) {
 				e.dataTransfer.dropEffect = 'move';
@@ -383,14 +384,13 @@ function setupTouchDrag(
 		if (!isDragging) return;
 
 		const t = e.changedTouches[0];
+		const targetCol = t ? findColumnAtPoint(container, t.clientX, t.clientY) : null;
+		const cardsContainer = targetCol?.querySelector<HTMLElement>('.dashboard-section-cards');
+		// Compute before removing --dragging so the source does not count as
+		// a destination slot during a same-section touch reorder.
+		const targetIndex = t && cardsContainer ? getDropIndex(cardsContainer, t.clientX, t.clientY) : -1;
 		cleanupDrag();
-
-		if (!t) return;
-		const targetCol = findColumnAtPoint(container, t.clientX, t.clientY);
-
-		if (targetCol && targetCol.dataset.column) {
-			const cardsContainer = targetCol.querySelector('.dashboard-section-cards');
-			const targetIndex = cardsContainer ? getDropIndex(cardsContainer as HTMLElement, t.clientX, t.clientY) : 0;
+		if (targetCol?.dataset.column && targetIndex >= 0) {
 			callbacks.onMoveCard(cardId, targetCol.dataset.column, targetIndex);
 		}
 	};

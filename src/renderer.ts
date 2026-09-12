@@ -1,3 +1,5 @@
+import { memoCardText } from './card-move';
+import { extractCardParts } from './parser';
 import { App, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
@@ -284,8 +286,9 @@ export function sidebarWidgetSignature(
 		albumRecursive: settings.widgetAlbumRecursive,
 		// Playlist content itself must NOT enter the signature: every add would
 		// rebuild the whole widget area. The service subscription refreshes it
-		// in place instead; only the enable flag matters here.
-		musicEnabled: settings.widgetMusicEnabled && !Platform.isMobile,
+		// in place instead; only the enable flag matters here. Phones have no
+		// sidebar widget area; tablets share the desktop layout.
+		musicEnabled: settings.widgetMusicEnabled && !Platform.isPhone,
 		albumRatio: settings.widgetAlbumRatio,
 		albumTransition: settings.widgetAlbumTransition,
 		countdownEnabled: settings.countdownEnabled,
@@ -323,7 +326,7 @@ export function renderSidebarWidgets(
 	onOpenNote?: (file: TFile, line?: number) => void,
 	renderQuickActions?: (container: HTMLElement) => void,
 ): HTMLElement | null {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || settings.widgetAlbumEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || (settings.widgetMusicEnabled && !Platform.isMobile);
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || settings.widgetAlbumEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || (settings.widgetMusicEnabled && !Platform.isPhone);
 	if (!anyEnabled) return null;
 
 	// Unchanged inputs: keep the previous DOM (and its live timers/listeners).
@@ -373,7 +376,7 @@ export function renderSidebarWidgets(
 	if (settings.widgetAlbumEnabled) {
 		enabled.push({ key: 'album', render: () => renderSidebarAlbumWidget(widgetArea, settings, app) });
 	}
-	if (settings.widgetMusicEnabled && !Platform.isMobile) {
+	if (settings.widgetMusicEnabled && !Platform.isPhone) {
 		enabled.push({ key: 'music', render: () => renderSidebarMusicWidget(widgetArea) });
 	}
 	if (settings.countdownEnabled) {
@@ -2244,13 +2247,14 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 	}
 
 	const isMemo = isMemoCard(sectionType, card);
-	const isTask = card.type === 'task' || sectionType === 'todo';
+	const isTask = !isMemo && (card.type === 'task' || sectionType === 'todo');
 	const isWeather = card.type === 'weather';
 	const isTracker = card.type === 'tracker';
 	const isWidget = isWeather || isTracker;
 	const isProjectLike = !isMemo && !isTask && !isWidget;
 	const isDashboardSection = sectionType === 'dashboard';
-	const showCover = isProjectLike && !isDashboardSection && sectionType !== 'notes';
+	const showCover = isProjectLike && !isDashboardSection && sectionType !== 'notes'
+		&& (sectionType !== 'sticky' || card.noteStyle !== 'plain');
 
 	if (showCover) {
 		el.addClass('dashboard-card--cover');
@@ -2551,7 +2555,7 @@ function renderCardBody(container: HTMLElement, card: DashboardCard, columnName:
 	}
 
 	const isMemo = isMemoCard(sectionType, card);
-	const isTaskCard = card.type === 'task' || sectionType === 'todo';
+	const isTaskCard = !isMemo && (card.type === 'task' || sectionType === 'todo');
 
 	if (isTaskCard) {
 		renderTaskBody(container, card, callbacks, app);
@@ -3021,7 +3025,7 @@ function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: 
 }
 
 function renderMemoBody(container: HTMLElement, card: DashboardCard, callbacks: RenderCallbacks, app: App): void {
-	const text = [card.blockquote, card.body].filter(Boolean).join('\n');
+	const text = memoCardText(card);
 	let dirty = false;
 
 	// View mode: rendered text with clickable links
@@ -3051,21 +3055,15 @@ function renderMemoBody(container: HTMLElement, card: DashboardCard, callbacks: 
 		if (!dirty) return;
 		dirty = false;
 		const value = textarea.value;
-		const lines = value.split('\n');
-		const quoteLines: string[] = [];
-		const bodyLines: string[] = [];
-
-		for (const line of lines) {
-			if (line.startsWith('> ')) {
-				quoteLines.push(line.slice(2));
-			} else {
-				bodyLines.push(line);
-			}
-		}
-
+		const parts = extractCardParts(value);
 		callbacks.onMemoUpdate(card, {
-			body: bodyLines.join('\n').trim(),
-			blockquote: quoteLines.join('\n'),
+			body: parts.cleanBody,
+			blockquote: parts.blockquote,
+			tasks: parts.tasks,
+			docs: parts.docs,
+			wikiLink: '',
+			url: '',
+			type: 'generic',
 		});
 	};
 

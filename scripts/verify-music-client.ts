@@ -1,3 +1,4 @@
+import { musicCookieHeader } from '../src/netease-account';
 import { strict as assert } from 'node:assert';
 import {
 	extractPlaylistId,
@@ -17,6 +18,16 @@ function ok(cond: boolean, msg: string): void {
 	assert.ok(cond, msg);
 	checked++;
 }
+
+ok(isPlayableByFee(1, true), 'signed-in VIP tracks reach the entitlement API');
+ok(isPlayableByFee(4, true), 'signed-in purchased tracks reach the entitlement API');
+ok(!isPlayableByFee(1, false), 'anonymous VIP tracks remain gated');
+ok(mapSongUrl({ url: 'https://m.music.126.net/a.mp3', code: 200, freeTrialInfo: { start: 0, end: 30 } }).url === null, 'trial clips must not count as full member playback');
+ok(mapSongUrl({ url: 'https://m.music.126.net/a.mp3', code: 403 }).url === null, 'denied responses cannot play');
+
+ok(musicCookieHeader([{ name: 'MUSIC_U', value: 'secret' }, { name: '__csrf', value: 'csrf' }, { name: 'other', value: 'private' }]) === 'MUSIC_U=secret; __csrf=csrf', 'only auth cookies are forwarded');
+ok(musicCookieHeader([{ name: 'MUSIC_U', value: 'bad;injection' }]) === '', 'cookie separator injection rejected');
+ok(musicCookieHeader([{ name: 'MUSIC_U', value: 'bad\r\nHeader' }]) === '', 'cookie header injection rejected');
 
 // ---------- mapSearchSong: search/playlist/detail raw nodes -> MusicTrack ----------
 

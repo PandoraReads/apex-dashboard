@@ -10,8 +10,8 @@ import { DataviewGuideModal } from './dataview-guide-modal';
  *  announcement pops only when the user's stored version differs from this —
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
- *  shipped with 2.5.0. */
-const ANNOUNCE_VERSION = '2.5.0';
+ *  shipped with 2.5.1. */
+const ANNOUNCE_VERSION = '2.5.1';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
@@ -105,10 +105,12 @@ export default class DashboardPlugin extends Plugin {
 		registerHabitService(this.habitService);
 		registerExpenseService(this.expenseService);
 
-		// Music player is desktop-only (mobile never registers the service, so
-		// the widget renderer is inert there). Playback must survive closing the
-		// dashboard view — hence plugin-level.
-		if (!Platform.isMobile) {
+		// Music player never registers on phones (no sidebar widgets there);
+		// tablets share the desktop layout, so they get the full widget set.
+		// Account login still needs Electron and degrades to signed-out on
+		// tablets. Playback must survive closing the dashboard view — hence
+		// plugin-level.
+		if (!Platform.isPhone) {
 			this.musicService = new MusicService(this);
 			await this.musicService.load();
 			registerMusicService(this.musicService);

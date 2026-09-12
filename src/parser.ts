@@ -1,3 +1,4 @@
+import { appendChild, getTaskByPath } from './task-tree';
 import type {
 	BannerData,
 	BannerLeftStat,
@@ -24,7 +25,7 @@ import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
 import { normalizeColumnPairs } from './column-pairs';
 
-const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow']);
+const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle']);
 const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
@@ -91,6 +92,9 @@ export function serialize(data: DashboardData): string {
 	}
 	if (data.banner.quoteColor) {
 		lines.push(`  quoteColor: "${data.banner.quoteColor}"`);
+	}
+	if (data.banner.quoteFont) {
+		lines.push(`  quoteFont: "${escapeYamlString(data.banner.quoteFont)}"`);
 	}
 	if (data.banner.quotes && data.banner.quotes.length > 0) {
 		lines.push('  quotes:');
@@ -340,6 +344,10 @@ export function serialize(data: DashboardData): string {
 				lines.push(`id: ${card.id}`);
 			}
 
+			if (card.noteStyle) lines.push(`noteStyle: ${card.noteStyle}`);
+
+			if (card.type === 'generic') lines.push('type: generic');
+
 			if (card.type === 'task') {
 				lines.push(`type: task`);
 			}
@@ -354,7 +362,7 @@ export function serialize(data: DashboardData): string {
 				lines.push(`link: ${card.url}`);
 			}
 
-			if (card.progress >= 0 && card.type === 'project') {
+			if (card.progress >= 0) {
 				lines.push(`progress: ${card.progress}%`);
 			}
 
@@ -362,7 +370,7 @@ export function serialize(data: DashboardData): string {
 				lines.push(`due: ${card.dueDate}`);
 			}
 
-			if (card.streak > 0 && card.type === 'habit') {
+			if (card.streak > 0) {
 				lines.push(`streak: ${card.streak}`);
 			}
 
@@ -740,6 +748,7 @@ function parseBanner(fm: Record<string, unknown>): BannerData {
 		author: (raw.author as string) ?? DEFAULT_BANNER.author,
 		image: (raw.image as string) ?? '',
 		quoteColor: (raw.quoteColor as string) || undefined,
+		quoteFont: (raw.quoteFont as string) || undefined,
 		quotes,
 		images,
 		mode: raw.mode === 'stats' ? 'stats' : 'quote',
@@ -857,17 +866,8 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			name: section.heading,
 			color: def?.color ?? '#6366f1',
 			sectionType: resolvedType,
-			// Memo cards render only their body text and never a doc list, so wikilinks
-			// the parser lifted into `docs` would be invisible (and lost on round-trip).
-			// Fold them back into the body so they display as clickable links and stay
-			// stable across save/reload. Project/notes/etc. sections keep using `docs`.
-			// Sticky ("便利贴") sections mix memo and todo cards; only their memo-ish
-			// cards (generic/note) get the same folding — todo cards keep `docs` intact.
-			cards: resolvedType === 'memo'
-				? cards.map(foldDocsIntoBody)
-				: resolvedType === 'sticky'
-					? cards.map(c => (c.type === 'generic' || c.type === 'note') ? foldDocsIntoBody(c) : c)
-					: cards,
+			// Memo rendering includes task/doc trees; retain their structure on reload.
+			cards,
 			libraryConfig: def?.libraryConfig,
 			wereadConfig: def?.wereadConfig,
 			ticktickConfig: def?.ticktickConfig,
@@ -880,24 +880,6 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 	// Self-heal hand-edited frontmatter: a lone `half: true` (or an odd run)
 	// pairs with no one and would render as an orphan half-width row.
 	return normalizeColumnPairs(mapped);
-}
-
-// Memo sections keep their `[[wikilink]]` lines as body text instead of a doc list.
-function foldDocsIntoBody(card: DashboardCard): DashboardCard {
-	if (card.docs.length === 0) return card;
-
-	const paths: string[] = [];
-	const walk = (nodes: DocNode[]) => {
-		for (const n of nodes) {
-			paths.push(n.path);
-			if (n.children) walk(n.children);
-		}
-	};
-	walk(card.docs);
-
-	const docLines = paths.map(p => `[[${p}]]`);
-	const body = card.body ? `${card.body}\n${docLines.join('\n')}` : docLines.join('\n');
-	return { ...card, body, docs: [] };
 }
 
 function resolveSectionType(
@@ -1120,6 +1102,7 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 		id: metadata.id ?? generateId(block.title, columnName),
 		title: block.title,
 		type: cardType,
+		noteStyle: metadata.noteStyle === 'cover' || metadata.noteStyle === 'plain' ? metadata.noteStyle : undefined,
 		column: columnName,
 		body: cleanBody,
 		tasks,
@@ -1143,7 +1126,7 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 	};
 }
 
-function extractCardParts(body: string): {
+export function extractCardParts(body: string): {
 	metadata: Record<string, string>;
 	tasks: TaskItem[];
 	docs: DocNode[];
@@ -1152,20 +1135,20 @@ function extractCardParts(body: string): {
 } {
 	const lines = body.split('\n');
 	const metadata: Record<string, string> = {};
-	const tasks: TaskItem[] = [];
+	let tasks: TaskItem[] = [];
 	const docLines: string[] = [];
 	const bodyLines: string[] = [];
 	let blockquote = '';
-	let currentParent: TaskItem | null = null;
+	let ancestors: { indent: number; path: number[] }[] = [];
 
 	for (const line of lines) {
 		const trimmed = line.trim();
-		const isIndented = /^(\t| {4})/.test(line);
+		const indent = (line.match(/^[\t ]*/)?.[0] ?? '').replace(/\t/g, '    ').length;
 
 		const kvMatch = trimmed.match(/^(\w+):\s*(.+)$/);
 		if (kvMatch && kvMatch[1] && kvMatch[2] && KNOWN_METADATA_KEYS.has(kvMatch[1])) {
 			metadata[kvMatch[1]] = kvMatch[2];
-			currentParent = null;
+			ancestors = [];
 			continue;
 		}
 
@@ -1185,12 +1168,13 @@ function extractCardParts(body: string): {
 				taskReminder = reminderMatch[1];
 			}
 			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder, collapsed: taskCollapsed };
-			if (isIndented && currentParent) {
-				currentParent.children = [...(currentParent.children ?? []), node];
-			} else {
-				tasks.push(node);
-				currentParent = node;
-			}
+			ancestors = ancestors.filter(parent => parent.indent < indent);
+			const parent = ancestors[ancestors.length - 1];
+			const path = parent
+				? [...parent.path, getTaskByPath(tasks, parent.path)?.children?.length ?? 0]
+				: [tasks.length];
+			tasks = parent ? appendChild(tasks, parent.path, node) : [...tasks, node];
+			ancestors = [...ancestors, { indent, path }];
 			continue;
 		}
 
@@ -1200,7 +1184,7 @@ function extractCardParts(body: string): {
 			continue;
 		}
 
-		currentParent = null;
+		ancestors = [];
 
 		if (trimmed.startsWith('> ')) {
 			blockquote += (blockquote ? '\n' : '') + trimmed.slice(2);
@@ -1259,6 +1243,7 @@ function detectCardType(
 	blockquote: string,
 	metadata: Record<string, string>,
 ): CardType {
+	if (metadata.type === 'generic') return 'generic';
 	if (metadata.type === 'task') return 'task';
 	if (metadata.type === 'project') return 'project';
 	if (metadata.type === 'weather') return 'weather';

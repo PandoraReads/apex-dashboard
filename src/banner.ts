@@ -73,6 +73,11 @@ export function renderBanner(
 			quoteText.style.textShadow = `0 1px 3px rgba(0,0,0,0.3)`;
 			authorText.style.textShadow = `0 1px 2px rgba(0,0,0,0.2)`;
 		}
+
+		if (banner.quoteFont) {
+			quoteText.style.fontFamily = banner.quoteFont;
+			authorText.style.fontFamily = banner.quoteFont;
+		}
 	}
 
 	createBannerEditButton(overlay, onEdit);
@@ -121,6 +126,7 @@ export class BannerEditModal extends Modal {
 	private mode: 'quote' | 'stats';
 	private statsDraft: BannerStatsConfig;
 	private quoteColorDraft: string;
+	private quoteFontDraft: string;
 	private form!: HTMLDivElement;
 
 	constructor(app: App, banner: BannerData, onSave: (updates: Partial<BannerData>) => void) {
@@ -130,6 +136,7 @@ export class BannerEditModal extends Modal {
 		this.mode = banner.mode === 'stats' ? 'stats' : 'quote';
 		this.statsDraft = resolveStatsConfig(banner.statsConfig);
 		this.quoteColorDraft = banner.quoteColor || '#ffffff';
+		this.quoteFontDraft = banner.quoteFont || '';
 		this.quotes = banner.quotes && banner.quotes.length > 0
 			? banner.quotes.map(q => ({ ...q }))
 			: [{ quote: banner.quote, author: banner.author }];
@@ -323,6 +330,27 @@ export class BannerEditModal extends Modal {
 		colorResetBtn.addEventListener('click', () => {
 			colorInput.value = '#ffffff';
 			this.quoteColorDraft = '#ffffff';
+		});
+
+		// === Quote Font: free-form CSS font-family, applied to quote + author ===
+		colorSection.createEl('label', { text: t('banner.quoteFont'), cls: 'dashboard-modal-quote-color-label' });
+		const fontRow = colorSection.createDiv({ cls: 'dashboard-modal-quote-color-row' });
+		const fontInput = fontRow.createEl('input', {
+			cls: 'dashboard-modal-input dashboard-modal-quote-font-input',
+			attr: { type: 'text', placeholder: t('banner.quoteFontPlaceholder') },
+		});
+		fontInput.value = this.quoteFontDraft;
+		fontInput.addEventListener('input', () => {
+			this.quoteFontDraft = fontInput.value;
+		});
+
+		const fontResetBtn = fontRow.createEl('button', {
+			cls: 'dashboard-modal-color-reset',
+			text: t('banner.resetFont'),
+		});
+		fontResetBtn.addEventListener('click', () => {
+			fontInput.value = '';
+			this.quoteFontDraft = '';
 		});
 	}
 
@@ -610,6 +638,7 @@ export class BannerEditModal extends Modal {
 				updates.images = undefined;
 			}
 			updates.quoteColor = this.quoteColorDraft === '#ffffff' ? undefined : this.quoteColorDraft;
+			updates.quoteFont = this.quoteFontDraft.trim() || undefined;
 		}
 		this.onSave(updates);
 		this.close();

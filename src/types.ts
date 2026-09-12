@@ -378,6 +378,8 @@ export interface BannerData {
 	author: string;
 	image: string;
 	quoteColor?: string;
+	/** CSS font-family for the quote/author text; empty = theme default. */
+	quoteFont?: string;
 	quotes?: QuoteItem[];
 	images?: string[];
 	statsConfig?: BannerStatsConfig;
@@ -457,6 +459,8 @@ export interface TaskTemplate {
 export type CardSize = 'S' | 'M' | 'L';
 
 export interface DashboardCard {
+	/** Original note appearance when a note is moved into a mixed sticky section. */
+	noteStyle?: 'cover' | 'plain';
 	id: string;
 	title: string;
 	type: CardType;
@@ -711,7 +715,7 @@ export interface RenderCallbacks {
 	onQuickActionAdd(): void;
 	onQuickActionRemove(index: number): void;
 	onMoveCard(cardId: string, targetColumn: string, targetIndex: number): void;
-	onMemoUpdate(card: DashboardCard, updates: { body: string; blockquote: string }): void;
+	onMemoUpdate(card: DashboardCard, updates: Pick<DashboardCard, 'body' | 'blockquote'> & Partial<Pick<DashboardCard, 'tasks' | 'docs' | 'wikiLink' | 'url' | 'type'>>): void;
 	onMemoSaveAsNote(card: DashboardCard): void;
 	onTaskSaveToDaily(card: DashboardCard): void;
 	onDocAdd(cardId: string, path: string): void;

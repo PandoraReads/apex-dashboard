@@ -22,6 +22,7 @@ interface NeteasePlaylistResponse { result?: { name?: string; tracks?: NeteaseSo
 interface NeteaseSongDetailResponse { songs?: NeteaseSong[]; }
 
 export interface NeteaseSongUrlEntry {
+	freeTrialInfo?: unknown;
 	url?: string | null;
 	code?: number;
 	br?: number;
@@ -72,8 +73,7 @@ export interface LyricLine {
 }
 
 export interface SongUrlInfo {
-	/** https CDN URL, or null when the track needs an account the widget
-	    deliberately does not have (VIP / album purchase). */
+	/** https CDN URL, or null when the track needs an account entitlement (VIP / album purchase) or is only a trial. */
 	url: string | null;
 	/** NetEase code: 200 = ok, -110 = no permission. */
 	code: number;
@@ -82,9 +82,9 @@ export interface SongUrlInfo {
 	type?: string;
 }
 
-/** fee flag semantics: 0|8 play free, 1 (VIP) and 2|4 (album purchase) do not. */
-export function isPlayableByFee(fee: number | undefined): boolean {
-	return fee === 0 || fee === 8;
+/** Anonymous users can play fee 0|8; signed-in users defer to server entitlement. */
+export function isPlayableByFee(fee: number | undefined, signedIn = false): boolean {
+	return signedIn || fee === 0 || fee === 8;
 }
 
 /** The URL API hands back http:// CDN links; the Obsidian page is a secure
@@ -112,7 +112,7 @@ export function mapSearchSong(raw: NeteaseSong): MusicTrack | null {
 
 /** Map one raw /api/song/enhance/player/url entry. */
 export function mapSongUrl(raw: NeteaseSongUrlEntry): SongUrlInfo {
-	const url = typeof raw.url === 'string' && raw.url ? toHttps(raw.url) : null;
+	const url = !raw.freeTrialInfo && (raw.code === undefined || raw.code === 200) && typeof raw.url === 'string' && raw.url ? toHttps(raw.url) : null;
 	return {
 		url,
 		code: typeof raw.code === 'number' ? raw.code : (url ? 200 : -1),
@@ -218,16 +218,20 @@ export async function fetchPlaylist(id: string): Promise<NeteasePlaylist> {
 	return { name: typeof result.name === 'string' ? result.name : '', tracks };
 }
 
-export async function fetchSongUrl(id: number): Promise<SongUrlInfo> {
-	const cached = songUrlCache.get(id);
+export async function fetchSongUrl(id: number, cookie = ''): Promise<SongUrlInfo> {
+	const cached = cookie ? undefined : songUrlCache.get(id);
 	if (cached && Date.now() - cached.fetchedAt < SONG_URL_TTL) return cached.info;
 	const url = `${NETEASE_BASE}/api/song/enhance/player/url?ids=${encodeURIComponent(JSON.stringify([id]))}&br=${BITRATE}`;
-	const resp = await requestUrl({ url, headers: NETEASE_HEADERS });
-	const json = resp.json as NeteaseSongUrlResponse;
+	const resp = await requestUrl({ url, headers: cookie ? { ...NETEASE_HEADERS, Cookie: cookie } : NETEASE_HEADERS, throw: false });
+	if (resp.status === 401) throw new Error('AUTH_EXPIRED');
+	if (resp.status >= 400) throw new Error('NetEase playback request failed');
+	const json = resp.json as NeteaseSongUrlResponse & { code?: number };
+	if (json.code === 301 || json.code === 302) throw new Error('AUTH_EXPIRED');
 	const entry = json.data?.[0];
+	if (entry?.code === 301 || entry?.code === 302) throw new Error('AUTH_EXPIRED');
 	if (!entry) throw new Error('Invalid NetEase song url response');
 	const info = mapSongUrl(entry);
-	songUrlCache.set(id, { info, fetchedAt: Date.now() });
+	if (!cookie) songUrlCache.set(id, { info, fetchedAt: Date.now() });
 	return info;
 }
 

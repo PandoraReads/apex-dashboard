@@ -8685,7 +8685,13 @@
 }
 
 /* Compact buttons whose intended padding is non-zero: restore each inset
-   rather than flattening to 0. */
+   rather than flattening to 0. Card action buttons (edit/save/color/delete,
+   top-right of todo and memo cards) were the reported tablet gap: Obsidian's
+   20px side padding turned each into a wide pill, spacing the icons far
+   apart; restoring the base 2px keeps them tight and right-aligned. */
+.is-tablet button.dashboard-card-btn { padding: 2px; }
+.is-tablet button.dashboard-card-btn--size { padding: 2px 5px; }
+.is-tablet button.dashboard-section-add-btn { padding: 2px 4px; }
 .is-tablet button.dashboard-qa-add-btn,
 .is-tablet button.dashboard-qa-palette-btn { padding: 2px 4px; }
 .is-tablet button.dashboard-weread-pager-btn { padding: 0 6px; }
@@ -10899,10 +10905,22 @@
 	margin-bottom: 6px;
 }
 
+/* Second label (font) follows the color row, not the card top. */
+.dashboard-modal-quote-color-row + .dashboard-modal-quote-color-label {
+	margin-top: 10px;
+}
+
 .dashboard-modal-quote-color-row {
 	display: flex;
 	align-items: center;
 	gap: 10px;
+}
+
+/* Banner Quote Font: free-form font-family input shares the color row layout;
+ * text field flexes while the reset button keeps its natural width. */
+.dashboard-modal-quote-font-input {
+	flex: 1;
+	min-width: 0;
 }
 
 .dashboard-modal-color-input {
@@ -12294,6 +12312,18 @@
 	 * height must come from CSS here. */
 	.dashboard-section-row[data-section-type="web"] {
 		height: 70vh;
+	}
+
+	/* Library/folder: taller than the default row — these are the
+	 * vault-browsing workhorses. At 50vh the toolbar (search + controls)
+	 * leaves room for barely two grid cards on mainstream phones; 60vh
+	 * clears three to four (cards run 80-100px with property badges).
+	 * max-height:none lifts the desktop 500px generic clamp (folder) and
+	 * the 800px library clamp so the 60vh height is the only ruler. */
+	.dashboard-section-row[data-section-type="library"],
+	.dashboard-section-row[data-section-type="folder"] {
+		height: 60vh;
+		max-height: none;
 	}
 
 	.dashboard-section-header {
@@ -13706,6 +13736,18 @@
 	flex-wrap: wrap;
 	padding-left: 8px;
 	padding-right: 8px;
+}
+
+/* Phone toolbar diet: count + page-size + spacer push the controls onto a
+   third toolbar row (~34px of vertical space — a third of a grid card).
+   Phones keep every control that picks WHAT you see (sort/view/size/filter);
+   page-count still shows in the pagination footer, and paging works there.
+   Tablets (.is-tablet rides along with .is-mobile) have room, so they keep
+   the full toolbar. */
+.is-mobile:not(.is-tablet) .dashboard-library-toolbar .dashboard-library-toolbar-spacer,
+.is-mobile:not(.is-tablet) .dashboard-library-toolbar .dashboard-library-count,
+.is-mobile:not(.is-tablet) .dashboard-library-toolbar .dashboard-library-page-size {
+	display: none;
 }
 
 .dashboard-library-sort {

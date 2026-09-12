@@ -1,3 +1,4 @@
+import { NeteaseAccount } from './netease-account';
 import { Notice } from 'obsidian';
 // createEl is an ambient global declared by the Obsidian typings, not a
 // module export — it creates a detached element, exactly what the player needs.
@@ -96,6 +97,8 @@ export function sanitizePlaylist(raw: unknown): MusicTrack[] {
 export class MusicService {
 	/** Detached; lives in the service, not the widget DOM. */
 	private audio: HTMLAudioElement;
+	readonly account: NeteaseAccount;
+	private playRevision = 0;
 	private playlist: MusicTrack[] = [];
 	private index = -1;
 	private status: MusicStatus = 'idle';
@@ -110,6 +113,7 @@ export class MusicService {
 	private persistTimer: number | null = null;
 
 	constructor(private plugin: DashboardPlugin) {
+		this.account = new NeteaseAccount(`persist:apex-netease-${encodeURIComponent(plugin.app.vault.getName())}`);
 		this.audio = createEl('audio');
 		this.audio.preload = 'auto';
 		this.audio.addEventListener('playing', () => {
@@ -154,6 +158,7 @@ export class MusicService {
 		this.volume = typeof s.musicVolume === 'number' ? Math.min(1, Math.max(0, s.musicVolume)) : 0.8;
 		this.mode = s.musicRepeatMode ?? 'list';
 		this.audio.volume = this.volume;
+		await this.account.restore();
 	}
 
 	// ===== Subscriptions =====
@@ -183,14 +188,26 @@ export class MusicService {
 		};
 	}
 
+	async login(): Promise<void> {
+		this.stopPlayback();
+		try { await this.account.login(); }
+		finally { this.stopPlayback(); this.notify(); }
+	}
+
+	async logout(): Promise<void> {
+		this.stopPlayback();
+		try { await this.account.logout(); }
+		finally { this.notify(); }
+	}
+
 	// ===== Transport =====
 
 	/** Play playlist[index]; skips with a notice when the track needs an
-	    account the widget deliberately does not have. */
+	    account entitlement the anonymous session does not have. */
 	play(index: number): void {
 		const track = this.playlist[index];
 		if (!track) return;
-		if (!isPlayableByFee(track.fee)) {
+		if (!isPlayableByFee(track.fee, this.account.loggedIn)) {
 			new Notice(t('music.vipSkipped', { name: track.name }));
 			return;
 		}
@@ -216,6 +233,7 @@ export class MusicService {
 	}
 
 	pause(): void {
+		if (this.status === 'loading') { this.stopPlayback(); this.notify(); }
 		this.audio.pause();
 	}
 
@@ -347,12 +365,17 @@ export class MusicService {
 	private async startPlay(index: number): Promise<void> {
 		const track = this.playlist[index];
 		if (!track) return;
+		const revision = ++this.playRevision;
+		this.audio.pause();
 		this.index = index;
 		this.status = 'loading';
 		this.notify();
 		this.persist();
 		try {
-			const info = await fetchSongUrl(track.id);
+			const cookie = await this.account.cookie().catch(() => '');
+			if (revision !== this.playRevision) return;
+			const info = await fetchSongUrl(track.id, cookie);
+			if (revision !== this.playRevision) return;
 			if (!info.url) {
 				// fee lied (region/DMCA): same treatment as a VIP skip.
 				new Notice(t('music.vipSkipped', { name: track.name }));
@@ -363,7 +386,14 @@ export class MusicService {
 			this.audio.currentTime = 0;
 			await this.audio.play();
 			// 'playing' listener sets status and resets playAttempts.
-		} catch {
+		} catch (error) {
+			if (revision !== this.playRevision) return;
+			if (error instanceof Error && error.message === 'AUTH_EXPIRED') {
+				this.stopPlayback();
+				new Notice(t('music.authExpired'));
+				this.notify();
+				return;
+			}
 			new Notice(t('music.networkError'));
 			this.advanceAfterFailure();
 		}
@@ -396,6 +426,7 @@ export class MusicService {
 	}
 
 	private stopPlayback(): void {
+		this.playRevision += 1;
 		this.audio.pause();
 		this.audio.removeAttribute('src');
 		this.audio.load();
@@ -422,6 +453,8 @@ export class MusicService {
 	}
 
 	destroy(): void {
+		this.playRevision += 1;
+		this.account.destroy();
 		if (this.persistTimer !== null) {
 			window.clearTimeout(this.persistTimer);
 			this.persistTimer = null;

@@ -1068,7 +1068,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onTaskNestInto: (cardId: string, srcPath: number[], destPath: number[]) => this.sync.nestTaskInto(cardId, srcPath, destPath),
 			onTaskUnnest: (cardId: string, taskPath: number[]) => this.sync.unnestTask(cardId, taskPath),
 			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTaskQuiet(cardId, taskPath),
-			onMemoUpdate: (card: DashboardCard, updates: { body: string; blockquote: string }) => this.sync.updateMemoCard(card.id, updates),
+			onMemoUpdate: (card: DashboardCard, updates: Pick<DashboardCard, 'body' | 'blockquote'> & Partial<Pick<DashboardCard, 'tasks' | 'docs' | 'wikiLink' | 'url' | 'type'>>) => this.sync.updateMemoCard(card.id, updates),
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
 			onTaskSaveToDaily: (card: DashboardCard) => this.saveTasksToDaily(card),
 			onDocAdd: (cardId: string, path: string) => this.sync.addDocToCard(cardId, path),
@@ -1575,6 +1575,17 @@ export class DashboardView extends ItemView implements HoverParent {
 			// can't desync the UI from this.data.
 			this.suppressNextRender = false;
 			if (this.data) this.render(this.data);
+			return;
+		}
+
+		// Cross-section moves change both rendering and column-bound callbacks.
+		// Rebuild both rows; merely reordering destination children cannot move
+		// a node from the source and leaves stale card type / event closures.
+		this.suppressNextRender = false;
+		if (sourceCol && sourceCol !== targetCol) {
+			const sourceRefreshed = this.refreshSectionInPlace(sourceCol);
+			const targetRefreshed = this.refreshSectionInPlace(targetCol);
+			if ((!sourceRefreshed || !targetRefreshed) && this.data) this.render(this.data);
 			return;
 		}
 
