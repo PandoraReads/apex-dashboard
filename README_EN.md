@@ -125,6 +125,10 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 2.5.2
+- **Music playback self-heal** — A transient failure no longer pops "playback error, skipping to the next track" and permanently loses the song: it silently retries the same track once with a fresh signed link (mid-stream drops resume at the same position, and links that expired during a long pause are swapped for new ones); only if the retry fails does it quietly move on. Three actionable notices remain: clicking a VIP track, an expired login, and the circuit-breaker stop after repeated failures
+- **Banner quote font dropdown** — No more hand-typing font names: pick from a dropdown of eight Chinese faces (KaiTi, Songti, Fangsong, Lishu, Xingkai, Yuanti, Heiti, LXGW WenKai) and eight western ones (Georgia, Times, Palatino, Baskerville, Garamond, Didot, Helvetica, Courier). Each entry stores a cross-platform font stack, so one setting renders on macOS, Windows and iPad alike; previously hand-typed names stay selectable in the dropdown
+
 ### 2.5.1
 - **NetEase account sign-in** — On desktop, open the official NetEase page from Settings → Widgets → Music (phone or QR login) and play with your account's entitlements — membership and purchased tracks play in full. Credentials go directly to NetEase; the session lives in a device-local Electron partition, never in plugin data or vault sync, and is cleared on sign-out. Anonymous use is unchanged
 - **Move cards across sections** — Drag a card's title bar to move it between Todo, Memo and Sticky; tasks and check states survive Todo↔Memo conversions and note links travel along; note cards (with or without covers) can enter all three sections too

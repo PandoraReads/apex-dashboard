@@ -134,8 +134,14 @@ export class MusicService {
 			// Clearing the src (stop/remove) fires an error on an empty element;
 			// that is shutdown, not a playback failure.
 			if (!this.audio.getAttribute('src')) return;
-			new Notice(t('music.networkError'));
-			this.advanceAfterFailure();
+			// While startPlay is still pending, its own play() promise owns the
+			// failure path (revision-guarded) — handling it here too would pop
+			// a duplicate notice and skip an extra track.
+			if (this.status === 'loading') return;
+			// Mid-stream drop (CDN hiccup, network blip) or a link that expired
+			// during a long pause: re-fetch a fresh signed URL and resume at the
+			// same position. Silent — the widget UI already shows the state.
+			void this.startPlay(this.index, this.audio.currentTime, true);
 		});
 		this.audio.addEventListener('timeupdate', () => {
 			const now = Date.now();
@@ -362,7 +368,10 @@ export class MusicService {
 
 	// ===== Internals =====
 
-	private async startPlay(index: number): Promise<void> {
+	/** Play playlist[index]. `resumeSec` continues a failed stream at that
+	    position instead of restarting; `isRetry` marks the second attempt for
+	    the same track, which bypasses the URL cache and gives up quietly. */
+	private async startPlay(index: number, resumeSec = 0, isRetry = false): Promise<void> {
 		const track = this.playlist[index];
 		if (!track) return;
 		const revision = ++this.playRevision;
@@ -374,16 +383,20 @@ export class MusicService {
 		try {
 			const cookie = await this.account.cookie().catch(() => '');
 			if (revision !== this.playRevision) return;
-			const info = await fetchSongUrl(track.id, cookie);
+			// A retry must not reuse the cached link: that exact URL (expired
+			// signature or dead CDN node) is what just failed.
+			const info = await fetchSongUrl(track.id, cookie, isRetry);
 			if (revision !== this.playRevision) return;
 			if (!info.url) {
-				// fee lied (region/DMCA): same treatment as a VIP skip.
-				new Notice(t('music.vipSkipped', { name: track.name }));
-				this.advanceAfterFailure();
+				// fee lied (region/DMCA) or a transient API null: one fresh
+				// retry, then move on silently. Notices on every auto-skip were
+				// noisy; the track change is visible in the widget itself.
+				if (isRetry) this.advanceAfterFailure();
+				else void this.startPlay(index, 0, true);
 				return;
 			}
 			this.audio.src = info.url;
-			this.audio.currentTime = 0;
+			this.audio.currentTime = resumeSec;
 			await this.audio.play();
 			// 'playing' listener sets status and resets playAttempts.
 		} catch (error) {
@@ -394,8 +407,11 @@ export class MusicService {
 				this.notify();
 				return;
 			}
-			new Notice(t('music.networkError'));
-			this.advanceAfterFailure();
+			// Transient CDN/network failure: retry once with a fresh signed
+			// URL (preserving position), then skip silently. No notice —
+			// auto-advance failures used to spam one popup per skip.
+			if (isRetry) this.advanceAfterFailure();
+			else void this.startPlay(index, resumeSec, true);
 		}
 	}
 

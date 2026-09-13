@@ -10916,9 +10916,9 @@
 	gap: 10px;
 }
 
-/* Banner Quote Font: free-form font-family input shares the color row layout;
- * text field flexes while the reset button keeps its natural width. */
-.dashboard-modal-quote-font-input {
+/* Banner Quote Font: Obsidian's native .dropdown flexes inside the color row
+ * layout while the reset button keeps its natural width. */
+.dashboard-modal-quote-font-select {
 	flex: 1;
 	min-width: 0;
 }

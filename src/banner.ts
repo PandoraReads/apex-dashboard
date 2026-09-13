@@ -21,6 +21,57 @@ export function getActiveImage(banner: BannerData): string {
 	return banner.image;
 }
 
+/** Curated quote-font choices. `value` is a full CSS font-family stack so one
+ * setting renders on macOS / Windows / iPad without per-OS editing; labels are
+ * proper nouns and intentionally not localized. */
+export interface QuoteFontOption {
+	label: string;
+	value: string;
+}
+
+export interface QuoteFontGroup {
+	labelKey: string;
+	fonts: readonly QuoteFontOption[];
+}
+
+export const QUOTE_FONT_GROUPS: readonly QuoteFontGroup[] = [
+	{
+		labelKey: 'banner.quoteFontGroupZh',
+		fonts: [
+			{ label: '楷体', value: '"Kaiti SC","STKaiti","KaiTi","楷体",serif' },
+			{ label: '宋体', value: '"Songti SC","STSong","SimSun","宋体",serif' },
+			{ label: '仿宋', value: '"STFangsong","FangSong","仿宋",serif' },
+			{ label: '隶书', value: '"LiSu","隶书","STLiti","华文隶书",serif' },
+			{ label: '行楷', value: '"STXingkai","华文行楷","Xingkai SC","行楷",cursive' },
+			{ label: '圆体', value: '"Yuanti SC","YouYuan","幼圆",sans-serif' },
+			{ label: '黑体', value: '"PingFang SC","Microsoft YaHei","Hiragino Sans GB",sans-serif' },
+			{ label: '霞鹜文楷', value: '"LXGW WenKai","LXGW WenKai Lite","霞鹜文楷","Kaiti SC","KaiTi",serif' },
+		],
+	},
+	{
+		labelKey: 'banner.quoteFontGroupEn',
+		fonts: [
+			{ label: 'Georgia', value: 'Georgia,serif' },
+			{ label: 'Times New Roman', value: '"Times New Roman",Times,serif' },
+			{ label: 'Palatino', value: '"Palatino Linotype",Palatino,"Book Antiqua",serif' },
+			{ label: 'Baskerville', value: 'Baskerville,"Libre Baskerville",Georgia,serif' },
+			{ label: 'Garamond', value: 'Garamond,"EB Garamond",Georgia,serif' },
+			{ label: 'Didot', value: 'Didot,"Bodoni MT",Georgia,serif' },
+			{ label: 'Helvetica', value: '"Helvetica Neue",Helvetica,Arial,sans-serif' },
+			{ label: 'Courier', value: '"Courier New",Courier,monospace' },
+		],
+	},
+];
+
+/** First human-readable family in a CSS font-family stack — labels a legacy
+ * hand-typed value that is not one of the curated options. */
+export function firstFontName(stack: string): string {
+	const quoted = /^"([^"]+)"/.exec(stack.trim());
+	if (quoted?.[1]) return quoted[1];
+	const bare = /^([^,]+)/.exec(stack.trim());
+	return (bare?.[1] ?? stack).trim();
+}
+
 export function renderBanner(
 	container: HTMLElement,
 	banner: BannerData,
@@ -332,16 +383,32 @@ export class BannerEditModal extends Modal {
 			this.quoteColorDraft = '#ffffff';
 		});
 
-		// === Quote Font: free-form CSS font-family, applied to quote + author ===
+		// === Quote Font: curated dropdown of cross-platform CSS stacks, applied
+		// to quote + author. A hand-typed value from before the dropdown existed
+		// stays as an extra option instead of silently vanishing. ===
 		colorSection.createEl('label', { text: t('banner.quoteFont'), cls: 'dashboard-modal-quote-color-label' });
 		const fontRow = colorSection.createDiv({ cls: 'dashboard-modal-quote-color-row' });
-		const fontInput = fontRow.createEl('input', {
-			cls: 'dashboard-modal-input dashboard-modal-quote-font-input',
-			attr: { type: 'text', placeholder: t('banner.quoteFontPlaceholder') },
-		});
-		fontInput.value = this.quoteFontDraft;
-		fontInput.addEventListener('input', () => {
-			this.quoteFontDraft = fontInput.value;
+		const fontSelect = fontRow.createEl('select', { cls: 'dropdown dashboard-modal-quote-font-select' });
+		const defaultOption = fontSelect.createEl('option', { value: '', text: t('banner.quoteFontDefault') });
+		defaultOption.selected = !this.quoteFontDraft;
+		const knownValues = new Set<string>(['']);
+		for (const group of QUOTE_FONT_GROUPS) {
+			const optgroup = fontSelect.createEl('optgroup', { attr: { label: t(group.labelKey) } });
+			for (const font of group.fonts) {
+				knownValues.add(font.value);
+				const o = optgroup.createEl('option', { value: font.value, text: font.label });
+				if (font.value === this.quoteFontDraft) o.selected = true;
+			}
+		}
+		if (this.quoteFontDraft && !knownValues.has(this.quoteFontDraft)) {
+			const o = fontSelect.createEl('option', {
+				value: this.quoteFontDraft,
+				text: t('banner.quoteFontCustom', { name: firstFontName(this.quoteFontDraft) }),
+			});
+			o.selected = true;
+		}
+		fontSelect.addEventListener('change', () => {
+			this.quoteFontDraft = fontSelect.value;
 		});
 
 		const fontResetBtn = fontRow.createEl('button', {
@@ -349,7 +416,7 @@ export class BannerEditModal extends Modal {
 			text: t('banner.resetFont'),
 		});
 		fontResetBtn.addEventListener('click', () => {
-			fontInput.value = '';
+			fontSelect.value = '';
 			this.quoteFontDraft = '';
 		});
 	}

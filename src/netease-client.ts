@@ -218,8 +218,8 @@ export async function fetchPlaylist(id: string): Promise<NeteasePlaylist> {
 	return { name: typeof result.name === 'string' ? result.name : '', tracks };
 }
 
-export async function fetchSongUrl(id: number, cookie = ''): Promise<SongUrlInfo> {
-	const cached = cookie ? undefined : songUrlCache.get(id);
+export async function fetchSongUrl(id: number, cookie = '', forceFresh = false): Promise<SongUrlInfo> {
+	const cached = cookie || forceFresh ? undefined : songUrlCache.get(id);
 	if (cached && Date.now() - cached.fetchedAt < SONG_URL_TTL) return cached.info;
 	const url = `${NETEASE_BASE}/api/song/enhance/player/url?ids=${encodeURIComponent(JSON.stringify([id]))}&br=${BITRATE}`;
 	const resp = await requestUrl({ url, headers: cookie ? { ...NETEASE_HEADERS, Cookie: cookie } : NETEASE_HEADERS, throw: false });
