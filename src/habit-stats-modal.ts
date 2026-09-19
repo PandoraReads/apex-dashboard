@@ -416,12 +416,6 @@ function renderHabitHeatmap(card: HTMLElement, service: HabitService, habit: Hab
 	if (series.every(v => v === 0)) {
 		wrap.createDiv({ cls: 'dashboard-habit-stats-heatmap-empty', text: t('habit.heatEmpty') });
 	}
-
-	const legend = section.createDiv({ cls: 'dashboard-habit-stats-heatmap-legend' });
-	legend.createSpan({ cls: 'dashboard-habit-stats-heatmap-legend-label', text: t('pomodoro.less') });
-	legend.createDiv({ cls: 'dashboard-habit-stats-heatmap-legend-swatch' });
-	legend.createDiv({
-		cls: 'dashboard-habit-stats-heatmap-legend-swatch dashboard-habit-stats-heatmap-legend-swatch--done',
-	});
-	legend.createSpan({ cls: 'dashboard-habit-stats-heatmap-legend-label', text: t('pomodoro.more') });
+	// No color legend: the map is binary (accent = done, faint = not) and
+	// tooltips carry the dates, so a per-habit legend was pure noise.
 }

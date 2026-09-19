@@ -2093,9 +2093,12 @@
 	}
 
 	/* Switcher stays usable on the 4px collapsed bar: pills hang below the
-	   edge, mirroring the bookmark tab's re-anchor on the right. */
+	   edge, mirroring the bookmark tab's re-anchor on the right. Shifted
+	   right to clear the sidebar pin, which re-anchors onto the same left
+	   edge in this state (pin box spans roughly x 10-29). */
 	.dashboard-banner--collapsed .dashboard-workspace-switcher {
 		top: 2px;
+		left: 36px;
 		opacity: 0.85;
 	}
 
@@ -3993,11 +3996,13 @@
 	margin-bottom: 0;
 }
 
+/* Value on its own centered line; the comparison chip wraps to a second
+   centered line — it never squeezes the number and never leaves the card. */
 .dashboard-pomodoro-stats-card-value-row {
 	display: flex;
-	align-items: baseline;
-	gap: 4px;
-	justify-content: center;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
 }
 
 .dashboard-pomodoro-stats-card-delta {
@@ -4426,30 +4431,6 @@
 	opacity: 0.75;
 	text-align: center;
 	pointer-events: none;
-}
-
-.dashboard-habit-stats-heatmap-legend {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	justify-content: flex-end;
-}
-
-.dashboard-habit-stats-heatmap-legend-label {
-	font-size: 0.6em;
-	color: var(--db-text-muted);
-	opacity: 0.7;
-}
-
-.dashboard-habit-stats-heatmap-legend-swatch {
-	width: 9px;
-	height: 9px;
-	border-radius: 2px;
-	background: rgba(128, 128, 128, 0.14);
-}
-
-.dashboard-habit-stats-heatmap-legend-swatch--done {
-	background: var(--db-accent);
 }
 
 /* ===== Tag manager modal ===== */
@@ -5357,6 +5338,99 @@
 	min-width: 48px;
 	text-align: center;
 	font-variant-numeric: tabular-nums;
+	/* Clickable: opens the period dropdown (native Menu). Padding leaves room
+	   for the chevron; border-radius + hover match the ‹ › buttons. */
+	padding: 3px 14px 3px 6px;
+	border-radius: 5px;
+	cursor: pointer;
+	position: relative;
+	transition: background 0.15s;
+}
+
+.dashboard-expense-year-nav-label:hover {
+	background: var(--db-bg-hover);
+}
+
+/* Dropdown affordance chevron, drawn with borders so no icon node is needed
+   (the label's centered text geometry stays untouched). */
+.dashboard-expense-year-nav-label::after {
+	content: '';
+	position: absolute;
+	right: 4px;
+	top: 50%;
+	transform: translateY(-65%);
+	border: 4px solid transparent;
+	border-top-color: var(--db-text-muted);
+	border-bottom-width: 0;
+	pointer-events: none;
+}
+
+/* Wide variant for the week span (e.g. 2026-09-14 ~ 2026-09-20); the
+   header-right row wraps, so a long label never squeezes the toggles. */
+.dashboard-expense-year-nav-label--wide {
+	min-width: 172px;
+	white-space: nowrap;
+}
+
+/* History granularity sub-toggle: week/month/year inside the history range
+   (type-toggle in miniature). */
+.dashboard-expense-subrange-toggle {
+	display: none;
+	gap: 2px;
+	background: var(--db-bg-input, rgba(128, 128, 128, 0.12));
+	border-radius: var(--db-radius-sm, 6px);
+	padding: 2px;
+}
+
+.dashboard-expense-subrange-toggle--visible {
+	display: flex;
+}
+
+.dashboard-expense-subrange-btn {
+	cursor: pointer;
+	padding: 3px 8px;
+	border-radius: 4px;
+	color: var(--db-text-muted);
+	font-size: 0.7em;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-expense-subrange-btn:hover {
+	color: var(--db-text);
+}
+
+.dashboard-expense-subrange-btn--active {
+	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
+	color: var(--db-accent);
+	font-weight: 600;
+}
+
+/* Donut aggregation granularity: plain categories vs primary groups. */
+.dashboard-expense-level-toggle {
+	display: flex;
+	gap: 2px;
+	background: var(--db-bg-input, rgba(128, 128, 128, 0.12));
+	border-radius: var(--db-radius-sm, 6px);
+	padding: 2px;
+}
+
+.dashboard-expense-level-btn {
+	cursor: pointer;
+	padding: 2px 7px;
+	border-radius: 4px;
+	color: var(--db-text-muted);
+	font-size: 0.66em;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-expense-level-btn:hover {
+	color: var(--db-text);
+}
+
+.dashboard-expense-level-btn--active {
+	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
+	color: var(--db-accent);
+	font-weight: 600;
 }
 
 /* Expense/income type toggle (library view toggle, miniature) */
@@ -5474,12 +5548,14 @@
 	min-width: 0;
 }
 
+/* Value on its own centered line; the comparison chip wraps to a second
+   centered line — it never squeezes the number and never leaves the card
+   (same layout as the pomodoro stats cards). */
 .dashboard-expense-stats-card-value-row {
 	display: flex;
-	align-items: baseline;
-	gap: 4px;
-	justify-content: center;
-	flex-wrap: wrap;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
 }
 
 .dashboard-expense-stats-card-value {
@@ -5494,6 +5570,7 @@
 	font-weight: 600;
 	padding: 1px 4px;
 	border-radius: 4px;
+	white-space: nowrap;
 }
 .dashboard-expense-stats-card-delta--up {
 	color: #2ecc71;
@@ -6179,7 +6256,7 @@
 
 .dashboard-expense-ledger-table {
 	width: 100%;
-	min-width: 640px;
+	min-width: 730px;
 	border-collapse: collapse;
 	table-layout: fixed;
 }
@@ -6226,6 +6303,10 @@
 	width: 84px;
 }
 
+.dashboard-expense-ledger-th-primary {
+	width: 92px;
+}
+
 .dashboard-expense-ledger-th-category {
 	width: 118px;
 }
@@ -6242,6 +6323,7 @@
 .dashboard-expense-ledger-td-check,
 .dashboard-expense-ledger-td-date,
 .dashboard-expense-ledger-td-type,
+.dashboard-expense-ledger-td-primary,
 .dashboard-expense-ledger-td-category,
 .dashboard-expense-ledger-td-amount,
 .dashboard-expense-ledger-td-note,
@@ -6294,6 +6376,12 @@
 	font-weight: 600;
 	color: var(--db-text);
 	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-expense-ledger-td-primary {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--db-text-muted);
 }
 
 .dashboard-expense-ledger-td-category {
@@ -6405,14 +6493,14 @@
 	}
 
 	.dashboard-expense-ledger-table {
-		min-width: 580px;
+		min-width: 670px;
 	}
 }
 
 /* ===== Expense category manager (confirm-card overlay) ===== */
 .dashboard-expense-catmgr {
 	text-align: left;
-	max-width: 380px;
+	max-width: 460px;
 	align-items: stretch;
 }
 
@@ -6432,6 +6520,14 @@
 	margin-bottom: 6px;
 }
 
+/* Subsection labels: categories (secondary) vs primary groups. */
+.dashboard-expense-catmgr-subtitle {
+	font-size: 0.66em;
+	font-weight: 600;
+	color: var(--db-text-faint);
+	margin: 8px 0 2px;
+}
+
 .dashboard-expense-catmgr-empty {
 	font-size: 0.72em;
 	color: var(--db-text-faint);
@@ -6441,8 +6537,42 @@
 .dashboard-expense-catmgr-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 3px 0;
+	gap: 6px;
+	padding: 2px 0;
+	border-radius: 4px;
+}
+
+/* Drag grip (settings-workspace pattern): the row only turns draggable while
+   the grip is held, so the row's select and buttons stay interactive. */
+.dashboard-expense-catmgr-grip {
+	display: flex;
+	align-items: center;
+	color: var(--db-text-faint);
+	opacity: 0.5;
+	cursor: grab;
+	flex-shrink: 0;
+}
+
+.dashboard-expense-catmgr-grip:hover {
+	opacity: 1;
+}
+
+.dashboard-expense-catmgr-grip svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-expense-catmgr-row--dragging {
+	opacity: 0.45;
+}
+
+/* Drop indicators: box-shadow instead of border so row layout is untouched. */
+.dashboard-expense-catmgr-row--drop-before {
+	box-shadow: 0 -2px 0 0 var(--db-accent);
+}
+
+.dashboard-expense-catmgr-row--drop-after {
+	box-shadow: 0 2px 0 0 var(--db-accent);
 }
 
 .dashboard-expense-catmgr-name {
@@ -6455,11 +6585,57 @@
 	white-space: nowrap;
 }
 
+/* Per-row primary-group select (compact; new groups arrive via its trailing
+   "+ New primary…" sentinel). */
+.dashboard-expense-catmgr-primary {
+	flex-shrink: 0;
+	max-width: 118px;
+	font-size: 0.68em;
+	padding: 2px 4px;
+	box-sizing: border-box;
+	color: var(--db-text-muted);
+}
+
 .dashboard-expense-catmgr-usage {
 	flex-shrink: 0;
 	font-size: 0.66em;
 	color: var(--db-text-faint);
 	font-variant-numeric: tabular-nums;
+}
+
+/* Up/down movers: touch fallback (HTML5 drag never fires on mobile); they
+   commit through the same reorder path as dragging. */
+.dashboard-expense-catmgr-move {
+	display: flex;
+	gap: 1px;
+	flex-shrink: 0;
+}
+
+.dashboard-expense-catmgr-move-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	cursor: pointer;
+	color: var(--db-text-faint);
+	transition: color 0.15s, background 0.15s;
+}
+
+.dashboard-expense-catmgr-move-btn:hover {
+	color: var(--db-text);
+	background: var(--db-bg-hover);
+}
+
+.dashboard-expense-catmgr-move-btn svg {
+	width: 11px;
+	height: 11px;
+}
+
+.dashboard-expense-catmgr-move-btn--disabled {
+	opacity: 0.2;
+	pointer-events: none;
 }
 
 .dashboard-expense-catmgr-delete {
@@ -8649,11 +8825,13 @@
 	opacity: 1;
 }
 
-/* Touch devices (Obsidian adds .is-mobile on phones AND tablets): there is no
-   reliable hover, so keep the edit/remove affordances visible instead of
-   stranding them at opacity:0 (which read as empty deformed blobs). */
-.is-mobile .dashboard-qa-edit,
-.is-mobile .dashboard-qa-remove {
+/* Phones only: Obsidian adds .is-mobile on phones AND tablets, but tablets
+   carry .is-tablet and drive a pointer (trackpad/mouse), so they keep the
+   desktop hover-reveal. Phones have no reliable hover, so keep the
+   edit/remove affordances visible instead of stranding them at opacity:0
+   (which read as empty deformed blobs). */
+.is-mobile:not(.is-tablet) .dashboard-qa-edit,
+.is-mobile:not(.is-tablet) .dashboard-qa-remove {
 	opacity: 1;
 }
 
@@ -9074,10 +9252,50 @@
 
 /* Paired half row (drag a section beside another). Grow fills the line when
    an orphan half slips through (hand-edited file mid-normalization); with a
-   partner the two 50% bases exactly fill the line, so grow never engages. */
+   partner the two bases exactly fill the line, so grow never engages.
+   --db-pair-basis carries a dragged split (left member's share, set inline by
+   renderer.ts); 50% default keeps the historical even split. */
 .dashboard-section-row--half {
-	flex: 1 1 calc(50% - var(--db-kanban-gap, 10px) / 2);
+	flex: 1 1 calc(var(--db-pair-basis, 50%) - var(--db-kanban-gap, 10px) / 2);
 	min-width: 0;
+}
+
+/* The left half member anchors the pair's divider handle (absolute, spanning
+   the gutter between the halves). */
+.dashboard-section-row--pair-left {
+	position: relative;
+}
+
+/* Pair divider: invisible col-resize strip straddling the board gutter; a
+   centered accent line surfaces on hover and for the whole drag. */
+.dashboard-pair-width-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	/* Half the gutter plus half the strip: the strip's center sits exactly in
+	   the gutter's center. */
+	right: calc(-1 * (var(--db-kanban-gap, 10px) / 2 + 5px));
+	width: 10px;
+	cursor: col-resize;
+	z-index: 6;
+}
+
+.dashboard-pair-width-handle::before {
+	content: '';
+	position: absolute;
+	top: 8px;
+	bottom: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 2px;
+	border-radius: 2px;
+	background: transparent;
+	transition: background 0.2s ease;
+}
+
+.dashboard-section-row:hover > .dashboard-pair-width-handle::before,
+.dashboard-section-row--resizing > .dashboard-pair-width-handle::before {
+	background: color-mix(in srgb, var(--db-accent, #6366f1) 55%, transparent);
 }
 
 /* Narrow pane (split view, side-by-side panes): two cramped 40%-width rows
@@ -9086,6 +9304,11 @@
 @container (max-width: 620px) {
 	.dashboard-section-row--half {
 		flex-basis: 100%;
+	}
+
+	/* Halves stack here — a width divider has nothing to divide. */
+	.dashboard-pair-width-handle {
+		display: none;
 	}
 }
 
@@ -12465,8 +12688,9 @@
 		border-radius: var(--db-radius-md);
 	}
 
-	/* Quick link remove: always visible */
-	.dashboard-qa-remove {
+	/* Quick link remove: always visible on touch-sized layouts, but tablets
+	   (even in a narrow split pane) keep the hover reveal. */
+	body:not(.is-tablet) .dashboard-qa-remove {
 		opacity: 1;
 	}
 
@@ -14610,6 +14834,16 @@
 	font-size: 0.625em;
 	color: var(--db-text-muted, var(--text-muted));
 	margin-top: 2px;
+}
+
+/* Optional kanban covers (per-section toggle): the gallery view's
+   .dashboard-library-card-cover classes carry the aspect ratio, background
+   sizing and the placeholder treatment — the kanban companion class only
+   insets the cover inside the card's own padding with a gap before the title
+   and rounds it slightly tighter to match the card. */
+.dashboard-library-kanban-card-cover {
+	margin-bottom: 6px;
+	border-radius: 4px;
 }
 
 /* ===== Library folder-kanban drag & drop (desktop) ===== */

@@ -29,6 +29,15 @@ export interface ExpenseData {
 	lastCategory: { expense?: string; income?: string };
 	/** User-added category names per direction (absent in pre-1.9.6 files). */
 	customCategories?: { expense?: string[]; income?: string[] };
+	/** Full display order per direction (preset keys + custom names mixed).
+	 *  Absent in files that never reordered; missing categories fall back to
+	 *  default order at read time (getOrderedCategories), never on save. */
+	categoryOrder?: { expense?: string[]; income?: string[] };
+	/** Ordered primary-group names per direction (grouping layer above the
+	 *  flat categories; records never store the primary, only the mapping). */
+	primaryCategories?: { expense?: string[]; income?: string[] };
+	/** Secondary category key/name -> primary-group name, per direction. */
+	categoryParents?: { expense?: Record<string, string>; income?: Record<string, string> };
 }
 
 export const DATA_FILE = 'expense.json';
@@ -58,6 +67,12 @@ export function categoriesFor(type: ExpenseType): readonly string[] {
 /** Custom-category guards shared with the manager UI. */
 export const EXPENSE_CATEGORY_NAME_MAX = 12;
 export const EXPENSE_MAX_CUSTOM_CATEGORIES = 30;
+/** Cap on primary groups per direction (kept far below the 30 customs cap —
+ *  primaries are coarse buckets, not fine-grained categories). */
+export const EXPENSE_MAX_PRIMARY_CATEGORIES = 10;
+/** Breakdown bucket key for categories without a primary group; also the
+ *  ledger primary-filter sentinel. Never a real name (double underscores). */
+export const UNGROUPED_PRIMARY = '__ungrouped__';
 
 /** Outcome of addCustomCategory — callers map `reason` to a Notice. */
 export type AddCategoryResult =
@@ -115,11 +130,17 @@ function mergeData(disk: ExpenseData, session: ExpenseData): ExpenseData {
 	const records = [...byId.values()].sort((a, b) =>
 		a.date === b.date ? a.createdAt - b.createdAt : (a.date < b.date ? -1 : 1));
 	const customCategories = mergeCustomCategories(disk.customCategories, session.customCategories);
+	const categoryOrder = mergeCategoryOrder(disk.categoryOrder, session.categoryOrder);
+	const primaryCategories = mergePrimaryCategories(disk.primaryCategories, session.primaryCategories);
+	const categoryParents = mergeCategoryParents(disk.categoryParents, session.categoryParents, primaryCategories);
 	return {
 		version: 1,
 		records,
 		lastCategory: { ...disk.lastCategory, ...session.lastCategory },
 		...(customCategories ? { customCategories } : {}),
+		...(categoryOrder ? { categoryOrder } : {}),
+		...(primaryCategories ? { primaryCategories } : {}),
+		...(categoryParents ? { categoryParents } : {}),
 	};
 }
 
@@ -140,6 +161,72 @@ function mergeCustomCategories(
 			names.push(name);
 		}
 		if (names.length > 0) out[type] = names.slice(0, EXPENSE_MAX_CUSTOM_CATEGORIES);
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
+}
+
+// The three merges below are SESSION-FIRST, unlike mergeCustomCategories'
+// disk-first union. Reason: persist() merges whenever the disk content
+// differs from our last write — including when the only external change is
+// another device adding one record. A disk-first order would then put the
+// stale on-disk order ahead of a reorder this session just made, silently
+// reverting it. Session-first keeps local intent; disk contributes only
+// entries the session never touched.
+
+/** Session-first union of per-type order lists (exact-match dedupe — keys
+ *  are exact category identifiers, not display names). */
+function mergeCategoryOrder(
+	disk: ExpenseData['categoryOrder'],
+	session: ExpenseData['categoryOrder'],
+): ExpenseData['categoryOrder'] {
+	const out: { expense?: string[]; income?: string[] } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const keys: string[] = [];
+		for (const v of [...(session?.[type] ?? []), ...(disk?.[type] ?? [])]) {
+			if (keys.includes(v)) continue;
+			keys.push(v);
+		}
+		if (keys.length > 0) out[type] = keys;
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
+}
+
+/** Session-first union of per-type primary-group lists (case-insensitive
+ *  dedupe; session's casing wins a clash). */
+function mergePrimaryCategories(
+	disk: ExpenseData['primaryCategories'],
+	session: ExpenseData['primaryCategories'],
+): ExpenseData['primaryCategories'] {
+	const out: { expense?: string[]; income?: string[] } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const names: string[] = [];
+		const seen = new Set<string>();
+		for (const v of [...(session?.[type] ?? []), ...(disk?.[type] ?? [])]) {
+			const key = v.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			names.push(v);
+		}
+		if (names.length > 0) out[type] = names.slice(0, EXPENSE_MAX_PRIMARY_CATEGORIES);
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
+}
+
+/** Per-key merge of parent mappings (session wins each key — same semantics
+ *  as records), then dangling values whose primary vanished on either side
+ *  are dropped. */
+function mergeCategoryParents(
+	disk: ExpenseData['categoryParents'],
+	session: ExpenseData['categoryParents'],
+	primaries: ExpenseData['primaryCategories'],
+): ExpenseData['categoryParents'] {
+	const out: { expense?: Record<string, string>; income?: Record<string, string> } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const merged = { ...(disk?.[type] ?? {}), ...(session?.[type] ?? {}) };
+		const known = new Set(primaries?.[type] ?? []);
+		const clean = Object.fromEntries(
+			Object.entries(merged).filter(([, primary]) => known.has(primary)));
+		if (Object.keys(clean).length > 0) out[type] = clean;
 	}
 	return out.expense === undefined && out.income === undefined ? undefined : out;
 }
@@ -167,7 +254,18 @@ function normalizeData(raw: unknown): ExpenseData {
 		if (typeof lc.income === 'string' && lc.income.length > 0) lastCategory.income = lc.income;
 	}
 	const customCategories = normalizeCustomCategories(obj.customCategories);
-	return { version: 1, records, lastCategory, ...(customCategories ? { customCategories } : {}) };
+	const categoryOrder = normalizeCategoryOrder(obj.categoryOrder, customCategories);
+	const primaryCategories = normalizePrimaryCategories(obj.primaryCategories);
+	const categoryParents = normalizeCategoryParents(obj.categoryParents, customCategories, primaryCategories);
+	return {
+		version: 1,
+		records,
+		lastCategory,
+		...(customCategories ? { customCategories } : {}),
+		...(categoryOrder ? { categoryOrder } : {}),
+		...(primaryCategories ? { primaryCategories } : {}),
+		...(categoryParents ? { categoryParents } : {}),
+	};
 }
 
 /** Keep only usable custom category names per type: non-empty trimmed strings
@@ -191,6 +289,82 @@ function normalizeCustomCategories(raw: unknown): ExpenseData['customCategories'
 			names.push(name);
 		}
 		if (names.length > 0) out[type] = names.slice(0, EXPENSE_MAX_CUSTOM_CATEGORIES);
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
+}
+
+/** Keep only order entries that are known categories for the direction,
+ *  deduped. Missing categories are deliberately NOT appended here — a legacy
+ *  file must not grow the field on its next save; lenient completion happens
+ *  at read time (getOrderedCategories) and never persists. */
+function normalizeCategoryOrder(
+	raw: unknown,
+	custom: ExpenseData['customCategories'],
+): ExpenseData['categoryOrder'] {
+	if (!raw || typeof raw !== 'object') return undefined;
+	const out: { expense?: string[]; income?: string[] } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const list = (raw as Record<string, unknown>)[type];
+		if (!Array.isArray(list)) continue;
+		const known = new Set<string>([...categoriesFor(type), ...(custom?.[type] ?? [])]);
+		const keys: string[] = [];
+		for (const v of list) {
+			if (typeof v !== 'string' || !known.has(v) || keys.includes(v)) continue;
+			keys.push(v);
+		}
+		if (keys.length > 0) out[type] = keys;
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
+}
+
+/** Keep only usable primary-group names per type: non-empty trimmed strings,
+ *  deduped case-insensitively and capped. Deliberately no preset-collision
+ *  filter — that guard belongs to the write path (addPrimaryCategory); a
+ *  hand-edited file keeps what it says rather than silently reverting. */
+function normalizePrimaryCategories(raw: unknown): ExpenseData['primaryCategories'] {
+	if (!raw || typeof raw !== 'object') return undefined;
+	const out: { expense?: string[]; income?: string[] } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const list = (raw as Record<string, unknown>)[type];
+		if (!Array.isArray(list)) continue;
+		const names: string[] = [];
+		const seen = new Set<string>();
+		for (const v of list) {
+			if (typeof v !== 'string') continue;
+			const name = v.trim().slice(0, EXPENSE_CATEGORY_NAME_MAX);
+			if (name.length === 0) continue;
+			const key = name.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			names.push(name);
+		}
+		if (names.length > 0) out[type] = names.slice(0, EXPENSE_MAX_PRIMARY_CATEGORIES);
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
+}
+
+/** Keep only parent mappings whose category is known for the direction and
+ *  whose primary exists after normalization; dangling entries drop out. */
+function normalizeCategoryParents(
+	raw: unknown,
+	custom: ExpenseData['customCategories'],
+	primaries: ExpenseData['primaryCategories'],
+): ExpenseData['categoryParents'] {
+	if (!raw || typeof raw !== 'object') return undefined;
+	const out: { expense?: Record<string, string>; income?: Record<string, string> } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const map = (raw as Record<string, unknown>)[type];
+		if (!map || typeof map !== 'object') continue;
+		const knownCats = new Set<string>([...categoriesFor(type), ...(custom?.[type] ?? [])]);
+		const knownPrimaries = primaries?.[type] ?? [];
+		const clean: Record<string, string> = {};
+		for (const [cat, primary] of Object.entries(map)) {
+			if (typeof primary !== 'string') continue;
+			const name = primary.trim();
+			if (!knownCats.has(cat) || !knownPrimaries.includes(name)) continue;
+			clean[cat] = name;
+		}
+		if (Object.keys(clean).length > 0) out[type] = clean;
 	}
 	return out.expense === undefined && out.income === undefined ? undefined : out;
 }
@@ -526,6 +700,30 @@ export class ExpenseService {
 		return this.data.records.filter(r => r.type === type && r.category === category).length;
 	}
 
+	/** All categories of a direction in the user's display order: stored
+	 *  order entries first (unknown/duplicate entries skipped), then any
+	 *  categories the order never mentions in default order. Never persists
+	 *  the completion — untouched legacy files stay untouched. */
+	getOrderedCategories(type: ExpenseType): string[] {
+		const known = this.getCategories(type);
+		const order = this.data.categoryOrder?.[type];
+		if (!order) return known;
+		const seen = new Set<string>();
+		const head: string[] = [];
+		for (const key of order) {
+			if (!known.includes(key) || seen.has(key)) continue;
+			seen.add(key);
+			head.push(key);
+		}
+		return [...head, ...known.filter(k => !seen.has(k))];
+	}
+
+	/** Overwrite the stored order for a direction; false unless `keys` is an
+	 *  exact, duplicate-free cover of the current category set. */
+	reorderCategories(type: ExpenseType, keys: readonly string[]): boolean {
+		return this.writeTypeList('categoryOrder', type, keys, this.getCategories(type));
+	}
+
 	/** Register a custom category name for a direction; rejected when empty/
 	 *  over-long, shadowing a preset, already present, or past the cap. */
 	addCustomCategory(type: ExpenseType, rawName: string): AddCategoryResult {
@@ -544,7 +742,9 @@ export class ExpenseService {
 	}
 
 	/** Remove a custom category (case-insensitive). Existing records keep the
-	 *  name — display falls back to the raw key (categoryLabel). */
+	 *  name — display falls back to the raw key (categoryLabel). The name is
+	 *  also dropped from the stored order and any primary mapping so it stops
+	 *  appearing in manager/filter lists immediately. */
 	removeCustomCategory(type: ExpenseType, name: string): boolean {
 		const existing = this.data.customCategories?.[type] ?? [];
 		const next = existing.filter(n => n.toLowerCase() !== name.toLowerCase());
@@ -552,7 +752,28 @@ export class ExpenseService {
 		const custom = { ...this.data.customCategories, [type]: next };
 		// Drop the key entirely when empty so the JSON stays tidy.
 		if (next.length === 0) delete custom[type];
-		this.data = { ...this.data, customCategories: custom };
+
+		const orderList = this.data.categoryOrder?.[type] ?? [];
+		let categoryOrder = this.data.categoryOrder;
+		if (orderList.length > 0) {
+			const order = orderList.filter(n => n.toLowerCase() !== name.toLowerCase());
+			categoryOrder = { ...this.data.categoryOrder, [type]: order };
+			if (order.length === 0) delete categoryOrder[type];
+		}
+
+		const parentMap = this.data.categoryParents?.[type];
+		let categoryParents = this.data.categoryParents;
+		if (parentMap && parentMap[name] !== undefined) {
+			const { [name]: _dropped, ...rest } = parentMap;
+			categoryParents = { ...this.data.categoryParents, [type]: rest };
+		}
+
+		this.data = {
+			...this.data,
+			customCategories: custom,
+			...(categoryOrder !== this.data.categoryOrder ? { categoryOrder } : {}),
+			...(categoryParents !== this.data.categoryParents ? { categoryParents } : {}),
+		};
 		this.save();
 		this.notify();
 		return true;
@@ -564,6 +785,128 @@ export class ExpenseService {
 		const saved = this.data.lastCategory[type];
 		if (saved && cats.includes(saved)) return saved;
 		return cats[0] ?? 'other';
+	}
+
+	// ===== Primary groups =====
+
+	/** Ordered primary-group names for a direction (shared copy). */
+	getPrimaryCategories(type: ExpenseType): string[] {
+		return [...(this.data.primaryCategories?.[type] ?? [])];
+	}
+
+	/** Register a primary group; same validation shape as addCustomCategory
+	 *  (empty/over-long or preset-shadowing name -> invalid/duplicate). */
+	addPrimaryCategory(type: ExpenseType, rawName: string): AddCategoryResult {
+		const name = rawName.trim().slice(0, EXPENSE_CATEGORY_NAME_MAX);
+		if (name.length === 0) return { ok: false, reason: 'invalid' };
+		const existing = this.data.primaryCategories?.[type] ?? [];
+		if (collidesWithPreset(name, type) || existing.some(n => n.toLowerCase() === name.toLowerCase())) {
+			return { ok: false, reason: 'duplicate' };
+		}
+		if (existing.length >= EXPENSE_MAX_PRIMARY_CATEGORIES) return { ok: false, reason: 'limit' };
+		this.data = {
+			...this.data,
+			primaryCategories: { ...this.data.primaryCategories, [type]: [...existing, name] },
+		};
+		this.save();
+		this.notify();
+		return { ok: true, name };
+	}
+
+	/** Remove a primary group (case-insensitive). Categories mapped to it
+	 *  become ungrouped — their records are untouched, the mapping is derived. */
+	removePrimaryCategory(type: ExpenseType, name: string): boolean {
+		const existing = this.data.primaryCategories?.[type] ?? [];
+		const next = existing.filter(n => n.toLowerCase() !== name.toLowerCase());
+		if (next.length === existing.length) return false;
+		const primaries = { ...this.data.primaryCategories, [type]: next };
+		if (next.length === 0) delete primaries[type];
+
+		const parentMap = this.data.categoryParents?.[type];
+		let categoryParents = this.data.categoryParents;
+		if (parentMap) {
+			const lower = name.toLowerCase();
+			const rest = Object.fromEntries(
+				Object.entries(parentMap).filter(([, p]) => p.toLowerCase() !== lower));
+			categoryParents = { ...this.data.categoryParents, [type]: rest };
+			if (Object.keys(rest).length === 0) delete categoryParents[type];
+		}
+
+		this.data = {
+			...this.data,
+			primaryCategories: primaries,
+			...(categoryParents !== this.data.categoryParents ? { categoryParents } : {}),
+		};
+		this.save();
+		this.notify();
+		return true;
+	}
+
+	/** Categories currently mapped to a primary group (confirm copy + usage). */
+	countPrimaryUsage(type: ExpenseType, primary: string): number {
+		const lower = primary.toLowerCase();
+		return Object.entries(this.data.categoryParents?.[type] ?? {})
+			.filter(([, p]) => p.toLowerCase() === lower).length;
+	}
+
+	/** Overwrite the stored primary order for a direction; exact-cover rule
+	 *  identical to reorderCategories. */
+	reorderPrimaryCategories(type: ExpenseType, names: readonly string[]): boolean {
+		return this.writeTypeList('primaryCategories', type, names, this.getPrimaryCategories(type));
+	}
+
+	/** Assign a category to a primary group (null = ungroup). False when
+	 *  either side is unknown; same-value writes are no-op successes. */
+	setCategoryParent(type: ExpenseType, category: string, primary: string | null): boolean {
+		if (!this.getCategories(type).includes(category)) return false;
+		const map = this.data.categoryParents?.[type] ?? {};
+		if (primary !== null && !(this.data.primaryCategories?.[type] ?? []).includes(primary)) return false;
+		if (primary === null) {
+			if (map[category] === undefined) return true;
+			const { [category]: _dropped, ...rest } = map;
+			const categoryParents = { ...this.data.categoryParents, [type]: rest };
+			if (Object.keys(rest).length === 0) delete categoryParents[type];
+			this.data = { ...this.data, categoryParents };
+		} else {
+			if (map[category] === primary) return true;
+			this.data = {
+				...this.data,
+				categoryParents: { ...this.data.categoryParents, [type]: { ...map, [category]: primary } },
+			};
+		}
+		this.save();
+		this.notify();
+		return true;
+	}
+
+	/** The primary group a category is mapped to, or undefined. */
+	getCategoryParent(type: ExpenseType, category: string): string | undefined {
+		return this.data.categoryParents?.[type]?.[category];
+	}
+
+	/** Shared exact-cover writer for the two per-type list fields (stored
+	 *  order, primary order): a candidate is accepted only when it covers the
+	 *  current entries exactly, without duplicates. */
+	private writeTypeList(
+		field: 'categoryOrder' | 'primaryCategories',
+		type: ExpenseType,
+		candidate: readonly string[],
+		current: readonly string[],
+	): boolean {
+		if (candidate.length !== current.length || new Set(candidate).size !== candidate.length) return false;
+		if (candidate.some(k => !current.includes(k))) return false;
+		if (field === 'categoryOrder') {
+			const next = { ...this.data.categoryOrder, [type]: [...candidate] };
+			if (candidate.length === 0) delete next[type];
+			this.data = { ...this.data, categoryOrder: next };
+		} else {
+			const next = { ...this.data.primaryCategories, [type]: [...candidate] };
+			if (candidate.length === 0) delete next[type];
+			this.data = { ...this.data, primaryCategories: next };
+		}
+		this.save();
+		this.notify();
+		return true;
 	}
 
 	/** Currency symbol from settings (trimmed, default '¥'). */
@@ -665,4 +1008,20 @@ export class ExpenseService {
 		years.add(new Date().getFullYear());
 		return [...years].sort((a, b) => a - b);
 	}
+}
+
+/** Regroup a per-category breakdown (getCategoryBreakdown) up to primary
+ *  groups: each category's total lands on its mapped primary, unmapped ones
+ *  pool into the UNGROUPED_PRIMARY bucket. Pure — the stats overlay calls it
+ *  with its own parentOf so this stays testable without a service instance. */
+export function regroupBreakdownByPrimary(
+	totals: ReadonlyMap<string, number>,
+	parentOf: (category: string) => string | undefined,
+): Map<string, number> {
+	const out = new Map<string, number>();
+	for (const [category, value] of totals) {
+		const key = parentOf(category) ?? UNGROUPED_PRIMARY;
+		out.set(key, (out.get(key) ?? 0) + value);
+	}
+	return out;
 }

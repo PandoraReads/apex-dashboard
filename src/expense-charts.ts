@@ -24,7 +24,11 @@ const INCOME_PALETTE: Record<string, string> = {
 	other: '#95a5a6',
 };
 
-const FALLBACK_COLOR = '#95a5a6';
+/** Neutral gray for empty keys and the ungrouped primary bucket (a real
+ *  color would imply a category the user never created). */
+export const EXPENSE_FALLBACK_COLOR = '#95a5a6';
+
+const FALLBACK_COLOR = EXPENSE_FALLBACK_COLOR;
 
 /** Deterministic color for a custom category name: FNV-1a hash → HSL hue, so
  *  the same name keeps the same color across the donut, ranking and legend

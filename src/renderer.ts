@@ -18,6 +18,7 @@ import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
 import { applyModalTheme } from './modal-theme';
+import { partnerIndexOf } from './column-pairs';
 import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, computeStreak } from './tracker-service';
@@ -1798,6 +1799,89 @@ function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, cal
 	});
 }
 
+/** Sanitize a stored pair split: left member's share in percent, 50 default.
+ *  Out-of-range/garbage values (hand-edited files) fall back to the default. */
+function clampPairWidth(width: unknown): number {
+	return typeof width === 'number' && Number.isFinite(width)
+		? Math.max(20, Math.min(80, Math.round(width)))
+		: 50;
+}
+
+/** Pair split rendering: the LEFT member of a pair owns the split (its
+ *  `width`, left share %) and mounts the col-resize divider over the board
+ *  gutter; the RIGHT member mirrors the complement. Both write --db-pair-basis,
+ *  which the half-row basis consumes (calc basis minus half the gutter,
+ *  defaulting to the historical 50%). Exported for the verify script. */
+export function applyPairWidth(el: HTMLElement, column: DashboardColumn, data: DashboardData | undefined, callbacks: RenderCallbacks): void {
+	if (!data) return;
+	const idx = data.columns.indexOf(column);
+	if (idx < 0) return;
+	const partner = partnerIndexOf(data.columns, idx);
+	if (partner === idx + 1) {
+		el.addClass('dashboard-section-row--pair-left');
+		el.style.setProperty('--db-pair-basis', `${clampPairWidth(column.width)}%`);
+		attachPairWidthHandle(el, column, callbacks);
+	} else if (partner === idx - 1) {
+		const left = data.columns[partner]!;
+		el.style.setProperty('--db-pair-basis', `${100 - clampPairWidth(left.width)}%`);
+	}
+}
+
+/** Drag the pair divider: live-writes --db-pair-basis on both halves, then
+ *  persists the rounded split on mouseup (the same write-nothing-mid-drag
+ *  discipline as the height handle). Same drag-shield treatment for embedded
+ *  frames. Desktop only (only ever attached from a rendered pair). */
+function attachPairWidthHandle(el: HTMLElement, column: DashboardColumn, callbacks: RenderCallbacks): void {
+	const handle = el.createDiv({ cls: 'dashboard-pair-width-handle' });
+	handle.setAttribute('aria-label', t('renderer.pairWidthHint'));
+	handle.addEventListener('mousedown', (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		const board = el.parentElement;
+		const partnerEl = el.nextElementSibling;
+		if (!board || !(partnerEl instanceof HTMLElement)
+			|| !partnerEl.hasClass('dashboard-section-row--half')) return;
+		// Split math runs against the draggable span (line minus the one
+		// gutter between the halves), reading the gutter from the board's own
+		// --db-kanban-gap so a future CSS retune keeps the drag calibrated.
+		const gutter = parseFloat(getComputedStyle(board).getPropertyValue('--db-kanban-gap')) || 10;
+		const usable = board.clientWidth - gutter;
+		if (usable <= 0) return;
+		const startX = e.clientX;
+		const startPct = clampPairWidth(column.width);
+		let lastPct = startPct;
+		el.addClass('dashboard-section-row--resizing');
+		const shieldHost = el.closest('.apex-dashboard-root') ?? board;
+		shieldHost.addClass('dashboard-frames-muted');
+		const onMove = (ev: MouseEvent) => {
+			// The row can be torn down mid-drag by a re-render; stop rather
+			// than resize a detached element.
+			if (!el.isConnected) {
+				stopDrag();
+				return;
+			}
+			lastPct = Math.max(20, Math.min(80, startPct + ((ev.clientX - startX) / usable) * 100));
+			el.style.setProperty('--db-pair-basis', `${lastPct}%`);
+			partnerEl.style.setProperty('--db-pair-basis', `${100 - lastPct}%`);
+		};
+		const onUp = () => {
+			stopDrag();
+			const rounded = Math.round(lastPct);
+			if (rounded !== Math.round(startPct)) {
+				callbacks.onColumnWidthChange(column.name, rounded);
+			}
+		};
+		function stopDrag(): void {
+			activeDocument.removeEventListener('mousemove', onMove);
+			activeDocument.removeEventListener('mouseup', onUp);
+			el.removeClass('dashboard-section-row--resizing');
+			shieldHost.removeClass('dashboard-frames-muted');
+		}
+		activeDocument.addEventListener('mousemove', onMove);
+		activeDocument.addEventListener('mouseup', onUp);
+	});
+}
+
 export function renderSection(column: DashboardColumn, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
 	const el = createDiv();
 	el.addClass('dashboard-section-row');
@@ -1829,6 +1913,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	// the class never renders there, so the mobile CSS sizing is untouched.
 	if (!Platform.isMobile && column.half) {
 		el.addClass('dashboard-section-row--half');
+		applyPairWidth(el, column, data, callbacks);
 	}
 
 	attachSectionResizeHandle(el, column, callbacks);

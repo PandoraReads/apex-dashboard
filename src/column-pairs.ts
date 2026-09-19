@@ -14,6 +14,9 @@
 
 interface Pairable {
 	half?: boolean;
+	/** Pair-split share in percent; rides on the left half member only, so it
+	 *  is cleared wherever `half` is (see the width note on DashboardColumn). */
+	width?: number;
 }
 
 export type PairSide = 'left' | 'right';
@@ -60,7 +63,7 @@ export function normalizeColumnPairs<T extends Pairable>(cols: T[]): T[] {
 	const next = cols.map((c, i) => {
 		if (c.half && !paired.has(i)) {
 			changed = true;
-			return { ...c, half: undefined };
+			return { ...c, half: undefined, width: undefined };
 		}
 		return c;
 	});
@@ -76,7 +79,7 @@ export function unpartnerAt<T extends Pairable>(cols: T[], index: number): T[] {
 	const next = cols.map((c, i) => {
 		if (toClear.has(i) && c.half) {
 			changed = true;
-			return { ...c, half: undefined };
+			return { ...c, half: undefined, width: undefined };
 		}
 		return c;
 	});
@@ -93,7 +96,7 @@ export function moveToOwnRow<T extends Pairable>(cols: T[], from: number, to: nu
 	if (from < 0 || from >= cols.length) return cols;
 
 	const unp = unpartnerAt(cols, from);
-	const moved = { ...unp[from]!, half: undefined };
+	const moved = { ...unp[from]!, half: undefined, width: undefined };
 	const rest = unp.filter((_, i) => i !== from);
 
 	let insertAt = Math.max(0, Math.min(to, rest.length));
@@ -122,7 +125,7 @@ export function moveBeside<T extends Pairable>(cols: T[], from: number, target: 
 	if (partnerOfTarget >= 0 && partnerOfTarget !== from) evict.add(partnerOfTarget);
 	const cleared = evict.size === 0
 		? cols
-		: cols.map((c, i) => (evict.has(i) ? { ...c, half: undefined } : c));
+		: cols.map((c, i) => (evict.has(i) ? { ...c, half: undefined, width: undefined } : c));
 
 	const moved = { ...cleared[from]!, half: true };
 	const rest = cleared.filter((_, i) => i !== from);

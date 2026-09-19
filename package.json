@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "2.5.1",
+	"version": "2.5.3",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -17,6 +17,8 @@
 		"test:confirm-dialog": "esbuild scripts/verify-confirm-dialog.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-confirm-dialog.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-confirm-dialog.cjs",
 		"test:path-picker": "esbuild scripts/verify-path-picker.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-path-picker.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-path-picker.cjs",
 		"test:library-cover": "esbuild scripts/verify-library-cover.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-cover.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-cover.cjs",
+		"test:kanban-upgrade": "esbuild scripts/verify-kanban-upgrade.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-kanban-upgrade.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-kanban-upgrade.cjs",
+		"test:pair-width": "esbuild scripts/verify-pair-width.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pair-width.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pair-width.cjs",
 		"test:library-card-size": "esbuild scripts/verify-library-card-size.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-card-size.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-card-size.cjs",
 		"test:media-thumb-size": "esbuild scripts/verify-media-thumb-size.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-media-thumb-size.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-media-thumb-size.cjs",
 		"test:countdown-picker": "esbuild scripts/verify-countdown-picker.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-countdown-picker.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-countdown-picker.cjs",
@@ -31,6 +33,7 @@
 		"test:music-account": "esbuild scripts/verify-music-account.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-music-account.cjs --alias:obsidian=./scripts/music-network-stub.ts --alias:electron=./scripts/music-electron-stub.ts --alias:@electron/remote=./scripts/music-electron-stub.ts --log-level=warning && node node_modules/.tmp/verify-music-account.cjs",
 		"test:music-client": "esbuild scripts/verify-music-client.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-music-client.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-music-client.cjs",
 		"test:banner-quote-font": "esbuild scripts/verify-banner-quote-font.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-banner-quote-font.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-banner-quote-font.cjs",
+		"test:expense": "esbuild scripts/verify-expense.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-expense.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-expense.cjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},

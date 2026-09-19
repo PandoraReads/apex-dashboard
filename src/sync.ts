@@ -547,6 +547,20 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	/** Persist a dragged pair-divider split: the left member's share in
+	 *  percent (clamped 20-80). Desktop only. */
+	async updateColumnWidth(columnName: string, widthPct: number): Promise<void> {
+		if (!this.data) return;
+		const pct = Math.max(20, Math.min(80, Math.round(widthPct)));
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, width: pct } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
 
 	/** Resolve a column to a single index. Prefers the UI-provided index (the
 	 *  exact section the user clicked) when its name still matches — with

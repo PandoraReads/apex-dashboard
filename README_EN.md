@@ -125,6 +125,11 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 2.5.3
+- **Category reordering & primary groups** — The "Manage categories" dialog now drag-sorts (presets included; the entry dropdown and ledger filters follow; up/down buttons cover touch). A new primary-group layer: create groups, assign categories, and the ledger gains a "Primary" column plus a group filter (with an Ungrouped bucket); the stats donut and ranking toggle between per-category and per-group aggregation. Grouping is stored separately, so re-grouping re-buckets the whole history without touching any record
+- **History by week & month** — The stats "History" range gains a week/month/year sub-toggle with ‹ › paging: view any past week (labeled with its date span), month or year; KPI deltas compare against the previous like period, and trends plot daily for weeks/months and monthly for years; paging stops at the current period and the oldest year with data
+- **Fix: KPI delta chips crowding the number** — Expense and pomodoro stat cards now give the value its own centered line with the period-over-period chip wrapped and centered underneath — no more squeezing or overflowing the card
+
 ### 2.5.2
 - **Music playback self-heal** — A transient failure no longer pops "playback error, skipping to the next track" and permanently loses the song: it silently retries the same track once with a fresh signed link (mid-stream drops resume at the same position, and links that expired during a long pause are swapped for new ones); only if the retry fails does it quietly move on. Three actionable notices remain: clicking a VIP track, an expired login, and the circuit-breaker stop after repeated failures
 - **Banner quote font dropdown** — No more hand-typing font names: pick from a dropdown of eight Chinese faces (KaiTi, Songti, Fangsong, Lishu, Xingkai, Yuanti, Heiti, LXGW WenKai) and eight western ones (Georgia, Times, Palatino, Baskerville, Garamond, Didot, Helvetica, Courier). Each entry stores a cross-platform font stack, so one setting renders on macOS, Windows and iPad alike; previously hand-typed names stay selectable in the dropdown

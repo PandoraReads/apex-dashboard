@@ -215,6 +215,18 @@ export class LibraryConfigModal extends Modal {
 			this.config.kanbanGroupBy = groupSelect.value || undefined;
 		});
 
+		// Kanban card covers: same 封面/cover extraction as the gallery view.
+		const coversRow = kanbanSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const coversBox = coversRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		coversBox.checked = this.config.kanbanShowCovers === true;
+		coversBox.addEventListener('change', () => {
+			this.config.kanbanShowCovers = coversBox.checked ? true : undefined;
+		});
+		coversRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('library.kanbanShowCovers') });
+
 		// Excluded folders: files inside them never reach the section's data.
 		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });

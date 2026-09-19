@@ -1056,8 +1056,6 @@ function renderFileCards(container: HTMLElement, results: LibraryFileResult[], a
 	// keep the exact old layout.
 	const sizeClass = config.cardSize && config.cardSize !== 'medium' ? ` dashboard-library-cards--${config.cardSize}` : '';
 	const grid = container.createDiv({ cls: (opts.covers ? 'dashboard-library-gallery' : 'dashboard-library-grid') + sizeClass });
-	const showProperties = config.showProperties !== false;
-	const propertyLimit = Math.max(0, config.propertyLimit ?? 6);
 
 	for (const result of results) {
 		const card = grid.createDiv({ cls: 'dashboard-library-card' });
@@ -1128,25 +1126,9 @@ function renderFileCards(container: HTMLElement, results: LibraryFileResult[], a
 			if (previewEl.isConnected) previewEl.remove();
 		});
 
-		// Frontmatter property badges (excludes position; tags are rendered above
-		// for folder sections). Capped to keep cards a uniform, bounded size.
-		// visibleProperties is the primary mode: a card matching at least one
-		// picked property shows exactly those (uncapped); only cards matching
-		// none fall back to the automatic first-propertyLimit slice, so the two
-		// settings complement each other.
-		const hasPicks = (config.visibleProperties?.length ?? 0) > 0;
-		if (showProperties && (propertyLimit > 0 || hasPicks)) {
-			const badges = card.createDiv({ cls: 'dashboard-library-badges' });
-			const keys = selectBadgeKeys(badgeFrontmatter, config.visibleProperties, propertyLimit);
-			for (const key of keys) {
-				const val = formatBadgeValue(badgeFrontmatter[key]);
-				if (val === null) continue;
-				const badge = badges.createDiv({ cls: 'dashboard-library-badge' });
-				badge.createDiv({ cls: 'dashboard-library-badge-key', text: key });
-				badge.createDiv({ cls: 'dashboard-library-badge-val', text: val });
-			}
-			if (keys.length === 0) badges.remove();
-		}
+		// Frontmatter property badges — same shared settings the kanban cards
+		// use (see renderPropertyBadges).
+		renderPropertyBadges(card, badgeFrontmatter, config);
 	}
 }
 
@@ -1159,6 +1141,30 @@ function omitFrontmatterKey(frontmatter: Record<string, unknown>, key: string): 
 		if (k !== key) next[k] = v;
 	}
 	return next;
+}
+
+/** Property badges shared by the card views (grid/gallery) and the kanban
+ *  cards — one settings surface (visibleProperties / propertyLimit /
+ *  showProperties) governs both. visibleProperties is the primary mode: a card
+ *  matching at least one picked property shows exactly those (uncapped); only
+ *  cards matching none fall back to the automatic first-`propertyLimit` slice.
+ *  Tags never badge (folder-section cards render tag chips instead; kanban
+ *  groups by them). Emits no node when nothing shows. */
+function renderPropertyBadges(card: HTMLElement, frontmatter: Record<string, unknown>, config: LibraryConfig): void {
+	if (config.showProperties === false) return;
+	const propertyLimit = Math.max(0, config.propertyLimit ?? 6);
+	if (propertyLimit <= 0 && (config.visibleProperties?.length ?? 0) === 0) return;
+	const keys = selectBadgeKeys(frontmatter, config.visibleProperties, propertyLimit);
+	if (keys.length === 0) return;
+	const badges = card.createDiv({ cls: 'dashboard-library-badges' });
+	for (const key of keys) {
+		const val = formatBadgeValue(frontmatter[key]);
+		if (val === null) continue;
+		const badge = badges.createDiv({ cls: 'dashboard-library-badge' });
+		badge.createDiv({ cls: 'dashboard-library-badge-key', text: key });
+		badge.createDiv({ cls: 'dashboard-library-badge-val', text: val });
+	}
+	if (!badges.children.length) badges.remove();
 }
 
 export interface CoverCandidate {
@@ -1538,6 +1544,10 @@ function folderGroupPath(filePath: string, scanFolders: string[]): string | unde
 interface KanbanDragState {
 	file: TFile | null;
 	cardEl: HTMLElement | null;
+	/** Group key of the column the drag started in (null = the not-set column).
+	 *  Property-mode drops use it to swap only the dragged-from value when the
+	 *  group property is multi-valued. */
+	fromKey: string | null;
 }
 
 /** Group key → drop-target folder path, derived from the group members' real
@@ -1571,15 +1581,17 @@ function ancestorGroupKeys(groupFolders: Map<string, string>): Set<string> {
 	return suppressed;
 }
 
-/** Make one kanban card draggable (desktop, folder-grouping only). Tags the
- *  drag with the shared custom MIME type so foreign drop targets (dnd.ts) can
- *  recognize and decline it at dragover time. */
-function attachKanbanCardDrag(card: HTMLElement, file: TFile, state: KanbanDragState): void {
+/** Make one kanban card draggable (desktop). `fromKey` records the column the
+ *  card sits in for property-mode drops (multi-value swap). Tags the drag with
+ *  the shared custom MIME type so foreign drop targets (dnd.ts) can recognize
+ *  and decline it at dragover time. */
+function attachKanbanCardDrag(card: HTMLElement, file: TFile, fromKey: string | null, state: KanbanDragState, hint: string): void {
 	card.setAttribute('draggable', 'true');
-	card.title = t('library.kanbanDragHint');
+	card.title = hint;
 	card.addEventListener('dragstart', (e) => {
 		state.file = file;
 		state.cardEl = card;
+		state.fromKey = fromKey;
 		card.addClass('dashboard-library-kanban-card--dragging');
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
@@ -1591,22 +1603,23 @@ function attachKanbanCardDrag(card: HTMLElement, file: TFile, state: KanbanDragS
 	card.addEventListener('dragend', () => {
 		state.file = null;
 		state.cardEl = null;
+		state.fromKey = null;
 		card.removeClass('dashboard-library-kanban-card--dragging');
 		activeDocument.querySelectorAll('.dashboard-library-kanban-col--drag-over')
 			.forEach(el => (el as HTMLElement).removeClass('dashboard-library-kanban-col--drag-over'));
 	});
 }
 
-/** Wire one kanban column as a drop target (desktop, folder-grouping only).
- *  groupKey undefined marks the not-set column, which declines drops
- *  (dropEffect none) — its files are vault-root/scan-orphans with no target
- *  folder. Drags lacking the kanban marker pass through untouched so memo
- *  cards, section grips and OS file drops keep their dnd.ts behavior. */
+/** Wire one kanban column as a drop target (desktop). `accepts` false marks a
+ *  column that declines drops (dropEffect none) — folder mode: the not-set
+ *  column, whose files have no target folder; property mode: the not-set
+ *  column, whose semantic would be "delete the property", declined on purpose.
+ *  Drags lacking the kanban marker pass through untouched so memo cards,
+ *  section grips and OS file drops keep their dnd.ts behavior. */
 function attachKanbanColumnDrop(
 	col: HTMLElement,
-	groupKey: string | undefined,
-	groupFolders: Map<string, string>,
-	app: App,
+	accepts: boolean,
+	onDrop: (file: TFile, cardEl: HTMLElement) => void,
 	state: KanbanDragState,
 ): void {
 	const onDragOver = (e: DragEvent) => {
@@ -1615,9 +1628,8 @@ function attachKanbanColumnDrop(
 		// dnd.ts doesn't highlight the whole section row behind the kanban.
 		e.preventDefault();
 		e.stopPropagation();
-		const target = state.file ? groupFolders.get(groupKey ?? '') : undefined;
-		e.dataTransfer.dropEffect = target ? 'move' : 'none';
-		col.toggleClass('dashboard-library-kanban-col--drag-over', !!target);
+		e.dataTransfer.dropEffect = accepts ? 'move' : 'none';
+		col.toggleClass('dashboard-library-kanban-col--drag-over', accepts);
 	};
 	const onDragLeave = (e: DragEvent) => {
 		const rect = col.getBoundingClientRect();
@@ -1625,22 +1637,22 @@ function attachKanbanColumnDrop(
 			col.removeClass('dashboard-library-kanban-col--drag-over');
 		}
 	};
-	const onDrop = (e: DragEvent) => {
+	const onDropEvent = (e: DragEvent) => {
 		if (!state.file || !state.cardEl) return;
 		e.preventDefault();
 		e.stopPropagation();
 		col.removeClass('dashboard-library-kanban-col--drag-over');
-		const targetFolder = groupFolders.get(groupKey ?? '');
-		if (targetFolder) void moveKanbanCard(app, state.file, targetFolder, state.cardEl, col);
+		if (accepts) onDrop(state.file, state.cardEl);
 	};
 	col.addEventListener('dragover', onDragOver);
 	col.addEventListener('dragleave', onDragLeave);
-	col.addEventListener('drop', onDrop);
+	col.addEventListener('drop', onDropEvent);
 }
 
-/** Files with a kanban move still awaiting renameFile. A second drop of the
- *  same file inside that window would read pre-rename vault state (stale path,
- *  stale conflict check) and could double-move — consult this and bail. */
+/** Files with a kanban move still awaiting its write (folder rename or
+ *  property frontmatter update). A second drop of the same file inside that
+ *  window would read pre-write vault state and could double-move — consult
+ *  this and bail. */
 const kanbanMovesInFlight = new Set<TFile>();
 
 /** Move a kanban card's file into the target group folder's root (flatten).
@@ -1689,6 +1701,75 @@ async function moveKanbanCard(
 	}
 }
 
+/** Pure core of a property-grouped kanban move: the next value for the group
+ *  property, or undefined when the move changes nothing (same-value drop).
+ *  Scalars replace; arrays swap the dragged-from value for the target and keep
+ *  the rest — a multi-valued card legitimately sits in several columns, so a
+ *  move from one of them must not drop the others. fromKey null (dragged out
+ *  of the not-set column) just gains the target. Values keep their original
+ *  YAML types; only the comparison is string-based, mirroring the grouping. */
+export function nextGroupPropertyValue(current: unknown, targetValue: string, fromKey: string | null): unknown {
+	if (Array.isArray(current)) {
+		const kept = current.filter(v => fromKey === null || String(v) !== fromKey);
+		if (!kept.some(v => String(v) === targetValue)) kept.push(targetValue);
+		// Member-wise (not positional) no-op check: dropping a multi-value card
+		// back on its own column must not reorder-and-rewrite the array.
+		const unchanged = kept.length === current.length
+			&& current.every(v => kept.some(k => String(k) === String(v)));
+		return unchanged ? undefined : kept;
+	}
+	if (current == null) return targetValue;
+	// Only scalar YAML values can match a group name; a nested map/list in
+	// the slot falls through to the overwrite (String() on it would be
+	// "[object Object]" garbage anyway).
+	if (typeof current === 'string' || typeof current === 'number' || typeof current === 'boolean') {
+		if (String(current) === targetValue) return undefined;
+	}
+	return targetValue;
+}
+
+/** Write a property-grouped kanban move into the note's frontmatter: the group
+ *  property becomes the target column's value. Optimistically reparents the
+ *  card like the folder move; rolls the DOM back if the write fails. */
+async function setKanbanGroupProperty(
+	app: App,
+	file: TFile,
+	propKey: string,
+	targetValue: string,
+	fromKey: string | null,
+	cardEl: HTMLElement,
+	targetCol: HTMLElement,
+): Promise<void> {
+	// Same-value drop (including a drop back on the card's own column): no-op.
+	const cached: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.[propKey];
+	if (nextGroupPropertyValue(cached, targetValue, fromKey) === undefined) return;
+	// A previous drop of this file is still writing — let it finish.
+	if (kanbanMovesInFlight.has(file)) return;
+	const originParent = cardEl.parentNode;
+	const originNext = cardEl.nextSibling;
+	kanbanMovesInFlight.add(file);
+	targetCol.appendChild(cardEl);
+	refreshKanbanColumnCount(targetCol);
+	if (originParent instanceof HTMLElement) refreshKanbanColumnCount(originParent);
+	try {
+		// processFrontMatter re-reads the live frontmatter, so the swap derives
+		// from the file's actual state even if the cache read above was stale.
+		await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			const next = nextGroupPropertyValue(fm[propKey], targetValue, fromKey);
+			if (next !== undefined) fm[propKey] = next;
+		});
+		new Notice(t('library.propertyMoved', { name: file.basename, prop: propKey, value: targetValue }));
+	} catch (err) {
+		if (originParent) originParent.insertBefore(cardEl, originNext);
+		if (originParent instanceof HTMLElement) refreshKanbanColumnCount(originParent);
+		refreshKanbanColumnCount(targetCol);
+		console.error('[Dashboard] library kanban property move failed:', err);
+		new Notice(t('library.propertyMoveFailed'));
+	} finally {
+		kanbanMovesInFlight.delete(file);
+	}
+}
+
 /** Rewrite a column title so its count matches the cards now in the DOM
  *  (covers the optimistic-move window before the debounced re-render). */
 function refreshKanbanColumnCount(col: HTMLElement): void {
@@ -1699,15 +1780,87 @@ function refreshKanbanColumnCount(col: HTMLElement): void {
 	title.setText(`${label} (${count})`);
 }
 
+/** Cover slot on a kanban card — the gallery view's classes and extraction
+ *  (封面/cover first, any image-shaped value fallback), with the kanban class
+ *  only adding the inset/spacing (see styles.css). Returns the winning cover
+ *  candidate so the caller can drop that field from the property badges. */
+function renderKanbanCardCover(card: HTMLElement, result: LibraryFileResult, app: App): CoverCandidate | null {
+	const coverEl = card.createDiv({ cls: 'dashboard-library-card-cover dashboard-library-kanban-card-cover' });
+	const cover = extractCoverValue(result.frontmatter);
+	if (!cover) {
+		renderPlaceholderCover(coverEl);
+		return null;
+	}
+	void resolveLibraryCover(cover.value, result.file, app).then(url => {
+		if (!coverEl.isConnected) return;
+		if (url) coverEl.style.backgroundImage = `url(${url})`;
+		// Resolution failed (bad path, offline remote): themed placeholder.
+		else renderPlaceholderCover(coverEl);
+	});
+	return cover;
+}
+
 function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig): void {
 	const groupBy = config.kanbanGroupBy ?? 'tags';
 	const byFolder = config.groupMode === 'folder';
-	// Folder-grouping kanbans support drag-to-move on desktop only; the not-set
-	// column still allows dragging OUT (filing loose files) but rejects drops.
-	const dragEnabled = byFolder && !Platform.isMobile;
-	const groupFolders = dragEnabled ? buildKanbanGroupFolders(results, config.folders ?? []) : new Map<string, string>();
-	const dragState: KanbanDragState = { file: null, cardEl: null };
+	const showCovers = config.kanbanShowCovers === true;
+	// Both grouping modes support drag-to-move on desktop: folder moves
+	// rewrite the file's path, property moves rewrite the group property.
+	// The not-set column still allows dragging OUT (filing loose files) but
+	// rejects drops.
+	const dragEnabled = !Platform.isMobile;
+	const dragHint = byFolder ? t('library.kanbanDragHint') : t('library.kanbanDragHintProperty');
+	const groupFolders = dragEnabled && byFolder
+		? buildKanbanGroupFolders(results, config.folders ?? [])
+		: new Map<string, string>();
+	const dragState: KanbanDragState = { file: null, cardEl: null, fromKey: null };
 	const kanban = container.createDiv({ cls: 'dashboard-library-kanban' });
+
+	/** One card in any column. fromKey feeds property-mode drops (which column
+	 *  the drag started from); cover/badges/date render identically everywhere.
+	 *  Property badges share the card views' exact settings; in property mode
+	 *  the grouping field itself is dropped — it is the column header already. */
+	const makeCard = (col: HTMLElement, result: LibraryFileResult, fromKey: string | null): void => {
+		const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
+		attachItemHover(app, card, result.file);
+		card.addEventListener('click', () => openFile(app, result.file));
+		if (dragEnabled) attachKanbanCardDrag(card, result.file, fromKey, dragState, dragHint);
+		let badgeFrontmatter = result.frontmatter;
+		if (showCovers) {
+			const cover = renderKanbanCardCover(card, result, app);
+			if (cover) badgeFrontmatter = omitFrontmatterKey(badgeFrontmatter, cover.key);
+		}
+		if (!byFolder) badgeFrontmatter = omitFrontmatterKey(badgeFrontmatter, groupBy);
+		card.createDiv({ cls: 'dashboard-library-kanban-card-title', text: result.basename });
+		card.createDiv({ cls: 'dashboard-library-kanban-card-date', text: formatDate(result.mtime) });
+		renderPropertyBadges(card, badgeFrontmatter, config);
+	};
+
+	/** Column drop wiring per grouping mode: folder mode drops into the group's
+	 *  real folder, property mode rewrites the group property to the column's
+	 *  value. accepts=false (the not-set column) declines drops while its cards
+	 *  stay draggable out into real groups. */
+	const wireColumnDrop = (col: HTMLElement, groupKey: string | undefined): void => {
+		col.dataset.groupLabel = groupKey ?? t('library.notSet');
+		if (!dragEnabled) return;
+		if (byFolder) {
+			const targetFolder = groupFolders.get(groupKey ?? '');
+			attachKanbanColumnDrop(col, targetFolder !== undefined,
+				(file, cardEl) => { if (targetFolder) void moveKanbanCard(app, file, targetFolder, cardEl, col); },
+				dragState);
+			return;
+		}
+		if (groupKey === undefined) {
+			// Property mode deliberately declines the not-set column too: its
+			// drop semantics would be "delete the property", too destructive to
+			// hang on an accidental drop — edit the note to clear it instead.
+			attachKanbanColumnDrop(col, false, () => {}, dragState);
+			return;
+		}
+		attachKanbanColumnDrop(col, true,
+			(file, cardEl) => void setKanbanGroupProperty(app, file, groupBy, groupKey, dragState.fromKey, cardEl, col),
+			dragState);
+	};
 
 	// Group results
 	const groups = new Map<string, LibraryFileResult[]>();
@@ -1768,35 +1921,19 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 	for (const [groupName, groupResults] of groups) {
 		const col = kanban.createDiv({ cls: 'dashboard-library-kanban-col' });
 		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${groupName} (${groupResults.length})` });
-		if (dragEnabled) {
-			col.dataset.groupLabel = groupName;
-			attachKanbanColumnDrop(col, groupName, groupFolders, app, dragState);
-		}
+		wireColumnDrop(col, groupName);
 		for (const result of groupResults) {
-			const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
-			attachItemHover(app, card, result.file);
-			card.addEventListener('click', () => openFile(app, result.file));
-			if (dragEnabled) attachKanbanCardDrag(card, result.file, dragState);
-			card.createDiv({ cls: 'dashboard-library-kanban-card-title', text: result.basename });
-			card.createDiv({ cls: 'dashboard-library-kanban-card-date', text: formatDate(result.mtime) });
+			makeCard(col, result, groupName);
 		}
 	}
 
 	if (noGroup.length > 0) {
 		const col = kanban.createDiv({ cls: 'dashboard-library-kanban-col' });
 		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${t('library.notSet')} (${noGroup.length})` });
-		if (dragEnabled) {
-			// groupKey undefined → no map entry → this column declines drops,
-			// while its cards stay draggable out into real groups.
-			col.dataset.groupLabel = t('library.notSet');
-			attachKanbanColumnDrop(col, undefined, groupFolders, app, dragState);
-		}
+		// groupKey undefined → declines drops, while its cards stay draggable.
+		wireColumnDrop(col, undefined);
 		for (const result of noGroup) {
-			const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
-			attachItemHover(app, card, result.file);
-			card.addEventListener('click', () => openFile(app, result.file));
-			if (dragEnabled) attachKanbanCardDrag(card, result.file, dragState);
-			card.createDiv({ cls: 'dashboard-library-kanban-card-title', text: result.basename });
+			makeCard(col, result, null);
 		}
 	}
 }

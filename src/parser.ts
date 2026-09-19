@@ -204,6 +204,9 @@ export function serialize(data: DashboardData): string {
 			if (lc.groupMode === 'folder') {
 				lines.push(`      groupMode: folder`);
 			}
+			if (lc.kanbanShowCovers) {
+				lines.push(`      kanbanShowCovers: true`);
+			}
 			if (lc.pageSize) {
 				lines.push(`      pageSize: ${lc.pageSize}`);
 			}
@@ -253,6 +256,10 @@ export function serialize(data: DashboardData): string {
 		}
 		if (col.height != null) {
 			lines.push(`    height: ${col.height}`);
+		}
+		// Pair split (left member's share %): only meaningful beside `half`.
+		if (col.half && col.width != null) {
+			lines.push(`    width: ${col.width}`);
 		}
 		if (col.half) {
 			lines.push('    half: true');
@@ -828,7 +835,7 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean; width?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -843,10 +850,11 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
 		height: typeof item.height === 'number' ? item.height : undefined,
 		half: item.half === true ? true : undefined,
+		width: typeof item.width === 'number' && item.width >= 20 && item.width <= 80 ? Math.round(item.width) : undefined,
 	}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -875,6 +883,7 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			webConfig: def?.webConfig,
 			height: def?.height,
 			half: def?.half,
+			width: def?.half ? def?.width : undefined,
 		};
 	});
 	// Self-heal hand-edited frontmatter: a lone `half: true` (or an odd run)
@@ -935,6 +944,7 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		sortDesc: raw.sortDesc !== false,
 		kanbanGroupBy: raw.kanbanGroupBy ? str(raw.kanbanGroupBy) : undefined,
 		groupMode: ['property', 'folder'].includes(str(raw.groupMode ?? '')) ? (raw.groupMode as import('./types').LibraryConfig['groupMode']) : undefined,
+		kanbanShowCovers: raw.kanbanShowCovers === true ? true : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
 		showProperties: raw.showProperties === false ? false : undefined,
 		propertyLimit: typeof raw.propertyLimit === 'number' ? raw.propertyLimit : undefined,

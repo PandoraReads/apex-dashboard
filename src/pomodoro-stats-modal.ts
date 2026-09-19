@@ -174,6 +174,8 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		valRow.createDiv({ cls: 'dashboard-pomodoro-stats-card-value', text: value });
 		if (deltaPct !== undefined && Number.isFinite(deltaPct)) {
 			const up = deltaPct >= 0;
+			// Own centered line under the value — never squeezes the number
+			// and never leaves the card, whatever the pane width.
 			const delta = valRow.createDiv({
 				cls: 'dashboard-pomodoro-stats-card-delta'
 					+ (up ? ' dashboard-pomodoro-stats-card-delta--up' : ' dashboard-pomodoro-stats-card-delta--down'),

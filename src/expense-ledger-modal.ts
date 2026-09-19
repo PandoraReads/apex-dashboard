@@ -7,6 +7,7 @@ import {
 	expenseToday,
 	formatExpenseAmount,
 	getExpenseService,
+	UNGROUPED_PRIMARY,
 } from './expense-service';
 import { categoryLabel } from './expense-category-ui';
 import { ExpenseBackfillModal } from './expense-backfill-modal';
@@ -14,7 +15,7 @@ import { showConfirmDialog } from './confirm-dialog';
 import { CSV_HEADER, parseCsv, serializeCsv } from './expense-csv';
 
 /** Sortable table columns (the checkbox and actions cells are fixed). */
-type SortKey = 'date' | 'type' | 'category' | 'amount' | 'note';
+type SortKey = 'date' | 'type' | 'category' | 'primary' | 'amount' | 'note';
 type TypeFilter = 'all' | ExpenseType;
 
 const PAGE_SIZE = 50;
@@ -23,6 +24,7 @@ const COLUMNS: Array<{ key: SortKey; labelKey: string; cls: string }> = [
 	{ key: 'date', labelKey: 'expense.colDate', cls: 'dashboard-expense-ledger-th-date' },
 	{ key: 'amount', labelKey: 'expense.colAmount', cls: 'dashboard-expense-ledger-th-amount' },
 	{ key: 'type', labelKey: 'expense.colType', cls: 'dashboard-expense-ledger-th-type' },
+	{ key: 'primary', labelKey: 'expense.colPrimary', cls: 'dashboard-expense-ledger-th-primary' },
 	{ key: 'category', labelKey: 'expense.colCategory', cls: 'dashboard-expense-ledger-th-category' },
 	{ key: 'note', labelKey: 'expense.colNote', cls: 'dashboard-expense-ledger-th-note' },
 ];
@@ -53,6 +55,8 @@ export function showExpenseLedger(doc: Document): void {
 	// ===== View state (closure-held, survives re-renders) =====
 	let typeFilter: TypeFilter = 'all';
 	let categoryFilter = '';
+	/** '' = all; UNGROUPED_PRIMARY = records without a group; else a name. */
+	let primaryFilter = '';
 	let dateFrom = '';
 	let dateTo = '';
 	let search = '';
@@ -60,6 +64,10 @@ export function showExpenseLedger(doc: Document): void {
 	let sortAsc = false; // date desc = newest first, the default view
 	let page = 0;
 	const selected = new Set<string>();
+
+	/** A record's primary-group name, '' when ungrouped (derived — records
+	 *  never store the group, so re-grouping re-buckets history for free). */
+	const primaryOf = (r: ExpenseRecord): string => service.getCategoryParent(r.type, r.category) ?? '';
 
 	const overlay = mountOverlay(doc);
 	const modal = overlay.createDiv({ cls: 'dashboard-expense-ledger-modal' });
@@ -123,7 +131,7 @@ export function showExpenseLedger(doc: Document): void {
 			keys.push(key);
 		};
 		for (const type of ['expense', 'income'] as const) {
-			for (const key of service.getCategories(type)) push(key);
+			for (const key of service.getOrderedCategories(type)) push(key);
 		}
 		for (const r of service.getRecords()) push(r.category);
 		categorySelect.empty();
@@ -137,6 +145,41 @@ export function showExpenseLedger(doc: Document): void {
 	rebuildCategoryFilter();
 	categorySelect.addEventListener('change', () => {
 		categoryFilter = categorySelect.value;
+		page = 0;
+		renderTable();
+	});
+
+	const primarySelect = filtersGroup.createEl('select', {
+		cls: 'dashboard-expense-ledger-select dashboard-expense-ledger-select--primary',
+		attr: { 'aria-label': t('expense.colPrimary') },
+	});
+	/** Options: both directions' primary groups (case-insensitive union) plus
+	 *  an explicit "ungrouped" bucket; rebuilt with the category filter so a
+	 *  group added in the manager appears here without reopening. */
+	function rebuildPrimaryFilter(): void {
+		const names: string[] = [];
+		const seen = new Set<string>();
+		for (const type of ['expense', 'income'] as const) {
+			for (const name of service.getPrimaryCategories(type)) {
+				const key = name.toLowerCase();
+				if (seen.has(key)) continue;
+				seen.add(key);
+				names.push(name);
+			}
+		}
+		primarySelect.empty();
+		primarySelect.createEl('option', { text: t('expense.colPrimary'), attr: { value: '' } });
+		for (const name of names) {
+			primarySelect.createEl('option', { text: name, attr: { value: name } });
+		}
+		primarySelect.createEl('option', { text: t('expense.cat.ungrouped'), attr: { value: UNGROUPED_PRIMARY } });
+		const valid = primaryFilter === '' || primaryFilter === UNGROUPED_PRIMARY || seen.has(primaryFilter.toLowerCase());
+		primarySelect.value = valid ? primaryFilter : '';
+		primaryFilter = primarySelect.value;
+	}
+	rebuildPrimaryFilter();
+	primarySelect.addEventListener('change', () => {
+		primaryFilter = primarySelect.value;
 		page = 0;
 		renderTable();
 	});
@@ -177,12 +220,14 @@ export function showExpenseLedger(doc: Document): void {
 	clearBtn.addEventListener('click', () => {
 		typeFilter = 'all';
 		categoryFilter = '';
+		primaryFilter = '';
 		dateFrom = '';
 		dateTo = '';
 		search = '';
 		page = 0;
 		typeSelect.value = 'all';
 		rebuildCategoryFilter();
+		rebuildPrimaryFilter();
 		dateFromInput.value = '';
 		dateToInput.value = '';
 		searchInput.value = '';
@@ -235,6 +280,7 @@ export function showExpenseLedger(doc: Document): void {
 		type: (a, b) => t(a.type === 'expense' ? 'expense.typeExpense' : 'expense.typeIncome')
 			.localeCompare(t(b.type === 'expense' ? 'expense.typeExpense' : 'expense.typeIncome')),
 		category: (a, b) => categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
+		primary: (a, b) => primaryOf(a).localeCompare(primaryOf(b)),
 		amount: (a, b) => a.amount - b.amount,
 		note: (a, b) => (a.note ?? '').localeCompare(b.note ?? ''),
 	};
@@ -244,9 +290,14 @@ export function showExpenseLedger(doc: Document): void {
 		const rows = service.getRecords().filter(r => {
 			if (typeFilter !== 'all' && r.type !== typeFilter) return false;
 			if (categoryFilter && r.category !== categoryFilter) return false;
+			if (primaryFilter === UNGROUPED_PRIMARY) {
+				if (primaryOf(r) !== '') return false;
+			} else if (primaryFilter && primaryOf(r) !== primaryFilter) {
+				return false;
+			}
 			if (dateFrom && r.date < dateFrom) return false;
 			if (dateTo && r.date > dateTo) return false;
-			if (q && !`${r.note ?? ''} ${categoryLabel(r.category)}`.toLowerCase().includes(q)) return false;
+			if (q && !`${r.note ?? ''} ${categoryLabel(r.category)} ${primaryOf(r)}`.toLowerCase().includes(q)) return false;
 			return true;
 		});
 		const dir = sortAsc ? 1 : -1;
@@ -349,6 +400,10 @@ export function showExpenseLedger(doc: Document): void {
 			setIcon(typeIcon, r.type === 'expense' ? 'arrow-down-right' : 'arrow-up-right');
 			typeCell.createSpan({ text: t(r.type === 'expense' ? 'expense.typeExpense' : 'expense.typeIncome') });
 
+			row.createEl('td', {
+				cls: 'dashboard-expense-ledger-td-primary',
+				text: primaryOf(r) || '—',
+			});
 			row.createEl('td', { cls: 'dashboard-expense-ledger-td-category', text: categoryLabel(r.category) });
 			const noteCell = row.createEl('td', { cls: 'dashboard-expense-ledger-td-note' });
 			if (r.note) {
@@ -569,6 +624,7 @@ export function showExpenseLedger(doc: Document): void {
 			if (!alive.has(id)) selected.delete(id);
 		}
 		rebuildCategoryFilter();
+		rebuildPrimaryFilter();
 		renderTable();
 	});
 

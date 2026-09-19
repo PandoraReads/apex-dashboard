@@ -1136,6 +1136,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				onColumnMove: (fromIndex: number, toIndex: number) => { void this.sync.moveColumn(fromIndex, toIndex); },
 				onColumnMoveBeside: (fromIndex: number, targetIndex: number, side: 'left' | 'right') => { void this.sync.moveColumnBeside(fromIndex, targetIndex, side); },
 				onColumnHeightChange: (name: string, height: number) => { void this.sync.updateColumnHeight(name, height); },
+				onColumnWidthChange: (name: string, widthPct: number) => { void this.sync.updateColumnWidth(name, widthPct); },
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
@@ -1715,6 +1716,7 @@ export class DashboardView extends ItemView implements HoverParent {
 					filters,
 					kanbanGroupBy: result.groupBy,
 					groupMode: result.groupMode === 'folder' ? 'folder' : undefined,
+					kanbanShowCovers: result.kanbanShowCovers ? true : undefined,
 					showProperties: result.showProperties ? undefined : false,
 					propertyLimit: result.propertyLimit,
 					visibleProperties: result.visibleProperties,
@@ -1722,6 +1724,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			},
 			libraryConfig?.groupMode,
 			libraryConfig?.visibleProperties,
+			libraryConfig?.kanbanShowCovers,
 		);
 		modal.open();
 	}

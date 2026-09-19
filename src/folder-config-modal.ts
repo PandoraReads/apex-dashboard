@@ -14,6 +14,8 @@ export interface FolderConfigResult {
 	groupBy: string | undefined;
 	/** Kanban grouping mode: property (groupBy) or top-level subfolders. */
 	groupMode: 'property' | 'folder';
+	/** Kanban view: show card cover images (gallery-style extraction). */
+	kanbanShowCovers: boolean;
 	showProperties: boolean;
 	propertyLimit: number;
 	/** Hand-picked card properties (order preserved); undefined = automatic. */
@@ -31,6 +33,7 @@ export class FolderConfigModal extends Modal {
 	private selectedTags: string[];
 	private groupBy: string;
 	private groupMode: 'property' | 'folder';
+	private kanbanShowCovers: boolean;
 	private showProperties: boolean;
 	private propertyLimit: number;
 	private visibleProperties: string[];
@@ -47,6 +50,7 @@ export class FolderConfigModal extends Modal {
 		onSave: (result: FolderConfigResult) => void,
 		currentGroupMode?: 'property' | 'folder',
 		currentVisibleProperties?: string[],
+		currentKanbanShowCovers?: boolean,
 	) {
 		super(app);
 		this.folders = [...currentFolders];
@@ -54,6 +58,7 @@ export class FolderConfigModal extends Modal {
 		this.selectedTags = [...currentTags];
 		this.groupBy = currentGroupBy ?? '';
 		this.groupMode = currentGroupMode ?? 'property';
+		this.kanbanShowCovers = currentKanbanShowCovers === true;
 		this.showProperties = currentShowProperties !== false;
 		this.propertyLimit = currentPropertyLimit ?? 6;
 		this.visibleProperties = [...(currentVisibleProperties ?? [])];
@@ -208,6 +213,16 @@ export class FolderConfigModal extends Modal {
 		folderBtn.addEventListener('click', () => { this.groupMode = 'folder'; applyMode(); });
 		applyMode();
 
+		// Kanban card covers: same 封面/cover extraction as the gallery view.
+		const coversRow = groupSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const coversBox = coversRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		coversBox.checked = this.kanbanShowCovers;
+		coversBox.addEventListener('change', () => { this.kanbanShowCovers = coversBox.checked; });
+		coversRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('library.kanbanShowCovers') });
+
 		// Card properties (grid view)
 		const propsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		propsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.cardProperties') });
@@ -254,6 +269,7 @@ export class FolderConfigModal extends Modal {
 				tags: this.selectedTags,
 				groupBy: this.groupBy || undefined,
 				groupMode: this.groupMode,
+				kanbanShowCovers: this.kanbanShowCovers,
 				showProperties: this.showProperties,
 				propertyLimit: this.propertyLimit,
 				visibleProperties: picked.length > 0 ? picked : undefined,

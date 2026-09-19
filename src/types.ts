@@ -512,6 +512,10 @@ export interface LibraryConfig {
 	 *  kanbanGroupBy) or by the file's top-level subfolder under the configured
 	 *  scan folders (folder sections). */
 	groupMode?: 'property' | 'folder';
+	/** Kanban view: show each card's cover image (same extraction as the
+	    gallery view — 封面/cover keys first, any image-shaped value fallback).
+	    Defaults to false. */
+	kanbanShowCovers?: boolean;
 	pageSize?: number;
 	/** Grid card view: show note frontmatter properties as key:value badges. Defaults to true. */
 	showProperties?: boolean;
@@ -680,6 +684,11 @@ export interface DashboardColumn {
 	 *  (drag a section beside another, desktop only). Maintained by
 	 *  src/column-pairs.ts; adjacency is the pairing identity. */
 	half?: boolean;
+	/** Width split of a paired row: the LEFT member's share in percent
+	 *  (20–80, default 50), set by dragging the pair's divider. Only read on
+	 *  a left half member; cleared together with `half` by the pair
+	 *  transforms. Desktop only. */
+	width?: number;
 }
 
 export interface DashboardData {
@@ -711,6 +720,8 @@ export interface RenderCallbacks {
 	 *  falls back to a full-width row). Indices in current-array space. */
 	onColumnMoveBeside(fromIndex: number, targetIndex: number, side: 'left' | 'right'): void;
 	onColumnHeightChange(name: string, height: number): void;
+	/** Persist a dragged pair-divider split (left member's share, percent). */
+	onColumnWidthChange(name: string, widthPct: number): void;
 	onBannerEdit(): void;
 	onQuickActionAdd(): void;
 	onQuickActionRemove(index: number): void;
