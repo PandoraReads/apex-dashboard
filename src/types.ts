@@ -157,6 +157,9 @@ export interface DashboardSettings {
 	taskTemplates: TaskTemplate[];
 	memoSavePath: string;
 	taskArchivePath: string;
+	/** Library sections: folder where the toolbar "new note" button creates notes
+	 *  (frontmatter pre-filled to match the section's filters). '' = vault root. */
+	libraryNewNotePath: string;
 	/** Periodic dashboard-file backup toggle + cadence. Snapshots are written
 	 *  into the plugin folder under backups/ (see BackupService). */
 	backupEnabled: boolean;
@@ -312,6 +315,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	taskTemplates: [],
 	memoSavePath: '',
 	taskArchivePath: '归档/已完成.md',
+	libraryNewNotePath: '',
 	backupEnabled: false,
 	backupPeriod: 'daily',
 	backupMaxCount: 10,

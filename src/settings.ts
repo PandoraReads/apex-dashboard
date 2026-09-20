@@ -74,7 +74,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					{
 						name: t('settings.general'),
 						desc: t('settings.languageDesc'),
-						aliases: [t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.workspaceList')],
+						aliases: [t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.workspaceList'), t('settings.libraryNewNotePath')],
 						render: (setting) => {
 							asBlock(setting);
 							onPage('general')(setting);
@@ -420,6 +420,37 @@ onyx: t('settings.styleOnyx'),
 						};
 						void this.plugin.saveSettings();
 						archiveInput?.setValue(path);
+					}).open();
+				}));
+
+		let libraryNewNoteInput: TextComponent | undefined;
+		new Setting(containerEl)
+			.setName(t('settings.libraryNewNotePath'))
+			.setDesc(t('settings.libraryNewNotePathDesc'))
+			.addText(text => {
+				libraryNewNoteInput = text;
+				text
+					.setPlaceholder('Notes/library')
+					.setValue(this.plugin.settings.libraryNewNotePath)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							libraryNewNotePath: value.trim(),
+						};
+						await this.plugin.saveSettings();
+					});
+			})
+			.addExtraButton(btn => btn
+				.setIcon('folder-search')
+				.setTooltip(t('pathPicker.pickFolder'))
+				.onClick(() => {
+					new PathPickerModal(this.app, 'folder', (path) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							libraryNewNotePath: path,
+						};
+						void this.plugin.saveSettings();
+						libraryNewNoteInput?.setValue(path);
 					}).open();
 				}));
 

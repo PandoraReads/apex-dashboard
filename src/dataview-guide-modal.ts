@@ -11,10 +11,9 @@ interface GuideFeature {
 /** The capabilities showcased in the announcement modal. Content is refreshed
  *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'user-check', textKey: 'announce.featureMusicAccountLabel' },
-	{ icon: 'move', textKey: 'announce.featureCardMoveLabel' },
-	{ icon: 'type', textKey: 'announce.featureQuoteFontLabel' },
-	{ icon: 'smartphone', textKey: 'announce.featureMobileLibraryLabel' },
+	{ icon: 'file-plus', textKey: 'announce.featureNewNoteLabel' },
+	{ icon: 'move-horizontal', textKey: 'announce.featurePairWidthLabel' },
+	{ icon: 'bar-chart-2', textKey: 'announce.featureExpenseLabel' },
 ];
 
 /**

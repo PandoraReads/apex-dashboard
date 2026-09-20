@@ -254,12 +254,12 @@ async function readTemplateContent(
 }
 
 /** Strip characters that are illegal in filenames across OSes. */
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
 	return name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /** Return a non-conflicting vault path, appending `-2`, `-3`, … as needed. */
-async function uniquePath(app: App, path: string): Promise<string> {
+export async function uniquePath(app: App, path: string): Promise<string> {
 	if (!(await app.vault.adapter.exists(path))) return path;
 	const dot = path.lastIndexOf('.');
 	const hasExt = dot > path.lastIndexOf('/');

@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "2.5.3",
+	"version": "2.5.4",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -26,6 +26,7 @@
 		"test:album-widget": "esbuild scripts/verify-album-widget.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-album-widget.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-album-widget.cjs",
 		"test:doc-bracket-paths": "esbuild scripts/verify-doc-bracket-paths.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-doc-bracket-paths.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-doc-bracket-paths.cjs",
 		"test:property-operator": "esbuild scripts/verify-property-operator.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-property-operator.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-property-operator.cjs",
+		"test:library-new-note": "esbuild scripts/verify-library-new-note.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-library-new-note.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-library-new-note.cjs",
 		"test:weread-progress": "esbuild scripts/verify-weread-progress.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weread-progress.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weread-progress.cjs",
 		"test:weread-stats": "esbuild scripts/verify-weread-stats.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weread-stats.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weread-stats.cjs",
 		"test:web-section": "esbuild scripts/verify-web-section.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-web-section.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-web-section.cjs",

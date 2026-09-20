@@ -776,6 +776,13 @@ export function renderLibrarySection(
 		renderContent(config);
 	});
 
+	// New note button — creates a note inside this section's folder(s), or at the
+	// global library path with the section's filters pre-filled (handled in view.ts).
+	const newNoteBtn = toolbar.createDiv({ cls: 'dashboard-library-newnote-btn' });
+	setIcon(newNoteBtn, 'file-plus');
+	newNoteBtn.title = t('library.newNote');
+	newNoteBtn.setAttribute('aria-label', t('library.newNote'));
+
 	// Configure button
 	const configBtn = toolbar.createDiv({ cls: 'dashboard-library-config-btn' });
 	setIcon(configBtn, 'settings');
@@ -935,6 +942,16 @@ export function renderLibrarySection(
 	// Config button handler - will be wired in view.ts via custom event
 	configBtn.addEventListener('click', () => {
 		const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+		el.dispatchEvent(event);
+	});
+
+	// New note button handler - will be wired in view.ts via custom event
+	// (x/y anchor the folder-picker menu for sections with several folders)
+	newNoteBtn.addEventListener('click', (ev) => {
+		const event = new CustomEvent('dashboard-library-new-note', {
+			detail: { columnName: column.name, x: ev.clientX, y: ev.clientY },
+			bubbles: true,
+		});
 		el.dispatchEvent(event);
 	});
 

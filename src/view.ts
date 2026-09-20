@@ -36,6 +36,7 @@ import { AddSectionModal } from './add-section-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal } from './folder-config-modal';
+import { buildNewNoteProps, createNoteWithProps, pickFolderFromMenu } from './library-new-note';
 import { DataviewConfigModal } from './dataview-config-modal';
 import { WebConfigModal } from './web-config-modal';
 import { MediaConfigModal } from './media-config-modal';
@@ -487,6 +488,13 @@ export class DashboardView extends ItemView implements HoverParent {
 			} else {
 				this.openLibraryConfigModal(columnName);
 			}
+		}) as EventListener);
+
+		// Library/folder "new note" button — dispatched from the section toolbar.
+		kanban.addEventListener('dashboard-library-new-note', ((e: CustomEvent) => {
+			const { columnName, x, y } = e.detail as { columnName: string; x?: number; y?: number };
+			const pos = (typeof x === 'number' && typeof y === 'number') ? { x, y } : undefined;
+			void this.handleLibraryNewNote(columnName, pos);
 		}) as EventListener);
 
 		// TickTick view toggle (today/lists) — dispatched from header buttons.
@@ -1727,6 +1735,69 @@ export class DashboardView extends ItemView implements HoverParent {
 			libraryConfig?.kanbanShowCovers,
 		);
 		modal.open();
+	}
+
+	/** Reentrancy guard: a second toolbar click while the title prompt is open
+	 *  must not stack a second dialog (overlay stacking is a known bug class). */
+	private libraryNewNoteInFlight = false;
+
+	/** Toolbar "new note": folder sections create inside their configured folder
+	 *  (menu when several); library sections create at settings.libraryNewNotePath
+	 *  with the section's property filters pre-filled so the note matches them.
+	 *  A library section with hand-authored scan folders (dashboard-file YAML)
+	 *  follows the folder branch — queryVaultFiles scopes its results to those
+	 *  folders, so the global path would hide the note.
+	 *  The section refresh rides the vault-'create' debounce (registerVaultListeners
+	 *  → debouncedRefreshSections) — an inline refresh could beat metadataCache
+	 *  indexing and briefly render the section without the new note. */
+	private async handleLibraryNewNote(columnName: string, pos?: { x: number; y: number }): Promise<void> {
+		if (this.libraryNewNoteInFlight) return;
+		this.libraryNewNoteInFlight = true;
+		try {
+			const column = this.data?.columns.find(c => c.name === columnName);
+			if (!column || (column.sectionType !== 'folder' && column.sectionType !== 'library')) return;
+
+			const folders = (column.libraryConfig?.folders ?? [])
+				.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
+				.filter(f => f.length > 0);
+			let folder: string;
+			if (column.sectionType === 'folder' || folders.length > 0) {
+				if (folders.length === 0) {
+					new Notice(t('library.newNoteNoFolder'));
+					return;
+				}
+				if (folders.length === 1) {
+					folder = folders[0]!;
+				} else {
+					if (!pos) return;
+					folder = (await pickFolderFromMenu(folders, pos)) ?? '';
+					if (!folder) return; // menu dismissed
+				}
+			} else {
+				folder = this.plugin.settings.libraryNewNotePath.trim().replace(/^\/+|\/+$/g, '');
+			}
+
+			const title = await showPromptDialog(this.app, {
+				title: t('quickNote.titlePrompt'),
+				placeholder: t('quickNote.titlePlaceholder'),
+			});
+			if (title == null) return; // cancelled (empty submit cancels too — same as presets)
+
+			const { props, skipped } = buildNewNoteProps(column.libraryConfig);
+			try {
+				const file = await createNoteWithProps(this.app, folder, title, props);
+				await this.app.workspace.getLeaf('tab').openFile(file);
+				new Notice(t('quickNote.created', { name: file.basename }));
+				if (skipped.length > 0) {
+					new Notice(t('library.newNoteSkipped', { props: skipped.join(', ') }));
+				}
+			} catch (err) {
+				console.error('[Dashboard] library new note failed:', err);
+				new Notice(t('library.newNoteFailed'));
+			}
+		} finally {
+			this.libraryNewNoteInFlight = false;
+		}
 	}
 
 	private openAddActionModal(): void {

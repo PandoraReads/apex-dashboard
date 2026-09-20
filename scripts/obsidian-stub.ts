@@ -33,10 +33,41 @@ export class Notice {
 	show() {}
 	hide() {}
 }
+// Functional Menu stub: records items (title + click) so scripts can drive
+// native menus without a DOM — click an item to fire its onClick, `dismiss()`
+// to fire the onHide callback (menu closed without a pick). `Menu.last`
+// exposes the most recently created menu to the test.
+export interface StubMenuItem {
+	title: string;
+	click(): void;
+}
 export class Menu {
-	addItem(_cb: (item: unknown) => void): this { return this; }
+	static last: Menu | null = null;
+	items: StubMenuItem[] = [];
+	private hideCb: (() => void) | null = null;
+
+	constructor() {
+		Menu.last = this;
+	}
+
+	addItem(cb: (item: unknown) => void): this {
+		let clickFn: (() => void) | null = null;
+		const item = {
+			title: '',
+			setTitle(t: string) { this.title = t; return this; },
+			setIcon(_icon: string) { return this; },
+			onClick(fn: () => void) { clickFn = fn; return this; },
+			click: () => { clickFn?.(); },
+		};
+		cb(item);
+		this.items.push(item);
+		return this;
+	}
+
 	showAtMouseEvent(_e: unknown): this { return this; }
-	onHide(_cb: () => void): this { return this; }
+	showAtPosition(_pos: unknown): this { return this; }
+	onHide(cb: () => void): this { this.hideCb = cb; return this; }
+	dismiss(): void { this.hideCb?.(); }
 }
 export function normalizePath(path: string): string { return path; }
 export const Platform = { isMobile: false, isMobileApp: false };

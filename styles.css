@@ -14091,6 +14091,21 @@
 	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
 }
 
+/* Toolbar "new note" button — same quiet icon affordance as the config gear. */
+.dashboard-library-newnote-btn {
+	cursor: pointer;
+	padding: 4px;
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text-muted, var(--text-muted));
+	display: flex;
+	align-items: center;
+}
+
+.dashboard-library-newnote-btn:hover {
+	color: var(--db-text, var(--text-normal));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
+}
+
 /* Quick filter button */
 .dashboard-library-filter-btn {
 	cursor: pointer;
