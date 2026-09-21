@@ -59,6 +59,15 @@ function migrateStylePreset(preset: string): string {
  * Migrate the legacy single-countdown fields (countdownTargetDate etc.) into
  * the new countdowns[] list. Existing list entries are preserved as-is.
  */
+/** One year before today as YYYY-MM-DD (dynamic so a default anniversary
+ *  entry always reads sensibly, never a hardcoded stale year). */
+function oneYearAgoIso(): string {
+	const d = new Date();
+	d.setFullYear(d.getFullYear() - 1);
+	const pad = (n: number) => String(n).padStart(2, '0');
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function migrateCountdowns(raw: Record<string, unknown>): CountdownConfig[] {
 	if (Array.isArray(raw.countdowns)) {
 		return (raw.countdowns as CountdownConfig[]).filter(c => c && typeof c.id === 'string');
@@ -317,8 +326,55 @@ export default class DashboardPlugin extends Plugin {
 		// Common Actions bar enabled and the sidebar pinned open. Applied here
 		// instead of DEFAULT_SETTINGS so users upgrading from older versions —
 		// whose data.json may lack these keys — keep their current state.
+		// The widget background presets likewise ship only to fresh installs
+		// (the author's own photo picks) — an upgrade with no saved background
+		// keeps its clean cards.
 		if (loaded === null) {
-			this.settings = { ...this.settings, quickNotesEnabled: true, widgetHabitEnabled: true };
+			this.settings = {
+				...this.settings,
+				quickNotesEnabled: true,
+				widgetHabitEnabled: true,
+				quickActionsBackground: {
+					image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg',
+					opacity: 100, dim: 0, blur: 0, foreground: 'light',
+				},
+				habitBackground: {
+					image: 'https://images.pexels.com/photos/4958013/pexels-photo-4958013.jpeg',
+					opacity: 100, dim: 30, blur: 0, foreground: 'light',
+				},
+				musicBackground: {
+					image: 'https://images.pexels.com/photos/22710827/pexels-photo-22710827.jpeg',
+					opacity: 95, dim: 0, blur: 0, foreground: '#f4ebeb',
+				},
+				countdownEnabled: true,
+				countdowns: [{
+					id: 'cd-default',
+					label: t('defaults.countdownLabel'),
+					targetDate: `${new Date().getFullYear()}-12-31T23:55`,
+					displayMode: 'hours',
+					reminderDays: 0,
+					background: {
+						image: 'https://images.pexels.com/photos/31409439/pexels-photo-31409439.jpeg',
+						opacity: 100, dim: 0, blur: 0, foreground: 'light',
+					},
+				}],
+				// Example anniversary so the widget ships with its background
+				// styling already shown (the author's vault look). Dated one
+				// year back from install so the elapsed value reads sensibly on
+				// day one instead of a hardcoded year going stale.
+				anniversaryEnabled: true,
+				anniversaries: [{
+					id: 'av-default',
+					label: t('defaults.anniversaryLabel'),
+					startDate: oneYearAgoIso(),
+					precision: 'ymd' as const,
+					annualReminder: false,
+					background: {
+						image: 'https://images.pexels.com/photos/10254198/pexels-photo-10254198.jpeg',
+						opacity: 100, dim: 20, blur: 0, foreground: 'light',
+					},
+				}],
+			};
 			this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', 'true');
 			await this.saveSettings();
 		}

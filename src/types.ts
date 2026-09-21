@@ -274,7 +274,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	workspaceNames: [''],
 	recentDocCount: 5,
 	language: 'zh',
-	stylePreset: 'island',
+	stylePreset: 'mono',
 	layoutMode: 'side',
 	widgetWeatherEnabled: false,
 	widgetWeatherCity: 'Shanghai',

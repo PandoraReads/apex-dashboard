@@ -49,6 +49,9 @@ const DOC_LINE_REGEX = /^(\s*)(?:- )?\[\[((?:[^\]\n]|\](?!\]))+?)]](\s*<!--colla
 const DEFAULT_BANNER: BannerData = {
 	quote: 'The mind is everything. What you think you become.',
 	author: 'Buddha',
+	// Didot (cross-platform stack, same value the font dropdown stores) as the
+	// out-of-box quote face — matches the author's own vault.
+	quoteFont: 'Didot,"Bodoni MT",Georgia,serif',
 	image: 'https://images.pexels.com/photos/2307638/pexels-photo-2307638.jpeg',
 	images: [
 		'https://images.pexels.com/photos/2307638/pexels-photo-2307638.jpeg',
