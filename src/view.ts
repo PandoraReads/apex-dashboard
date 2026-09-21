@@ -736,7 +736,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		panel.addClass('dashboard-mobile-widget-panel--open');
 
 		if (this.mobileWidgetExpanded === 'pomodoro' && this.pomodoroService) {
-			renderSidebarPomodoro(panel, this.pomodoroService, this.plugin.settings);
+			renderSidebarPomodoro(panel, this.pomodoroService, this.plugin.settings, this.app);
 		} else if (this.mobileWidgetExpanded === 'reading' && this.readingService) {
 			renderSidebarReading(panel, this.readingService);
 		} else if (this.mobileWidgetExpanded === 'lunar') {
@@ -1773,6 +1773,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			libraryConfig?.groupMode,
 			libraryConfig?.visibleProperties,
 			libraryConfig?.kanbanShowCovers,
+			libraryConfig?.templatePath,
 		);
 		modal.open();
 	}
@@ -1825,7 +1826,20 @@ export class DashboardView extends ItemView implements HoverParent {
 
 			const { props, skipped } = buildNewNoteProps(column.libraryConfig);
 			try {
-				const file = await createNoteWithProps(this.app, folder, title, props);
+				const templatePath = (column.libraryConfig?.templatePath ?? '').trim();
+				let file: TFile;
+				try {
+					file = await createNoteWithProps(this.app, folder, title, props, templatePath || undefined);
+				} catch (err) {
+					// Missing template should not kill the creation — fall back
+					// to a bare note and tell the user (the preset behavior).
+					if (err instanceof Error && err.message.startsWith('Template not found')) {
+						new Notice(t('quickNote.templateNotFound'));
+						file = await createNoteWithProps(this.app, folder, title, props);
+					} else {
+						throw err;
+					}
+				}
 				await this.app.workspace.getLeaf('tab').openFile(file);
 				new Notice(t('quickNote.created', { name: file.basename }));
 				if (skipped.length > 0) {
@@ -2061,7 +2075,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		const service = this.pomodoroService;
 		if (!service) return;
 		this.refreshDataWidget('.dashboard-sidebar-pomodoro', (c) =>
-			renderSidebarPomodoro(c, service, this.plugin.settings));
+			renderSidebarPomodoro(c, service, this.plugin.settings, this.app, bg => {
+				this.plugin.settings = { ...this.plugin.settings, pomodoroBackground: bg };
+				void this.plugin.saveSettings();
+				this.plugin.refreshAllDashboards();
+			}));
 		const root = this.containerEl.children[1] as HTMLElement | undefined;
 		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
 		if (panel && this.mobileWidgetExpanded === 'pomodoro') {

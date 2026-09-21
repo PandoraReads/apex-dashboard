@@ -223,7 +223,34 @@ export async function insertTaskForDay(
 	taskLine: string,
 	dashboardFile?: string,
 	position: 'start' | 'end' = 'start',
+	customTarget?: import('./types').CalendarTaskTarget,
 ): Promise<TaskInsertTarget | null> {
+	// 0. User-pinned destination: a specific file (insert per position), or a
+	// folder with one YYYY-MM-DD note per day (created on the day's first
+	// task). Entirely replaces the daily-note chain when set.
+	if (customTarget && customTarget.path.trim()) {
+		const clean = customTarget.path.trim().replace(/^\/+|\/+$/g, '');
+		if (customTarget.kind === 'file') {
+			const filePath = clean.toLowerCase().endsWith('.md') ? clean : `${clean}.md`;
+			const existing = app.vault.getFileByPath(filePath);
+			if (existing) {
+				return await insertIntoNote(app, existing, await app.vault.read(existing), taskLine, position);
+			}
+			const folder = filePath.includes('/') ? filePath.slice(0, filePath.lastIndexOf('/')) : '';
+			if (folder) await ensureFolder(app, folder);
+			const created = await app.vault.create(filePath, `${taskLine}\n`);
+			return { file: created, line: 0, writtenLine: taskLine, kind: 'daily-created' };
+		}
+		const notePath = clean ? `${clean}/${iso}.md` : `${iso}.md`;
+		const dayNote = app.vault.getFileByPath(notePath);
+		if (dayNote) {
+			return await insertIntoNote(app, dayNote, await app.vault.read(dayNote), taskLine, position);
+		}
+		if (clean) await ensureFolder(app, clean);
+		const created = await app.vault.create(notePath, `${taskLine}\n`);
+		return { file: created, line: 0, writtenLine: taskLine, kind: 'daily-created' };
+	}
+
 	// 1.+2. The clicked day's note first, then today's (skipped when the
 	// clicked day IS today).
 	const todayIso = nowMoment().format('YYYY-MM-DD');

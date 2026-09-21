@@ -50,6 +50,14 @@ export function writeCalendarTaskFilter(app: App, filter: CalendarTaskFilter): v
 
 /** Where calendar-added tasks land in the daily note; anything but 'end'
  *  (including an unreachable plugin) keeps the historical 'start' behavior. */
+/** User-pinned destination override (undefined = the daily-note chain). */
+function readTaskTarget(app: App): import('./types').CalendarTaskTarget | undefined {
+	const target = lookupDashboardPlugin(app)?.settings?.calendarTaskTarget;
+	return target && target.path?.trim() && (target.kind === 'file' || target.kind === 'folder')
+		? target
+		: undefined;
+}
+
 function readTaskInsertPosition(app: App): 'start' | 'end' {
 	return lookupDashboardPlugin(app)?.settings?.calendarTaskInsertPosition === 'end' ? 'end' : 'start';
 }
@@ -376,7 +384,7 @@ export class DayAgendaModal extends Modal {
 
 		let target: TaskInsertTarget | null = null;
 		try {
-			target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app));
+			target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app), readTaskTarget(this.app));
 		} catch (err) {
 			console.error('[Dashboard] add task failed:', err);
 			new Notice(t('calendar.taskAddFailed'), 4000);

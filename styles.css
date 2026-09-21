@@ -23,8 +23,8 @@
 	--db-bg-card-hover: rgba(255, 255, 255, 0.10);
 	--db-bg-sidebar: rgba(255, 255, 255, 0.04);
 	--db-bg-input: rgba(255, 255, 255, 0.05);
-	--db-bg-btn: rgba(255, 255, 255, 0.07);
-	--db-bg-btn-hover: rgba(255, 255, 255, 0.12);
+	--db-bg-btn: rgba(53, 195, 255, 0.06);
+	--db-bg-btn-hover: rgba(53, 195, 255, 0.12);
 	--db-bg-banner: rgba(53, 195, 255, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(255, 255, 255, 0.05);
@@ -38,7 +38,7 @@
 	--db-border-sidebar: rgba(255, 255, 255, 0.07);
 	--db-border-input: rgba(255, 255, 255, 0.08);
 	--db-border-input-focus: rgba(53, 195, 255, 0.6);
-	--db-border-btn: rgba(255, 255, 255, 0.10);
+	--db-border-btn: rgba(53, 195, 255, 0.16);
 	--db-border-add-section: rgba(53, 195, 255, 0.18);
 
 	--db-text: #eaf2ff;
@@ -104,8 +104,8 @@
 	--db-bg-card-hover: rgba(255, 255, 255, 0.85);
 	--db-bg-sidebar: rgba(255, 255, 255, 0.50);
 	--db-bg-input: rgba(255, 255, 255, 0.65);
-	--db-bg-btn: rgba(255, 255, 255, 0.70);
-	--db-bg-btn-hover: rgba(255, 255, 255, 0.92);
+	--db-bg-btn: rgba(2, 132, 199, 0.08);
+	--db-bg-btn-hover: rgba(2, 132, 199, 0.14);
 	--db-bg-banner: rgba(2, 132, 199, 0.08);
 	--db-bg-hover: rgba(42, 60, 105, 0.06);
 	--db-bg-hover-strong: rgba(42, 60, 105, 0.11);
@@ -117,7 +117,7 @@
 	--db-border-sidebar: rgba(42, 60, 105, 0.08);
 	--db-border-input: rgba(42, 60, 105, 0.12);
 	--db-border-input-focus: rgba(2, 132, 199, 0.5);
-	--db-border-btn: rgba(42, 60, 105, 0.12);
+	--db-border-btn: rgba(2, 132, 199, 0.16);
 	--db-text: #1e2a4a;
 	--db-text-muted: #47597e;
 	--db-text-faint: #8a99b8;
@@ -203,8 +203,8 @@
 	--db-bg-card-hover: #FFFDF7;
 	--db-bg-sidebar: rgba(250, 244, 232, 0.45);
 	--db-bg-input: rgba(188, 90, 52, 0.05);
-	--db-bg-btn: #efe5d2;
-	--db-bg-btn-hover: #e8dbc4;
+	--db-bg-btn: rgba(188, 90, 52, 0.08);
+	--db-bg-btn-hover: rgba(188, 90, 52, 0.14);
 	--db-bg-banner: rgba(217, 119, 6, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(60,30,10,0.5) 0%, rgba(60,30,10,0.2) 100%);
 	--db-bg-hover: rgba(188, 90, 52, 0.06);
@@ -271,8 +271,8 @@
 	--db-bg-card-hover: #362c1a;
 	--db-bg-sidebar: rgba(48, 39, 25, 0.45);
 	--db-bg-input: rgba(232, 160, 104, 0.06);
-	--db-bg-btn: #3a2f1d;
-	--db-bg-btn-hover: #473a24;
+	--db-bg-btn: rgba(232, 160, 104, 0.06);
+	--db-bg-btn-hover: rgba(232, 160, 104, 0.12);
 	--db-bg-banner: rgba(232, 160, 104, 0.06);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(255, 255, 255, 0.04);
@@ -324,8 +324,8 @@
 	--db-bg-card-hover: #fdfeff;
 	--db-bg-sidebar: rgba(255, 255, 255, 0.50);
 	--db-bg-input: rgba(43, 187, 215, 0.05);
-	--db-bg-btn: #e8eef6;
-	--db-bg-btn-hover: #dbe6f3;
+	--db-bg-btn: rgba(23, 125, 149, 0.08);
+	--db-bg-btn-hover: rgba(23, 125, 149, 0.14);
 	--db-bg-banner: rgba(43, 187, 215, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(30,58,95,0.5) 0%, rgba(30,58,95,0.2) 100%);
 	--db-bg-hover: rgba(43, 187, 215, 0.06);
@@ -392,8 +392,8 @@
 	--db-bg-card-hover: #223049;
 	--db-bg-sidebar: rgba(30, 41, 59, 0.45);
 	--db-bg-input: rgba(43, 187, 215, 0.06);
-	--db-bg-btn: #2a3850;
-	--db-bg-btn-hover: #34445f;
+	--db-bg-btn: rgba(43, 187, 215, 0.06);
+	--db-bg-btn-hover: rgba(43, 187, 215, 0.12);
 	--db-bg-banner: rgba(43, 187, 215, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(43, 187, 215, 0.06);
@@ -456,8 +456,8 @@
 	--db-bg-card-hover: #fefefa;
 	--db-bg-sidebar: #e8f6ea;
 	--db-bg-input: rgba(25, 200, 185, 0.04);
-	--db-bg-btn: #f8f8f0;
-	--db-bg-btn-hover: #e6f9f6;
+	--db-bg-btn: rgba(25, 200, 185, 0.08);
+	--db-bg-btn-hover: rgba(25, 200, 185, 0.14);
 	--db-bg-banner: rgba(111, 186, 44, 0.08);
 	--db-bg-overlay: linear-gradient(135deg, rgba(30,60,40,0.40) 0%, rgba(40,80,60,0.15) 100%);
 	--db-bg-hover: rgba(25, 200, 185, 0.06);
@@ -472,7 +472,7 @@
 	--db-border-sidebar: #b0d0ac;
 	--db-border-input: #b5d4b0;
 	--db-border-input-focus: #ffcc00;
-	--db-border-btn: #b5d4b0;
+	--db-border-btn: rgba(25, 200, 185, 0.22);
 	--db-border-add-section: #19c8b9;
 
 	/* 文字：森林棕绿（非纯棕） */
@@ -514,8 +514,8 @@
 	--db-bg-card-hover: #2e4438;
 	--db-bg-sidebar: #1e3024;
 	--db-bg-input: rgba(255, 255, 255, 0.04);
-	--db-bg-btn: #2e4438;
-	--db-bg-btn-hover: rgba(25, 200, 185, 0.12);
+	--db-bg-btn: rgba(61, 212, 198, 0.06);
+	--db-bg-btn-hover: rgba(61, 212, 198, 0.12);
 	--db-bg-banner: rgba(25, 200, 185, 0.06);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(25, 200, 185, 0.06);
@@ -550,8 +550,8 @@
 	--db-bg-card-hover: #FFFFFF;
 	--db-bg-sidebar: transparent;
 	--db-bg-input: rgba(120, 80, 40, 0.04);
-	--db-bg-btn: #E0D5C5;
-	--db-bg-btn-hover: #D5C8B5;
+	--db-bg-btn: rgba(217, 119, 6, 0.08);
+	--db-bg-btn-hover: rgba(217, 119, 6, 0.14);
 	--db-bg-banner: rgba(217, 119, 6, 0.1);
 	--db-bg-overlay: linear-gradient(135deg, rgba(60,30,10,0.5) 0%, rgba(60,30,10,0.2) 100%);
 	--db-bg-hover: rgba(120, 80, 40, 0.06);
@@ -565,7 +565,7 @@
 	--db-border-sidebar: transparent;
 	--db-border-input: #D5C8B5;
 	--db-border-input-focus: #d97706;
-	--db-border-btn: #D5C8B5;
+	--db-border-btn: rgba(217, 119, 6, 0.22);
 	--db-border-add-section: #d97706;
 
 	--db-text: #3D2B1F;
@@ -831,8 +831,8 @@
 	--db-bg-card-hover: rgba(248, 245, 235, 0.96);
 	--db-bg-sidebar: transparent;
 	--db-bg-input: rgba(79, 112, 40, 0.06);
-	--db-bg-btn: #d9d2ba;
-	--db-bg-btn-hover: #cfc7ac;
+	--db-bg-btn: rgba(74, 106, 36, 0.08);
+	--db-bg-btn-hover: rgba(74, 106, 36, 0.14);
 	--db-bg-banner: rgba(200, 169, 106, 0.12);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(79, 112, 40, 0.06);
@@ -901,8 +901,8 @@
 	--db-bg-card-hover: rgba(255, 255, 252, 0.95);
 	--db-bg-sidebar: transparent;
 	--db-bg-input: rgba(79, 112, 40, 0.05);
-	--db-bg-btn: #e6e2cf;
-	--db-bg-btn-hover: #ddd7bf;
+	--db-bg-btn: rgba(74, 106, 36, 0.08);
+	--db-bg-btn-hover: rgba(74, 106, 36, 0.14);
 	--db-bg-banner: rgba(110, 148, 52, 0.08);
 	--db-bg-overlay: linear-gradient(135deg, rgba(30,40,30,0.4) 0%, rgba(30,40,30,0.15) 100%);
 	--db-bg-hover: rgba(79, 112, 40, 0.05);
@@ -970,8 +970,8 @@
 	--db-bg-card-hover: rgba(252, 248, 254, 0.86);
 	--db-bg-sidebar: transparent;
 	--db-bg-input: rgba(122, 88, 168, 0.08);
-	--db-bg-btn: #e7ddf1;
-	--db-bg-btn-hover: #ddd0ea;
+	--db-bg-btn: rgba(157, 78, 221, 0.08);
+	--db-bg-btn-hover: rgba(157, 78, 221, 0.14);
 	--db-bg-banner: rgba(255, 143, 171, 0.10);
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
 	--db-bg-hover: rgba(122, 88, 168, 0.08);
@@ -1040,8 +1040,8 @@
 	--db-bg-card-hover: rgba(255, 255, 255, 0.86);
 	--db-bg-sidebar: transparent;
 	--db-bg-input: rgba(125, 44, 191, 0.06);
-	--db-bg-btn: #ece4f4;
-	--db-bg-btn-hover: #e2d5ee;
+	--db-bg-btn: rgba(123, 44, 191, 0.08);
+	--db-bg-btn-hover: rgba(123, 44, 191, 0.14);
 	--db-bg-banner: rgba(125, 44, 191, 0.05);
 	--db-bg-overlay: linear-gradient(135deg, rgba(40,20,40,0.4) 0%, rgba(40,20,40,0.15) 100%);
 	--db-bg-hover: rgba(125, 44, 191, 0.06);
@@ -1356,8 +1356,8 @@
 	--db-bg-card-hover: #f5f3ea;
 	--db-bg-sidebar: transparent;
 	--db-bg-input: #f3f1e8;
-	--db-bg-btn: #f3f1e8;
-	--db-bg-btn-hover: #ebe8dc;
+	--db-bg-btn: rgba(192, 68, 46, 0.08);
+	--db-bg-btn-hover: rgba(192, 68, 46, 0.14);
 	--db-bg-banner: #f1efe6;
 	--db-bg-overlay: linear-gradient(135deg, rgba(20,24,28,0.55) 0%, rgba(20,24,28,0.25) 100%);
 	--db-bg-hover: #f2f0e7;
@@ -1371,7 +1371,7 @@
 	--db-border-sidebar: transparent;
 	--db-border-input: #dedcd2;
 	--db-border-input-focus: #c0442e;
-	--db-border-btn: #dedcd2;
+	--db-border-btn: rgba(192, 68, 46, 0.22);
 	--db-border-add-section: #cfcdc2;
 
 	--db-text: #1d2126;
@@ -1424,8 +1424,8 @@
 	--db-bg-card-hover: #1f2429;
 	--db-bg-sidebar: transparent;
 	--db-bg-input: #1a1f24;
-	--db-bg-btn: #1a1f24;
-	--db-bg-btn-hover: #232930;
+	--db-bg-btn: rgba(224, 91, 69, 0.06);
+	--db-bg-btn-hover: rgba(224, 91, 69, 0.12);
 	--db-bg-banner: #16191d;
 	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.35) 100%);
 	--db-bg-hover: #1c2126;
@@ -1439,7 +1439,7 @@
 	--db-border-sidebar: transparent;
 	--db-border-input: #262b30;
 	--db-border-input-focus: #e05b45;
-	--db-border-btn: #262b30;
+	--db-border-btn: rgba(224, 91, 69, 0.22);
 	--db-border-add-section: #2e343a;
 
 	--db-text: #f4f2ea;
@@ -2269,7 +2269,9 @@
 
 	/* Bookmark tab: anchors at top edge, extends downward. The bottom point
 	   is a border-triangle ::after instead of a polygon cut, which the
-	   marketplace checker flags as only partially supported on 1.7.4. */
+	   marketplace checker flags as only partially supported on 1.7.4.
+	   Half-hidden at rest (fades in on banner hover, full on its own hover)
+	   so the collapsed strip stays visually quiet. */
 	.dashboard-banner--collapsed .dashboard-banner-pin-btn {
 		top: 0;
 		left: auto;
@@ -2277,13 +2279,22 @@
 		width: 28px;
 		height: 25px;
 		padding: 0;
-		opacity: 1;
+		opacity: 0.35;
+		/* Telescoping: at rest the tab retracts upward over the strip edge
+		   (about half its height), like a bookmark slipped back into the book;
+		   banner hover lets it extend down naturally. */
+		transform: translateY(-13px);
 		--dashboard-pin-tail: var(--db-bg-card);
 		background: var(--db-bg-card) !important;
 		border: none !important;
 		border-radius: 4px 4px 6px 6px;
 		color: var(--db-text-faint);
-		transition: opacity 0.2s ease, color 0.2s ease, transform 0.15s ease;
+		transition: opacity 0.25s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.3, 0.64, 1);
+	}
+
+	.dashboard-banner--collapsed:hover .dashboard-banner-pin-btn {
+		opacity: 0.75;
+		transform: translateY(0);
 	}
 
 	.dashboard-banner--collapsed .dashboard-banner-pin-btn::after {
@@ -2304,7 +2315,7 @@
 		color: var(--db-text);
 		--dashboard-pin-tail: var(--db-bg-hover);
 		background: var(--db-bg-hover) !important;
-		transform: scaleY(1.06);
+		transform: translateY(0) scaleY(1.06);
 	}
 }
 
@@ -2460,6 +2471,30 @@
 	border-bottom: 2px solid var(--db-accent) !important;
 }
 
+/* Single-button toolbar dropdown (view switcher / card size): pill shows the
+ * current selection (icon or letter) plus a tiny caret hinting the menu. */
+.dashboard-toolbar-dropdown {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.dashboard-toolbar-dropdown {
+	/* Both dropdown flavors share one box: the icon glyphs render 16px tall
+	   (setIcon default), so the button gets that fixed content height — the
+	   S/M/L letter button then matches the view button's size exactly. */
+	min-height: 16px;
+}
+
+.dashboard-toolbar-dropdown-text {
+	font-size: 0.82em;
+	font-weight: 700;
+	height: 16px;
+	line-height: 16px;
+	min-width: 16px;
+	text-align: center;
+}
+
 /* ===== Widget card backgrounds (per-widget decorative images) ===== */
 /* The layer is absolutely positioned with z-index:-1 inside an isolation
    context on the card: it paints above the card's own background (which
@@ -2479,6 +2514,11 @@
 	--db-text-muted: color-mix(in srgb, var(--wbg-fg, var(--db-text)) 72%, transparent);
 	--db-text-faint: color-mix(in srgb, var(--wbg-fg, var(--db-text)) 50%, transparent);
 	--db-accent: var(--wbg-fg, var(--db-accent));
+	/* Re-anchor INHERITED text color on the card: descendants without their
+	   own color rule (quick-action labels, titles) inherit the ancestor's
+	   already-resolved color, which bypasses the token overrides above —
+	   setting `color` here makes the flip reach them too. */
+	color: var(--db-text);
 }
 
 .dashboard-widget-bg {
@@ -2507,6 +2547,32 @@
 	position: absolute;
 	inset: 0;
 	background: rgb(0 0 0 / var(--wbg-dim, 0));
+}
+
+/* Glass inner frame on background-image cards (not the quick-actions card —
+   its buttons already wear that treatment). The pane must read as a SEPARATE
+   sheet of glass PRESSED ONTO the photo ("glass is glass, image is image"),
+   not a tint fused with it, so unlike the buttons it carries:
+   - its own frost (blur+saturate) instead of the theme's button blur (mostly
+     none) — the photo visibly refracts under the pane;
+   - a substantial fill: the theme's CARD surface token (much more present
+     than the ~6% button tint), softened to 65% so the photo still shows;
+   - a lit top edge + soft drop shadow — the classic glass-sheet highlight.
+   Theme tokens keep every theme adapted; the phone CSS block disables
+   backdrop-filter wholesale, where this degrades to the tinted fill. */
+.dashboard-widget-frame {
+	position: absolute;
+	inset: 6px;
+	z-index: -1;
+	pointer-events: none;
+	border-radius: calc(var(--db-radius-md, 10px) - 4px);
+	background: color-mix(in srgb, var(--db-bg-card, rgba(127, 127, 127, 0.25)) 65%, transparent);
+	border: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 28%, transparent);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.16),
+		0 2px 10px rgba(0, 0, 0, 0.14);
+	backdrop-filter: blur(7px) saturate(1.15);
+	-webkit-backdrop-filter: blur(7px) saturate(1.15);
 }
 
 /* Half-hidden gear button at a card's top-right corner (the countdown
@@ -2608,6 +2674,14 @@
 .dashboard-quick-actions .dashboard-qa-btn-group button:hover {
 	opacity: 1;
 	color: var(--db-accent);
+}
+
+/* Habit card exception: its header keeps buttons ALWAYS visible — the left
+   title + list leave the top-right corner empty otherwise. Covers the icon
+   buttons AND the background-settings gear that joins their cluster. */
+.dashboard-sidebar-habit .dashboard-sidebar-habit-icon-btn,
+.dashboard-sidebar-habit .dashboard-widget-inline-cfg-btn {
+	opacity: 0.55;
 }
 
 /* Inline gear that joins a header row's existing icon-button cluster (habit,
@@ -19177,6 +19251,31 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-theme-studio-color-label {
 	flex: 1;
 	font-size: 0.88em;
+}
+
+/* Alpha slider rides between the swatch and the clear button: slim, accent-
+   tinted, with a small fixed span so eight rows align. */
+.dashboard-theme-studio-alpha-slider {
+	width: 90px;
+	height: 4px;
+	appearance: none;
+	-webkit-appearance: none;
+	background: color-mix(in srgb, var(--db-text, var(--text-normal)) 18%, transparent);
+	border-radius: 2px;
+	outline: none;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.dashboard-theme-studio-alpha-slider::-webkit-slider-thumb {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: var(--db-accent, var(--interactive-accent));
+	border: none;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .dashboard-modal-color-input {
 	width: 38px;

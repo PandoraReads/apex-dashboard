@@ -11,6 +11,12 @@ import type {
 
 export type DashboardLayoutMode = 'side' | 'stacked';
 
+/** Fixed destination override for calendar-added tasks. */
+export interface CalendarTaskTarget {
+	kind: 'file' | 'folder';
+	path: string;
+}
+
 export interface DashboardSettings {
 	/** Path of the ACTIVE workspace file (no .md extension). */
 	dashboardFile: string;
@@ -54,6 +60,11 @@ export interface DashboardSettings {
 	/** Where calendar-added tasks land in the day's daily note: right below
 	    frontmatter ('start') or at the bottom ('end'). */
 	calendarTaskInsertPosition: 'start' | 'end';
+	/** Optional fixed destination for calendar-added tasks: a specific file
+	    (task inserted per calendarTaskInsertPosition) or a folder (one note
+	    per day, named YYYY-MM-DD, created on first task). Unset = the
+	    historical daily-note chain (clicked day → today → dashboard → create). */
+	calendarTaskTarget?: CalendarTaskTarget;
 	/** Habit check-in widget: boolean daily check-offs tracked per habit. */
 	widgetHabitEnabled: boolean;
 	/** Expense tracker widget: quick expense/income entry in the sidebar. */
@@ -82,6 +93,7 @@ export interface DashboardSettings {
 	anniversaries: AnniversaryConfig[];
 	/** Singleton widget card backgrounds (undefined = none). */
 	quickActionsBackground?: WidgetBackground;
+	pomodoroBackground?: WidgetBackground;
 	habitBackground?: WidgetBackground;
 	musicBackground?: WidgetBackground;
 	yearProgressBackground?: WidgetBackground;
@@ -569,6 +581,13 @@ export interface LibraryConfig {
 	 *  scans, images/videos scans). Matched by path prefix, case-insensitive;
 	 *  files inside them never reach the section. */
 	excludeFolders?: string[];
+	/** Media sections (images/videos): when non-empty, ONLY files under these
+	 *  folders reach the section (excludes still subtract within the scope).
+	 *  Empty = whole vault. */
+	includeFolders?: string[];
+	/** New notes created from this section's toolbar button start from this
+	 *  template note's content ({{title}} / {{date:...}} substituted). Empty = bare note. */
+	templatePath?: string;
 	/** All-tasks section: dimension used to group tasks into list sections / kanban columns. */
 	taskGroupBy?: 'date' | 'priority' | 'none';
 }

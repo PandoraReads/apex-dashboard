@@ -16,6 +16,35 @@ const ACCENT_SWATCHES = [
 ];
 
 /** Ordered color fields rendered in the Color scheme section. */
+
+/** '#rrggbb' -> 'rgba(r, g, b, a)' with two-decimal alpha. */
+function hexToRgbaString(hex: string, alpha: number): string {
+	const h = hex.replace('#', '');
+	const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+	const r = parseInt(full.slice(0, 2), 16);
+	const g = parseInt(full.slice(2, 4), 16);
+	const b = parseInt(full.slice(4, 6), 16);
+	return `rgba(${r}, ${g}, ${b}, ${Math.round(alpha * 100) / 100})`;
+}
+
+/** The '#rrggbb' part of a stored color value (defaults null). */
+function rgbPartOf(value: string | undefined): string | null {
+	if (!value) return null;
+	const m = value.match(/^#[0-9a-fA-F]{6}/);
+	if (m) return m[0];
+	const rgba = value.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+	if (!rgba) return null;
+	const to2 = (n: string) => Number(n).toString(16).padStart(2, '0');
+	return `#${to2(rgba[1]!)}${to2(rgba[2]!)}${to2(rgba[3]!)}`;
+}
+
+/** Alpha percentage of a stored value (100 for plain hex / unset). */
+function alphaPctOf(value: string | undefined): number {
+	if (!value) return 100;
+	const m = value.match(/rgba?\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
+	return m ? Math.round(Number(m[1]) * 100) : 100;
+}
+
 const COLOR_FIELDS: ReadonlyArray<{ key: keyof CustomColors; labelKey: string }> = [
 	{ key: 'accent', labelKey: 'themeStudio.color.accent' },
 	{ key: 'accentLight', labelKey: 'themeStudio.color.accentLight' },
@@ -157,6 +186,9 @@ export class ThemeStudioModal extends Modal {
 			for (const field of COLOR_FIELDS) {
 				const input = this.colorInputs.get(field.key);
 				if (input) input.value = this.themeDefaults[field.key] ?? '#808080';
+				const row = input?.closest('.dashboard-theme-studio-color-row');
+				const slider = row?.querySelector<HTMLInputElement>('.dashboard-theme-studio-alpha-slider');
+				if (slider) slider.value = '100';
 			}
 			this.scheduleApply();
 		});
@@ -166,15 +198,37 @@ export class ThemeStudioModal extends Modal {
 		const row = list.createDiv({ cls: 'dashboard-theme-studio-color-row' });
 		row.createSpan({ cls: 'dashboard-theme-studio-color-label', text: t(field.labelKey) });
 
+		// Stored value grammar: '#rrggbb' at full opacity (legacy configs and
+		// the swatches), 'rgba(r, g, b, a)' once the alpha slider moves below
+		// 100. The token consumers take either — applyCustomColors writes the
+		// raw string straight into the CSS variable.
+		const compose = (hex: string, alphaPct: number): string =>
+			alphaPct >= 100 ? hex : hexToRgbaString(hex, alphaPct / 100);
+
 		const input = row.createEl('input', {
 			cls: 'dashboard-modal-color-input',
 			attr: { type: 'color', 'aria-label': t(field.labelKey) },
 		});
-		input.value = this.colors[field.key] ?? this.themeDefaults[field.key] ?? '#808080';
+		const alphaSlider = row.createEl('input', {
+			cls: 'dashboard-theme-studio-alpha-slider',
+			attr: { type: 'range', min: '0', max: '100', step: '5', 'aria-label': t('themeStudio.color.alpha') },
+		});
+
+		const sync = (): void => {
+			const stored = this.colors[field.key];
+			input.value = rgbPartOf(stored) ?? this.themeDefaults[field.key] ?? '#808080';
+			alphaSlider.value = String(alphaPctOf(stored));
+		};
+		sync();
+
 		// `input` fires continuously while picking — apply live but never rebuild
 		// the form, or the native picker would lose focus mid-drag.
 		input.addEventListener('input', () => {
-			this.colors = { ...this.colors, [field.key]: input.value };
+			this.colors = { ...this.colors, [field.key]: compose(input.value, alphaPctOf(this.colors[field.key])) };
+			this.scheduleApply();
+		});
+		alphaSlider.addEventListener('input', () => {
+			this.colors = { ...this.colors, [field.key]: compose(input.value, Number(alphaSlider.value)) };
 			this.scheduleApply();
 		});
 		this.colorInputs.set(field.key, input);
@@ -188,7 +242,7 @@ export class ThemeStudioModal extends Modal {
 			const next = { ...this.colors };
 			delete next[field.key];
 			this.colors = next;
-			input.value = this.themeDefaults[field.key] ?? '#808080';
+			sync();
 			this.scheduleApply();
 		});
 	}

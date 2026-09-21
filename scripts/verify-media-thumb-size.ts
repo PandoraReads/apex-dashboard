@@ -11,6 +11,7 @@
  * Run: `npm run test:media-thumb-size`
  */
 import { strict as assert } from 'node:assert';
+import { Menu } from 'obsidian';
 import { renderMediaSection } from '../src/media-section';
 import { El, findByClass } from './mini-dom';
 
@@ -50,9 +51,9 @@ const open = (store: Record<string, string>): { el: El } => {
 	return { el };
 };
 
+// Dropdown model: the collapsed button carries the current letter as text.
 const activeSize = (el: El): string | undefined => findByClass(el, 'dashboard-media-size-toggle')[0]
-	? findByClass(findByClass(el, 'dashboard-media-size-toggle')[0]!, 'dashboard-library-view-btn')
-		.find(b => b.hasClass('active'))?.textContent
+	? findByClass(findByClass(el, 'dashboard-media-size-toggle')[0]!, 'dashboard-toolbar-dropdown-text')[0]?.textContent
 	: assert.fail('size toggle rendered');
 const gridSize = (el: El): string | undefined =>
 	findByClass(el, 'dashboard-media-grid')[0]?.className.match(/dashboard-media-grid--(\w+)/)?.[1]
@@ -70,14 +71,21 @@ const b = open(store2);
 assert.equal(activeSize(b.el), 'L', 'stored large restores L');
 assert.equal(gridSize(b.el), 'large', 'grid renders large');
 
-// 3. Click S: persists with the exact key, re-renders small.
+// 3. Pick Small through the dropdown menu: opens via the collapsed button
+//    click (native Menu stub records items), then clicking the first item
+//    (small) persists with the exact key and re-renders small.
 const store3: Record<string, string> = {};
 const c = open(store3);
-findByClass(findByClass(c.el, 'dashboard-media-size-toggle')[0]!, 'dashboard-library-view-btn')
-	.find(btn => btn.textContent === 'S')!.click();
-assert.equal(store3['apex-dashboard-media-thumb-size'], 'small', 'click saves to localStorage');
+findByClass(findByClass(c.el, 'dashboard-media-size-toggle')[0]!, 'dashboard-toolbar-dropdown')[0]!.click();
+// tsc resolves the real obsidian types (no static last there); the runtime
+// alias points at the stub, whose Menu.last exists — bridge with a cast.
+const menu = (Menu as unknown as { last: { items: Array<{ click(): void }> } | null }).last;
+assert.ok(menu, 'dropdown click opens a menu');
+assert.equal(menu!.items.length, 3, 'menu lists the three sizes');
+menu!.items[0]!.click();
+assert.equal(store3['apex-dashboard-media-thumb-size'], 'small', 'menu pick saves to localStorage');
 assert.equal(gridSize(c.el), 'small', 'grid re-renders small');
-assert.equal(activeSize(c.el), 'S', 'S active after click');
+assert.equal(activeSize(c.el), 'S', 'S shown on the collapsed button after pick');
 
 // 4. Garbage stored: falls back to medium.
 const store4: Record<string, string> = { 'apex-dashboard-media-thumb-size': 'huge' };

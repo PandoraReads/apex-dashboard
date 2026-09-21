@@ -16,6 +16,7 @@ import {
 	formatDate,
 } from './media-views';
 import { trashMediaFile } from './media-utils';
+import { createToolbarDropdown } from './toolbar-dropdown';
 
 /** Image file extensions shown in an images section (excludes pdf). */
 export const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp']);
@@ -93,11 +94,22 @@ function isMediaSection(sectionType: string): boolean {
 	return sectionType === 'images' || sectionType === 'videos';
 }
 
-function queryMediaFiles(app: App, exts: Set<string>, excludeFolders: string[], tagService?: MediaTagService): MediaFileResult[] {
+function queryMediaFiles(app: App, exts: Set<string>, excludeFolders: string[], includeFolders: string[], tagService?: MediaTagService): MediaFileResult[] {
 	const excluded = normalizeExcludeFolders(excludeFolders);
+	// Display scope: normalized lowercase prefixes; a file qualifies when its
+	// path equals a scope folder or lives under it. Empty scope = whole vault.
+	const includes = includeFolders
+		.map(f => f.trim().toLowerCase().replace(/\/+$/, ''))
+		.filter(Boolean);
+	const inScope = (path: string): boolean => {
+		if (includes.length === 0) return true;
+		const p = path.toLowerCase();
+		return includes.some(inc => p === inc || p.startsWith(inc + '/'));
+	};
 	const results: MediaFileResult[] = [];
 	for (const file of app.vault.getFiles()) {
 		if (file.path.startsWith('.')) continue;
+		if (!inScope(file.path)) continue;
 		if (isUnderExcludedFolder(file.path, excluded)) continue;
 		if (!exts.has(file.extension)) continue;
 		results.push({
@@ -274,42 +286,42 @@ export function renderMediaSection(
 	}
 	groupSelect.addEventListener('change', () => { groupBy = groupSelect.value as MediaGroupMode; currentPage = 1; render(); });
 
-	// View mode toggle (reuses library's view-toggle styling)
+	// View mode toggle (single dropdown button; menu lists the views)
 	let viewMode: MediaViewMode = 'grid';
 	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle' });
-	const viewIcons: Record<MediaViewMode, string> = { grid: 'layout-grid', list: 'list' };
 	const buildViewToggle = (): void => {
 		viewToggle.empty();
-		(['grid', 'list'] as MediaViewMode[]).forEach((mode) => {
-			const btn = viewToggle.createDiv({
-				cls: 'dashboard-library-view-btn' + (mode === viewMode ? ' active' : ''),
-			});
-			setIcon(btn, viewIcons[mode]);
-			btn.addEventListener('click', () => { viewMode = mode; currentPage = 1; buildViewToggle(); render(); });
+		createToolbarDropdown(viewToggle, viewMode, (['grid', 'list'] as MediaViewMode[]).map(mode => ({
+			key: mode,
+			label: t('media.view' + mode.charAt(0).toUpperCase() + mode.slice(1)),
+			icon: mode === 'grid' ? 'layout-grid' : 'list',
+		})), (key) => {
+			viewMode = key as MediaViewMode;
+			currentPage = 1;
+			buildViewToggle();
+			render();
 		});
 	};
 	buildViewToggle();
 
 	// Thumbnail size toggle (small / medium / large) — affects the grid view.
 	// The choice persists via localStorage (same channel the note popover uses
-	// for its edit/preview mode), shared across every media section.
+	// for its edit/preview mode), shared across every media section. Single
+	// dropdown button showing the current letter.
 	let thumbSize: ThumbSize = readStoredThumbSize(app);
 	const sizeToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-media-size-toggle' });
 	const sizeLabels: Record<ThumbSize, string> = { small: 'S', medium: 'M', large: 'L' };
 	const buildSizeToggle = (): void => {
 		sizeToggle.empty();
-		(['small', 'medium', 'large'] as ThumbSize[]).forEach((s) => {
-			const btn = sizeToggle.createDiv({
-				cls: 'dashboard-library-view-btn' + (s === thumbSize ? ' active' : ''),
-				attr: { 'aria-label': t('media.size' + s.charAt(0).toUpperCase() + s.slice(1)) },
-			});
-			btn.textContent = sizeLabels[s];
-			btn.addEventListener('click', () => {
-				thumbSize = s;
-				app.saveLocalStorage(THUMB_SIZE_STORAGE_KEY, s);
-				buildSizeToggle();
-				render();
-			});
+		createToolbarDropdown(sizeToggle, thumbSize, (['small', 'medium', 'large'] as ThumbSize[]).map(s => ({
+			key: s,
+			label: t('media.size' + s.charAt(0).toUpperCase() + s.slice(1)),
+			short: sizeLabels[s],
+		})), (key) => {
+			thumbSize = key as ThumbSize;
+			app.saveLocalStorage(THUMB_SIZE_STORAGE_KEY, thumbSize);
+			buildSizeToggle();
+			render();
 		});
 	};
 	buildSizeToggle();
@@ -561,7 +573,7 @@ export function renderMediaSection(
 		resultArea.empty();
 		paginationArea.empty();
 
-		let results = queryMediaFiles(app, exts!, column.libraryConfig?.excludeFolders ?? [], tagService);
+		let results = queryMediaFiles(app, exts!, column.libraryConfig?.excludeFolders ?? [], column.libraryConfig?.includeFolders ?? [], tagService);
 		const q = searchInput.value.trim().toLowerCase();
 		if (q) {
 			results = results.filter(r => r.basename.toLowerCase().includes(q) || r.path.toLowerCase().includes(q));

@@ -4,6 +4,7 @@ import { extractFrontmatterProperties } from './library-section';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
+import { PathPickerModal } from './path-picker-modal';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
 
 /** Pseudo-properties whose filter branches have fixed semantics (path does
@@ -272,6 +273,26 @@ export class LibraryConfigModal extends Modal {
 			text: t('common.cancel'),
 		}).addEventListener('click', () => this.close());
 
+		// New-note template: body of this note seeds notes created by the
+		// toolbar "+" (frontmatter merged from the section's filter props).
+		const tplSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		tplSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.newNoteTemplate') });
+		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.newNoteTemplateHint') });
+		const tplRow = tplSection.createDiv({ cls: 'dashboard-media-folder-input-row' });
+		const tplInput = tplRow.createEl('input', {
+			cls: 'dashboard-media-filter-folder',
+			attr: { type: 'text', placeholder: 'Templates/note.md' },
+		});
+		tplInput.value = this.config.templatePath ?? '';
+		tplRow.createEl('button', {
+			cls: 'dashboard-media-folder-browse',
+			text: t('folder.browse'),
+		}).addEventListener('click', () => {
+			new PathPickerModal(this.app, 'file', (path) => {
+				tplInput.value = path;
+			}).open();
+		});
+
 		footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
@@ -282,6 +303,7 @@ export class LibraryConfigModal extends Modal {
 				...this.config,
 				excludeFolders: folders.length > 0 ? folders : undefined,
 				visibleProperties: picked.length > 0 ? picked : undefined,
+				templatePath: tplInput.value.trim() || undefined,
 			});
 			this.close();
 		});

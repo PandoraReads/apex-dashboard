@@ -194,6 +194,15 @@ export function serialize(data: DashboardData): string {
 					lines.push(`        - "${escapeYamlString(f)}"`);
 				}
 			}
+			if (lc.includeFolders && lc.includeFolders.length > 0) {
+				lines.push('      includeFolders:');
+				for (const f of lc.includeFolders) {
+					lines.push(`        - "${escapeYamlString(f)}"`);
+				}
+			}
+			if (lc.templatePath) {
+				lines.push(`      templatePath: "${escapeYamlString(lc.templatePath)}"`);
+			}
 			if (lc.taskGroupBy) {
 				lines.push(`      taskGroupBy: ${lc.taskGroupBy}`);
 			}
@@ -960,6 +969,8 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		folders: Array.isArray(raw.folders) ? raw.folders.map((v: unknown) => String(v)) : (typeof raw.folder === 'string' ? [raw.folder] : undefined),
 		folderFilter: Array.isArray(raw.folderFilter) ? raw.folderFilter.map((v: unknown) => String(v)) : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
+		includeFolders: Array.isArray(raw.includeFolders) ? raw.includeFolders.map((v: unknown) => String(v)) : undefined,
+		templatePath: typeof raw.templatePath === 'string' ? raw.templatePath : undefined,
 		taskGroupBy: ['date', 'priority', 'none'].includes(str(raw.taskGroupBy ?? '')) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {
 				property: (raw.quickDateFilter as Record<string, unknown>).property === 'modified' ? 'modified' as const : 'created' as const,

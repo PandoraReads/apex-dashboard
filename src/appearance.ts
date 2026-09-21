@@ -50,6 +50,11 @@ const RADIUS_TOKENS = {
  * (which already reflects any customColors override) to compose color + opacity.
  */
 export function applyAppearance(container: HTMLElement, app: App, settings: DashboardSettings): void {
+	// Start clean: the root element survives full re-renders (only its
+	// children are emptied), so inline overrides from a previous settings
+	// state — notably the custom page background paint — must be dropped or a
+	// cleared color would stay stuck over the theme's own background.
+	clearCustomColors(container);
 	applyBackground(container, app, settings);
 	applyCustomColors(container, settings.customColors);
 	applyAdvanced(container, settings);
@@ -108,6 +113,13 @@ function applyCustomColors(root: HTMLElement, custom: CustomColors | undefined):
 		const value = custom[key];
 		if (value && value.trim()) {
 			root.style.setProperty(CUSTOM_COLOR_TOKENS[key], value.trim());
+			// The page background ALSO paints inline: the wash themes paint
+			// their drifting gradients on the root without referencing
+			// --db-bg at all, so the token alone changes nothing there. An
+			// inline background beats every theme rule (specificity of style
+			// attributes), which is exactly the override a user-set page
+			// color/alpha needs — at alpha 0 the Obsidian background shows.
+			if (key === 'bg') root.style.background = value.trim();
 		}
 	});
 }
@@ -117,6 +129,10 @@ export function clearCustomColors(root: HTMLElement): void {
 	for (const token of Object.values(CUSTOM_COLOR_TOKENS)) {
 		root.style.removeProperty(token);
 	}
+	// The inline page-background paint (see applyCustomColors) goes with them,
+	// or a cleared custom color would leave the last picked color stuck over
+	// the theme's own background.
+	root.style.removeProperty('background');
 }
 
 /**

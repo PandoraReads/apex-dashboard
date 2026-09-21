@@ -785,6 +785,7 @@ onyx: t('settings.styleOnyx'),
 					this.plugin.refreshAllDashboards();
 					this.refresh();
 				}));
+		this.renderWidgetBackgroundSetting(pomodoroCard, 'pomodoroBackground');
 
 		if (this.plugin.settings.pomodoroEnabled) {
 			const workSetting = new Setting(pomodoroCard)
@@ -1310,7 +1311,7 @@ onyx: t('settings.styleOnyx'),
 	 *  *Background settings keys (undefined = removed). */
 	private renderWidgetBackgroundSetting(
 		containerEl: HTMLElement,
-		key: 'quickActionsBackground' | 'habitBackground' | 'musicBackground' | 'yearProgressBackground',
+		key: 'quickActionsBackground' | 'pomodoroBackground' | 'habitBackground' | 'musicBackground' | 'yearProgressBackground',
 	): void {
 		new Setting(containerEl)
 			.setName(t('wbg.set'))
@@ -1358,10 +1359,6 @@ onyx: t('settings.styleOnyx'),
 						this.plugin.refreshAllDashboards();
 						this.refresh();
 					}));
-		}
-
-		if (albums.length === 0) {
-			card.createDiv({ cls: 'dashboard-empty', text: t('album.empty') });
 		}
 
 		new Setting(card)
@@ -1597,6 +1594,73 @@ onyx: t('settings.styleOnyx'),
 					};
 					await this.plugin.saveSettings();
 				}));
+
+		// Fixed destination override: default chain (daily note → dashboard),
+		// a specific file, or a folder with one YYYY-MM-DD note per day.
+		const currentTarget = this.plugin.settings.calendarTaskTarget;
+		const targetMode: () => string = () => currentTarget?.kind ?? 'default';
+		const targetSetting = new Setting(card)
+			.setName(t('settings.calendarTarget'))
+			.setDesc(t('settings.calendarTargetDesc'));
+		let targetInput: HTMLInputElement | null = null;
+		targetSetting.addDropdown(d => {
+			d.addOption('default', t('settings.calendarTargetDefault'))
+				.addOption('file', t('settings.calendarTargetFile'))
+				.addOption('folder', t('settings.calendarTargetFolder'))
+				.setValue(targetMode())
+				.onChange(async (value) => {
+					if (value === 'default') {
+						this.plugin.settings = { ...this.plugin.settings, calendarTaskTarget: undefined };
+					} else {
+						const existing = this.plugin.settings.calendarTaskTarget;
+						this.plugin.settings = {
+							...this.plugin.settings,
+							calendarTaskTarget: { kind: value as 'file' | 'folder', path: existing?.path ?? '' },
+						};
+					}
+					await this.plugin.saveSettings();
+					if (targetInput) {
+						targetInput.value = this.plugin.settings.calendarTaskTarget?.path ?? '';
+						targetInput.disabled = value === 'default';
+						targetInput.placeholder = value === 'folder'
+							? t('settings.calendarTargetFolderPlaceholder')
+							: 'Notes/tasks.md';
+					}
+				});
+		});
+		targetSetting.addText(text => {
+			targetInput = text.inputEl;
+			text.inputEl.disabled = targetMode() === 'default';
+			text.setPlaceholder(currentTarget?.kind === 'folder'
+				? t('settings.calendarTargetFolderPlaceholder')
+				: 'Notes/tasks.md')
+				.setValue(currentTarget?.path ?? '')
+				.onChange(async (value) => {
+					const tgt = this.plugin.settings.calendarTaskTarget;
+					if (!tgt) return;
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarTaskTarget: { ...tgt, path: value.trim() },
+					};
+					await this.plugin.saveSettings();
+				});
+		});
+		targetSetting.addExtraButton(btn => btn
+			.setIcon('file-search')
+			.setTooltip(t('pathPicker.pickFile'))
+			.onClick(() => {
+				const tgt = this.plugin.settings.calendarTaskTarget;
+				const mode: 'file' | 'folder' = tgt?.kind === 'folder' ? 'folder' : 'file';
+				new PathPickerModal(this.app, mode, (path) => {
+					if (!this.plugin.settings.calendarTaskTarget) return;
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarTaskTarget: { ...this.plugin.settings.calendarTaskTarget, path },
+					};
+					void this.plugin.saveSettings();
+					if (targetInput) targetInput.value = path;
+				}).open();
+			}));
 	}
 
 	private renderBackupSettings(containerEl: HTMLElement): void {

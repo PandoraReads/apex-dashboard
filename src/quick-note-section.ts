@@ -236,7 +236,7 @@ function resolveFile(app: App, path: string): TFile | null {
  *  {{date}}/{{time}}/{{title}} vars. An empty path returns { '', true }
  *  (no template configured — not an error); a missing or unreadable file
  *  returns { '', false } so callers can warn the user. */
-async function readTemplateContent(
+export async function readTemplateContent(
 	app: App,
 	tplPath: string,
 	opts: { title?: string; now?: MomentLike },
@@ -289,7 +289,7 @@ function placeCaptureLine(raw: string, line: string, position: 'start' | 'end'):
 
 /** Split a leading YAML frontmatter block (a closed `---` fence at line 1)
  *  from the note body. Returns { fm: '', body: raw } when there is none. */
-function splitFrontmatter(raw: string): { fm: string; body: string } {
+export function splitFrontmatter(raw: string): { fm: string; body: string } {
 	if (!raw.startsWith('---')) return { fm: '', body: raw };
 	const lines = raw.split('\n');
 	for (let i = 1; i < lines.length; i++) {

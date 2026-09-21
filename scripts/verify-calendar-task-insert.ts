@@ -122,6 +122,28 @@ async function main(): Promise<void> {
 		assert.ok(store.get(futurePath)!.includes(line), '8: line in created note');
 	}
 
+	// 9. Custom FILE target overrides the whole chain: today's daily note
+	//    exists, but the task lands in the pinned file per position.
+	{
+		const { app, store } = makeApp({ [todayPath]: 'x\n', 'Notes/tasks.md': '---\ntype: tasks\n---\n\nExisting\n' });
+		const line = '- [ ] pinned';
+		const target = await insertTaskForDay(app, todayIso, line, 'Dashboard/dashboard', 'start', { kind: 'file', path: 'Notes/tasks' });
+		assert.equal(target?.file.path, 'Notes/tasks.md', '9: lands in pinned file (.md appended)');
+		const out = store.get('Notes/tasks.md')!;
+		assert.ok(out.includes(line) && out.indexOf(line) < out.indexOf('Existing'), '9: start position');
+	}
+
+	// 10. Custom FOLDER target: one note per day named YYYY-MM-DD, created on
+	//     the first task, appended on the second (end position).
+	{
+		const { app, store } = makeApp({ [todayPath]: 'x\n' });
+		const t1 = await insertTaskForDay(app, futureIso, '- [ ] first', undefined, 'end', { kind: 'folder', path: 'Tasks' });
+		assert.equal(t1?.file.path, `Tasks/${futureIso}.md`, '10a: created day note in folder');
+		await insertTaskForDay(app, futureIso, '- [ ] second', undefined, 'end', { kind: 'folder', path: 'Tasks' });
+		const out = store.get(`Tasks/${futureIso}.md`)!;
+		assert.ok(out.includes('- [ ] first') && out.indexOf('- [ ] first') < out.indexOf('- [ ] second'), '10b: appended after first');
+	}
+
 	// Sanity: returned targets always describe the written line.
 	{
 		const { app } = makeApp({ [todayPath]: 'x\n' });
@@ -131,7 +153,7 @@ async function main(): Promise<void> {
 		assert.equal(target.writtenLine, '- [ ] y', 'sanity: writtenLine');
 	}
 
-	console.log('verify-calendar-task-insert: 8 scenarios + sanity OK');
+	console.log('verify-calendar-task-insert: 10 scenarios + sanity OK');
 }
 
 void main();

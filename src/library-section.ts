@@ -5,6 +5,7 @@ import { t, getLanguage } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { showConfirmDialog } from './confirm-dialog';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
+import { createToolbarDropdown } from './toolbar-dropdown';
 import { KANBAN_FILE_DRAG_TYPE } from './dnd';
 import { resolveCoverAsObjectUrl } from './book-service';
 import { applyModalTheme } from './modal-theme';
@@ -534,58 +535,59 @@ export function renderLibrarySection(
 	const sortDirBtn = toolbar.createDiv({ cls: 'dashboard-library-sort-dir' });
 	setIcon(sortDirBtn, config.sortDesc ? 'arrow-down-wide-narrow' : 'arrow-up-wide-narrow');
 
-	// View mode toggle
+	// View mode toggle: single dropdown button (current view's icon); the
+	// native menu lists every view with a check on the active one.
 	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle' });
 	const viewModes: LibraryViewMode[] = ['grid', 'gallery', 'list', 'table', 'kanban'];
 	const viewIcons: Record<string, string> = { grid: 'layout-grid', gallery: 'image', list: 'list', table: 'table', kanban: 'columns' };
-
-	// Card size toggle (small / medium / large) — meaningful only for the two
-	// card views, so it hides while list/table/kanban is active.
-	const cardViews: LibraryViewMode[] = ['grid', 'gallery'];
-	const sizeToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-library-size-toggle' });
-	const sizeLabels: Record<NonNullable<LibraryConfig['cardSize']>, string> = { small: 'S', medium: 'M', large: 'L' };
-	const buildSizeToggle = (): void => {
-		sizeToggle.empty();
-		const current = config.cardSize ?? 'medium';
-		for (const s of ['small', 'medium', 'large'] as const) {
-			const btn = sizeToggle.createDiv({
-				cls: 'dashboard-library-view-btn' + (s === current ? ' active' : ''),
-				attr: { 'aria-label': t(`library.size${s.charAt(0).toUpperCase()}${s.slice(1)}`) },
-			});
-			btn.textContent = sizeLabels[s];
-			btn.addEventListener('click', () => {
-				const newConfig = { ...config, cardSize: s };
-				onConfigChange(newConfig);
-				Object.assign(config, { cardSize: s });
-				buildSizeToggle();
-				renderContent(config);
-			});
-		}
-	};
-	const applySizeToggleVisibility = (mode: LibraryViewMode): void => {
-		sizeToggle.toggleClass('is-hidden', !cardViews.includes(mode));
-	};
-	buildSizeToggle();
-	applySizeToggleVisibility(config.viewMode);
-
-	for (const mode of viewModes) {
-		const btn = viewToggle.createDiv({
-			cls: 'dashboard-library-view-btn' + (mode === config.viewMode ? ' active' : ''),
-		});
-		setIcon(btn, viewIcons[mode] ?? 'file');
-		btn.title = t('library.view' + mode.charAt(0).toUpperCase() + mode.slice(1));
-		btn.dataset.viewMode = mode;
-		btn.addEventListener('click', () => {
-			viewToggle.querySelectorAll('.dashboard-library-view-btn').forEach(b => b.removeClass('active'));
-			btn.addClass('active');
+	const viewItems = viewModes.map(mode => ({
+		key: mode,
+		label: t('library.view' + mode.charAt(0).toUpperCase() + mode.slice(1)),
+		icon: viewIcons[mode] ?? 'file',
+	}));
+	const buildViewToggle = (): void => {
+		viewToggle.empty();
+		createToolbarDropdown(viewToggle, config.viewMode, viewItems, (key) => {
+			const mode = key as LibraryViewMode;
 			const newConfig = { ...config, viewMode: mode };
 			onConfigChange(newConfig);
 			Object.assign(config, { viewMode: mode });
 			applySizeToggleVisibility(mode);
 			currentPage = 1;
+			buildViewToggle();
 			renderContent(config);
 		});
-	}
+	};
+
+	// Card size toggle (small / medium / large) — meaningful only for the two
+	// card views, so it hides while list/table/kanban is active. Same single
+	// dropdown pattern; the collapsed button shows the current letter.
+	const cardViews: LibraryViewMode[] = ['grid', 'gallery'];
+	const sizeToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-library-size-toggle' });
+	const sizeLabels: Record<NonNullable<LibraryConfig['cardSize']>, string> = { small: 'S', medium: 'M', large: 'L' };
+	const sizeItems = (['small', 'medium', 'large'] as const).map(s => ({
+		key: s,
+		label: t(`library.size${s.charAt(0).toUpperCase()}${s.slice(1)}`),
+		short: sizeLabels[s],
+	}));
+	const buildSizeToggle = (): void => {
+		sizeToggle.empty();
+		const current = config.cardSize ?? 'medium';
+		createToolbarDropdown(sizeToggle, current, sizeItems, (key) => {
+			const s = key as NonNullable<LibraryConfig['cardSize']>;
+			const newConfig = { ...config, cardSize: s };
+			onConfigChange(newConfig);
+			Object.assign(config, { cardSize: s });
+			buildSizeToggle();
+			renderContent(config);
+		});
+	};
+	const applySizeToggleVisibility = (mode: LibraryViewMode): void => {
+		sizeToggle.toggleClass('is-hidden', !cardViews.includes(mode));
+	};
+	buildViewToggle();
+	buildSizeToggle();
+	applySizeToggleVisibility(config.viewMode);
 
 		// Quick date filter button
 		const filterBtn = toolbar.createDiv({ cls: 'dashboard-library-filter-btn' });

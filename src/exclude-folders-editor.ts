@@ -16,7 +16,7 @@ export class ExcludeFoldersEditor {
 	private folders: string[];
 	private readonly app: App;
 
-	constructor(app: App, host: HTMLElement, initial: readonly string[]) {
+	constructor(app: App, host: HTMLElement, initial: readonly string[], opts?: { placeholder?: string }) {
 		this.app = app;
 		this.folders = [...initial];
 
@@ -24,7 +24,7 @@ export class ExcludeFoldersEditor {
 		const addRow = host.createDiv({ cls: 'dashboard-media-folder-input-row' });
 		const pathInput = addRow.createEl('input', {
 			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: t('exclude.folderPlaceholder') },
+			attr: { type: 'text', placeholder: opts?.placeholder ?? t('exclude.folderPlaceholder') },
 		});
 		const browseBtn = addRow.createEl('button', {
 			cls: 'dashboard-media-folder-browse',

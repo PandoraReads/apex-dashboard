@@ -1,6 +1,7 @@
 import { App, Menu, TFile } from 'obsidian';
 import { ensureFolder } from './daily-notes';
-import { sanitizeFilename, uniquePath } from './quick-note-section';
+import { sanitizeFilename, uniquePath, readTemplateContent, splitFrontmatter } from './quick-note-section';
+import { nowMoment } from './datetime';
 import { LibraryConfig } from './types';
 
 /** Frontmatter pseudo-properties that no creation-time value can satisfy:
@@ -100,12 +101,16 @@ export function yamlFrontmatter(props: Record<string, string | string[]>): strin
  * Create `folder/Title.md` (uniqued as `-2`, `-3`, … on collision) with the
  * given frontmatter props baked into the initial content — one atomic write,
  * so the vault-'create' refresh already sees a filter-matching note.
+ * `templatePath`: a template note whose body (frontmatter stripped) seeds the
+ * note under the props block, with {{title}}/{{date:…}} substituted — the
+ * quick-note preset pipeline.
  */
 export async function createNoteWithProps(
 	app: App,
 	folder: string,
 	title: string,
 	props: Record<string, string | string[]>,
+	templatePath?: string,
 ): Promise<TFile> {
 	const cleanFolder = folder.trim().replace(/^\/+|\/+$/g, '');
 	const name = sanitizeFilename(title);
@@ -113,7 +118,18 @@ export async function createNoteWithProps(
 	if (cleanFolder) await ensureFolder(app, cleanFolder);
 	const base = cleanFolder ? `${cleanFolder}/${name}.md` : `${name}.md`;
 	const path = await uniquePath(app, base);
-	return app.vault.create(path, yamlFrontmatter(props));
+
+	let content = yamlFrontmatter(props);
+	const tpl = (templatePath ?? '').trim();
+	if (tpl) {
+		const { content: tplContent, found } = await readTemplateContent(app, tpl, { title, now: nowMoment() });
+		if (!found) throw new Error(`Template not found: ${tpl}`);
+		// The template's own frontmatter is dropped: the props block (built
+		// from the section's filters) owns the new note's frontmatter.
+		const body = splitFrontmatter(tplContent).body.replace(/^\n+/, '');
+		content = content === '' ? (body ? `${body}\n` : '') : (body ? `${content}${body}\n` : content);
+	}
+	return app.vault.create(path, content);
 }
 
 /**

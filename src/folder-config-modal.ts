@@ -3,6 +3,7 @@ import { t } from './i18n';
 import { extractFrontmatterProperties, getAllTags, renderTagsSelector } from './library-section';
 import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
+import { PathPickerModal } from './path-picker-modal';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
 
 export interface FolderConfigResult {
@@ -20,6 +21,8 @@ export interface FolderConfigResult {
 	propertyLimit: number;
 	/** Hand-picked card properties (order preserved); undefined = automatic. */
 	visibleProperties: string[] | undefined;
+	/** Template note applied to new notes created from this section. */
+	templatePath: string | undefined;
 }
 
 /**
@@ -37,6 +40,7 @@ export class FolderConfigModal extends Modal {
 	private showProperties: boolean;
 	private propertyLimit: number;
 	private visibleProperties: string[];
+	private templatePath: string;
 	private readonly onSave: (result: FolderConfigResult) => void;
 
 	constructor(
@@ -51,6 +55,7 @@ export class FolderConfigModal extends Modal {
 		currentGroupMode?: 'property' | 'folder',
 		currentVisibleProperties?: string[],
 		currentKanbanShowCovers?: boolean,
+		templatePath?: string,
 	) {
 		super(app);
 		this.folders = [...currentFolders];
@@ -62,6 +67,7 @@ export class FolderConfigModal extends Modal {
 		this.showProperties = currentShowProperties !== false;
 		this.propertyLimit = currentPropertyLimit ?? 6;
 		this.visibleProperties = [...(currentVisibleProperties ?? [])];
+		this.templatePath = (templatePath ?? '').trim();
 		this.onSave = onSave;
 	}
 
@@ -253,6 +259,28 @@ export class FolderConfigModal extends Modal {
 
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		// New-note template: body of this note seeds notes created by the
+		// toolbar "+" (frontmatter merged from the section's filter props).
+		const tplSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		tplSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.newNoteTemplate') });
+		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.newNoteTemplateHint') });
+		const tplRow = tplSection.createDiv({ cls: 'dashboard-media-folder-input-row' });
+		const tplInput = tplRow.createEl('input', {
+			cls: 'dashboard-media-filter-folder',
+			attr: { type: 'text', placeholder: 'Templates/note.md' },
+		});
+		tplInput.value = this.templatePath;
+		tplRow.createEl('button', {
+			cls: 'dashboard-media-folder-browse',
+			text: t('folder.browse'),
+		}).addEventListener('click', () => {
+			new PathPickerModal(this.app, 'file', (path) => {
+				tplInput.value = path;
+				this.templatePath = path;
+			}).open();
+		});
+		tplInput.addEventListener('change', () => { this.templatePath = tplInput.value.trim(); });
+
 		footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
 			text: t('common.cancel'),
@@ -273,6 +301,7 @@ export class FolderConfigModal extends Modal {
 				showProperties: this.showProperties,
 				propertyLimit: this.propertyLimit,
 				visibleProperties: picked.length > 0 ? picked : undefined,
+				templatePath: this.templatePath || undefined,
 			});
 			this.close();
 		});

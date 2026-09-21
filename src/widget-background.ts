@@ -90,6 +90,7 @@ export function applyWidgetBackground(
 	widget: HTMLElement,
 	bg: WidgetBackground | undefined,
 	app: App,
+	opts?: { skipFrame?: boolean },
 ): void {
 	if (!bg || !bg.image.trim()) return;
 	const url = resolveVaultImage(app, bg.image.trim());
@@ -101,6 +102,13 @@ export function applyWidgetBackground(
 	if (fg) {
 		widget.addClass('dashboard-sidebar-widget--fg-set');
 		widget.setCssProps({ '--wbg-fg': fg });
+	}
+	// Glass inner frame (the quick-action button recipe at card scale): a
+	// slightly-inset overlay with the theme's translucent button fill +
+	// border tokens, so content reads over any photo. Skipped for the
+	// quick-actions card whose buttons already carry that treatment.
+	if (!opts?.skipFrame) {
+		widget.createDiv({ cls: 'dashboard-widget-frame' });
 	}
 	const layer = widget.createDiv({ cls: 'dashboard-widget-bg' });
 	// Slight over-scale when blurred so the blur's faded edge never shows

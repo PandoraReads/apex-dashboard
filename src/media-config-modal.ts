@@ -47,6 +47,15 @@ export class MediaConfigModal extends Modal {
 		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
 		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.existing?.excludeFolders ?? []);
 
+		// Display scope: when non-empty, only files under these folders reach
+		// the section (excludes still subtract within it); empty = whole vault.
+		const includeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		includeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('media.includeFolders') });
+		includeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('media.includeFoldersHint') });
+		const includeEditor = new ExcludeFoldersEditor(this.app, includeSection, this.existing?.includeFolders ?? [], {
+			placeholder: t('media.includeFolderPlaceholder'),
+		});
+
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
@@ -68,7 +77,12 @@ export class MediaConfigModal extends Modal {
 				sortDesc: true,
 			};
 			const folders = excludeEditor.value;
-			this.onSave({ ...base, excludeFolders: folders.length > 0 ? folders : undefined });
+			const includes = includeEditor.value;
+			this.onSave({
+				...base,
+				excludeFolders: folders.length > 0 ? folders : undefined,
+				includeFolders: includes.length > 0 ? includes : undefined,
+			});
 			this.close();
 		});
 	}

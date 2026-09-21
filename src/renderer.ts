@@ -299,6 +299,7 @@ export function sidebarWidgetSignature(
 		expenseCurrency: settings.expenseCurrency,
 		albums: settings.albums ?? [],
 		quickActionsBackground: settings.quickActionsBackground,
+		pomodoroBackground: settings.pomodoroBackground,
 		habitBackground: settings.habitBackground,
 		musicBackground: settings.musicBackground,
 		yearProgressBackground: settings.yearProgressBackground,
@@ -338,7 +339,7 @@ export function sidebarWidgetSignature(
  *  countdown settings button uses). */
 function saveSingletonBackground(
 	app: App,
-	key: 'quickActionsBackground' | 'habitBackground' | 'musicBackground' | 'yearProgressBackground',
+	key: 'quickActionsBackground' | 'pomodoroBackground' | 'habitBackground' | 'musicBackground' | 'yearProgressBackground',
 	bg: import('./types').WidgetBackground | undefined,
 ): void {
 	const plugin = getWidgetPlugin(app);
@@ -403,7 +404,7 @@ export function renderSidebarWidgets(
 		enabled.push({ key: 'weather', render: (host) => renderSidebarWeather(host, settings, app) });
 	}
 	if (settings.pomodoroEnabled && pomodoroService) {
-		enabled.push({ key: 'pomodoro', render: (host) => renderSidebarPomodoro(host, pomodoroService, settings) });
+		enabled.push({ key: 'pomodoro', render: (host) => renderSidebarPomodoro(host, pomodoroService, settings, app, bg => saveSingletonBackground(app, 'pomodoroBackground', bg)) });
 	}
 	if (settings.readingEnabled && readingService) {
 		enabled.push({ key: 'reading', render: (host) => renderSidebarReading(host, readingService) });
@@ -493,7 +494,7 @@ export function renderSidebarWidgets(
 				el.addClass('dashboard-sidebar-widget');
 				// Card background + config gear INSIDE the header's button group
 				// (left of palette/add) — a corner button would overlap them.
-				applyWidgetBackground(el, settings.quickActionsBackground, app);
+				applyWidgetBackground(el, settings.quickActionsBackground, app, { skipFrame: true });
 				const btnGroup = el.querySelector<HTMLElement>('.dashboard-qa-btn-group');
 				if (btnGroup) {
 					const gear = appendInlineBackgroundButton(btnGroup, app, settings.quickActionsBackground,
@@ -743,8 +744,11 @@ export function renderSidebarPomodoro(
 	container: HTMLElement,
 	service: PomodoroService,
 	settings: import('./types').DashboardSettings,
+	app?: App,
+	onBgChange?: (bg: import('./types').WidgetBackground | undefined) => void,
 ): void {
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-pomodoro' });
+	if (app) applyWidgetBackground(widget, settings.pomodoroBackground, app);
 
 	const state = service.getState();
 	const isRunning = state.status === 'running';
@@ -766,6 +770,13 @@ export function renderSidebarPomodoro(
 
 	const statsBtn = topRow.createDiv({ cls: 'dashboard-sidebar-pomodoro-stats-btn' });
 	setIcon(statsBtn, 'bar-chart-2');
+
+	// Background gear rides the top row's right cluster (before stats), the
+	// inline pattern shared with habit/music/quick-actions.
+	if (app && onBgChange) {
+		const gear = appendInlineBackgroundButton(topRow, app, settings.pomodoroBackground, onBgChange);
+		topRow.insertBefore(gear, statsBtn);
+	}
 
 	// Ring
 	const ringWrap = widget.createDiv({ cls: 'dashboard-sidebar-pomodoro-ring-wrap' });

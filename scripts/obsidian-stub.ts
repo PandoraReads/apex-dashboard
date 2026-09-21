@@ -56,6 +56,9 @@ export class Menu {
 			title: '',
 			setTitle(t: string) { this.title = t; return this; },
 			setIcon(_icon: string) { return this; },
+			setChecked(_checked: boolean) { return this; },
+			setDisabled(_disabled: boolean) { return this; },
+			setWarning(_warning: boolean) { return this; },
 			onClick(fn: () => void) { clickFn = fn; return this; },
 			click: () => { clickFn?.(); },
 		};
