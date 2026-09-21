@@ -1,6 +1,6 @@
 import { App, setIcon } from 'obsidian';
 import { t } from './i18n';
-import type { DashboardSettings } from './types';
+import type { AlbumConfig, DashboardSettings } from './types';
 import { resolveVaultImage } from './banner';
 
 /** Rotation tick timers keyed by timer id, mapped to the widget root they
@@ -111,6 +111,19 @@ export function refreshAlbumWidget(root: HTMLElement, settings: DashboardSetting
 	if (!controller) return false;
 	controller.setImages(listAlbumImages(app, settings.widgetAlbumFolder, settings.widgetAlbumRecursive));
 	return true;
+}
+
+/** Multi-album refresh: pushes a freshly scanned image list into every live
+ *  album card, matched to its config via data-album-id. Absent entries (no
+ *  card in the DOM yet) are skipped, not errors. */
+export function refreshAlbumWidgets(root: HTMLElement, albums: AlbumConfig[], app: App): void {
+	for (const cfg of albums) {
+		const el = root.querySelector<HTMLElement>(`.dashboard-sidebar-album[data-album-id="${cfg.id}"]`);
+		if (!el || !el.isConnected) continue;
+		const controller = albumControllers.get(el);
+		if (!controller) continue;
+		controller.setImages(listAlbumImages(app, cfg.folder, cfg.recursive));
+	}
 }
 
 function renderAlbumPlaceholder(body: HTMLElement, text: string): void {

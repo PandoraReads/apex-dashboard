@@ -75,6 +75,10 @@ export class El {
 		return this.children[0] ?? null;
 	}
 
+	get childElementCount(): number {
+		return this.children.length;
+	}
+
 	setAttribute(name: string, value: string): void {
 		this.attrs.set(name, value);
 	}
@@ -197,18 +201,40 @@ export class El {
 		return this.querySelectorAll(selector)[0] ?? null;
 	}
 
+	/** Closest ancestor (self-inclusive) matching the restricted selector. */
+	closest(selector: string): El | null {
+		let cur: El | null = this;
+		while (cur) {
+			if (cur.matches(selector)) return cur;
+			cur = cur.parent;
+		}
+		return null;
+	}
+
 	addEventListener(type: string, fn: (ev: unknown) => void): void {
 		const list = this.listeners.get(type) ?? [];
 		list.push(fn);
 		this.listeners.set(type, list);
 	}
 
-	dispatchEvent(ev: { type: string; target?: El; key?: string }): boolean {
+	dispatchEvent(ev: { type: string; target?: El; key?: string; [extra: string]: unknown }): boolean {
 		// Listeners written against the real DOM commonly call
-		// stopPropagation/preventDefault; give every dispatched event no-ops so
-		// those handlers run unmodified.
-		const full = Object.assign({ stopPropagation: () => {}, preventDefault: () => {} }, ev);
-		for (const fn of this.listeners.get(ev.type) ?? []) fn(full);
+		// stopPropagation/preventDefault; stopPropagation halts the walk (as in
+		// the real DOM), preventDefault is recorded on the event. Extra
+		// properties (clientX, dataTransfer, ...) pass straight through.
+		let stopped = false;
+		const full = Object.assign({
+			stopPropagation: () => { stopped = true; },
+			preventDefault: () => {},
+		}, ev);
+		let cur: El | null = this;
+		while (cur && !stopped) {
+			for (const fn of [...(cur.listeners.get(ev.type) ?? [])]) {
+				fn(full);
+				if (stopped) break;
+			}
+			cur = cur.parent;
+		}
 		return true;
 	}
 
@@ -261,7 +287,23 @@ export function findByClass(root: El, cls: string): El[] {
 /** Match one simple selector part: `tag`, `.class`, `tag.class`, or `*`. */
 function matchesSimple(el: El, part: string): boolean {
 	if (part === '' || part === ':scope') return true;
-	const bits = part.replace(/^:scope>*/, '').split('.');
+	// Attribute predicates first: [attr], [attr="v"], [attr^="v"] (the forms
+	// the widget-grid selectors use). Peeled off the end so tag/class parsing
+	// never sees the dots inside quoted values.
+	const m = part.match(/\[([\w-]+)(?:([*^|$~]?)="([^"]*)")?\]$/);
+	let rest = part;
+	if (m) {
+		const actual = el.getAttribute(m[1]!) ?? '';
+		if (m[3] === undefined) {
+			if (actual === '') return false;
+		} else if (m[2] === '^') {
+			if (!actual.startsWith(m[3]!)) return false;
+		} else if (actual !== m[3]) {
+			return false;
+		}
+		rest = part.slice(0, part.length - m[0]!.length);
+	}
+	const bits = rest.replace(/^:scope>*/, '').split('.');
 	const tag = bits[0]!;
 	if (tag && tag !== '*' && el.tagName !== tag.toUpperCase()) return false;
 	for (const cls of bits.slice(1)) {

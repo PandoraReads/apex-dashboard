@@ -1,4 +1,5 @@
 import { App, Notice, setIcon } from 'obsidian';
+import { applyWidgetBackground, appendInlineBackgroundButton } from './widget-background';
 import { t } from './i18n';
 import { getHabitService, habitToday, HABIT_MAX_NAME_LENGTH } from './habit-service';
 import { showHabitStats } from './habit-stats-modal';
@@ -11,11 +12,12 @@ import { showPromptDialog } from './prompt-dialog';
  * refreshes every open widget/banner via refreshHabitWidget, so clicks never
  * patch the DOM directly and all views stay in sync.
  */
-export function renderSidebarHabitWidget(container: HTMLElement, app: App): void {
+export function renderSidebarHabitWidget(container: HTMLElement, app: App, bg?: import('./types').WidgetBackground, onBgChange?: (bg: import('./types').WidgetBackground | undefined) => void): void {
 	const service = getHabitService();
 	if (!service) return;
 
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-habit' });
+	applyWidgetBackground(widget, bg, app);
 
 	const top = widget.createDiv({ cls: 'dashboard-sidebar-habit-top' });
 	const titleEl = top.createDiv({ cls: 'dashboard-sidebar-habit-title' });
@@ -57,6 +59,8 @@ export function renderSidebarHabitWidget(container: HTMLElement, app: App): void
 		e.stopPropagation();
 		showHabitStats(widget.ownerDocument);
 	});
+
+	if (onBgChange) appendInlineBackgroundButton(top, app, bg, onBgChange);
 
 	const list = widget.createDiv({ cls: 'dashboard-sidebar-habit-list' });
 	renderList(list, countEl);

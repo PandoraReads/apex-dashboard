@@ -126,5 +126,17 @@ function addUnit(d: Date, amount: number, unit: string): Date {
 	return out;
 }
 
-
-
+/** Minimal Setting stand-in: verify scripts never instantiate it — the export
+ *  only needs to exist so bundles importing it from 'obsidian' resolve. */
+export class Setting {
+	constructor(_container?: unknown) {}
+	setName() { return this; }
+	setDesc() { return this; }
+	setHeading() { return this; }
+	addText() { return this; }
+	addToggle() { return this; }
+	addDropdown() { return this; }
+	addSlider() { return this; }
+	addButton() { return this; }
+	addExtraButton() { return this; }
+}

@@ -9,6 +9,8 @@ import type {
 	WereadRecency,
 } from './weread-shelf-model';
 
+export type DashboardLayoutMode = 'side' | 'stacked';
+
 export interface DashboardSettings {
 	/** Path of the ACTIVE workspace file (no .md extension). */
 	dashboardFile: string;
@@ -20,6 +22,10 @@ export interface DashboardSettings {
 	recentDocCount: number;
 	language: Language;
 	stylePreset: string;
+	/** Board arrangement: widgets in a left rail ('side', default) or a
+	    horizontal strip under the banner ('stacked'). Desktop/tablet only;
+	    phones keep their own layout regardless of this value. */
+	layoutMode: DashboardLayoutMode;
 	widgetWeatherEnabled: boolean;
 	widgetWeatherCity: string;
 	widgetWeatherLat: number;
@@ -54,7 +60,9 @@ export interface DashboardSettings {
 	widgetExpenseEnabled: boolean;
 	/** Currency symbol shown before amounts in the expense widget/stats (e.g. ¥, $). */
 	expenseCurrency: string;
-	/** Photo-album widget: auto-rotating slideshow of a vault folder's images. */
+	/** Photo-album widget: auto-rotating slideshow of a vault folder's images.
+	 *  Legacy single-album fields (widgetAlbum*) still load in old data.json
+	 *  files and are migrated to albums[] on load. */
 	widgetAlbumEnabled: boolean;
 	/** Vault folder whose images the album rotates through ('' = unset). */
 	widgetAlbumFolder: string;
@@ -66,6 +74,17 @@ export interface DashboardSettings {
 	widgetAlbumRatio: '1:1' | '3:4';
 	/** Photo transition animation between slides ('fade' default). */
 	widgetAlbumTransition: 'fade' | 'slide-left' | 'slide-right' | 'zoom';
+	/** Album widgets (multiple): one slideshow card per entry. */
+	albums: AlbumConfig[];
+	/** Anniversary ("纪念日") widgets master toggle (entries in anniversaries[]). */
+	anniversaryEnabled: boolean;
+	/** Anniversary entries: elapsed time since a historical date each. */
+	anniversaries: AnniversaryConfig[];
+	/** Singleton widget card backgrounds (undefined = none). */
+	quickActionsBackground?: WidgetBackground;
+	habitBackground?: WidgetBackground;
+	musicBackground?: WidgetBackground;
+	yearProgressBackground?: WidgetBackground;
 	/** Music player widget: search & play NetEase free songs in the sidebar
 	    (desktop only; no account, VIP tracks are skipped). */
 	widgetMusicEnabled: boolean;
@@ -244,6 +263,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	recentDocCount: 5,
 	language: 'zh',
 	stylePreset: 'island',
+	layoutMode: 'side',
 	widgetWeatherEnabled: false,
 	widgetWeatherCity: 'Shanghai',
 	widgetWeatherLat: 31.23,
@@ -272,6 +292,9 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	widgetAlbumRecursive: true,
 	widgetAlbumRatio: '1:1',
 	widgetAlbumTransition: 'fade',
+	albums: [],
+	anniversaryEnabled: false,
+	anniversaries: [],
 	widgetMusicEnabled: false,
 	musicVolume: 0.8,
 	musicRepeatMode: 'list',
@@ -557,6 +580,66 @@ export interface CountdownConfig {
 	targetDate: string;
 	displayMode: 'days' | 'hours' | 'minutes';
 	reminderDays: number;
+	/** Optional decorative card background. */
+	background?: WidgetBackground;
+}
+
+/** Stacked-layout card height ratios: exact fractions of the calendar unit
+ *  (the 6-row widget grid: 6 / 4 / 3 / 2 rows). */
+export type WidgetHeightRatio = 'full' | 'twoThirds' | 'half' | 'third';
+
+/** Optional decorative background for a widget card: image + readability
+ *  controls (image opacity, black dimming overlay, blur). */
+export interface WidgetBackground {
+	/** Vault path or http(s) URL of the image ('' = none). */
+	image: string;
+	/** Image opacity 0-100 (100 = solid). */
+	opacity: number;
+	/** Black dimming overlay 0-100 (keeps the card text readable). */
+	dim: number;
+	/** Background blur 0-20 px. */
+	blur: number;
+	/** Text/icon color scheme over the image: 'light' | 'dark' | custom
+	 *  '#rrggbb' | undefined (follow the theme). */
+	foreground?: string;
+}
+
+/** Factory with sane defaults (solid image, mild dim, no blur). */
+export const DEFAULT_WIDGET_BACKGROUND = (): WidgetBackground => ({ image: '', opacity: 100, dim: 30, blur: 0 });
+
+/** One photo-album widget entry. Multiple albums are managed in settings
+ *  (albums[]); each renders its own slideshow card in the sidebar. */
+export interface AlbumConfig {
+	id: number;
+	/** Vault folder the slideshow rotates through. */
+	folder: string;
+	/** Seconds each photo stays on screen. */
+	intervalSec: number;
+	/** Include images from subfolders. */
+	recursive: boolean;
+	/** Frame aspect ratio ('1:1' square, '3:4' portrait). */
+	ratio: '1:1' | '3:4';
+	/** Transition animation between slides. */
+	transition: 'fade' | 'slide-left' | 'slide-right' | 'zoom';
+	/** Stacked-layout card height ratio (side layout ignores it). */
+	heightRatio: WidgetHeightRatio;
+}
+
+/** One anniversary ("纪念日") entry: elapsed time since a historical date,
+ *  with an optional same-day-every-year reminder. */
+export interface AnniversaryConfig {
+	id: string;
+	label: string;
+	/** Historical date the elapsed time is measured from (YYYY-MM-DD or
+	 *  YYYY-MM-DDTHH:mm). */
+	startDate: string;
+	/** Elapsed display granularity: calendar years/months/days, total days,
+	 *  or days + hours. */
+	precision: 'ymd' | 'days' | 'hours';
+	/** Fire a reminder once a year on the anniversary's month/day. */
+	annualReminder: boolean;
+	/** Optional decorative card background. */
+	background?: WidgetBackground;
 }
 
 /** One playable NetEase track. Shared by search results, playlist imports and

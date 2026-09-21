@@ -1,10 +1,13 @@
 import { renderMusicAccountSettings } from './music-account-settings';
 import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem, type TextComponent } from 'obsidian';
 import type DashboardPlugin from './main';
-import { type DashboardSettings, type CountdownConfig, type BackupPeriod } from './types';
+import { type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig, type BackupPeriod } from './types';
 import { t, setLanguage, type Language } from './i18n';
 import { geocodeCity } from './weather-service';
 import { CountdownSettingsModal } from './countdown-modal';
+import { AlbumSettingsModal } from './album-settings-modal';
+import { AnniversarySettingsModal } from './anniversary-settings-modal';
+import { WidgetBackgroundModal } from './widget-background';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { TickTickLoginModal } from './ticktick-login-modal';
 import { ThemeStudioModal } from './theme-studio-modal';
@@ -15,7 +18,6 @@ import { getMusicService } from './music-service';
 import { normalizeWorkspacePath } from './workspace-registry';
 import { DEFAULT_TICKTICK_TZ, isValidTz } from './ticktick-tz';
 import { PathPickerModal } from './path-picker-modal';
-import { normalizeTransition } from './album-widget';
 import { SUPPORT_IMAGE_DATA_URL } from './assets/support-image';
 
 export type { DashboardSettings };
@@ -74,7 +76,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					{
 						name: t('settings.general'),
 						desc: t('settings.languageDesc'),
-						aliases: [t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.workspaceList'), t('settings.libraryNewNotePath')],
+						aliases: [t('settings.layoutMode'), t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.workspaceList'), t('settings.libraryNewNotePath')],
 						render: (setting) => {
 							asBlock(setting);
 							onPage('general')(setting);
@@ -164,11 +166,22 @@ export class DashboardSettingTab extends PluginSettingTab {
 					},
 					{
 						name: t('settings.widgetAlbum'),
-						desc: t('settings.widgetAlbumEnabledDesc'),
+						desc: t('album.sectionDesc'),
+						aliases: [t('album.add'), t('album.heightRatio')],
 						render: (setting) => {
 							asBlock(setting);
 							onPage('widgets')(setting);
 							this.renderAlbumSettings(setting.settingEl);
+						},
+					},
+					{
+						name: t('settings.widgetAnniversary'),
+						desc: t('anniversary.enabledDesc'),
+						aliases: [t('anniversary.add'), t('anniversary.annualReminder')],
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderAnniversarySettings(setting.settingEl);
 						},
 					},
 					{
@@ -249,6 +262,8 @@ export class DashboardSettingTab extends PluginSettingTab {
 			this.renderWidgetSettings(host);
 			this.renderLunarSettings(host);
 			this.renderYearProgressSettings(host);
+			this.renderAlbumSettings(host);
+			this.renderAnniversarySettings(host);
 		} else {
 			this.renderCoffeeSettings(host);
 		}
@@ -264,9 +279,82 @@ export class DashboardSettingTab extends PluginSettingTab {
 		else this.renderFallback();
 	}
 
-	/** Top block: language, style, quick notes, paths. Shared by display()
-	 *  (pre-1.13) and the declarative General section (1.13+). */
+	/** Visual layout picker: two miniature board diagrams side by side, each
+	 *  with a centered radio circle underneath as THE click target (no button
+	 *  bar — theme button styles constrained the old card's height and its
+	 *  content spilled onto the rows around it). The active card carries the
+	 *  accent ring and a filled circle; the choice saves and refreshes
+	 *  immediately. */
+	private renderLayoutPicker(containerEl: HTMLElement): void {
+		const picker = containerEl.createDiv({ cls: 'dashboard-layout-picker' });
+		picker.setAttribute('role', 'radiogroup');
+		const modes: DashboardLayoutMode[] = ['side', 'stacked'];
+
+		const option = (mode: DashboardLayoutMode): HTMLElement => {
+			const current = this.plugin.settings.layoutMode;
+			const card = picker.createDiv({
+				cls: 'dashboard-layout-option' + (current === mode ? ' dashboard-layout-option--active' : ''),
+			});
+			card.dataset.mode = mode;
+			const label = mode === 'side' ? t('settings.layoutSide') : t('settings.layoutStacked');
+			card.setAttribute('aria-label', label);
+
+			// Three-zone mock: banner bar, widget zone (left rail in side
+			// mode / horizontal strip in stacked mode), main sections.
+			const preview = card.createDiv({
+				cls: `dashboard-layout-preview dashboard-layout-preview--${mode}`,
+			});
+			preview.createDiv({ cls: 'lp-banner' });
+			if (mode === 'side') {
+				const main = preview.createDiv({ cls: 'lp-main' });
+				const rail = main.createDiv({ cls: 'lp-rail' });
+				for (let i = 0; i < 3; i++) rail.createDiv({ cls: 'lp-widget' });
+				const board = main.createDiv({ cls: 'lp-board' });
+				for (let i = 0; i < 3; i++) board.createDiv({ cls: 'lp-section' });
+			} else {
+				const strip = preview.createDiv({ cls: 'lp-strip' });
+				for (let i = 0; i < 4; i++) strip.createDiv({ cls: 'lp-widget' });
+				const board = preview.createDiv({ cls: 'lp-board' });
+				for (let i = 0; i < 3; i++) board.createDiv({ cls: 'lp-section' });
+			}
+
+			// The circle is the only interactive element (a real button so it
+			// is focusable; reset styling comes from the CSS class).
+			const circle = card.createEl('button', {
+				cls: 'dashboard-layout-radio',
+				attr: { type: 'button', role: 'radio', 'aria-checked': String(current === mode), title: label },
+			});
+			circle.createDiv({ cls: 'dashboard-layout-radio-dot' });
+			card.createDiv({ cls: 'dashboard-layout-option-label', text: label });
+
+			circle.addEventListener('click', () => {
+				if (this.plugin.settings.layoutMode === mode) return;
+				void (async () => {
+					this.plugin.settings = { ...this.plugin.settings, layoutMode: mode };
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					picker.querySelectorAll('.dashboard-layout-option').forEach(el => {
+						const opt = el as HTMLElement;
+						const active = opt.dataset.mode === mode;
+						opt.toggleClass('dashboard-layout-option--active', active);
+						const radio = opt.querySelector('.dashboard-layout-radio');
+						radio?.setAttribute('aria-checked', String(active));
+					});
+				})();
+			});
+			return card;
+		};
+
+		for (const mode of modes) option(mode);
+	}
+
+	/** Top block: layout, language, style, quick notes, paths. Shared by
+	 *  display() (pre-1.13) and the declarative General section (1.13+). */
 	private renderGeneralSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('settings.layoutMode'));
+		this.renderLayoutPicker(containerEl);
+
 		new Setting(containerEl)
 			.setName(t('settings.language'))
 			.setDesc(t('settings.languageDesc'))
@@ -634,6 +722,7 @@ onyx: t('settings.styleOnyx'),
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
 				}));
+		this.renderWidgetBackgroundSetting(quickActionsCard, 'quickActionsBackground');
 
 		// --- Weather card ---
 		const weatherCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
@@ -853,6 +942,7 @@ onyx: t('settings.styleOnyx'),
 					this.plugin.refreshAllDashboards();
 					this.refresh();
 				}));
+		this.renderWidgetBackgroundSetting(habitCard, 'habitBackground');
 
 		// --- Expense tracker card ---
 		const expenseCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
@@ -905,6 +995,7 @@ onyx: t('settings.styleOnyx'),
 				}));
 
 		renderMusicAccountSettings(musicCard);
+		this.renderWidgetBackgroundSetting(musicCard, 'musicBackground');
 
 		// --- Countdown card ---
 		const countdownCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
@@ -1211,139 +1302,186 @@ onyx: t('settings.styleOnyx'),
 					this.plugin.refreshAllDashboards();
 					this.refresh();
 				}));
+		this.renderWidgetBackgroundSetting(card, 'yearProgressBackground');
 	}
 
-	/** Widgets tab: photo-album card (slideshow of a vault folder). */
+	/** Shared background row for the singleton widget cards: opens the
+	 *  background modal and writes the result straight into one of the
+	 *  *Background settings keys (undefined = removed). */
+	private renderWidgetBackgroundSetting(
+		containerEl: HTMLElement,
+		key: 'quickActionsBackground' | 'habitBackground' | 'musicBackground' | 'yearProgressBackground',
+	): void {
+		new Setting(containerEl)
+			.setName(t('wbg.set'))
+			.setDesc(this.plugin.settings[key]?.image ?? '')
+			.addExtraButton(btn => btn
+				.setIcon('image')
+				.setTooltip(t('wbg.title'))
+				.onClick(() => {
+					new WidgetBackgroundModal(this.app, this.plugin.settings[key], (bg) => {
+						this.plugin.settings = { ...this.plugin.settings, [key]: bg };
+						void this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+						this.refresh();
+					}).open();
+				}));
+	}
+
+	/** Widgets tab: photo-album cards. Multiple albums are managed as a list
+	 *  (albums[]); the legacy single-album flat fields are migrated on load. */
 	private renderAlbumSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName(t('settings.widgetAlbum')).setHeading();
 
 		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+
+		const albums = this.plugin.settings.albums ?? [];
+		for (const cfg of albums) {
+			const sizeLabel = t(`album.size.${cfg.heightRatio}`);
+			const name = cfg.folder.split('/').pop() || cfg.folder || t('album.unsetFolder');
+			new Setting(card)
+				.setName(name)
+				.setDesc(`${cfg.folder || t('album.unsetFolder')} · ${sizeLabel}`)
+				.addExtraButton(btn => btn
+					.setIcon('pencil')
+					.setTooltip(t('common.edit'))
+					.onClick(() => this.editAlbum(cfg)))
+				.addExtraButton(btn => btn
+					.setIcon('trash-2')
+					.setTooltip(t('common.delete'))
+					.onClick(async () => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							albums: albums.filter(a => a.id !== cfg.id),
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+						this.refresh();
+					}));
+		}
+
+		if (albums.length === 0) {
+			card.createDiv({ cls: 'dashboard-empty', text: t('album.empty') });
+		}
+
 		new Setting(card)
-			.setName(t('settings.widgetAlbumEnabled'))
-			.setDesc(t('settings.widgetAlbumEnabledDesc'))
+			.addButton(btn => btn
+				.setButtonText(t('album.add'))
+				.setIcon('plus')
+				.onClick(() => this.editAlbum(null)));
+	}
+
+	private editAlbum(existing: AlbumConfig | null): void {
+		const baseline: AlbumConfig = existing ?? {
+			id: Date.now(),
+			folder: '',
+			intervalSec: 8,
+			recursive: true,
+			ratio: '1:1',
+			transition: 'fade',
+			heightRatio: 'full',
+		};
+		const modal = new AlbumSettingsModal(this.app, baseline, (updated) => {
+			void this.applyAlbumUpdate(updated);
+		});
+		modal.open();
+	}
+
+	private async applyAlbumUpdate(updated: AlbumConfig): Promise<void> {
+		const current = this.plugin.settings.albums ?? [];
+		const exists = current.some(a => a.id === updated.id);
+		this.plugin.settings = {
+			...this.plugin.settings,
+			albums: exists
+				? current.map(a => a.id === updated.id ? updated : a)
+				: [...current, updated],
+		};
+		await this.plugin.saveSettings();
+		this.plugin.refreshAllDashboards();
+		this.refresh();
+	}
+
+	/** Widgets tab: anniversary ("纪念日") cards — the countdown list pattern. */
+	private renderAnniversarySettings(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName(t('settings.widgetAnniversary')).setHeading();
+
+		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(card)
+			.setName(t('anniversary.enabled'))
+			.setDesc(t('anniversary.enabledDesc'))
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.widgetAlbumEnabled)
+				.setValue(this.plugin.settings.anniversaryEnabled)
 				.onChange(async (value) => {
 					this.plugin.settings = {
 						...this.plugin.settings,
-						widgetAlbumEnabled: value,
+						anniversaryEnabled: value,
 					};
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
 					this.refresh();
 				}));
 
-		if (!this.plugin.settings.widgetAlbumEnabled) return;
+		if (!this.plugin.settings.anniversaryEnabled) return;
 
-		let folderInput: TextComponent | undefined;
-		new Setting(card)
-			.setName(t('settings.widgetAlbumFolder'))
-			.setDesc(t('settings.widgetAlbumFolderDesc'))
-			.addText(text => {
-				folderInput = text;
-				text
-					.setPlaceholder(t('settings.widgetAlbumFolderPlaceholder'))
-					.setValue(this.plugin.settings.widgetAlbumFolder)
-					.onChange(async (value) => {
+		const list = this.plugin.settings.anniversaries ?? [];
+		for (const cfg of list) {
+			const summary = cfg.label || cfg.startDate || t('anniversary.unnamed');
+			new Setting(card)
+				.setName(summary)
+				.setDesc(cfg.startDate
+					? `${cfg.startDate} · ${cfg.annualReminder ? t('anniversary.reminderOn') : t('anniversary.reminderOff')}`
+					: t('anniversary.setDate'))
+				.addExtraButton(btn => btn
+					.setIcon('pencil')
+					.setTooltip(t('common.edit'))
+					.onClick(() => this.editAnniversary(cfg)))
+				.addExtraButton(btn => btn
+					.setIcon('trash-2')
+					.setTooltip(t('common.delete'))
+					.onClick(async () => {
 						this.plugin.settings = {
 							...this.plugin.settings,
-							widgetAlbumFolder: value.trim().replace(/^\/+|\/+$/g, ''),
-						};
-						await this.plugin.saveSettings();
-						// The widget signature covers the folder, so this
-						// rebuilds the sidebar album at the new location.
-						this.plugin.refreshAllDashboards();
-					});
-			})
-			// Browse button: pick an existing folder instead of typing its path.
-			.addExtraButton(btn => btn
-				.setIcon('folder-search')
-				.setTooltip(t('pathPicker.pickFolder'))
-				.onClick(() => {
-					new PathPickerModal(this.app, 'folder', (path) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetAlbumFolder: path,
-						};
-						void this.plugin.saveSettings();
-						folderInput?.setValue(path);
-						this.plugin.refreshAllDashboards();
-					}).open();
-				}));
-
-		new Setting(card)
-			.setName(t('settings.widgetAlbumRatio'))
-			.setDesc(t('settings.widgetAlbumRatioDesc'))
-			.addDropdown(dropdown => {
-				dropdown
-					.addOption('1:1', t('settings.widgetAlbumRatioSquare'))
-					.addOption('3:4', t('settings.widgetAlbumRatioPortrait'))
-					.setValue(this.plugin.settings.widgetAlbumRatio)
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetAlbumRatio: value === '3:4' ? '3:4' : '1:1',
+							anniversaries: list.filter(a => a.id !== cfg.id),
 						};
 						await this.plugin.saveSettings();
 						this.plugin.refreshAllDashboards();
-					});
-			});
+						this.refresh();
+					}));
+		}
 
 		new Setting(card)
-			.setName(t('settings.widgetAlbumTransition'))
-			.setDesc(t('settings.widgetAlbumTransitionDesc'))
-			.addDropdown(dropdown => {
-				dropdown
-					.addOption('fade', t('settings.widgetAlbumTransitionFade'))
-					.addOption('slide-left', t('settings.widgetAlbumTransitionSlideLeft'))
-					.addOption('slide-right', t('settings.widgetAlbumTransitionSlideRight'))
-					.addOption('zoom', t('settings.widgetAlbumTransitionZoom'))
-					.setValue(normalizeTransition(this.plugin.settings.widgetAlbumTransition))
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetAlbumTransition: normalizeTransition(value),
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-					});
-			});
+			.addButton(btn => btn
+				.setButtonText(t('anniversary.add'))
+				.setIcon('plus')
+				.onClick(() => this.editAnniversary(null)));
+	}
 
-		const INTERVAL_PRESETS = [3, 5, 8, 10, 15, 30, 60];
-		new Setting(card)
-			.setName(t('settings.widgetAlbumInterval'))
-			.setDesc(t('settings.widgetAlbumIntervalDesc'))
-			.addDropdown(dropdown => {
-				const current = this.plugin.settings.widgetAlbumIntervalSec;
-				// Guard hand-edited data.json: show the stored value even when
-				// it is not one of the presets, instead of a blank select.
-				if (!INTERVAL_PRESETS.includes(current)) dropdown.addOption(String(current), `${current}s`);
-				for (const sec of INTERVAL_PRESETS) dropdown.addOption(String(sec), `${sec}s`);
-				dropdown
-					.setValue(String(current))
-					.onChange(async (value) => {
-						this.plugin.settings = {
-							...this.plugin.settings,
-							widgetAlbumIntervalSec: Number(value),
-						};
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllDashboards();
-					});
-			});
+	private editAnniversary(existing: AnniversaryConfig | null): void {
+		const baseline: AnniversaryConfig = existing ?? {
+			id: `av-${Date.now()}`,
+			label: '',
+			startDate: '',
+			precision: 'ymd',
+			annualReminder: false,
+		};
+		const modal = new AnniversarySettingsModal(this.app, baseline, (updated) => {
+			void this.applyAnniversaryUpdate(updated);
+		});
+		modal.open();
+	}
 
-		new Setting(card)
-			.setName(t('settings.widgetAlbumRecursive'))
-			.setDesc(t('settings.widgetAlbumRecursiveDesc'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.widgetAlbumRecursive)
-				.onChange(async (value) => {
-					this.plugin.settings = {
-						...this.plugin.settings,
-						widgetAlbumRecursive: value,
-					};
-					await this.plugin.saveSettings();
-					this.plugin.refreshAllDashboards();
-				}));
+	private async applyAnniversaryUpdate(updated: AnniversaryConfig): Promise<void> {
+		const current = this.plugin.settings.anniversaries ?? [];
+		const exists = current.some(a => a.id === updated.id);
+		this.plugin.settings = {
+			...this.plugin.settings,
+			anniversaries: exists
+				? current.map(a => a.id === updated.id ? updated : a)
+				: [...current, updated],
+		};
+		await this.plugin.saveSettings();
+		this.plugin.refreshAllDashboards();
+		this.refresh();
 	}
 
 	private renderCalendarSettings(containerEl: HTMLElement): void {

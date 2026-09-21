@@ -1606,6 +1606,171 @@
 	pointer-events: none;
 }
 
+/* ===== Settings: visual layout picker =====
+ * Two miniature board diagrams (side rail vs stacked strip) with a centered
+ * radio circle under each. The settings pane has no --db-* theme scope, so
+ * every token falls back to Obsidian's own variables (the established
+ * var(--db-x, var(--obsidian-x)) pattern).
+ *
+ * The preview mocks read top-down in three zones — banner bar, widget zone
+ * (rail / strip, strong accent tint), main sections (soft tint) — so the two
+ * layouts differ at a glance. The preview box is fixed-height with overflow
+ * hidden and generous bottom clearance: nothing inside may ever crowd the
+ * label row below (the old mock's flex bars could overflow onto it). */
+.dashboard-layout-picker {
+	display: flex;
+	gap: 12px;
+	margin: 4px 0 14px 0;
+	flex-wrap: wrap;
+}
+
+.dashboard-layout-option {
+	flex: 1 1 150px;
+	min-width: 150px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 10px 10px 10px;
+	background: var(--db-bg-card, var(--background-primary));
+	border: 1.5px solid var(--db-border-card, var(--background-modifier-border));
+	border-radius: var(--db-radius-md, 10px);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dashboard-layout-option:hover {
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-layout-option--active {
+	border-color: var(--db-accent, var(--interactive-accent));
+	box-shadow: 0 0 0 1px var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-layout-preview {
+	width: 122px;
+	height: 88px;
+	box-sizing: border-box;
+	padding: 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	border-radius: 6px;
+	overflow: hidden;
+	flex: 0 0 auto;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 5%, var(--background-secondary));
+}
+
+/* Zone 1: the banner bar spanning the full mock width. */
+.dashboard-layout-preview .lp-banner {
+	height: 12px;
+	flex-shrink: 0;
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 32%, transparent);
+}
+
+/* Zone 2a (side): body row with the widget rail on the LEFT. */
+.dashboard-layout-preview .lp-main {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	gap: 5px;
+}
+
+.dashboard-layout-preview .lp-rail {
+	width: 26%;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+/* Widget blocks — the strong tint, so the widget zone pops from the sections. */
+.dashboard-layout-preview .lp-widget {
+	flex: 1;
+	min-height: 4px;
+	border-radius: 2.5px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 42%, transparent);
+}
+
+/* Zone 2b (stacked): the widget strip under the banner. */
+.dashboard-layout-preview--stacked .lp-strip {
+	height: 18px;
+	flex-shrink: 0;
+	display: flex;
+	gap: 3px;
+}
+
+.dashboard-layout-preview--stacked .lp-strip .lp-widget {
+	flex: 1;
+	min-height: 0;
+}
+
+/* Zone 3: main sections — the soft tint, stacked as rows. */
+.dashboard-layout-preview .lp-board {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.dashboard-layout-preview .lp-board .lp-section {
+	flex: 1;
+	min-height: 4px;
+	border-radius: 2.5px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 16%, transparent);
+}
+
+.dashboard-layout-option-label {
+	font-size: 0.82em;
+	color: var(--text-normal);
+	text-align: center;
+}
+
+/* The radio circle is THE click target — a real button element, with theme
+   button chrome fully reset so no theme can give it a box or a fixed height
+   that overflows the card (the failure mode of the old button-bar card). */
+.dashboard-layout-radio {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 17px;
+	height: 17px;
+	box-sizing: border-box;
+	border-radius: 50% !important;
+	border: 1.5px solid var(--text-muted) !important;
+	background: none !important;
+	background-color: transparent !important;
+	box-shadow: none !important;
+	padding: 0 !important;
+	margin: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+}
+
+.dashboard-layout-radio:hover {
+	border-color: var(--db-accent, var(--interactive-accent)) !important;
+}
+
+.dashboard-layout-radio-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: transparent;
+	transition: background 0.15s ease;
+}
+
+.dashboard-layout-option--active .dashboard-layout-radio {
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-layout-option--active .dashboard-layout-radio-dot {
+	background: var(--db-accent, var(--interactive-accent));
+}
+
 /* ===== Settings fallback tab bar (pre-1.13 builds) =====
  * 1.13+ renders the three pages via Obsidian's native navigable definitions;
  * this bar only exists in the display() fallback. */
@@ -2295,6 +2460,495 @@
 	border-bottom: 2px solid var(--db-accent) !important;
 }
 
+/* ===== Widget card backgrounds (per-widget decorative images) ===== */
+/* The layer is absolutely positioned with z-index:-1 inside an isolation
+   context on the card: it paints above the card's own background (which
+   shows through the image's opacity) but below all content, without
+   repositioning any child. ::before carries the image (blurred + over-scaled
+   so the blur edge never bleeds visibly); ::after is the black dimming
+   overlay that keeps text readable over busy photos. */
+.dashboard-sidebar-widget--has-bg {
+	isolation: isolate;
+}
+
+/* Foreground scheme: redirect the card's theme text tokens to the chosen
+   color so text AND icons (accent-driven) flip together over the photo.
+   Muted/faint derive from the same color so the hierarchy survives. */
+.dashboard-sidebar-widget--has-bg.dashboard-sidebar-widget--fg-set {
+	--db-text: var(--wbg-fg, var(--db-text));
+	--db-text-muted: color-mix(in srgb, var(--wbg-fg, var(--db-text)) 72%, transparent);
+	--db-text-faint: color-mix(in srgb, var(--wbg-fg, var(--db-text)) 50%, transparent);
+	--db-accent: var(--wbg-fg, var(--db-accent));
+}
+
+.dashboard-widget-bg {
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	border-radius: inherit;
+	pointer-events: none;
+}
+
+.dashboard-widget-bg::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background-image: var(--wbg-image);
+	background-size: cover;
+	background-position: center;
+	opacity: var(--wbg-opacity, 1);
+	filter: blur(var(--wbg-blur, 0px));
+	transform: scale(var(--wbg-scale, 1));
+}
+
+.dashboard-widget-bg::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: rgb(0 0 0 / var(--wbg-dim, 0));
+}
+
+/* Half-hidden gear button at a card's top-right corner (the countdown
+   settings-button recipe): invisible at rest, faint on card hover, full on
+   its own hover. */
+.dashboard-sidebar-widget--cfg,
+.dashboard-sidebar-widget--has-bg {
+	position: relative;
+}
+
+.dashboard-widget-cfg-btn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 2;
+	visibility: hidden;
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text-muted);
+	width: 20px;
+	height: 20px;
+	box-sizing: border-box;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-sidebar-widget:hover .dashboard-widget-cfg-btn {
+	visibility: visible;
+	opacity: 0.5;
+}
+
+.dashboard-sidebar-widget:hover .dashboard-widget-cfg-btn:hover {
+	opacity: 1;
+	color: var(--db-accent);
+}
+
+.dashboard-widget-cfg-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* ===== Unified widget header buttons =====
+ * Every icon button on a widget card's top-right — the per-widget header
+ * buttons (habit/music/expense/pomodoro stats, quick-actions palette/add)
+ * plus the config gears — shares one size (20x20 box, 13px glyph) and one
+ * visibility scheme: hidden at rest, half-lit on card hover, full accent on
+ * its own hover. Card-scoped (not layout-scoped): both layouts behave the
+ * same. Specificity beats each widget's own rules; the QA !important chrome
+ * resets are untouched (they only cover background/border/shadow). */
+.dashboard-sidebar-widget .dashboard-sidebar-habit-icon-btn,
+.dashboard-sidebar-widget .dashboard-sidebar-music-icon-btn,
+.dashboard-sidebar-widget .dashboard-sidebar-expense-icon-btn,
+.dashboard-sidebar-widget .dashboard-sidebar-pomodoro-stats-btn,
+.dashboard-sidebar-widget .dashboard-widget-inline-cfg-btn,
+.dashboard-quick-actions .dashboard-qa-btn-group button {
+	width: 20px;
+	height: 20px;
+	box-sizing: border-box;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	opacity: 0;
+	color: var(--db-text-muted);
+	transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-sidebar-widget .dashboard-sidebar-habit-icon-btn svg,
+.dashboard-sidebar-widget .dashboard-sidebar-music-icon-btn svg,
+.dashboard-sidebar-widget .dashboard-sidebar-expense-icon-btn svg,
+.dashboard-sidebar-widget .dashboard-sidebar-pomodoro-stats-btn svg,
+.dashboard-sidebar-widget .dashboard-widget-inline-cfg-btn svg,
+.dashboard-quick-actions .dashboard-qa-btn-group button svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-sidebar-widget:hover .dashboard-sidebar-habit-icon-btn,
+.dashboard-sidebar-widget:hover .dashboard-sidebar-music-icon-btn,
+.dashboard-sidebar-widget:hover .dashboard-sidebar-expense-icon-btn,
+.dashboard-sidebar-widget:hover .dashboard-sidebar-pomodoro-stats-btn,
+.dashboard-sidebar-widget:hover .dashboard-widget-inline-cfg-btn,
+.dashboard-quick-actions:hover .dashboard-qa-btn-group button {
+	opacity: 0.5;
+}
+
+.dashboard-sidebar-widget .dashboard-sidebar-habit-icon-btn:hover,
+.dashboard-sidebar-widget .dashboard-sidebar-music-icon-btn:hover,
+.dashboard-sidebar-widget .dashboard-sidebar-expense-icon-btn:hover,
+.dashboard-sidebar-widget .dashboard-sidebar-pomodoro-stats-btn:hover,
+.dashboard-sidebar-widget .dashboard-widget-inline-cfg-btn:hover,
+.dashboard-quick-actions .dashboard-qa-btn-group button:hover {
+	opacity: 1;
+	color: var(--db-accent);
+}
+
+/* Inline gear that joins a header row's existing icon-button cluster (habit,
+   music, quick actions) instead of a corner button that would overlap them.
+   Ghost at rest like its siblings, accent on hover. */
+.dashboard-widget-inline-cfg-btn {
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	color: var(--db-text-muted);
+	opacity: 0.55;
+	transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-widget-inline-cfg-btn:hover {
+	opacity: 1;
+	color: var(--db-accent);
+}
+
+.dashboard-widget-inline-cfg-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* ===== Stacked layout (desktop/tablet only) ===== */
+/* Top-bottom board: widget strip under the banner, sections below. Guarded by
+   the exact inverse of the phone block's @media (max-width: 640px) so the two
+   ranges are disjoint and phone CSS keeps winning by construction. Phones
+   render data-layout="side" anyway (isStackedLayout excludes them). Not a
+   container query on purpose: laying containment on the root would affect its
+   position:fixed descendants (.dashboard-scroll-top); narrow desktop PANES are
+   fine — the strip scrolls horizontally at any pane width and the board adapts
+   via its own container query. (At viewport widths <=640px the phone treatment
+   takes over instead: the sidebar is hidden and widgets live in the mobile
+   bar.) */
+@media (min-width: 641px) {
+	/* Column board: widget strip on top, sections below. */
+	[data-layout="stacked"] .dashboard-main {
+		flex-direction: column;
+	}
+
+	/* The quick-notes work bar (hoisted out of the kanban by view.ts) rides
+	   above the widget strip. Its base flex-basis 100% means WIDTH inside the
+	   kanban's row layout but HEIGHT in this column layout — neutralize to
+	   auto so the bar keeps its natural single-row height. */
+	[data-layout="stacked"] .dashboard-main > .dashboard-quicknote {
+		flex: 0 0 auto;
+	}
+
+	/* Shared scroll region: the quick-notes bar above stays pinned while the
+	   widget deck AND the board scroll together through this one viewport.
+	   Thin auto-hiding scrollbar, same recipe as the sections. */
+	[data-layout="stacked"] .dashboard-scroll-region {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		overflow-y: auto;
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+	}
+	[data-layout="stacked"] .dashboard-scroll-region:hover {
+		scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+	}
+
+	/* The sidebar stops being a fixed-width hover rail and becomes a full-width
+	   strip host INSIDE the scroll region: natural height (the deck's grid
+	   caps itself), no internal scrolling. The rail state classes keep strip
+	   semantics: collapsed = slim horizontal bar, pinned = always open. The
+	   generous max-height cap exists so the collapse animation has a numeric
+	   start value (none->16px cannot interpolate). */
+	[data-layout="stacked"] .dashboard-sidebar {
+		width: auto;
+		flex-shrink: 0;
+		max-height: 2000px;
+		overflow: hidden;
+		transition: max-height 0.3s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.25s ease;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-scroll {
+		overflow: visible;
+		padding: 0;
+	}
+
+	/* The board unrolls to natural height inside the region — the kanban's
+	   own scroller (base rule) is neutralized; sections keep their per-type
+	   max-heights and internal card scrolling. */
+	[data-layout="stacked"] .dashboard-kanban-wrapper {
+		overflow: visible;
+	}
+
+	[data-layout="stacked"] .dashboard-kanban {
+		overflow: visible;
+		flex: 0 0 auto;
+	}
+
+	/* Collapsed strip: slim bar mirroring the rail's 15px sliver. The rail's
+	   child-hiding rule (> *:not(slim-indicator)) applies unchanged. */
+	[data-layout="stacked"] .dashboard-sidebar--collapsed {
+		max-height: 16px;
+		cursor: pointer;
+		overflow: hidden;
+	}
+
+	/* Slim indicator becomes a horizontal pill on the strip. */
+	[data-layout="stacked"] .dashboard-sidebar--collapsed .dashboard-sidebar-slim-indicator {
+		width: 40px;
+		height: 4px;
+	}
+
+	/* Stacked mode hides the week-calendar row and the recent-docs block. */
+	[data-layout="stacked"] .dashboard-sidebar-week-calendar,
+	[data-layout="stacked"] .dashboard-recent {
+		display: none;
+	}
+
+	/* Quick actions as the pinned leftmost card in the strip grid: neutralize
+	   the base fixed 180px height (the grid span owns sizing) and lay the
+	   buttons out VERTICALLY (single column). It exits the reorder system in
+	   stacked mode (renderer skips its DnD wiring), hence the default cursor. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="quickActions"] {
+		grid-row: span 6;
+		height: auto;
+		cursor: default;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-quick-actions .dashboard-qa-list {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	/* The widget deck (built by renderSidebarWidgets in stacked mode): a
+	   6-row grid flowing COLUMN-MAJOR. Height ratios are exact fractions of
+	   one unit: full = 6 rows, two-thirds = 4, half = 3, third = 2 — 4+2,
+	   3+3 and 2+2+2 all tile one column exactly. Columns are a fixed width
+	   so cards stay uniform at any window size; overflow columns scroll
+	   horizontally. Row heights derive from the unit so the fractions never
+	   drift: 6 rows of calc((unit-h - 5*gap) / 6). Cards scroll internally
+	   when their content outgrows the fraction (habit lists, music panel).
+
+	   Per-type rules key off [data-widget-key], NOT the widget class: the
+	   in-place data-widget refresh (view.refreshDataWidget) re-mounts
+	   lunar/pomodoro/reading inside a bare wrapper that inherits the key, so
+	   class-keyed child selectors would silently lose their span after a
+	   refresh and collapse the card to one row. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row {
+		--db-widget-unit: 240px;
+		/* Keep >= ~300px: the calendar card's natural height is ~297px — any
+		   lower and it (and every full-height card) grows an internal
+		   scrollbar. 300 is the floor, 320 the previous "roomy" value. */
+		--db-widget-unit-h: 300px;
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: var(--db-widget-unit);
+		grid-template-rows: repeat(6, calc((var(--db-widget-unit-h) - 30px) / 6));
+		grid-row-gap: 6px;
+		grid-column-gap: 6px;
+		overflow-x: auto;
+		overflow-y: hidden;
+		/* Scrollbar mirrors the .dashboard-section-cards / quicknote-nav
+		   recipe: standard props on Chromium 121+ render the slim native pill
+		   and neutralize theme-level ::-webkit-scrollbar hijacks. Invisible at
+		   rest, accent-tinted on hover — the strip stays quiet until aimed at. */
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+	}
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row:hover {
+		scrollbar-color: color-mix(in srgb, var(--db-accent) 18%, transparent) transparent;
+	}
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row::-webkit-scrollbar {
+		width: 0;
+		height: 4px;
+	}
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row::-webkit-scrollbar-thumb {
+		background: transparent;
+		border-radius: 3px;
+		transition: background 0.2s ease;
+	}
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row:hover::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--db-accent) 18%, transparent);
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key] {
+		box-sizing: border-box;
+		grid-row: span 6;
+		overflow-y: auto;
+		overflow-x: hidden;
+	}
+
+	/* Descendant (not child) so a refresh mount's inner widget keeps the
+	   tightened padding and fills the mount's grid slot. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-widget {
+		padding: 10px;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > .dashboard-sidebar-widget-mount > .dashboard-sidebar-widget {
+		height: 100%;
+		box-sizing: border-box;
+	}
+
+	/* Two-thirds height: pairs with a third below to tile one column. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="weather"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="habit"] {
+		grid-row: span 4;
+	}
+
+	/* Half height: two stack to fill one column. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="pomodoro"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="expense"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="reading"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="music"] {
+		grid-row: span 3;
+	}
+
+	/* Third height: three stack to fill one column. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="lunar"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key^="countdown-"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="yearProgress"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key^="anniversary-"] {
+		grid-row: span 2;
+	}
+
+	/* Album cards take their span from the per-instance --db-widget-span
+	   (set inline by the renderer from each entry's heightRatio, carried onto
+	   the refresh mount by refreshDataWidget). Inside the fixed-height card
+	   the frame fills the body instead of keeping its aspect-ratio box, so
+	   smaller fractions crop the photos (layers are object-fit: cover)
+	   rather than overflowing. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key^="album-"] {
+		grid-row: span var(--db-widget-span, 6);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-album-body {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-album-frame,
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-album-placeholder {
+		aspect-ratio: auto;
+		flex: 1;
+		min-height: 0;
+	}
+
+	/* The calendar defines the unit height but must never pay for it with an
+	   internal scrollbar: its content flexes to fill the fixed card (nav and
+	   weekday rows stay fixed, the month grid host takes the rest and only
+	   scrolls if a theme inflates it past the card). */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="calendar"] {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	/* Pomodoro compacted for the half-height card (content was ~44px over):
+	   smaller progress ring, tighter gaps and button padding. Side layout
+	   keeps the roomy proportions. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-pomodoro {
+		gap: 2px;
+		/* Center the cluster vertically: the compact content leaves slack and
+		   top-anchoring read head-heavy with a dead band at the bottom. */
+		justify-content: center;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-pomodoro-ring-wrap {
+		width: 62px;
+		height: 62px;
+	}
+
+	/* Size the svg through the wrap (attribute width=72 would otherwise win
+	   in engines that drop the class) and keep it fully inside. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-pomodoro-ring-wrap svg {
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-pomodoro-time {
+		font-size: 0.95em;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-pomodoro-dots {
+		bottom: 7px;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-pomodoro-main-btn {
+		padding: 1px 14px 0;
+		font-size: 0.7em;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-widget.dashboard-sidebar-pomodoro {
+		padding-top: 8px;
+		padding-bottom: 4px;
+	}
+
+	/* Expense compacted for the half-height card: tighter paddings/gaps and
+	   slightly smaller form text/buttons so a titled card with entries fits
+	   without an internal scrollbar. Side layout keeps the roomy spacing. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-expense-top {
+		margin-bottom: 4px;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-expense-form {
+		gap: 4px;
+		font-size: 0.92em;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-widget.dashboard-sidebar-expense {
+		padding-top: 8px;
+		padding-bottom: 6px;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-expense-row-main {
+		gap: 4px;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row [data-widget-key="calendar"] > .dashboard-calendar-content,
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > .dashboard-sidebar-calendar > .dashboard-calendar-content {
+		flex: 1;
+		min-height: 0;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-calendar-host {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+}
+
 /* Habit Widget */
 .dashboard-sidebar-habit-top {
 	display: flex;
@@ -2864,10 +3518,21 @@
 	border: none !important;
 	box-shadow: none !important;
 	color: var(--db-text-muted);
-	padding: 2px;
+	width: 20px;
+	height: 20px;
+	box-sizing: border-box;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	cursor: pointer;
 	opacity: 0;
-	transition: opacity 0.15s ease;
+	transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-sidebar-countdown-settings-btn svg {
+	width: 13px;
+	height: 13px;
 }
 
 .dashboard-sidebar-countdown:hover .dashboard-sidebar-countdown-settings-btn {
@@ -2881,6 +3546,39 @@
 
 .dashboard-sidebar-countdown-content {
 	padding: 4px 0;
+}
+
+/* Anniversary widget: a compact title + elapsed value + source date. Same
+   family as the countdown card (muted label, accent value); centered — the
+   card is narrow in the stacked deck and centered reads like a keepsake. */
+.dashboard-sidebar-anniversary {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	gap: 2px;
+}
+
+.dashboard-sidebar-anniversary-title {
+	font-size: 0.8em;
+	font-weight: 600;
+	color: var(--db-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-sidebar-anniversary-value {
+	font-size: 1.6em;
+	font-weight: 700;
+	line-height: 1.2;
+	color: var(--db-accent);
+}
+
+.dashboard-sidebar-anniversary-date {
+	font-size: 0.68em;
+	color: var(--db-text-muted);
 }
 
 .dashboard-sidebar-countdown-until {
@@ -7793,6 +8491,14 @@
 	overflow: hidden;
 }
 
+/* The nav's toolbar spacer fights the label's flex:1 for the leftover width,
+   carving a wide dead gap between the view toggle and the today button (right
+   side reads asymmetric against the left). The label alone owns the slack:
+   [prev][label stretches][next][toggle][today] packs both edges evenly. */
+.dashboard-sidebar-calendar .dashboard-library-toolbar-spacer {
+	display: none;
+}
+
 .dashboard-sidebar-calendar .dashboard-calendar-content {
 	padding: 0;
 }
@@ -9256,7 +9962,13 @@
    --db-pair-basis carries a dragged split (left member's share, set inline by
    renderer.ts); 50% default keeps the historical even split. */
 .dashboard-section-row--half {
-	flex: 1 1 calc(var(--db-pair-basis, 50%) - var(--db-kanban-gap, 10px) / 2);
+	/* The 0.5px-per-side slack is load-bearing: bases summing to EXACTLY the
+	   line (x% + (100-x)% - gap + gap) sit on the wrap razor edge, and
+	   subpixel rounding (Windows 125-150% scaling, odd splits like 39/61)
+	   tips them over into stacked full-width rows — the "pair drag breaks"
+	   bug. Staying 1px under lets flex-grow (1 1 above) absorb the slack
+	   invisibly while the pair can never wrap. */
+	flex: 1 1 calc(var(--db-pair-basis, 50%) - var(--db-kanban-gap, 10px) / 2 - 0.5px);
 	min-width: 0;
 }
 
@@ -9473,6 +10185,19 @@
 .dashboard-frames-muted iframe,
 .dashboard-frames-muted webview {
 	pointer-events: none;
+}
+
+/* Viewport-wide drag shield mounted on body for the lifetime of a guarded
+   drag (pair divider, section height): sits above the entire app so every
+   pointermove/pointerup lands in this document — embedded frames and
+   Windows webview surface overflow included — while pointer capture on it
+   makes the stream hit-test-proof. */
+.dashboard-drag-shield {
+	position: fixed;
+	inset: 0;
+	z-index: var(--layer-drag-shield, 9999);
+	background: transparent;
+	touch-action: none;
 }
 
 .dashboard-section-row:hover > .dashboard-section-resize-handle,

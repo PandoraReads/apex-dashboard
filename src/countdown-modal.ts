@@ -2,6 +2,7 @@ import { App, Modal } from 'obsidian';
 import type { CountdownConfig } from './types';
 import { t, getLanguage } from './i18n';
 import { applyModalTheme } from './modal-theme';
+import { WidgetBackgroundModal } from './widget-background';
 
 export class CountdownSettingsModal extends Modal {
 	private config: CountdownConfig;
@@ -90,6 +91,20 @@ export class CountdownSettingsModal extends Modal {
 		const labelInput = labelRow.createEl('input', {
 			cls: 'dashboard-modal-input',
 			attr: { type: 'text', value: this.config.label, placeholder: t('countdown.labelPlaceholder') },
+		});
+
+		// Card background (nested modal mutates this.config in place; the
+		// Save below spreads this.config so the background rides along).
+		const bgRow = form.createDiv({ cls: 'dashboard-modal-countdown-row' });
+		bgRow.createEl('label', { text: t('wbg.set'), cls: 'dashboard-modal-countdown-label' });
+		const bgBtn = bgRow.createEl('button', {
+			cls: 'dashboard-modal-btn',
+			text: this.config.background ? t('common.edit') : t('wbg.set'),
+		});
+		bgBtn.addEventListener('click', () => {
+			new WidgetBackgroundModal(this.app, this.config.background, (bg) => {
+				this.config.background = bg;
+			}).open();
 		});
 
 		// Actions

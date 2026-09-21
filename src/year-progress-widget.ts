@@ -1,4 +1,5 @@
 import { getLanguage } from './i18n';
+import { applyWidgetBackground, attachBackgroundConfigButton } from './widget-background';
 
 /**
  * Sidebar widget showing how much of the current calendar year has elapsed:
@@ -7,7 +8,7 @@ import { getLanguage } from './i18n';
  * Pure presentation: the value is recomputed on every render (cheap, and the
  * sidebar re-renders frequently enough that it never goes stale).
  */
-export function renderSidebarYearProgress(container: HTMLElement): void {
+export function renderSidebarYearProgress(container: HTMLElement, bg?: import('./types').WidgetBackground, app?: import('obsidian').App, onBgChange?: (bg: import('./types').WidgetBackground | undefined) => void): void {
 	const isZh = getLanguage() === 'zh';
 	const now = new Date();
 	const year = now.getFullYear();
@@ -24,6 +25,8 @@ export function renderSidebarYearProgress(container: HTMLElement): void {
 	const daysLeft = Math.max(0, daysInYear - dayOfYear);
 
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-year-progress' });
+	if (app) applyWidgetBackground(widget, bg, app);
+	if (app && onBgChange) attachBackgroundConfigButton(widget, app, bg, onBgChange);
 
 	const header = widget.createDiv({ cls: 'dashboard-sidebar-year-progress-header' });
 	header.createSpan({ cls: 'dashboard-sidebar-year-progress-year', text: String(year) });

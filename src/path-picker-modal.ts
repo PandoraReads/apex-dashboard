@@ -2,7 +2,10 @@ import { App, Modal, setIcon, TFile, TFolder } from 'obsidian';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 
-export type PathPickerMode = 'file' | 'folder';
+export type PathPickerMode = 'file' | 'folder' | 'image';
+
+/** Extensions the 'image' picker mode lists (widget/banner backgrounds). */
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif']);
 
 interface PickerEntry {
 	/** Full vault path, e.g. "Templates/daily.md". */
@@ -11,9 +14,15 @@ interface PickerEntry {
 	name: string;
 }
 
-/** The vault's pickable entries for a mode: markdown files or folders
- *  (root excluded), both sorted by path. */
+/** The vault's pickable entries for a mode: markdown files, image files, or
+ *  folders (root excluded), all sorted by path. */
 function collectEntries(app: App, mode: PathPickerMode): PickerEntry[] {
+	if (mode === 'image') {
+		return app.vault.getFiles()
+			.filter((f: TFile) => IMAGE_EXTS.has(f.extension.toLowerCase()))
+			.map((f: TFile) => ({ path: f.path, name: f.basename }))
+			.sort((a, b) => a.path.localeCompare(b.path));
+	}
 	if (mode === 'file') {
 		return app.vault.getMarkdownFiles()
 			.map((f: TFile) => ({ path: f.path, name: f.basename }))

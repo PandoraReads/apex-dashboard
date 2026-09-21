@@ -1,5 +1,6 @@
 import { Notice, Platform, Plugin, TAbstractFile, TFile } from 'obsidian';
-import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig } from './types';
+import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
+import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
@@ -11,7 +12,7 @@ import { DataviewGuideModal } from './dataview-guide-modal';
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
  *  shipped with 2.5.1. */
-const ANNOUNCE_VERSION = '2.5.1';
+const ANNOUNCE_VERSION = '3.6.0';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
@@ -71,6 +72,31 @@ function migrateCountdowns(raw: Record<string, unknown>): CountdownConfig[] {
 		displayMode: raw.countdownDisplayMode === 'hours' || raw.countdownDisplayMode === 'minutes' ? raw.countdownDisplayMode : 'days',
 		reminderDays: typeof raw.countdownReminderDays === 'number' ? raw.countdownReminderDays : 0,
 	}];
+}
+
+/** Migrate the legacy single-album flat fields (widgetAlbum*) to the albums[]
+ *  list. An existing albums[] wins untouched; the legacy fields stay in
+ *  data.json so a downgrade keeps the old single widget working. */
+function migrateAlbums(raw: Record<string, unknown>): AlbumConfig[] {
+	if (Array.isArray(raw.albums)) {
+		return (raw.albums as AlbumConfig[]).filter(a => a && typeof a.id === 'number');
+	}
+	if (!raw.widgetAlbumEnabled) return [];
+	return [{
+		id: Date.now(),
+		folder: typeof raw.widgetAlbumFolder === 'string' ? raw.widgetAlbumFolder : '',
+		intervalSec: typeof raw.widgetAlbumIntervalSec === 'number' && raw.widgetAlbumIntervalSec > 0 ? raw.widgetAlbumIntervalSec : 8,
+		recursive: raw.widgetAlbumRecursive !== false,
+		ratio: raw.widgetAlbumRatio === '3:4' ? '3:4' : '1:1',
+		transition: normalizeTransition(raw.widgetAlbumTransition as string | undefined),
+		heightRatio: 'full',
+	}];
+}
+
+/** Sanitize the anniversaries[] list (id must be a string); missing key = []. */
+function migrateAnniversaries(raw: Record<string, unknown>): AnniversaryConfig[] {
+	if (!Array.isArray(raw.anniversaries)) return [];
+	return (raw.anniversaries as AnniversaryConfig[]).filter(a => a && typeof a.id === 'string' && typeof a.startDate === 'string');
 }
 
 export default class DashboardPlugin extends Plugin {
@@ -269,6 +295,9 @@ export default class DashboardPlugin extends Plugin {
 		}
 		// Migrate single-countdown flat fields to the countdowns[] list
 		const countdowns = migrateCountdowns(raw);
+		// Migrate the legacy single-album fields to albums[]; sanitize anniversaries
+		const albums = migrateAlbums(raw);
+		const anniversaries = migrateAnniversaries(raw);
 		// Sanitize the media tag map (drop malformed entries, empty lists)
 		const mediaTags = sanitizeMediaTags(raw.mediaTags);
 		// Validate the workspace registry (files list + active entry)
@@ -277,6 +306,8 @@ export default class DashboardPlugin extends Plugin {
 			...DEFAULT_SETTINGS,
 			...raw,
 			countdowns,
+			albums,
+			anniversaries,
 			mediaTags,
 			workspaceFiles: workspace.files,
 			workspaceNames: workspace.names,

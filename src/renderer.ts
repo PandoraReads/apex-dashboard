@@ -34,6 +34,9 @@ import { renderCalendarSection } from './calendar-section';
 import { renderSidebarHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget } from './expense-widget';
 import { renderSidebarAlbumWidget } from './album-widget';
+import { renderSidebarAnniversaryWidget } from './anniversary-widget';
+import { applyWidgetBackground, appendInlineBackgroundButton, getWidgetPlugin } from './widget-background';
+import { startGuardedDrag } from './drag-guard';
 import { renderSidebarMusicWidget } from './music-widget';
 import { SUPPORTED_FILE_EXTS, iconForExtension } from './file-types';
 import type { HolidayInfo } from './holiday-service';
@@ -256,6 +259,14 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 	}
 }
 
+/** True when the board should render top-bottom (widget strip under the
+ *  banner). Phones are excluded: their layout is CSS-fixed and must not
+ *  change shape because a desktop-only setting flipped. Every call site
+ *  funnels through this one helper so the gate can never drift. */
+export function isStackedLayout(settings: import('./types').DashboardSettings): boolean {
+	return settings.layoutMode === 'stacked' && !Platform.isPhone;
+}
+
 /** Fingerprint of every input the sidebar widgets depend on. The view compares
  *  it across full re-renders: when unchanged, the previous widgets DOM is
  *  re-attached instead of rebuilt (see renderSidebarWidgets), so dashboard data
@@ -268,6 +279,11 @@ export function sidebarWidgetSignature(
 	quickActionsSig: string,
 ): string {
 	return JSON.stringify({
+		// The stacked widget area has a different internal structure (quick
+		// actions card pinned leftmost + column-major strip wrapper), so a
+		// layout switch must rebuild rather than re-attach the previous mode's
+		// DOM.
+		stacked: isStackedLayout(settings),
 		weatherEnabled: settings.widgetWeatherEnabled,
 		weatherCity: settings.widgetWeatherCity,
 		weatherLat: settings.widgetWeatherLat,
@@ -281,17 +297,18 @@ export function sidebarWidgetSignature(
 		habitEnabled: settings.widgetHabitEnabled,
 		expenseEnabled: settings.widgetExpenseEnabled,
 		expenseCurrency: settings.expenseCurrency,
-		albumEnabled: settings.widgetAlbumEnabled,
-		albumFolder: settings.widgetAlbumFolder,
-		albumIntervalSec: settings.widgetAlbumIntervalSec,
-		albumRecursive: settings.widgetAlbumRecursive,
+		albums: settings.albums ?? [],
+		quickActionsBackground: settings.quickActionsBackground,
+		habitBackground: settings.habitBackground,
+		musicBackground: settings.musicBackground,
+		yearProgressBackground: settings.yearProgressBackground,
+		anniversaryEnabled: settings.anniversaryEnabled,
+		anniversaries: settings.anniversaries ?? [],
 		// Playlist content itself must NOT enter the signature: every add would
 		// rebuild the whole widget area. The service subscription refreshes it
 		// in place instead; only the enable flag matters here. Phones have no
 		// sidebar widget area; tablets share the desktop layout.
 		musicEnabled: settings.widgetMusicEnabled && !Platform.isPhone,
-		albumRatio: settings.widgetAlbumRatio,
-		albumTransition: settings.widgetAlbumTransition,
 		countdownEnabled: settings.countdownEnabled,
 		countdowns: settings.countdowns,
 		readingEnabled: settings.readingEnabled,
@@ -315,6 +332,22 @@ export function sidebarWidgetSignature(
  *  navigation state all survive the surrounding full re-render.
  *  Returns the widgets area element (reused or fresh), or null when no widget
  *  is enabled. */
+
+/** Persist a singleton widget's background straight from the card's config
+ *  button (plugin reached via the app service locator — the same idiom the
+ *  countdown settings button uses). */
+function saveSingletonBackground(
+	app: App,
+	key: 'quickActionsBackground' | 'habitBackground' | 'musicBackground' | 'yearProgressBackground',
+	bg: import('./types').WidgetBackground | undefined,
+): void {
+	const plugin = getWidgetPlugin(app);
+	if (!plugin) return;
+	plugin.settings = { ...plugin.settings, [key]: bg };
+	void plugin.saveSettings();
+	plugin.refreshAllDashboards();
+}
+
 export function renderSidebarWidgets(
 	container: HTMLElement,
 	settings: import('./types').DashboardSettings,
@@ -327,87 +360,166 @@ export function renderSidebarWidgets(
 	onOpenNote?: (file: TFile, line?: number) => void,
 	renderQuickActions?: (container: HTMLElement) => void,
 ): HTMLElement | null {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || settings.widgetAlbumEnabled || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || (settings.widgetMusicEnabled && !Platform.isPhone);
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || (settings.albums?.length ?? 0) > 0 || (settings.anniversaryEnabled && (settings.anniversaries?.length ?? 0) > 0) || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || (settings.widgetMusicEnabled && !Platform.isPhone);
 	if (!anyEnabled) return null;
 
+	const stacked = isStackedLayout(settings);
 	// Unchanged inputs: keep the previous DOM (and its live timers/listeners).
-	if (reuse && reuse.isConnected === false && reuse.childElementCount > 0) {
+	// The layout marker check is local defense-in-depth on top of the caller's
+	// signature gate: a side-built area (flat children) must never re-attach
+	// into a stacked render (strip wrapper expected) or vice versa, even if a
+	// future caller forgets to include the layout in its signature.
+	if (reuse && reuse.isConnected === false && reuse.childElementCount > 0
+		&& reuse.dataset.layout === (stacked ? 'stacked' : 'side')) {
 		container.appendChild(reuse);
 		return reuse;
 	}
 
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
+	widgetArea.dataset.layout = stacked ? 'stacked' : 'side';
 
-	const DEFAULT_ORDER = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'];
+	const DEFAULT_ORDER = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'anniversary', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'];
 	// Legacy: an order saved before quick buttons were a widget lacks the
 	// 'quickActions' key. Render it first there (its historical spot, above the
 	// other widgets) until the user drags it elsewhere.
 	const order = settings.widgetOrder?.length ? settings.widgetOrder : DEFAULT_ORDER;
 
-	type WidgetEntry = { key: string; render: () => void };
+	type WidgetEntry = { key: string; render: (host: HTMLElement) => void };
 	const enabled: WidgetEntry[] = [];
 	if (settings.widgetQuickActionsEnabled && renderQuickActions) {
 		const renderQuick = renderQuickActions;
-		enabled.push({ key: 'quickActions', render: () => { renderQuick(widgetArea); } });
+		enabled.push({ key: 'quickActions', render: (host) => { renderQuick(host); } });
 	}
 	if (settings.widgetLunarEnabled) {
-		enabled.push({ key: 'lunar', render: () => renderSidebarLunarWidget(widgetArea, holidayData ?? {}, app) });
+		enabled.push({ key: 'lunar', render: (host) => renderSidebarLunarWidget(host, holidayData ?? {}, app) });
 	}
 	if (settings.widgetYearProgressEnabled) {
-		enabled.push({ key: 'yearProgress', render: () => renderSidebarYearProgress(widgetArea) });
+		enabled.push({ key: 'yearProgress', render: (host) => renderSidebarYearProgress(host, settings.yearProgressBackground, app, bg => saveSingletonBackground(app, 'yearProgressBackground', bg)) });
 	}
 	if (settings.widgetCalendarEnabled) {
-		enabled.push({ key: 'calendar', render: () => renderSidebarCalendar(widgetArea, settings, app, onOpenNote) });
+		enabled.push({ key: 'calendar', render: (host) => renderSidebarCalendar(host, settings, app, onOpenNote) });
 	}
 	if (settings.widgetWeatherEnabled) {
-		enabled.push({ key: 'weather', render: () => renderSidebarWeather(widgetArea, settings, app) });
+		enabled.push({ key: 'weather', render: (host) => renderSidebarWeather(host, settings, app) });
 	}
 	if (settings.pomodoroEnabled && pomodoroService) {
-		enabled.push({ key: 'pomodoro', render: () => renderSidebarPomodoro(widgetArea, pomodoroService, settings) });
+		enabled.push({ key: 'pomodoro', render: (host) => renderSidebarPomodoro(host, pomodoroService, settings) });
 	}
 	if (settings.readingEnabled && readingService) {
-		enabled.push({ key: 'reading', render: () => renderSidebarReading(widgetArea, readingService) });
+		enabled.push({ key: 'reading', render: (host) => renderSidebarReading(host, readingService) });
 	}
 	if (settings.widgetHabitEnabled) {
-		enabled.push({ key: 'habit', render: () => renderSidebarHabitWidget(widgetArea, app) });
+		enabled.push({ key: 'habit', render: (host) => renderSidebarHabitWidget(host, app, settings.habitBackground, bg => saveSingletonBackground(app, 'habitBackground', bg)) });
 	}
 	if (settings.widgetExpenseEnabled) {
-		enabled.push({ key: 'expense', render: () => renderSidebarExpenseWidget(widgetArea, app) });
+		enabled.push({ key: 'expense', render: (host) => renderSidebarExpenseWidget(host, app) });
 	}
-	if (settings.widgetAlbumEnabled) {
-		enabled.push({ key: 'album', render: () => renderSidebarAlbumWidget(widgetArea, settings, app) });
+	// Multiple album widgets: one card per albums[] entry, keyed album-<id>.
+	// renderSidebarAlbumWidget reads the legacy flat fields, so each entry
+	// renders through a per-album settings shim (spread — never mutated).
+	for (const cfg of settings.albums ?? []) {
+		const ref = cfg;
+		enabled.push({
+			key: `album-${ref.id}`,
+			render: (host) => renderSidebarAlbumWidget(host, {
+				...settings,
+				widgetAlbumFolder: ref.folder,
+				widgetAlbumIntervalSec: ref.intervalSec,
+				widgetAlbumRecursive: ref.recursive,
+				widgetAlbumRatio: ref.ratio,
+				widgetAlbumTransition: ref.transition,
+			}, app),
+		});
+	}
+	// Anniversary widgets: one card per anniversaries[] entry, keyed
+	// anniversary-<id> (the countdown multi-instance pattern).
+	if (settings.anniversaryEnabled) {
+		for (const cfg of settings.anniversaries ?? []) {
+			const ref = cfg;
+			enabled.push({ key: `anniversary-${ref.id}`, render: (host) => renderSidebarAnniversaryWidget(host, ref, app, updated => {
+			const plugin = getWidgetPlugin(app);
+			if (!plugin) return;
+			plugin.settings = {
+				...plugin.settings,
+				anniversaries: (plugin.settings.anniversaries ?? []).map(a => a.id === updated.id ? updated : a),
+			};
+			void plugin.saveSettings();
+			plugin.refreshAllDashboards();
+		}) });
+		}
 	}
 	if (settings.widgetMusicEnabled && !Platform.isPhone) {
-		enabled.push({ key: 'music', render: () => renderSidebarMusicWidget(widgetArea) });
+		enabled.push({ key: 'music', render: (host) => renderSidebarMusicWidget(host, settings.musicBackground, app, bg => saveSingletonBackground(app, 'musicBackground', bg)) });
 	}
 	if (settings.countdownEnabled) {
 		for (const cd of settings.countdowns ?? []) {
 			const cdRef = cd;
-			enabled.push({ key: `countdown-${cd.id}`, render: () => renderSidebarCountdown(widgetArea, cdRef, app) });
+			enabled.push({ key: `countdown-${cd.id}`, render: (host) => renderSidebarCountdown(host, cdRef, app) });
 		}
 	}
 
 	const ordered = sortByOrder(enabled, order);
 
-	for (const { key, render } of ordered) {
-		const childCount = widgetArea.children.length;
-		render();
-		const el = widgetArea.children[childCount] as HTMLElement | undefined;
+	// Stacked mode: quick actions is a regular card in the strip grid, always
+	// FIRST in the build order = leftmost column (it also exits the reorder
+	// system there, so the pinned position is deterministic). The saved drag
+	// order is untouched and still rules the side layout. The strip wrapper is
+	// created lazily on the first widget, so an empty enable set never gets a
+	// stray container.
+	const buildOrder = stacked
+		? [...ordered.filter(e => e.key === 'quickActions'), ...ordered.filter(e => e.key !== 'quickActions')]
+		: ordered;
+	let stripRow: HTMLElement | null = null;
+	const hostFor = (_key: string): HTMLElement => {
+		if (!stacked) return widgetArea;
+		stripRow ??= widgetArea.createDiv({ cls: 'dashboard-sidebar-widgets-row' });
+		return stripRow;
+	};
+
+	// Stacked-mode height ratios: rows of the 6-row widget grid per fraction.
+	const RATIO_SPAN: Record<import('./types').WidgetHeightRatio, number> = { full: 6, twoThirds: 4, half: 3, third: 2 };
+	const albumById = new Map((settings.albums ?? []).map(a => [String(a.id), a]));
+
+	for (const { key, render } of buildOrder) {
+		const host = hostFor(key);
+		const childCount = host.children.length;
+		render(host);
+		const el = host.children[childCount] as HTMLElement | undefined;
 		if (el) {
 			el.dataset.widgetKey = key;
 			// The quick-actions section carries its own section classes; give it
 			// the widget class too so it joins the drag-to-reorder system.
-			if (key === 'quickActions') el.addClass('dashboard-sidebar-widget');
+			if (key === 'quickActions') {
+				el.addClass('dashboard-sidebar-widget');
+				// Card background + config gear INSIDE the header's button group
+				// (left of palette/add) — a corner button would overlap them.
+				applyWidgetBackground(el, settings.quickActionsBackground, app);
+				const btnGroup = el.querySelector<HTMLElement>('.dashboard-qa-btn-group');
+				if (btnGroup) {
+					const gear = appendInlineBackgroundButton(btnGroup, app, settings.quickActionsBackground,
+						bg => saveSingletonBackground(app, 'quickActionsBackground', bg));
+					btnGroup.insertBefore(gear, btnGroup.firstChild);
+				}
+			}
+			// Album cards carry their config id (the multi-instance refresh
+			// matches on it) and their stacked-mode grid span.
+			if (key.startsWith('album-')) {
+				const cfg = albumById.get(key.slice('album-'.length));
+				if (cfg) {
+					el.dataset.albumId = String(cfg.id);
+					el.setCssProps({ '--db-widget-span': String(RATIO_SPAN[cfg.heightRatio] ?? 6) });
+				}
+			}
 		}
 	}
 
 	if (onWidgetReorder) {
-		setupWidgetDnD(widgetArea, ordered.map(e => e.key), onWidgetReorder);
+		setupWidgetDnD(widgetArea, ordered.map(e => e.key), onWidgetReorder, stacked);
 	}
 	return widgetArea;
 }
 
-type WidgetEntry = { key: string; render: () => void };
+type WidgetEntry = { key: string; render: (host: HTMLElement) => void };
 
 function sortByOrder(items: WidgetEntry[], order: string[]): WidgetEntry[] {
 	const orderMap = new Map(order.map((k, i) => [k, i]));
@@ -425,10 +537,31 @@ function setupWidgetDnD(
 	widgetArea: HTMLElement,
 	currentKeys: string[],
 	onReorder: (order: string[]) => void,
+	stacked: boolean,
 ): void {
 	let draggedKey: string | null = null;
 
-	const widgets = () => widgetArea.querySelectorAll('.dashboard-sidebar-widget');
+	/** All drag-order cards: keyed by [data-widget-key], which sits on the
+	 *  widget itself OR on the bare mount wrapper refreshDataWidget re-renders
+	 *  lunar/pomodoro/reading into (the wrapper inherits the key). */
+	const widgets = () => widgetArea.querySelectorAll('[data-widget-key]');
+
+	/** Clear every drag-over indicator class (both axes swept as defense). */
+	const clearDragOver = (el: HTMLElement): void => {
+		el.removeClass('dashboard-sidebar-widget--drag-over-top');
+		el.removeClass('dashboard-sidebar-widget--drag-over-bottom');
+		el.removeClass('dashboard-sidebar-widget--drag-over-left');
+		el.removeClass('dashboard-sidebar-widget--drag-over-right');
+	};
+
+	/** Insertion side for a pointer position over `wEl`: against the vertical
+	 *  midpoint. Both layouts read the Y axis — the side rail stacks widgets
+	 *  vertically, and the stacked deck is a column-major grid where "above
+	 *  the target" is exactly "earlier in the flat order". */
+	const isBefore = (wEl: HTMLElement, e: DragEvent): boolean => {
+		const rect = wEl.getBoundingClientRect();
+		return e.clientY < rect.top + rect.height / 2;
+	};
 
 	/** Controls whose own pointer gesture must not be hijacked by the widget's
 	 *  drag-to-reorder: the music volume slider, text inputs, selects, buttons
@@ -440,75 +573,92 @@ function setupWidgetDnD(
 	 *  (playlist rows and similar) that want the same protection. */
 	const DRAG_BLOCKED = 'input, textarea, select, button, a[href], [contenteditable], [data-no-drag]';
 
+	// Stacked mode pins the quick-actions card to the leftmost slot, so
+	// dropping onto it (or dragging it) could never move anything on screen.
+	// It exits the reorder system there entirely: no insertion indicators, no
+	// persisted no-op order writes that would read as a broken drag.
+	const isPinned = (keyEl: HTMLElement): boolean =>
+		stacked && keyEl.dataset.widgetKey === 'quickActions';
+
 	widgets().forEach(el => {
 		const wEl = el as HTMLElement;
+		if (isPinned(wEl)) return;
 		wEl.setAttribute('draggable', 'false');
-		wEl.dataset.widgetKey ??= wEl.dataset.widgetKey ?? '';
+	});
 
-		wEl.addEventListener('mousedown', (e) => {
-			const target = e.target as HTMLElement | null;
-			const blocked = e.button !== 0 || !!target?.closest(DRAG_BLOCKED);
-			wEl.setAttribute('draggable', blocked ? 'false' : 'true');
-		});
+	// Delegation on the widget AREA, not per-widget listeners: the in-place
+	// data refresh (view.refreshDataWidget) re-mounts lunar/pomodoro/reading
+	// inside a new wrapper mid-session, and drag events bubble — delegated
+	// handlers keep working across those swaps without re-wiring.
+	const keyElOf = (e: Event): HTMLElement | null => {
+		const target = e.target as HTMLElement | null;
+		const hit = target?.closest('[data-widget-key]') as HTMLElement | null;
+		if (!hit || !widgetArea.contains(hit)) return null;
+		return hit;
+	};
 
-		wEl.addEventListener('dragstart', (e) => {
-			draggedKey = wEl.dataset.widgetKey ?? null;
-			wEl.addClass('dashboard-sidebar-widget--dragging');
-			if (e.dataTransfer) {
-				e.dataTransfer.effectAllowed = 'move';
-				e.dataTransfer.setData('text/plain', draggedKey ?? '');
-			}
-		});
+	widgetArea.addEventListener('mousedown', (e) => {
+		const keyEl = keyElOf(e);
+		if (!keyEl || isPinned(keyEl)) return;
+		const blocked = e.button !== 0 || !!(e.target as HTMLElement | null)?.closest(DRAG_BLOCKED);
+		keyEl.setAttribute('draggable', blocked ? 'false' : 'true');
+	});
 
-		wEl.addEventListener('dragend', () => {
-			wEl.setAttribute('draggable', 'false');
-			wEl.removeClass('dashboard-sidebar-widget--dragging');
-			widgets().forEach(el2 => el2.removeClass('dashboard-sidebar-widget--drag-over'));
-			draggedKey = null;
-		});
+	widgetArea.addEventListener('dragstart', (e) => {
+		const keyEl = keyElOf(e);
+		if (!keyEl || isPinned(keyEl)) return;
+		draggedKey = keyEl.dataset.widgetKey ?? null;
+		keyEl.addClass('dashboard-sidebar-widget--dragging');
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', draggedKey ?? '');
+		}
+	});
 
-		wEl.addEventListener('dragover', (e) => {
-			e.preventDefault();
-			if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-			if (!draggedKey || wEl.dataset.widgetKey === draggedKey) return;
-			widgets().forEach(el2 => el2.removeClass('dashboard-sidebar-widget--drag-over'));
-			const rect = wEl.getBoundingClientRect();
-			const midY = rect.top + rect.height / 2;
-			if (e.clientY < midY) {
-				wEl.addClass('dashboard-sidebar-widget--drag-over-top');
-				wEl.removeClass('dashboard-sidebar-widget--drag-over-bottom');
-			} else {
-				wEl.addClass('dashboard-sidebar-widget--drag-over-bottom');
-				wEl.removeClass('dashboard-sidebar-widget--drag-over-top');
-			}
-		});
+	widgetArea.addEventListener('dragend', (e) => {
+		const keyEl = keyElOf(e);
+		if (keyEl) {
+			keyEl.setAttribute('draggable', 'false');
+			keyEl.removeClass('dashboard-sidebar-widget--dragging');
+		}
+		widgets().forEach(el2 => clearDragOver(el2 as HTMLElement));
+		draggedKey = null;
+	});
 
-		wEl.addEventListener('dragleave', () => {
-			wEl.removeClass('dashboard-sidebar-widget--drag-over-top');
-			wEl.removeClass('dashboard-sidebar-widget--drag-over-bottom');
-		});
+	widgetArea.addEventListener('dragover', (e) => {
+		const keyEl = keyElOf(e);
+		if (!keyEl || isPinned(keyEl)) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+		if (!draggedKey || keyEl.dataset.widgetKey === draggedKey) return;
+		widgets().forEach(el2 => clearDragOver(el2 as HTMLElement));
+		keyEl.addClass(isBefore(keyEl, e) ? 'dashboard-sidebar-widget--drag-over-top' : 'dashboard-sidebar-widget--drag-over-bottom');
+	});
 
-		wEl.addEventListener('drop', (e) => {
-			e.preventDefault();
-			wEl.removeClass('dashboard-sidebar-widget--drag-over-top');
-			wEl.removeClass('dashboard-sidebar-widget--drag-over-bottom');
-			if (!draggedKey || wEl.dataset.widgetKey === draggedKey) return;
+	widgetArea.addEventListener('dragleave', (e) => {
+		const keyEl = keyElOf(e);
+		if (keyEl) clearDragOver(keyEl);
+	});
 
-			const targetKey = wEl.dataset.widgetKey ?? '';
-			const rect = wEl.getBoundingClientRect();
-			const midY = rect.top + rect.height / 2;
-			const insertBefore = e.clientY < midY;
+	widgetArea.addEventListener('drop', (e) => {
+		const keyEl = keyElOf(e);
+		if (!keyEl || isPinned(keyEl)) return;
+		e.preventDefault();
+		clearDragOver(keyEl);
+		if (!draggedKey || keyEl.dataset.widgetKey === draggedKey) return;
 
-			const keys = [...currentKeys];
-			const fromIdx = keys.indexOf(draggedKey);
-			if (fromIdx === -1) return;
-			keys.splice(fromIdx, 1);
-			let toIdx = keys.indexOf(targetKey);
-			if (toIdx === -1) return;
-			if (!insertBefore) toIdx += 1;
-			keys.splice(toIdx, 0, draggedKey);
-			onReorder(keys);
-		});
+		const targetKey = keyEl.dataset.widgetKey ?? '';
+		const insertBefore = isBefore(keyEl, e);
+
+		const keys = [...currentKeys];
+		const fromIdx = keys.indexOf(draggedKey);
+		if (fromIdx === -1) return;
+		keys.splice(fromIdx, 1);
+		let toIdx = keys.indexOf(targetKey);
+		if (toIdx === -1) return;
+		if (!insertBefore) toIdx += 1;
+		keys.splice(toIdx, 0, draggedKey);
+		onReorder(keys);
 	});
 }
 
@@ -832,6 +982,7 @@ export function renderSidebarCountdown(
 	app: App,
 ): void {
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-countdown' });
+	applyWidgetBackground(widget, cd.background, app);
 
 	// Settings button (absolute positioned)
 	const settingsBtn = widget.createEl('button', {
@@ -1648,6 +1799,7 @@ export function renderDashboard(
 	app: App,
 	settings?: DashboardSettings,
 	hoverParent: HoverParent | null = null,
+	opts?: { skipQuickNotes?: boolean },
 ): void {
 	activeHoverParent = hoverParent;
 	activeNoteOpener = callbacks.onOpenNoteInPopover ?? null;
@@ -1656,7 +1808,10 @@ export function renderDashboard(
 	container.addClass('dashboard-kanban');
 
 	// Quick Notes region: pinned at the top, above all sections (non-reorderable).
-	if (settings?.quickNotesEnabled) {
+	// Stacked layout hoists it out of the kanban entirely — the view renders it
+	// above the widget strip instead (skipQuickNotes), because the kanban sits
+	// below the strip there and the bar must stay directly under the banner.
+	if (settings?.quickNotesEnabled && !opts?.skipQuickNotes) {
 		renderQuickNoteRegion(container, settings, callbacks);
 	}
 
@@ -1754,48 +1909,41 @@ function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, cal
 	// max-height can only clamp (shrink), never grow.
 	const isFixedHeight = getSectionType(column) === 'memo' || getSectionType(column) === 'web';
 	const handle = el.createDiv({ cls: 'dashboard-section-resize-handle' });
-	handle.addEventListener('mousedown', (e) => {
-		e.preventDefault();
-		e.stopPropagation();
+	handle.addEventListener('pointerdown', (e) => {
+		if (!el.parentElement) return;
 		const startY = e.clientY;
 		const startHeight = el.offsetHeight;
 		el.addClass('dashboard-section-row--resizing');
-		// Drag shield: an embedded frame (web section iframe/webview) swallows
-		// mouse events over its surface — the guest page receives them, the
-		// document does not — so a drag would freeze the first time the cursor
-		// crossed a frame, losing the mouseup the same way. Muting pointer
-		// events on every frame in the dashboard keeps the drag stream whole.
+		// Guarded drag (pointer capture + viewport shield, see drag-guard):
+		// keeps the move/up stream whole across embedded frames and Windows
+		// webview surface overflow. frames-muted stays for hover calm.
 		const shieldHost = el.closest('.apex-dashboard-root') ?? el.parentElement;
 		shieldHost?.addClass('dashboard-frames-muted');
 
-		const onMove = (ev: MouseEvent) => {
-			// The row can be torn down mid-drag by a re-render; resizing a
-			// detached element is stale work, so stop (and lift the shield now
-			// rather than at the next drag).
-			if (!el.isConnected) {
-				stopDrag();
-				return;
-			}
-			const delta = ev.clientY - startY;
-			const newHeight = Math.max(160, Math.min(2000, startHeight + delta));
-			el.style.maxHeight = `${newHeight}px`;
-			if (isFixedHeight) el.style.height = `${newHeight}px`;
-		};
-		const onUp = (ev: MouseEvent) => {
-			stopDrag();
-			const finalHeight = Math.max(160, Math.min(2000, startHeight + (ev.clientY - startY)));
-			if (finalHeight !== column.height) {
-				callbacks.onColumnHeightChange(column.name, finalHeight);
-			}
-		};
-		function stopDrag(): void {
-			activeDocument.removeEventListener('mousemove', onMove);
-			activeDocument.removeEventListener('mouseup', onUp);
-			el.removeClass('dashboard-section-row--resizing');
-			shieldHost?.removeClass('dashboard-frames-muted');
-		}
-		activeDocument.addEventListener('mousemove', onMove);
-		activeDocument.addEventListener('mouseup', onUp);
+		startGuardedDrag(e, {
+			cursor: 'ns-resize',
+			onMove: (ev) => {
+				// The row can be torn down mid-drag by a re-render; resizing a
+				// detached element is stale work, so stop touching it.
+				if (!el.isConnected) {
+					el.removeClass('dashboard-section-row--resizing');
+					shieldHost?.removeClass('dashboard-frames-muted');
+					return;
+				}
+				const delta = ev.clientY - startY;
+				const newHeight = Math.max(160, Math.min(2000, startHeight + delta));
+				el.style.maxHeight = `${newHeight}px`;
+				if (isFixedHeight) el.style.height = `${newHeight}px`;
+			},
+			onUp: (ev) => {
+				el.removeClass('dashboard-section-row--resizing');
+				shieldHost?.removeClass('dashboard-frames-muted');
+				const finalHeight = Math.max(160, Math.min(2000, startHeight + (ev.clientY - startY)));
+				if (finalHeight !== column.height) {
+					callbacks.onColumnHeightChange(column.name, finalHeight);
+				}
+			},
+		});
 	});
 }
 
@@ -1834,9 +1982,8 @@ export function applyPairWidth(el: HTMLElement, column: DashboardColumn, data: D
 function attachPairWidthHandle(el: HTMLElement, column: DashboardColumn, callbacks: RenderCallbacks): void {
 	const handle = el.createDiv({ cls: 'dashboard-pair-width-handle' });
 	handle.setAttribute('aria-label', t('renderer.pairWidthHint'));
-	handle.addEventListener('mousedown', (e) => {
-		e.preventDefault();
-		e.stopPropagation();
+	handle.setAttribute('aria-label', t('renderer.pairWidthHint'));
+	handle.addEventListener('pointerdown', (e) => {
 		const board = el.parentElement;
 		const partnerEl = el.nextElementSibling;
 		if (!board || !(partnerEl instanceof HTMLElement)
@@ -1851,34 +1998,41 @@ function attachPairWidthHandle(el: HTMLElement, column: DashboardColumn, callbac
 		const startPct = clampPairWidth(column.width);
 		let lastPct = startPct;
 		el.addClass('dashboard-section-row--resizing');
+		// Guarded drag (pointer capture + viewport shield, see drag-guard):
+		// the pair divider shares a gutter-adjacent strip with everything the
+		// board hosts, and on Windows a webview surface can overflow onto the
+		// strip mid-drag — capture keeps the stream on this document.
 		const shieldHost = el.closest('.apex-dashboard-root') ?? board;
 		shieldHost.addClass('dashboard-frames-muted');
-		const onMove = (ev: MouseEvent) => {
-			// The row can be torn down mid-drag by a re-render; stop rather
-			// than resize a detached element.
-			if (!el.isConnected) {
-				stopDrag();
-				return;
-			}
-			lastPct = Math.max(20, Math.min(80, startPct + ((ev.clientX - startX) / usable) * 100));
-			el.style.setProperty('--db-pair-basis', `${lastPct}%`);
-			partnerEl.style.setProperty('--db-pair-basis', `${100 - lastPct}%`);
-		};
-		const onUp = () => {
-			stopDrag();
-			const rounded = Math.round(lastPct);
-			if (rounded !== Math.round(startPct)) {
-				callbacks.onColumnWidthChange(column.name, rounded);
-			}
-		};
-		function stopDrag(): void {
-			activeDocument.removeEventListener('mousemove', onMove);
-			activeDocument.removeEventListener('mouseup', onUp);
-			el.removeClass('dashboard-section-row--resizing');
-			shieldHost.removeClass('dashboard-frames-muted');
-		}
-		activeDocument.addEventListener('mousemove', onMove);
-		activeDocument.addEventListener('mouseup', onUp);
+		startGuardedDrag(e, {
+			cursor: 'col-resize',
+			onMove: (ev) => {
+				// The row can be torn down mid-drag by a re-render; stop rather
+				// than resize a detached element.
+				if (!el.isConnected) {
+					el.removeClass('dashboard-section-row--resizing');
+					shieldHost.removeClass('dashboard-frames-muted');
+					return;
+				}
+				lastPct = Math.max(20, Math.min(80, startPct + ((ev.clientX - startX) / usable) * 100));
+				el.style.setProperty('--db-pair-basis', `${lastPct}%`);
+				partnerEl.style.setProperty('--db-pair-basis', `${100 - lastPct}%`);
+			},
+			onUp: () => {
+				el.removeClass('dashboard-section-row--resizing');
+				shieldHost.removeClass('dashboard-frames-muted');
+				const rounded = Math.round(lastPct);
+				// Snap BOTH inline bases to the rounded value: the live drag wrote
+				// un-rounded percentages, and any update path that refreshes only
+				// one half in place would otherwise leave a stale mate whose basis
+				// sums past 100% and wraps the pair.
+				el.style.setProperty('--db-pair-basis', `${rounded}%`);
+				partnerEl.style.setProperty('--db-pair-basis', `${100 - rounded}%`);
+				if (rounded !== Math.round(startPct)) {
+					callbacks.onColumnWidthChange(column.name, rounded);
+				}
+			},
+		});
 	});
 }
 

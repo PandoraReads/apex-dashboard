@@ -1,4 +1,5 @@
 import { Notice, setIcon } from 'obsidian';
+import { applyWidgetBackground, appendInlineBackgroundButton } from './widget-background';
 import { t } from './i18n';
 import { getMusicService, type MusicPlayerState } from './music-service';
 import { fetchLyric, isPlayableByFee, searchMusic, type LyricLine } from './netease-client';
@@ -45,11 +46,12 @@ interface MusicWidgetRefs {
 
 const refsMap = new WeakMap<HTMLElement, MusicWidgetRefs>();
 
-export function renderSidebarMusicWidget(container: HTMLElement): void {
+export function renderSidebarMusicWidget(container: HTMLElement, bg?: import('./types').WidgetBackground, app?: import('obsidian').App, onBgChange?: (bg: import('./types').WidgetBackground | undefined) => void): void {
 	const service = getMusicService();
 	if (!service) return;
 
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-music' });
+	if (app) applyWidgetBackground(widget, bg, app);
 
 	// Typing in the search/import boxes must not drag the widget (the whole
 	// widget is a drag handle; expense-widget has the same guard).
@@ -81,7 +83,11 @@ export function renderSidebarMusicWidget(container: HTMLElement): void {
 	refsMap.set(widget, refs);
 	// Skeleton areas were appended before the header existed; move the header
 	// to the top (it stays static after this point).
-	widget.prepend(buildHeader(widget, refs));
+	const header = buildHeader(widget, refs);
+	widget.prepend(header);
+	// Background gear rides inside the header's right-hand icon cluster
+	// (search/playlist), not as a corner button that would overlap them.
+	if (app && onBgChange) appendInlineBackgroundButton(header, app, bg, onBgChange);
 
 	// ---- now playing ----
 	const cover = refs.now.createDiv({ cls: 'dashboard-sidebar-music-cover' });
