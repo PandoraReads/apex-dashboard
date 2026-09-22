@@ -1,10 +1,10 @@
-import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Platform, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
+import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Platform, setIcon, WorkspaceLeaf, TAbstractFile, TFile } from 'obsidian';
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, DataviewConfig } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
 import { refreshCalendarSections } from './calendar-section';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
@@ -24,6 +24,8 @@ import { QuickNoteConfigModal } from './quick-note-config-modal';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
 import { setupDragAndDrop } from './dnd';
+import { startGuardedDrag } from './drag-guard';
+import { clampSidebarWidth, clampWidgetUnitHeight } from './widget-span';
 import { CardEditModal } from './card-edit-modal';
 import { NotePopoverModal, revealMarkdownLine } from './note-popover-modal';
 import { showConfirmDialog } from './confirm-dialog';
@@ -54,9 +56,12 @@ import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
+import { getOrCreateDailyNote, ensureFolder } from './daily-notes';
+import { createMemoNote } from './memo-note';
 import type { App } from 'obsidian';
 import { dashboardMarkdownPath, planDashboardUpdate, type DashboardUpdateSource } from './render-update';
-import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
+import { captureScrollStates, restoreScrollStates, captureRootScrollState, restoreRootScrollState } from './scroll-preserve';
+import { fileKind } from './file-types';
 
 interface DailyNotesOptions {
 	folder?: string;
@@ -99,15 +104,20 @@ export class DashboardView extends ItemView implements HoverParent {
 	private dndCleanupFns: Array<() => void> = [];
 	private suppressNextRender = false;
 	private vaultEventRefs: Array<{ evt: Events; ref: unknown }> = [];
-	private recentDocsTimer: number | null = null;
-	private libraryRefreshTimer: number | null = null;
 	private bannerStatsTimer: number | null = null;
 	private bannerStatsEl: HTMLElement | null = null;
+	/** Vault changes accumulated across one debounce window: every changed
+	 *  file path (renames contribute old AND new), plus a broad flag for
+	 *  folder-level events whose own path carries no section-scope meaning.
+	 *  One shared trailing debounce fans them out — see scheduleVaultRefresh. */
+	private vaultChangePaths = new Set<string>();
+	private vaultChangeBroad = false;
+	private vaultRefreshTimer: number | null = null;
+	private readonly VAULT_REFRESH_DEBOUNCE = 500;
+	private readonly BANNER_STATS_DEBOUNCE = 800;
 	/** True after the first `metadataCache` `resolved` event corrected the
 	 *  banner stats following startup. One-shot to avoid repeat recomputes. */
 	private bannerStatsResolvedOnce = false;
-	private readonly RECENT_DOCS_DEBOUNCE = 500;
-	private readonly BANNER_STATS_DEBOUNCE = 800;
 	private bannerQuoteIndex = 0;
 	private bannerImageIndex = 0;
 	private static readonly BANNER_QUOTE_ROTATION_MS = 60 * 60 * 1000; // 1 hour (on the hour)
@@ -143,10 +153,6 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  data mutations never rebuild the widgets. Null right after consumption. */
 	private sidebarWidgetsEl: HTMLElement | null = null;
 	private sidebarWidgetsSig: string | null = null;
-	private sidebarCalendarTimer: number | null = null;
-	private readonly SIDEBAR_CALENDAR_DEBOUNCE = 500;
-	private albumRefreshTimer: number | null = null;
-	private readonly ALBUM_REFRESH_DEBOUNCE = 500;
 	private isOpening = false;
 	private isOpen = false;
 	private lifecycleRevision = 0;
@@ -197,6 +203,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.registerEvent(this.app.metadataCache.on('resolved', () => {
 			if (this.bannerStatsResolvedOnce) return;
 			this.bannerStatsResolvedOnce = true;
+			// Sections rendered before the cache resolved may hold partially
+			// indexed frontmatter; their path+mtime signatures cannot see that,
+			// so drop them to force a rebuild on the next vault event.
+			invalidateScanningSectionSignatures();
 			this.debouncedRefreshBannerStats();
 		}));
 		this.pomodoroService = new PomodoroService(this.plugin);
@@ -359,12 +369,22 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private render(data: DashboardData): void {
-		// Detach the sidebar widgets before tearing the rest down. If their inputs
-		// (signature below) are unchanged, this exact node is re-attached in
-		// renderSidebar instead of being rebuilt - dashboard data mutations then
-		// cost nothing for the widgets (calendar keeps its month navigation,
-		// countdowns keep ticking, no vault re-scan).
+		// Snapshot EVERY scrolled container (stacked region, board, sidebar
+		// rail, widget deck, card decks, task lists, widget internals — and the
+		// root itself, which scrolls on mobile) before any teardown. Keyed by
+		// card/widget/column anchors, so the replay at the end survives
+		// reorders. The previous targeted saves missed the stacked widget deck:
+		// detaching/re-attaching the widgets container resets scroll state, so
+		// every re-render jumped the deck back to its first column. This must
+		// run BEFORE the widgets detach below, while the deck is still in the
+		// tree.
 		const prevRoot = this.containerEl.children[1] as HTMLElement | undefined;
+		const savedRootScroll = captureRootScrollState(prevRoot ?? createDiv());
+		// Detach the sidebar widgets before tearing the rest down. If their
+		// inputs (signature below) are unchanged, this exact node is re-attached
+		// in renderSidebar instead of being rebuilt - dashboard data mutations
+		// then cost nothing for the widgets (calendar keeps its month navigation,
+		// countdowns keep ticking, no vault re-scan).
 		const oldWidgets = prevRoot?.querySelector('.dashboard-sidebar-widgets');
 		if (oldWidgets instanceof HTMLElement) {
 			oldWidgets.remove();
@@ -383,29 +403,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.data = data;
 		this.firedReminders.clear();
 		this.sidebarWidgetsSig = widgetSig;
-
-		// Save scroll positions before re-render
-		const root = this.containerEl.children[1] as HTMLElement;
-		const kanbanEl = root?.querySelector('.dashboard-kanban');
-		const sidebarScrollEl = root?.querySelector('.dashboard-sidebar-scroll');
-		const regionEl = root?.querySelector('.dashboard-scroll-region');
-		const savedRegionScroll = regionEl ? regionEl.scrollTop : 0;
-		const savedKanbanScroll = kanbanEl ? kanbanEl.scrollTop : 0;
-		const savedSidebarScroll = sidebarScrollEl ? sidebarScrollEl.scrollTop : 0;
-
-		const savedCardScrolls = new Map<string, number>();
-		root?.querySelectorAll('.dashboard-section-cards').forEach((el) => {
-			const section = (el as HTMLElement).closest('.dashboard-section-row');
-			const key = section?.getAttribute('data-column') ?? '';
-			if (key) savedCardScrolls.set(key, (el as HTMLElement).scrollLeft);
-		});
-
-		// Save per-task-list scroll positions so they survive re-render
-		const savedTaskListScrolls = new Map<string, number>();
-		root?.querySelectorAll('.dashboard-task-list').forEach((el) => {
-			const cardId = (el as HTMLElement).dataset.cardId;
-			if (cardId) savedTaskListScrolls.set(cardId, (el as HTMLElement).scrollTop);
-		});
 
 		const container = this.containerEl.children[1] as HTMLElement;
 
@@ -490,6 +487,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		} else {
 			sidebar.addClass('dashboard-sidebar--collapsed');
 		}
+		this.applySidebarSizing(sidebar);
 		this.renderSidebar(sidebar, container, preserveWidgets ? this.sidebarWidgetsEl : null);
 		this.setupSidebarBehavior(sidebar, container);
 
@@ -560,27 +558,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		}) as EventListener);
 
 
-		// Restore scroll positions
-		const newKanban = container.querySelector('.dashboard-kanban');
-		const newSidebarScroll = container.querySelector('.dashboard-sidebar-scroll');
-		const newRegion = container.querySelector('.dashboard-scroll-region');
-		if (newRegion) newRegion.scrollTop = savedRegionScroll;
-		if (newKanban) newKanban.scrollTop = savedKanbanScroll;
-		if (newSidebarScroll) newSidebarScroll.scrollTop = savedSidebarScroll;
-
-		container.querySelectorAll('.dashboard-section-cards').forEach((el) => {
-			const section = (el as HTMLElement).closest('.dashboard-section-row');
-			const key = section?.getAttribute('data-column') ?? '';
-			const saved = savedCardScrolls.get(key);
-			if (saved !== undefined) (el as HTMLElement).scrollLeft = saved;
-		});
-
-		// Restore per-task-list scroll positions
-		container.querySelectorAll('.dashboard-task-list').forEach((el) => {
-			const cardId = (el as HTMLElement).dataset.cardId;
-			const saved = cardId ? savedTaskListScrolls.get(cardId) : undefined;
-			if (saved !== undefined) (el as HTMLElement).scrollTop = saved;
-		});
+		// Replay the pre-render scroll snapshot onto the rebuilt tree. Keys that
+		// no longer resolve (a genuinely new structure) are skipped inside the
+		// restore; the pendingScroll blocks below may then re-scroll on purpose.
+		restoreRootScrollState(container, savedRootScroll);
 
 		// Scroll to newly added card
 		if (this.pendingScrollCardId) {
@@ -1086,6 +1067,133 @@ export class DashboardView extends ItemView implements HoverParent {
 		};
 		root.addEventListener('click', outsideHandler);
 		this.cleanupFns.push(() => root.removeEventListener('click', outsideHandler));
+
+		// Resize handles (desktop only): the stacked strip drags its unit
+		// height, the side rail drags its width. Phones have neither surface
+		// (the rail is display:none under 641px, the strip does not exist).
+		// The handles are direct sidebar children, so the collapsed state's
+		// `> *:not(.slim-indicator)` hiding rule keeps them unreachable there.
+		if (Platform.isMobile) return;
+		if (isStackedLayout(this.plugin.settings)) {
+			this.attachStripHeightHandle(sidebar);
+		} else {
+			this.attachSidebarWidthHandle(sidebar);
+		}
+	}
+
+	/** Write the persisted area sizing as CSS variables on the sidebar element.
+	 *  Runs every render and deliberately stays OUT of the widget signature:
+	 *  both values apply as plain custom properties (--db-sidebar-w /
+	 *  --db-widget-unit-h), so committing a drag never rebuilds the widgets
+	 *  DOM (live timers and listeners survive). Writing on the OUTER sidebar
+	 *  also covers the widgets-reuse path, where the inner strip is a
+	 *  re-attached node from a previous render. */
+	private applySidebarSizing(sidebar: HTMLElement): void {
+		const s = this.plugin.settings;
+		if (isStackedLayout(s)) {
+			sidebar.setCssProps({ '--db-widget-unit-h': `${clampWidgetUnitHeight(s.widgetUnitHeight)}px` });
+		} else if (!Platform.isMobile) {
+			// Unitless: the stylesheet multiplies by 1px for the width and by
+			// 1/220 for the proportional content scale (see the CSS comment).
+			sidebar.setCssProps({ '--db-sidebar-w': String(clampSidebarWidth(s.sidebarWidth)) });
+		}
+	}
+
+	/** Stacked layout: drag the strip's bottom edge to scale the 6-row grid
+	 *  unit (--db-widget-unit-h). Every card keeps its row fraction, so the
+	 *  whole strip grows/shrinks proportionally. Live frames write the CSS
+	 *  variable only; the value is persisted on release — the zero-writes-
+	 *  mid-drag discipline of the section height handle. */
+	private attachStripHeightHandle(sidebar: HTMLElement): void {
+		const handle = sidebar.createDiv({ cls: 'dashboard-sidebar-strip-handle' });
+		handle.setAttribute('aria-label', t('view.stripResizeHint'));
+		handle.addEventListener('pointerdown', (e) => {
+			const startY = e.clientY;
+			// Settings anchor, not offsetHeight: the collapsed strip's rendered
+			// height carries no usable unit value.
+			const startH = clampWidgetUnitHeight(this.plugin.settings.widgetUnitHeight);
+			sidebar.addClass('dashboard-sidebar--resizing');
+			const shieldHost = sidebar.closest('.apex-dashboard-root') ?? sidebar.parentElement;
+			shieldHost?.addClass('dashboard-frames-muted');
+			let last = startH;
+			startGuardedDrag(e, {
+				cursor: 'ns-resize',
+				onMove: (ev) => {
+					// A re-render can tear the sidebar down mid-drag; resizing a
+					// detached element is stale work.
+					if (!sidebar.isConnected) {
+						sidebar.removeClass('dashboard-sidebar--resizing');
+						shieldHost?.removeClass('dashboard-frames-muted');
+						return;
+					}
+					last = clampWidgetUnitHeight(startH + (ev.clientY - startY));
+					sidebar.style.setProperty('--db-widget-unit-h', `${last}px`);
+				},
+				onUp: () => {
+					sidebar.removeClass('dashboard-sidebar--resizing');
+					shieldHost?.removeClass('dashboard-frames-muted');
+					const finalH = Math.round(last);
+					if (finalH === startH) return;
+					this.commitSidebarSizing({ widgetUnitHeight: finalH }, '--db-widget-unit-h', `${finalH}px`);
+				},
+			});
+		});
+	}
+
+	/** Side layout: drag the rail's right edge to resize the widget column
+	 *  (--db-sidebar-w, unitless). Card content adapts through pure CSS: the
+	 *  widgets area scales its em-based root font-size with the width ratio
+	 *  and the fluid internals (flex/percent/ellipsis) reflow — no re-render,
+	 *  no JS layout work. */
+	private attachSidebarWidthHandle(sidebar: HTMLElement): void {
+		const handle = sidebar.createDiv({ cls: 'dashboard-sidebar-width-handle' });
+		handle.setAttribute('aria-label', t('view.sidebarResizeHint'));
+		handle.addEventListener('pointerdown', (e) => {
+			const startX = e.clientX;
+			const startW = clampSidebarWidth(this.plugin.settings.sidebarWidth);
+			sidebar.addClass('dashboard-sidebar--resizing');
+			const shieldHost = sidebar.closest('.apex-dashboard-root') ?? sidebar.parentElement;
+			shieldHost?.addClass('dashboard-frames-muted');
+			let last = startW;
+			startGuardedDrag(e, {
+				cursor: 'col-resize',
+				onMove: (ev) => {
+					if (!sidebar.isConnected) {
+						sidebar.removeClass('dashboard-sidebar--resizing');
+						shieldHost?.removeClass('dashboard-frames-muted');
+						return;
+					}
+					last = clampSidebarWidth(startW + (ev.clientX - startX));
+					sidebar.style.setProperty('--db-sidebar-w', String(last));
+				},
+				onUp: () => {
+					sidebar.removeClass('dashboard-sidebar--resizing');
+					shieldHost?.removeClass('dashboard-frames-muted');
+					const finalW = Math.round(last);
+					if (finalW === startW) return;
+					this.commitSidebarSizing({ sidebarWidth: finalW }, '--db-sidebar-w', String(finalW));
+				},
+			});
+		});
+	}
+
+	/** Persist a committed resize and mirror the value onto every OTHER open
+	 *  dashboard view's sidebar — a cheap setProperty sweep, because a full
+	 *  refreshAllDashboards would rebuild boards for a pure CSS change. Other
+	 *  views also pick the value up on their next render from settings. */
+	private commitSidebarSizing(
+		patch: { sidebarWidth?: number; widgetUnitHeight?: number },
+		cssVar: string,
+		value: string,
+	): void {
+		this.plugin.settings = { ...this.plugin.settings, ...patch };
+		void this.plugin.saveSettings();
+		for (const leaf of this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)) {
+			const other = leaf.view as DashboardView | undefined;
+			if (!other || other === this) continue;
+			other.containerEl.querySelectorAll<HTMLElement>('.dashboard-sidebar')
+				.forEach(el => el.style.setProperty(cssVar, value));
+		}
 	}
 
 	private createCallbacks() {
@@ -1231,62 +1339,17 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private async saveMemoAsNote(card: DashboardCard): Promise<void> {
 		try {
-			const now = new Date();
-			const title = card.title?.trim() || t('notice.memoUntitled');
-			const pad = (n: number) => String(n).padStart(2, '0');
-			const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-			const iso = now.toISOString();
-
-			// Sanitize title for use as a filename
-			const safeTitle = title.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || t('notice.memoUntitled');
-			const fileName = `${safeTitle}-${ts}.md`;
-
-			// Build folder path (empty setting = vault root)
-			const folder = this.plugin.settings.memoSavePath.trim().replace(/^\/+|\/+$/g, '');
-			const fullPath = folder ? `${folder}/${fileName}` : fileName;
-
-			// Build note content: YAML frontmatter + blockquote + body
-			const frontmatter = [
-				'---',
-				`title: "${title.replace(/"/g, '\\"')}"`,
-				`created: "${iso}"`,
-				'source: apex-dashboard',
-				'---',
-				'',
-			].join('\n');
-
-			const sections: string[] = [frontmatter];
-			if (card.blockquote && card.blockquote.trim()) {
-				const quoteLines = card.blockquote.split('\n').map(l => `> ${l}`);
-				sections.push(quoteLines.join('\n'));
-			}
-			if (card.body && card.body.trim()) {
-				sections.push(card.body);
-			}
-			const content = sections.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
-
-			// Ensure the destination folder exists
-			if (folder) {
-				await this.ensureFolder(folder);
-			}
-
-			await this.app.vault.create(fullPath, content);
-			new Notice(t('notice.memoSaved', { path: fullPath }), 4000);
+			const { path, templateMissing } = await createMemoNote(this.app, {
+				folder: this.plugin.settings.memoSavePath,
+				templatePath: this.plugin.settings.memoTemplatePath,
+				card,
+				untitled: t('notice.memoUntitled'),
+			});
+			if (templateMissing) new Notice(t('notice.memoTemplateNotFound'));
+			new Notice(t('notice.memoSaved', { path }), 4000);
 		} catch (err) {
 			console.error('[Dashboard] saveMemoAsNote failed:', err);
 			new Notice(t('notice.memoSaveError'), 4000);
-		}
-	}
-
-	private async ensureFolder(folderPath: string): Promise<void> {
-		const adapter = this.app.vault.adapter;
-		const parts = folderPath.split('/').map(p => p.trim()).filter(Boolean);
-		let current = '';
-		for (const part of parts) {
-			current = current ? `${current}/${part}` : part;
-			if (!(await adapter.exists(current))) {
-				await adapter.mkdir(current);
-			}
 		}
 	}
 
@@ -1314,7 +1377,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			const title = card.title?.trim() || t('notice.memoUntitled');
 			const block = `### ${title}\n${serializeTasksForNote(card.tasks)}`;
 
-			if (folder) await this.ensureFolder(folder);
+			if (folder) await ensureFolder(this.app, folder);
 
 			const existing = this.app.vault.getAbstractFileByPath(path);
 			if (existing instanceof TFile) {
@@ -1362,28 +1425,40 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (!confirmed) return;
 
 			// Write the running log before mutating the board: if the write fails,
-			// the tasks stay on the board (no data loss).
-			const configured = this.plugin.settings.taskArchivePath.trim().replace(/^\/+|\/+$/g, '');
-			const fullPath = configured || '归档/已完成.md';
-			const slash = fullPath.lastIndexOf('/');
-			const folder = slash >= 0 ? fullPath.slice(0, slash) : '';
-			if (folder) await this.ensureFolder(folder);
-
+			// the tasks stay on the board (no data loss). Destination is either
+			// today's daily note (created from the daily-notes template when
+			// missing; a stale blank note is template-rescued) or the configured
+			// fixed file with auto-created folders.
 			const lines = entries.map((e) => t('notice.archiveLine', { time, task: e.task, card: e.card }));
 			const appendText = `${lines.join('\n')}\n`;
 
-			const existing = this.app.vault.getAbstractFileByPath(fullPath);
-			if (existing instanceof TFile) {
-				const raw = await this.app.vault.read(existing);
-				const sep = raw.endsWith('\n') ? '' : '\n';
-				await this.app.vault.modify(existing, `${raw}${sep}${appendText}`);
+			let destFile: TFile;
+			if (this.plugin.settings.taskArchiveTarget === 'daily') {
+				const note = await getOrCreateDailyNote(this.app, nowMoment().format('YYYY-MM-DD'));
+				if (!note) {
+					// Daily notes not configured / path unresolvable: abort BEFORE
+					// removing anything from the board.
+					new Notice(t('notice.archiveDailyUnavailable'), 4000);
+					return;
+				}
+				destFile = note;
 			} else {
-				await this.app.vault.create(fullPath, appendText);
+				const configured = this.plugin.settings.taskArchivePath.trim().replace(/^\/+|\/+$/g, '');
+				const fullPath = configured || '归档/已完成.md';
+				const slash = fullPath.lastIndexOf('/');
+				const folder = slash >= 0 ? fullPath.slice(0, slash) : '';
+				if (folder) await ensureFolder(this.app, folder);
+				const existing = this.app.vault.getAbstractFileByPath(fullPath);
+				destFile = existing instanceof TFile ? existing : await this.app.vault.create(fullPath, '');
 			}
+
+			const raw = await this.app.vault.read(destFile);
+			const sep = raw === '' || raw.endsWith('\n') ? '' : '\n';
+			await this.app.vault.modify(destFile, `${raw}${sep}${appendText}`);
 
 			await this.sync.archiveTasks(columnName);
 
-			new Notice(t('notice.archived', { count: entries.length, path: fullPath }), 4000);
+			new Notice(t('notice.archived', { count: entries.length, path: destFile.path }), 4000);
 		} catch (err) {
 			console.error('[Dashboard] archiveCompletedTasks failed:', err);
 			new Notice(t('notice.archiveError'), 4000);
@@ -1850,8 +1925,9 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  follows the folder branch — queryVaultFiles scopes its results to those
 	 *  folders, so the global path would hide the note.
 	 *  The section refresh rides the vault-'create' debounce (registerVaultListeners
-	 *  → debouncedRefreshSections) — an inline refresh could beat metadataCache
-	 *  indexing and briefly render the section without the new note. */
+	 *  → flushVaultRefresh → refreshSectionsFor) — an inline refresh could beat
+	 *  metadataCache indexing and briefly render the section without the new
+	 *  note. */
 	private async handleLibraryNewNote(columnName: string, pos?: { x: number; y: number }): Promise<void> {
 		if (this.libraryNewNoteInFlight) return;
 		this.libraryNewNoteInFlight = true;
@@ -2007,30 +2083,32 @@ export class DashboardView extends ItemView implements HoverParent {
 	private registerVaultListeners(): void {
 		this.unregisterVaultListeners();
 		const events = this.app.vault;
-		// `structure` distinguishes file add/remove/rename (which can change the
-		// media listing) from plain .md content edits (which only affect task/
-		// calendar/library scans). Media sections are refreshed only on the
-		// former, so editing notes never churns the video thumbnails.
-		const handler = (structure: boolean): void => {
-			this.debouncedRefreshRecentDocs();
-			this.debouncedRefreshSections(structure);
-			this.debouncedRefreshSidebarCalendar();
-			this.debouncedRefreshBannerStats();
-			this.debouncedRefreshAlbumWidget();
+		const dashboardPath = dashboardMarkdownPath(this.plugin.settings.dashboardFile);
+		// Record one vault change. File events contribute their path (renames
+		// both ends); folder events and unknown entities set the broad flag —
+		// a folder carries no file path to scope-match, so refresh everything.
+		// Our own dashboard-file writes are skipped: the engine owns that state
+		// and handleDataUpdate has already re-rendered whatever they changed.
+		const record = (file: TAbstractFile | null, oldPath?: string): void => {
+			if (file instanceof TFile) {
+				if (file.path !== dashboardPath) this.vaultChangePaths.add(file.path);
+				if (oldPath && oldPath !== dashboardPath) this.vaultChangePaths.add(oldPath);
+			} else {
+				this.vaultChangeBroad = true;
+			}
+			this.scheduleVaultRefresh();
 		};
 
-		const createRef = events.on('create', () => handler(true));
-		const modifyRef = events.on('modify', (file) => {
+		const createRef = events.on('create', (file: TAbstractFile) => record(file));
+		const modifyRef = events.on('modify', (file: TAbstractFile) => {
+			// Plain content edits only matter to the note-derived views; an
+			// image overwrite with the same path renders identically.
 			if (file instanceof TFile && file.extension === 'md') {
-				// SyncEngine already owns this file and has the fresh in-memory data.
-				// Re-running every vault-wide derived view for our own save is the
-				// mobile interaction storm that used to follow each checkbox tap.
-				if (file.path === dashboardMarkdownPath(this.plugin.settings.dashboardFile)) return;
-				handler(false);
+				record(file);
 			}
 		});
-		const deleteRef = events.on('delete', () => handler(true));
-		const renameRef = events.on('rename', () => handler(true));
+		const deleteRef = events.on('delete', (file: TAbstractFile) => record(file));
+		const renameRef = events.on('rename', (file: TAbstractFile, oldPath: string) => record(file, oldPath));
 
 		this.vaultEventRefs = [
 			{ evt: events, ref: createRef },
@@ -2045,53 +2123,142 @@ export class DashboardView extends ItemView implements HoverParent {
 			evt.offref(ref as Parameters<typeof evt.offref>[0]);
 		}
 		this.vaultEventRefs = [];
-		if (this.recentDocsTimer) {
-			window.clearTimeout(this.recentDocsTimer);
-			this.recentDocsTimer = null;
+		if (this.vaultRefreshTimer) {
+			window.clearTimeout(this.vaultRefreshTimer);
+			this.vaultRefreshTimer = null;
 		}
+		this.vaultChangePaths = new Set();
+		this.vaultChangeBroad = false;
 		if (this.bannerStatsTimer) {
 			window.clearTimeout(this.bannerStatsTimer);
 			this.bannerStatsTimer = null;
 		}
-		if (this.sidebarCalendarTimer) {
-			window.clearTimeout(this.sidebarCalendarTimer);
-			this.sidebarCalendarTimer = null;
-		}
-		if (this.albumRefreshTimer) {
-			window.clearTimeout(this.albumRefreshTimer);
-			this.albumRefreshTimer = null;
-		}
-		if (this.libraryRefreshTimer) {
-			window.clearTimeout(this.libraryRefreshTimer);
-			this.libraryRefreshTimer = null;
-		}
 	}
 
-	/** Re-scan the sidebar task calendar when vault notes change (task dots).
-	 *  In-place: only the calendar grid re-renders - the widget DOM is preserved
-	 *  across full re-renders, so without this the dots would never update. */
-	private debouncedRefreshSidebarCalendar(): void {
+	/** One trailing debounce for every vault event. A burst of edits costs a
+	 *  single fan-out pass instead of five independently-reset timers. */
+	private scheduleVaultRefresh(): void {
+		if (this.vaultRefreshTimer) window.clearTimeout(this.vaultRefreshTimer);
+		this.vaultRefreshTimer = window.setTimeout(() => {
+			this.vaultRefreshTimer = null;
+			const paths = this.vaultChangePaths;
+			const broad = this.vaultChangeBroad;
+			this.vaultChangePaths = new Set();
+			this.vaultChangeBroad = false;
+			this.flushVaultRefresh(paths, broad);
+		}, this.VAULT_REFRESH_DEBOUNCE);
+	}
+
+	/** Apply one debounced batch of vault changes. Each derived view is gated
+	 *  by what the batch can actually affect: note-derived sidebars and
+	 *  calendar sections need an .md change, album slideshows and media
+	 *  sections an image/audio/video one, and scanning sections a change
+	 *  inside their scan scope. */
+	private flushVaultRefresh(paths: ReadonlySet<string>, broad: boolean): void {
+		const lowerPaths = [...paths].map(p => p.toLowerCase());
+		const changedMd = broad || lowerPaths.some(p => p.endsWith('.md'));
+		const changedMedia = broad || lowerPaths.some(p => {
+			const dot = p.lastIndexOf('.');
+			const ext = dot >= 0 ? p.slice(dot + 1) : '';
+			const kind = fileKind(ext);
+			return kind === 'image' || kind === 'audio' || kind === 'video';
+		});
+		if (changedMd) {
+			this.refreshRecentDocs();
+			this.refreshSidebarCalendarNow();
+			// Keeps its own extra debounce: the stats recompute walks the vault.
+			this.debouncedRefreshBannerStats();
+		}
+		if (changedMedia) {
+			this.refreshAlbumWidgetsNow();
+		}
+		this.refreshSectionsFor(lowerPaths, broad, changedMd, changedMedia);
+	}
+
+	/** Re-scan the sidebar task calendar in place (task dots). The widget DOM
+	 *  is preserved across full re-renders, so without this the dots would
+	 *  never update. */
+	private refreshSidebarCalendarNow(): void {
 		if (!this.plugin.settings.widgetCalendarEnabled) return;
-		if (this.sidebarCalendarTimer) window.clearTimeout(this.sidebarCalendarTimer);
-		this.sidebarCalendarTimer = window.setTimeout(() => {
-			this.sidebarCalendarTimer = null;
-			const root = this.containerEl.children[1] as HTMLElement | undefined;
-			if (root) refreshSidebarTaskCalendar(root);
-		}, this.SIDEBAR_CALENDAR_DEBOUNCE);
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		if (root) refreshSidebarTaskCalendar(root);
 	}
 
-	/** Re-scan the album folder when images are added/deleted/renamed in the
-	 *  vault. In-place via the widget's controller: an unchanged path list
-	 *  leaves the slideshow position and timer untouched. */
-	private debouncedRefreshAlbumWidget(): void {
+	/** Re-scan the album folders in place via the widget's controller: an
+	 *  unchanged path list leaves the slideshow position and timer untouched. */
+	private refreshAlbumWidgetsNow(): void {
 		const albums = this.plugin.settings.albums ?? [];
 		if (!albums.some(a => a.folder.trim())) return;
-		if (this.albumRefreshTimer) window.clearTimeout(this.albumRefreshTimer);
-		this.albumRefreshTimer = window.setTimeout(() => {
-			this.albumRefreshTimer = null;
-			const root = this.containerEl.children[1] as HTMLElement | undefined;
-			if (root) refreshAlbumWidgets(root, albums, this.app);
-		}, this.ALBUM_REFRESH_DEBOUNCE);
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		if (root) refreshAlbumWidgets(root, albums, this.app);
+	}
+
+	/** Rebuild only the sections whose scan scope intersects the changed
+	 *  paths. Library/folder sections are scoped by their configured folders
+	 *  (a library without folders scans the whole vault, so it always
+	 *  qualifies); calendar sections aggregate tasks across all notes, so any
+	 *  .md change qualifies; media sections react to media-file changes.
+	 *  `broad` (folder-level events) conservatively refreshes everything. */
+	private refreshSectionsFor(lowerPaths: readonly string[], broad: boolean, changedMd: boolean, changedMedia: boolean): void {
+		const data = this.sync.getData();
+		if (!data) return;
+		const sectionType = (col: { sectionType?: string }) => col.sectionType;
+		const hasScanning = data.columns.some(col => {
+			const st = sectionType(col);
+			return st === 'library' || st === 'calendar' || st === 'folder';
+		});
+		const hasMedia = data.columns.some(col => {
+			const st = sectionType(col);
+			return st === 'images' || st === 'videos';
+		});
+		if (!hasScanning && !hasMedia) return;
+
+		const root = this.containerEl.children[1] as HTMLElement | undefined;
+		const kanban = root?.querySelector('.dashboard-kanban') as HTMLElement | null;
+		if (!kanban) {
+			// View not laid out yet — fall back to a full render.
+			this.render(data);
+			return;
+		}
+
+		const inScope = (col: DashboardColumn): boolean => {
+			const folders = (col.libraryConfig?.folders ?? [])
+				.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
+				.filter(f => f.length > 0);
+			// No configured folders: the section scans the whole vault.
+			if (folders.length === 0) return true;
+			if (broad || lowerPaths.length === 0) return true;
+			return lowerPaths.some(p => folders.some(f => p.startsWith(f.toLowerCase() + '/')));
+		};
+		const shouldRefreshScanning = (col: DashboardColumn): boolean => {
+			const st = sectionType(col);
+			// Tasks live in any note, so calendar sections follow every .md.
+			if (st === 'calendar') return changedMd;
+			return inScope(col);
+		};
+
+		const callbacks = this.createCallbacks();
+		let swapped = 0;
+		if (hasScanning) {
+			swapped += refreshScanningSections(
+				kanban, data, callbacks, this.app, this.plugin.settings, this,
+				shouldRefreshScanning,
+				dashboardMarkdownPath(this.plugin.settings.dashboardFile),
+			);
+			// Calendar sections refresh their grid in place (nav/filter state
+			// preserved) instead of going through refreshScanningSections.
+			if (changedMd) refreshCalendarSections(kanban);
+		}
+		if (hasMedia && changedMedia) {
+			swapped += refreshMediaSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
+		}
+		if (swapped > 0) {
+			// Refreshed sections were replaced (new DOM), so their grip/card
+			// DnD handlers are gone — re-wire DnD across the whole kanban.
+			for (const fn of this.dndCleanupFns) fn();
+			this.dndCleanupFns = [];
+			setupDragAndDrop(kanban, callbacks, this.dndCleanupFns);
+		}
 	}
 
 	/** Music state changed (transport tick, playlist edit from any surface):
@@ -2181,13 +2348,16 @@ export class DashboardView extends ItemView implements HoverParent {
 	/** Re-render one sidebar data widget in place: render into a fresh mount
 	 *  at the same position, then drop the old node (emptying in place would
 	 *  nest a second .dashboard-sidebar-widget inside and confuse the
-	 *  sidebar's widget enumeration/drag handlers). */
+	 *  sidebar's widget enumeration/drag handlers). The swapped widget's
+	 *  internal scroll (habit list, music playlist) carries over the swap so
+	 *  a data refresh elsewhere never yanks the widget's viewport. */
 	private refreshDataWidget(selector: string, render: (container: HTMLElement) => void): void {
 		const root = this.containerEl.children[1] as HTMLElement | undefined;
 		const widget = root?.querySelector<HTMLElement>(selector);
 		if (!widget || !widget.isConnected) return;
 		const parent = widget.parentElement;
 		if (!parent) return;
+		const scrollStates = captureScrollStates(widget);
 		const mount = createDiv();
 		mount.addClass('dashboard-sidebar-widget-mount');
 		// Carry the replaced widget's identity onto the mount: the stacked
@@ -2200,6 +2370,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		parent.insertBefore(mount, widget);
 		widget.remove();
 		render(mount);
+		restoreScrollStates(mount, scrollStates);
 	}
 
 	/** Recompute the stats banner in place (only when in stats mode). Vault
@@ -2217,57 +2388,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			}
 		}, this.BANNER_STATS_DEBOUNCE);
 	}
-
-	private debouncedRefreshRecentDocs(): void {
-		if (this.recentDocsTimer) window.clearTimeout(this.recentDocsTimer);
-		this.recentDocsTimer = window.setTimeout(() => {
-			this.refreshRecentDocs();
-		}, this.RECENT_DOCS_DEBOUNCE);
-	}
-
-	private debouncedRefreshSections(structure: boolean): void {
-		if (!this.data) return;
-		const sectionType = (col: { sectionType?: string }) => col.sectionType;
-		const hasScanning = this.data.columns.some(col => {
-			const st = sectionType(col);
-			return st === 'library' || st === 'calendar' || st === 'folder';
-		});
-		const hasMedia = this.data.columns.some(col => {
-			const st = sectionType(col);
-			return st === 'images' || st === 'videos';
-		});
-		// Only refresh if there's a section that needs it: scanning sections on
-		// any change, media sections only on structural changes.
-		if (!hasScanning && !(structure && hasMedia)) return;
-		if (this.libraryRefreshTimer) window.clearTimeout(this.libraryRefreshTimer);
-		this.libraryRefreshTimer = window.setTimeout(() => {
-			const data = this.sync.getData();
-			if (!data) return;
-			const root = this.containerEl.children[1] as HTMLElement | undefined;
-			const kanban = root?.querySelector('.dashboard-kanban') as HTMLElement | null;
-			if (!kanban) {
-				// View not laid out yet — fall back to a full render.
-				this.render(data);
-				return;
-			}
-			const callbacks = this.createCallbacks();
-			if (hasScanning) {
-				refreshScanningSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
-				// Calendar sections refresh their grid in place (nav/filter state
-				// preserved) instead of going through refreshScanningSections.
-				refreshCalendarSections(kanban);
-			}
-			if (structure && hasMedia) {
-				refreshMediaSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
-			}
-			// Scanning/media sections were replaced (new DOM), so their grip/card
-			// DnD handlers are gone — re-wire DnD across the whole kanban.
-			for (const fn of this.dndCleanupFns) fn();
-			this.dndCleanupFns = [];
-			setupDragAndDrop(kanban, callbacks, this.dndCleanupFns);
-		}, 500);
-	}
-
 
 	private refreshRecentDocs(): void {
 		const root = this.containerEl.children[1] as HTMLElement;

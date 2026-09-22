@@ -122,6 +122,14 @@ export function mapSongUrl(raw: NeteaseSongUrlEntry): SongUrlInfo {
 	};
 }
 
+/** True when the URL API denied the track on entitlement grounds (business
+ *  code -110, url null). The server flakes on these checks intermittently —
+ *  even for accounts that hold the entitlement — so callers should retry
+ *  these a few times before treating the track as unplayable. */
+export function isEntitlementDenial(info: SongUrlInfo): boolean {
+	return info.url === null && info.code === -110;
+}
+
 const LRC_TAG = /^\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/;
 
 function lrcTagToMs(min: string, sec: string, frac: string | undefined): number {

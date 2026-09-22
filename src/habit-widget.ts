@@ -23,7 +23,7 @@ export function renderSidebarHabitWidget(container: HTMLElement, app: App, bg?: 
 	const titleEl = top.createDiv({ cls: 'dashboard-sidebar-habit-title' });
 	const titleIcon = titleEl.createDiv({ cls: 'dashboard-sidebar-habit-title-icon' });
 	setIcon(titleIcon, 'target');
-	titleEl.createSpan({ text: t('habit.title') });
+	titleEl.createSpan({ cls: 'dashboard-sidebar-habit-title-text', text: t('habit.title') });
 	const countEl = top.createDiv({ cls: 'dashboard-sidebar-habit-count' });
 	top.createDiv({ cls: 'dashboard-sidebar-habit-top-spacer' });
 

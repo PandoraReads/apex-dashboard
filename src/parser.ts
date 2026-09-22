@@ -216,6 +216,13 @@ export function serialize(data: DashboardData): string {
 			if (lc.groupMode === 'folder') {
 				lines.push(`      groupMode: folder`);
 			}
+			// 'none'/undefined is the default view grouping — only persist the opt-ins.
+			if (lc.viewGroupMode === 'folder' || lc.viewGroupMode === 'property') {
+				lines.push(`      viewGroupMode: ${lc.viewGroupMode}`);
+				if (lc.viewGroupMode === 'property' && lc.viewGroupBy) {
+					lines.push(`      viewGroupBy: "${escapeYamlString(lc.viewGroupBy)}"`);
+				}
+			}
 			if (lc.kanbanShowCovers) {
 				lines.push(`      kanbanShowCovers: true`);
 			}
@@ -956,6 +963,9 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		sortDesc: raw.sortDesc !== false,
 		kanbanGroupBy: raw.kanbanGroupBy ? str(raw.kanbanGroupBy) : undefined,
 		groupMode: ['property', 'folder'].includes(str(raw.groupMode ?? '')) ? (raw.groupMode as import('./types').LibraryConfig['groupMode']) : undefined,
+		viewGroupMode: ['none', 'folder', 'property'].includes(str(raw.viewGroupMode ?? ''))
+			? (raw.viewGroupMode as import('./types').LibraryConfig['viewGroupMode']) : undefined,
+		viewGroupBy: raw.viewGroupBy && str(raw.viewGroupMode ?? '') === 'property' ? str(raw.viewGroupBy) : undefined,
 		kanbanShowCovers: raw.kanbanShowCovers === true ? true : undefined,
 		pageSize: typeof raw.pageSize === 'number' ? raw.pageSize : undefined,
 		showProperties: raw.showProperties === false ? false : undefined,

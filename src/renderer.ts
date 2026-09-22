@@ -19,6 +19,8 @@ import { attachFileSuggest } from './file-suggest';
 import { showConfirmDialog } from './confirm-dialog';
 import { applyModalTheme } from './modal-theme';
 import { partnerIndexOf } from './column-pairs';
+import { RATIO_SPAN, buildStackedSpanSpecs, resolveStackedSpans, isTieredWidgetKey } from './widget-span';
+import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, computeStreak } from './tracker-service';
@@ -299,6 +301,13 @@ export function sidebarWidgetSignature(
 		calendarEnabled: settings.widgetCalendarEnabled,
 		calendarExcludeFolders: settings.calendarExcludeFolders,
 		habitEnabled: settings.widgetHabitEnabled,
+		// Tier settings must break the reuse signature: they change the stacked
+		// grid spans, which are written as inline CSS variables at build time.
+		// (sidebarWidth / widgetUnitHeight deliberately stay OUT — those apply
+		// as plain CSS variables on the outer sidebar every render and must not
+		// churn the widgets DOM.)
+		habitHeightRatio: settings.habitHeightRatio,
+		readingHeightRatio: settings.readingHeightRatio,
 		expenseEnabled: settings.widgetExpenseEnabled,
 		expenseCurrency: settings.expenseCurrency,
 		albums: settings.albums ?? [],
@@ -482,10 +491,26 @@ export function renderSidebarWidgets(
 	};
 
 	// Stacked-mode height ratios: rows of the 6-row widget grid per fraction.
-	const RATIO_SPAN: Record<import('./types').WidgetHeightRatio, number> = { full: 6, twoThirds: 4, half: 3, third: 2 };
 	const albumById = new Map((settings.albums ?? []).map(a => [String(a.id), a]));
+	// Adaptive column packing ("首选档 + 放不下自动换挡"): simulate the sparse
+	// column-first grid over the DOM order and resolve each TIERED card's
+	// span (habit / reading / album-*). Fixed cards keep their hardcoded
+	// per-type CSS spans; tiered cards get the resolved span inline as
+	// --db-widget-span, which their CSS rule reads with a historical fallback.
+	const spans = stacked
+		? resolveStackedSpans(buildStackedSpanSpecs(buildOrder.map(e => e.key), {
+			// Explicit mapping: the settings field names (habitHeightRatio)
+			// differ from the StackedRatios shape, and a whole-settings pass
+			// would type-check (all-optional interface) while silently reading
+			// undefined -> default tiers.
+			habit: settings.habitHeightRatio,
+			reading: settings.readingHeightRatio,
+			albums: settings.albums,
+		}))
+		: null;
 
-	for (const { key, render } of buildOrder) {
+	for (let i = 0; i < buildOrder.length; i++) {
+		const { key, render } = buildOrder[i]!;
 		const host = hostFor(key);
 		const childCount = host.children.length;
 		render(host);
@@ -507,13 +532,13 @@ export function renderSidebarWidgets(
 				}
 			}
 			// Album cards carry their config id (the multi-instance refresh
-			// matches on it) and their stacked-mode grid span.
+			// matches on it).
 			if (key.startsWith('album-')) {
 				const cfg = albumById.get(key.slice('album-'.length));
-				if (cfg) {
-					el.dataset.albumId = String(cfg.id);
-					el.setCssProps({ '--db-widget-span': String(RATIO_SPAN[cfg.heightRatio] ?? 6) });
-				}
+				if (cfg) el.dataset.albumId = String(cfg.id);
+			}
+			if (spans && isTieredWidgetKey(key)) {
+				el.setCssProps({ '--db-widget-span': String(spans[i] ?? RATIO_SPAN.full) });
 			}
 		}
 	}
@@ -1849,11 +1874,52 @@ export function renderDashboard(
 const SCANNING_SECTION_TYPES = new Set(['library', 'folder']);
 const MEDIA_SECTION_TYPES = new Set(['images', 'videos']);
 
+/** Render-input signatures per scanning section, keyed
+ *  `<scope>|<index>:<name>` (scope = the owning board file, so two open
+ *  dashboards on different workspaces never share entries). Populated by
+ *  refreshScanningSections; see scanningSectionSignature. */
+const scanningSectionSignatures = new Map<string, string>();
+
+/** Drop every cached scanning-section signature. Called when the metadata
+ *  cache (re)resolves: a section first rendered before resolution may hold
+ *  partially-indexed frontmatter/tags, and a path+mtime signature cannot see
+ *  that difference — clearing forces the next vault event to rebuild it. */
+export function invalidateScanningSectionSignatures(): void {
+	scanningSectionSignatures.clear();
+}
+
+/** Cheap fingerprint of everything a library/folder section's render derives
+ *  from vault state: its libraryConfig plus the path, mtime, and ctime of
+ *  every in-scope markdown file. Frontmatter/tag changes ride mtime (any
+ *  content write bumps it). An equal signature means a rebuild would be
+ *  byte-identical, so the DOM swap can be skipped without visible loss. */
+function scanningSectionSignature(column: DashboardColumn, app: App): string {
+	const cfg = column.libraryConfig;
+	const folders = (cfg?.folders ?? [])
+		.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
+		.filter(f => f.length > 0);
+	const excluded = normalizeExcludeFolders(cfg?.excludeFolders ?? []);
+	const parts: string[] = [];
+	for (const file of app.vault.getMarkdownFiles()) {
+		if (folders.length > 0) {
+			const lp = file.path.toLowerCase();
+			if (!folders.some(f => lp.startsWith(f.toLowerCase() + '/'))) continue;
+		}
+		if (isUnderExcludedFolder(file.path, excluded)) continue;
+		parts.push(`${file.path}|${file.stat.mtime}|${file.stat.ctime}`);
+	}
+	// Vault iteration order is not contractual; sort for a stable signature.
+	parts.sort();
+	return JSON.stringify([column.name, cfg ?? null, parts]);
+}
+
 /**
- * Re-render only the vault-scanning sections (library/folder/calendar)
- * in place, leaving media and card sections untouched. Used by the view's
- * vault-event debounce so editing a note no longer tears down the whole board
- * (and the media section's <video> thumbnails with it).
+ * Re-render only the vault-scanning sections (library/folder) in place,
+ * leaving media and card sections untouched. Used by the view's vault-event
+ * debounce so editing a note no longer tears down the whole board (and the
+ * media section's <video> thumbnails with it). `shouldRefresh` narrows the
+ * pass to sections whose scan scope intersects the changed paths;
+ * `signatureScope` keys the signature cache per board file.
  */
 export function refreshScanningSections(
 	kanban: HTMLElement,
@@ -1862,19 +1928,32 @@ export function refreshScanningSections(
 	app: App,
 	settings: DashboardSettings | undefined,
 	hoverParent: HoverParent | null,
-): void {
+	shouldRefresh?: (column: DashboardColumn) => boolean,
+	signatureScope?: string,
+): number {
 	activeHoverParent = hoverParent;
+	let refreshed = 0;
 	for (const column of data.columns) {
 		if (!SCANNING_SECTION_TYPES.has(getSectionType(column))) continue;
+		if (shouldRefresh && !shouldRefresh(column)) continue;
 		const oldEl = kanban.querySelector(`:scope > [data-column="${CSS.escape(column.name)}"]`);
 		if (!oldEl) continue;
+		// Skip the swap when the section's render inputs are unchanged since the
+		// last one (out-of-scope edit, write inside an excluded folder, non-md
+		// churn under a scan folder): rebuilding would flash identical content.
+		const key = `${signatureScope ?? ''}|${data.columns.indexOf(column)}:${column.name}`;
+		const signature = scanningSectionSignature(column, app);
+		if (scanningSectionSignatures.get(key) === signature) continue;
+		scanningSectionSignatures.set(key, signature);
 		const newEl = renderSection(column, callbacks, app, data, settings);
 		// Carry the old row's scroll positions over the swap (file lists,
 		// library kanban) so a vault-event refresh doesn't yank the viewport.
 		const scrollStates = captureScrollStates(oldEl);
 		oldEl.replaceWith(newEl);
 		restoreScrollStates(newEl, scrollStates);
+		refreshed++;
 	}
+	return refreshed;
 }
 
 /**
@@ -1890,10 +1969,13 @@ export function refreshMediaSections(
 	app: App,
 	settings: DashboardSettings | undefined,
 	hoverParent: HoverParent | null,
-): void {
+	shouldRefresh?: (column: DashboardColumn) => boolean,
+): number {
 	activeHoverParent = hoverParent;
+	let refreshed = 0;
 	for (const column of data.columns) {
 		if (!MEDIA_SECTION_TYPES.has(getSectionType(column))) continue;
+		if (shouldRefresh && !shouldRefresh(column)) continue;
 		const matched = kanban.querySelector(`:scope > [data-column="${CSS.escape(column.name)}"]`);
 		if (!(matched instanceof HTMLElement)) continue;
 		const scrollStates = captureScrollStates(matched);
@@ -1901,7 +1983,9 @@ export function refreshMediaSections(
 		const newEl = renderSection(column, callbacks, app, data, settings);
 		matched.replaceWith(newEl);
 		restoreScrollStates(newEl, scrollStates);
+		refreshed++;
 	}
+	return refreshed;
 }
 
 const COLLAPSED_KEY = 'apex-dashboard-collapsed';

@@ -10,12 +10,20 @@ import {
 	extractPlaylistId,
 	fetchPlaylist,
 	fetchSongUrl,
+	isEntitlementDenial,
 	isPlayableByFee,
 } from './netease-client';
 
 /** Stop auto-skipping after this many consecutive failures to start audio —
     an all-VIP playlist or a dead network must not become an infinite loop. */
 const MAX_PLAY_ATTEMPTS = 5;
+
+/** The URL endpoint intermittently answers entitled tracks with business code
+    -110 (an entitlement-check flake on the server, HTTP 200 envelope, url
+    null): retry these a couple of times, spaced, before concluding the track
+    really is unplayable. */
+const ENTITLEMENT_RETRIES = 2;
+const ENTITLEMENT_RETRY_DELAY_MS = 600;
 
 // ===== Module-level singleton (habit-service pattern) =====
 // The sidebar widget, the floating mini bar and the settings tab all reach the
@@ -141,7 +149,7 @@ export class MusicService {
 			// Mid-stream drop (CDN hiccup, network blip) or a link that expired
 			// during a long pause: re-fetch a fresh signed URL and resume at the
 			// same position. Silent — the widget UI already shows the state.
-			void this.startPlay(this.index, this.audio.currentTime, true);
+			void this.startPlay(this.index, this.audio.currentTime, 1);
 		});
 		this.audio.addEventListener('timeupdate', () => {
 			const now = Date.now();
@@ -369,9 +377,10 @@ export class MusicService {
 	// ===== Internals =====
 
 	/** Play playlist[index]. `resumeSec` continues a failed stream at that
-	    position instead of restarting; `isRetry` marks the second attempt for
-	    the same track, which bypasses the URL cache and gives up quietly. */
-	private async startPlay(index: number, resumeSec = 0, isRetry = false): Promise<void> {
+	    position instead of restarting; `attempt` counts the fetch tries spent
+	    on this track — an entitlement denial (-110) gets a few spaced retries
+	    because the server flakes on those checks even for entitled accounts. */
+	private async startPlay(index: number, resumeSec = 0, attempt = 0): Promise<void> {
 		const track = this.playlist[index];
 		if (!track) return;
 		const revision = ++this.playRevision;
@@ -385,14 +394,31 @@ export class MusicService {
 			if (revision !== this.playRevision) return;
 			// A retry must not reuse the cached link: that exact URL (expired
 			// signature or dead CDN node) is what just failed.
-			const info = await fetchSongUrl(track.id, cookie, isRetry);
+			const info = await fetchSongUrl(track.id, cookie, attempt > 0);
 			if (revision !== this.playRevision) return;
 			if (!info.url) {
-				// fee lied (region/DMCA) or a transient API null: one fresh
-				// retry, then move on silently. Notices on every auto-skip were
-				// noisy; the track change is visible in the widget itself.
-				if (isRetry) this.advanceAfterFailure();
-				else void this.startPlay(index, 0, true);
+				// -110 (entitlement denial) flakes intermittently even for
+				// entitled accounts — space out a few retries before judging.
+				// Other nulls (fee lied, region block, trial-only, transient
+				// risk-control null) keep the single immediate fresh retry.
+				const spaced = isEntitlementDenial(info);
+				const maxAttempts = spaced ? 1 + ENTITLEMENT_RETRIES : 2;
+				if (attempt + 1 < maxAttempts) {
+					const retry = (): void => {
+						// The user may have picked another track while the
+						// retry waited out its delay.
+						if (revision !== this.playRevision) return;
+						void this.startPlay(index, 0, attempt + 1);
+					};
+					if (spaced) window.setTimeout(retry, ENTITLEMENT_RETRY_DELAY_MS);
+					else retry();
+					return;
+				}
+				// Concluded unplayable. Name the track and the constraint —
+				// silent hops left "it skipped a few songs and stopped"
+				// undiagnosable, and the fee guard never fires when signed in.
+				new Notice(t('music.unplayableSkipped', { name: track.name }));
+				this.advanceAfterFailure();
 				return;
 			}
 			this.audio.src = info.url;
@@ -410,8 +436,8 @@ export class MusicService {
 			// Transient CDN/network failure: retry once with a fresh signed
 			// URL (preserving position), then skip silently. No notice —
 			// auto-advance failures used to spam one popup per skip.
-			if (isRetry) this.advanceAfterFailure();
-			else void this.startPlay(index, resumeSec, true);
+			if (attempt >= 1) this.advanceAfterFailure();
+			else void this.startPlay(index, resumeSec, attempt + 1);
 		}
 	}
 

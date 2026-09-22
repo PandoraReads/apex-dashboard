@@ -29,7 +29,10 @@ export class TFolder {}
 export class App {}
 export class TFile {}
 export class Notice {
-	constructor(_message: string) {}
+	/** Every message ever shown, in order — lets verification scripts assert
+	 *  on notice text without a real toast. */
+	static messages: string[] = [];
+	constructor(message: string) { Notice.messages.push(message); }
 	show() {}
 	hide() {}
 }
@@ -66,6 +69,8 @@ export class Menu {
 		this.items.push(item);
 		return this;
 	}
+
+	addSeparator(): this { return this; }
 
 	showAtMouseEvent(_e: unknown): this { return this; }
 	showAtPosition(_pos: unknown): this { return this; }

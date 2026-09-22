@@ -32,6 +32,18 @@ export interface DashboardSettings {
 	    horizontal strip under the banner ('stacked'). Desktop/tablet only;
 	    phones keep their own layout regardless of this value. */
 	layoutMode: DashboardLayoutMode;
+	/** Habit card height ratio in the stacked layout (side layout ignores it;
+	    the card is content-height there). */
+	habitHeightRatio: WidgetHeightRatio;
+	/** Reading card height ratio in the stacked layout (side layout ignores it). */
+	readingHeightRatio: WidgetHeightRatio;
+	/** Side-layout sidebar width in px, clamped 180-420 (220 default). Desktop
+	    only; the drag handle persists it, and render applies it as the
+	    --db-sidebar-w CSS variable. */
+	sidebarWidth: number;
+	/** Stacked-layout widget strip unit height in px (the 6-row grid unit),
+	    clamped 240-560 (300 default). Applied as --db-widget-unit-h. */
+	widgetUnitHeight: number;
 	widgetWeatherEnabled: boolean;
 	widgetWeatherCity: string;
 	widgetWeatherLat: number;
@@ -187,6 +199,13 @@ export interface DashboardSettings {
 	readingSoundEnabled: boolean;
 	taskTemplates: TaskTemplate[];
 	memoSavePath: string;
+	/** Template note applied when a memo card is saved as a note ('' = built-in
+	    default: 创建时间 + type: memo frontmatter). */
+	memoTemplatePath: string;
+	/** Where one-click archive writes completed tasks: a fixed file
+	    (taskArchivePath, the historical behavior) or today's daily note
+	    (created from the daily-notes template when missing). */
+	taskArchiveTarget: 'file' | 'daily';
 	taskArchivePath: string;
 	/** Library sections: folder where the toolbar "new note" button creates notes
 	 *  (frontmatter pre-filled to match the section's filters). '' = vault root. */
@@ -281,6 +300,12 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	language: 'zh',
 	stylePreset: 'mono',
 	layoutMode: 'side',
+	// Defaults match the historical hardcoded CSS spans/sizes so the upgrade
+	// is visually a no-op until the user drags or picks a tier.
+	habitHeightRatio: 'twoThirds',
+	readingHeightRatio: 'half',
+	sidebarWidth: 220,
+	widgetUnitHeight: 300,
 	widgetWeatherEnabled: false,
 	widgetWeatherCity: 'Shanghai',
 	widgetWeatherLat: 31.23,
@@ -354,6 +379,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	readingSoundEnabled: true,
 	taskTemplates: [],
 	memoSavePath: '',
+	memoTemplatePath: '',
+	taskArchiveTarget: 'file',
 	taskArchivePath: '归档/已完成.md',
 	libraryNewNotePath: '',
 	backupEnabled: false,
@@ -556,6 +583,12 @@ export interface LibraryConfig {
 	 *  kanbanGroupBy) or by the file's top-level subfolder under the configured
 	 *  scan folders (folder sections). */
 	groupMode?: 'property' | 'folder';
+	/** Toolbar grouping for grid/gallery/list/table: off (default), by the
+	    top-level folder under the scan folders ('folder'), or by a frontmatter
+	    property key (viewGroupBy). Kanban uses kanbanGroupBy/groupMode instead. */
+	viewGroupMode?: 'none' | 'folder' | 'property';
+	/** Property key when viewGroupMode === 'property'. */
+	viewGroupBy?: string;
 	/** Kanban view: show each card's cover image (same extraction as the
 	    gallery view — 封面/cover keys first, any image-shaped value fallback).
 	    Defaults to false. */

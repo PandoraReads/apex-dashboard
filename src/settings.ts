@@ -1,7 +1,7 @@
 import { renderMusicAccountSettings } from './music-account-settings';
 import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem, type TextComponent } from 'obsidian';
 import type DashboardPlugin from './main';
-import { type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig, type BackupPeriod } from './types';
+import { type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig, type BackupPeriod, type WidgetHeightRatio } from './types';
 import { t, setLanguage, type Language } from './i18n';
 import { geocodeCity } from './weather-service';
 import { CountdownSettingsModal } from './countdown-modal';
@@ -76,7 +76,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 					{
 						name: t('settings.general'),
 						desc: t('settings.languageDesc'),
-						aliases: [t('settings.layoutMode'), t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.workspaceList'), t('settings.libraryNewNotePath')],
+						aliases: [t('settings.layoutMode'), t('settings.language'), t('settings.stylePreset'), t('settings.recentCount'), t('quickNote.title'), t('settings.workspaceList'), t('settings.libraryNewNotePath'), t('settings.memoTemplate')],
 						render: (setting) => {
 							asBlock(setting);
 							onPage('general')(setting);
@@ -480,23 +480,24 @@ onyx: t('settings.styleOnyx'),
 					}).open();
 				}));
 
-		let archiveInput: TextComponent | undefined;
+		let memoTplInput: TextComponent | undefined;
 		new Setting(containerEl)
-			.setName(t('settings.taskArchivePath'))
-			.setDesc(t('settings.taskArchivePathDesc'))
+			.setName(t('settings.memoTemplate'))
+			.setDesc(t('settings.memoTemplateDesc'))
 			.addText(text => {
-				archiveInput = text;
+				memoTplInput = text;
 				text
-					.setPlaceholder('Archive/Done.md')
-					.setValue(this.plugin.settings.taskArchivePath)
+					.setPlaceholder('Templates/memo.md')
+					.setValue(this.plugin.settings.memoTemplatePath)
 					.onChange(async (value) => {
 						this.plugin.settings = {
 							...this.plugin.settings,
-							taskArchivePath: value.trim(),
+							memoTemplatePath: value.trim(),
 						};
 						await this.plugin.saveSettings();
 					});
 			})
+			// Browse button: pick an existing template note instead of typing its path.
 			.addExtraButton(btn => btn
 				.setIcon('file-search')
 				.setTooltip(t('pathPicker.pickFile'))
@@ -504,12 +505,65 @@ onyx: t('settings.styleOnyx'),
 					new PathPickerModal(this.app, 'file', (path) => {
 						this.plugin.settings = {
 							...this.plugin.settings,
-							taskArchivePath: path,
+							memoTemplatePath: path,
 						};
 						void this.plugin.saveSettings();
-						archiveInput?.setValue(path);
+						memoTplInput?.setValue(path);
 					}).open();
 				}));
+
+		// Archive destination: a fixed file (the historical behavior) or
+		// today's daily note (created from the daily-notes template when
+		// missing). The path setting below only applies to file mode, so the
+		// tab refreshes on switch to show/hide it.
+		new Setting(containerEl)
+			.setName(t('settings.taskArchiveTarget'))
+			.setDesc(t('settings.taskArchiveTargetDesc'))
+			.addDropdown(dropdown => dropdown
+				.addOption('file', t('settings.taskArchiveTargetFile'))
+				.addOption('daily', t('settings.taskArchiveTargetDaily'))
+				.setValue(this.plugin.settings.taskArchiveTarget === 'daily' ? 'daily' : 'file')
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						taskArchiveTarget: value === 'daily' ? 'daily' : 'file',
+					};
+					await this.plugin.saveSettings();
+					this.refresh();
+				}));
+
+		if (this.plugin.settings.taskArchiveTarget !== 'daily') {
+			let archiveInput: TextComponent | undefined;
+			new Setting(containerEl)
+				.setName(t('settings.taskArchivePath'))
+				.setDesc(t('settings.taskArchivePathDesc'))
+				.addText(text => {
+					archiveInput = text;
+					text
+						.setPlaceholder('Archive/Done.md')
+						.setValue(this.plugin.settings.taskArchivePath)
+						.onChange(async (value) => {
+							this.plugin.settings = {
+								...this.plugin.settings,
+								taskArchivePath: value.trim(),
+							};
+							await this.plugin.saveSettings();
+						});
+				})
+				.addExtraButton(btn => btn
+					.setIcon('file-search')
+					.setTooltip(t('pathPicker.pickFile'))
+					.onClick(() => {
+						new PathPickerModal(this.app, 'file', (path) => {
+							this.plugin.settings = {
+								...this.plugin.settings,
+								taskArchivePath: path,
+							};
+							void this.plugin.saveSettings();
+							archiveInput?.setValue(path);
+						}).open();
+					}));
+		}
 
 		let libraryNewNoteInput: TextComponent | undefined;
 		new Setting(containerEl)
@@ -925,6 +979,28 @@ onyx: t('settings.styleOnyx'),
 						};
 						await this.plugin.saveSettings();
 					}));
+			// Stacked-layout card height (side layout ignores it). The album
+			// i18n keys carry the generic "card size" wording, so they are
+			// reused instead of forking a third translation set.
+			new Setting(readingCard)
+				.setName(t('album.heightRatio'))
+				.setDesc(t('album.heightRatioDesc'))
+				.addDropdown(dropdown => dropdown
+					.addOption('full', t('album.size.full'))
+					.addOption('twoThirds', t('album.size.twoThirds'))
+					.addOption('half', t('album.size.half'))
+					.addOption('third', t('album.size.third'))
+					.setValue(this.plugin.settings.readingHeightRatio)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							readingHeightRatio: value as WidgetHeightRatio,
+						};
+						await this.plugin.saveSettings();
+						// The widget signature includes the ratio → rebuild
+						// rewrites the packed grid spans.
+						this.plugin.refreshAllDashboards();
+					}));
 		}
 
 		// --- Habit card ---
@@ -943,6 +1019,27 @@ onyx: t('settings.styleOnyx'),
 					this.plugin.refreshAllDashboards();
 					this.refresh();
 				}));
+		if (this.plugin.settings.widgetHabitEnabled) {
+			// Stacked-layout card height (side layout ignores it); generic
+			// album.* wording reused — see the reading card.
+			new Setting(habitCard)
+				.setName(t('album.heightRatio'))
+				.setDesc(t('album.heightRatioDesc'))
+				.addDropdown(dropdown => dropdown
+					.addOption('full', t('album.size.full'))
+					.addOption('twoThirds', t('album.size.twoThirds'))
+					.addOption('half', t('album.size.half'))
+					.addOption('third', t('album.size.third'))
+					.setValue(this.plugin.settings.habitHeightRatio)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							habitHeightRatio: value as WidgetHeightRatio,
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					}));
+		}
 		this.renderWidgetBackgroundSetting(habitCard, 'habitBackground');
 
 		// --- Expense tracker card ---

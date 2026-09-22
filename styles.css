@@ -2419,12 +2419,79 @@
 
 /* ===== Sidebar ===== */
 .dashboard-sidebar {
-	width: 220px;
+	/* Width is user-draggable (side layout): the render applies the persisted
+	   value as an inline --db-sidebar-w on this element, the stylesheet
+	   default below keeps hand-built DOM and pre-feature data at 220. The
+	   variable is UNITLESS so one value drives both the width (× 1px) and the
+	   proportional content scale (÷ 220, see .dashboard-sidebar-widgets) with
+	   no twin to keep in sync. The collapsed state overrides the width with a
+	   literal 15px (source order wins). */
+	--db-sidebar-w: 220;
+	width: calc(var(--db-sidebar-w, 220) * 1px);
 	flex-shrink: 0;
 	display: flex;
 	flex-direction: column;
 	position: relative;
 	transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+
+/* While a resize drag is live: kill the width/max-height transitions (the
+   rail's 0.4s spring would lag every pointer frame) and stop text selection
+   from painting across the board. Added/removed by the drag handlers. */
+.dashboard-sidebar--resizing {
+	transition: none !important;
+	user-select: none;
+}
+
+/* Side-layout width drag handle: a slim col-resize strip riding the sidebar's
+   right edge. INSIDE the box (right: 0, not -5px): the expanded state is
+   overflow-y: auto, which computes overflow-x to auto too and would clip a
+   negative offset. As a direct sidebar child it is auto-hidden in the
+   collapsed state by the `> *:not(.slim-indicator)` rule, so the 15px rail
+   stays click-to-expand. */
+.dashboard-sidebar-width-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: 0;
+	width: 8px;
+	cursor: col-resize;
+	z-index: 6;
+	touch-action: none;
+}
+
+.dashboard-sidebar-width-handle::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	/* Flush with the sidebar's right edge (into the widgets-area's 4px dead
+	   zone), NOT further in: the cards' right borders sit 4px from the edge
+	   (padding 0 4px on .dashboard-sidebar-widgets), so a 2px offset landed
+	   the pill ON TOP of them. At right:0 the pill clears the border band and
+	   reads as the pane divider. It cannot go past the edge — the expanded
+	   sidebar's overflow-y:auto computes overflow-x to auto, which clips
+	   anything beyond the padding box. */
+	right: 0;
+	transform: translateY(-50%);
+	width: 3px;
+	height: 40px;
+	border-radius: 2px;
+	background: var(--db-text-faint);
+	opacity: 0;
+	transition: opacity 0.2s ease, background 0.2s ease;
+	pointer-events: none;
+}
+
+.dashboard-sidebar-width-handle:hover::before,
+.dashboard-sidebar--resizing .dashboard-sidebar-width-handle::before {
+	opacity: 0.65;
+	background: var(--db-accent, var(--interactive-accent));
+}
+
+@media (max-width: 640px) {
+	.dashboard-sidebar-width-handle {
+		display: none;
+	}
 }
 
 .dashboard-sidebar-scroll {
@@ -2447,6 +2514,19 @@
 	flex-direction: column;
 	gap: 6px;
 	padding: 0 4px;
+}
+
+/* Proportional content scaling (side layout): widget internals are em-based,
+   so tying the area's root font-size to the dragged sidebar width scales
+   every card's type together — 220 (the default width) is exactly the 1.0
+   baseline, so the stock render is pixel-identical. The clamp keeps the
+   smallest labels (0.65em tiers) legible at the 180 floor and stops
+   headlines ballooning at the 420 ceiling. Fixed-px internals (book covers,
+   the pomodoro ring, paddings) deliberately stay put — only type breathes.
+   The stacked strip ignores this: its columns are a fixed 240px and the
+   ratio input (--db-sidebar-w) only moves in the side layout. */
+.dashboard-sidebar-widgets[data-layout="side"] {
+	font-size: calc(1em * clamp(0.92, var(--db-sidebar-w, 220) / 220, 1.12));
 }
 
 .dashboard-sidebar-widget {
@@ -2764,11 +2844,58 @@
 		max-height: 2000px;
 		overflow: hidden;
 		transition: max-height 0.3s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.25s ease;
+		/* Widget strip unit height (the 6-row grid unit). Declared HERE, not on
+		   the strip row: a custom property declared on the row itself would
+		   shadow the value the drag handle / render writes inline on the
+		   sidebar, and the row's grid-template-rows reads it through
+		   inheritance. The renderer (view.applySidebarSizing) and the strip
+		   height drag both write this same property on this same element.
+		   Below ~300px the calendar card grows an internal scrollbar (cards
+		   scroll internally by design); the drag floor is 240px. */
+		--db-widget-unit-h: 300px;
 	}
 
 	[data-layout="stacked"] .dashboard-sidebar-scroll {
 		overflow: visible;
 		padding: 0;
+	}
+
+	/* Strip height drag handle: a centered pill riding the strip's bottom
+	   edge. INSIDE the sidebar box (bottom: 0, not -5px) because the stacked
+	   sidebar is overflow: hidden — a negative offset would be clipped. As a
+	   direct sidebar child it is auto-hidden in the collapsed state by the
+	   rail's `> *:not(.slim-indicator)` rule. The 72px center zone overlaps a
+	   sliver of the strip's hover scrollbar — an accepted trade for keeping
+	   the grip out of the cards' click area. */
+	[data-layout="stacked"] .dashboard-sidebar-strip-handle {
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		bottom: 0;
+		width: 72px;
+		height: 10px;
+		cursor: ns-resize;
+		z-index: 6;
+		touch-action: none;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-strip-handle::before {
+		content: '';
+		position: absolute;
+		left: 50%;
+		bottom: 2px;
+		transform: translateX(-50%);
+		width: 40px;
+		height: 3px;
+		border-radius: 2px;
+		background: var(--db-text-faint);
+		opacity: 0.45;
+		transition: opacity 0.2s ease, background 0.2s ease;
+	}
+
+	[data-layout="stacked"] .dashboard-sidebar-strip-handle:hover::before {
+		opacity: 0.95;
+		background: var(--db-accent, var(--interactive-accent));
 	}
 
 	/* The board unrolls to natural height inside the region — the kanban's
@@ -2830,17 +2957,26 @@
 	   in-place data-widget refresh (view.refreshDataWidget) re-mounts
 	   lunar/pomodoro/reading inside a bare wrapper that inherits the key, so
 	   class-keyed child selectors would silently lose their span after a
-	   refresh and collapse the card to one row. */
+	   refresh and collapse the card to one row.
+
+	   TIERED cards (habit / reading / album-*) read their span from the
+	   inline --db-widget-span variable the renderer writes after adaptive
+	   column packing ("preferred tier, downshift to exactly fill a column
+	   when it would otherwise misfit" — see src/widget-span.ts). The fallback
+	   in each var() is the card's historical default tier, so a missing
+	   variable reproduces the pre-feature layout. FIXED cards keep the
+	   hardcoded spans below, mirrored by STACKED_FIXED_SPANS in
+	   src/widget-span.ts — update both together. */
 	[data-layout="stacked"] .dashboard-sidebar-widgets-row {
 		--db-widget-unit: 240px;
-		/* Keep >= ~300px: the calendar card's natural height is ~297px — any
-		   lower and it (and every full-height card) grows an internal
-		   scrollbar. 300 is the floor, 320 the previous "roomy" value. */
-		--db-widget-unit-h: 300px;
 		display: grid;
 		grid-auto-flow: column;
 		grid-auto-columns: var(--db-widget-unit);
-		grid-template-rows: repeat(6, calc((var(--db-widget-unit-h) - 30px) / 6));
+		/* --db-widget-unit-h is declared on the stacked sidebar (see the
+		   comment there): the drag handle and render write it inline on the
+		   sidebar and the row inherits it. The 300px fallback covers a missing
+		   variable (e.g. hand-built DOM in tests). */
+		grid-template-rows: repeat(6, calc((var(--db-widget-unit-h, 300px) - 30px) / 6));
 		grid-row-gap: 6px;
 		grid-column-gap: 6px;
 		overflow-x: auto;
@@ -2876,6 +3012,13 @@
 		grid-row: span 6;
 		overflow-y: auto;
 		overflow-x: hidden;
+		/* Fully invisible card scrollbar (hover/wheel still scrolls): the
+		   standard property both hides the bar and frees its gutter on
+		   Chromium 121+, and — the reason this beats a ::-webkit override —
+		   neutralizes theme-level scrollbar hijacks (the project recipe, see
+		   the quicknote bar). Inner scrollers (reading scroll) already hide
+		   their own. */
+		scrollbar-width: none;
 	}
 
 	/* Descendant (not child) so a refresh mount's inner widget keeps the
@@ -2890,17 +3033,26 @@
 	}
 
 	/* Two-thirds height: pairs with a third below to tile one column. */
-	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="weather"],
-	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="habit"] {
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="weather"] {
 		grid-row: span 4;
+	}
+
+	/* Tiered: the renderer writes the packed span inline; the fallback is the
+	   historical default tier (two-thirds pairs with a third to tile a column). */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="habit"] {
+		grid-row: span var(--db-widget-span, 4);
 	}
 
 	/* Half height: two stack to fill one column. */
 	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="pomodoro"],
 	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="expense"],
-	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="reading"],
 	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="music"] {
 		grid-row: span 3;
+	}
+
+	/* Tiered: fallback = the historical half-height default. */
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="reading"] {
+		grid-row: span var(--db-widget-span, 3);
 	}
 
 	/* Third height: three stack to fill one column. */
@@ -3027,7 +3179,13 @@
 .dashboard-sidebar-habit-top {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	/* Never wrap (the four icon buttons stay right-peeking on one line);
+	   instead the row COMPRESSES as the sidebar narrows: the gap ramps
+	   6px -> 2px across the 220 -> 180px drag range (one linear calc off the
+	   same unitless --db-sidebar-w that drives the width and the content
+	   scale; 220 is the default and the stacked/mobile fallback, where the
+	   full 6px applies). */
+	gap: clamp(2px, calc((var(--db-sidebar-w, 220) - 180) / 10 * 1px + 2px), 6px);
 	width: 100%;
 	margin-bottom: 6px;
 }
@@ -3042,6 +3200,17 @@
 	color: var(--db-accent);
 	user-select: none;
 	white-space: nowrap;
+	/* Yield first in the compression chain: the row's fixed furniture (count
+	   + four buttons) is protected, the title gives back width and its text
+	   ellipsizes (icon never clips — flex-shrink:0 below). */
+	min-width: 0;
+	overflow: hidden;
+}
+
+.dashboard-sidebar-habit-title-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .dashboard-sidebar-habit-title-icon {
@@ -3457,6 +3626,10 @@
 	flex: 0 1 auto;
 	max-width: 42%;
 	min-width: 0;
+	/* Clip long category names inside the box: a styled <select> cannot
+	   ellipsize its selected option, so hidden overflow is the safe stop when
+	   the sidebar is dragged narrow. */
+	overflow: hidden;
 	text-overflow: ellipsis;
 	cursor: pointer;
 }
@@ -3967,17 +4140,30 @@
 	justify-content: space-between;
 	align-items: center;
 	margin-top: 4px;
+	/* Both children shrink-to-ellipsis instead of overflowing the card when
+	   the user drags the sidebar narrow (min-width:0 lifts the flex
+	   min-content floor). */
+	min-width: 0;
+	gap: 6px;
 }
 
 .dashboard-sidebar-weather-city {
 	font-size: 0.85em;
 	font-weight: 600;
 	color: var(--db-text);
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .dashboard-sidebar-weather-desc {
 	font-size: 0.75em;
 	color: var(--db-text-faint);
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .dashboard-sidebar-weather-details {
@@ -3990,6 +4176,9 @@
 	font-size: 0.7em;
 	color: var(--db-text-muted);
 	flex: 1;
+	/* Let the three columns shrink below their longest word at narrow sidebar
+	   widths; the labels wrap (CJK per-character) instead of overflowing. */
+	min-width: 0;
 	text-align: center;
 	padding: 3px 0;
 	background: var(--db-bg-hover);
@@ -8586,6 +8775,11 @@
 
 .dashboard-sidebar-calendar .dashboard-calendar-nav-label {
 	flex: 1;
+	/* flex:1 alone floors at min-content — with nowrap the month label ("2026
+	   年 9 月") refuses to shrink below its text and pushes the nav 20px past
+	   the card at the 180px sidebar floor. min-width:0 lets the ellipsis do
+	   its job. */
+	min-width: 0;
 	text-align: center;
 	font-size: 0.85em;
 	font-weight: 600;
@@ -9357,7 +9551,7 @@
 
 /* --- Expanded --- */
 .dashboard-sidebar--expanded {
-	width: 220px;
+	width: calc(var(--db-sidebar-w, 220) * 1px);
 	opacity: 1;
 	cursor: default;
 	overflow-y: auto;
@@ -9365,7 +9559,7 @@
 
 /* --- Pinned: permanent sidebar --- */
 .dashboard-sidebar--pinned {
-	width: 220px;
+	width: calc(var(--db-sidebar-w, 220) * 1px);
 	opacity: 1;
 }
 
@@ -14764,6 +14958,52 @@
 	overflow-y: hidden;
 }
 
+/* Toolbar grouping (grid/gallery/list/table): one collapsible header + body
+   per folder/property bucket, mirroring the media section's grouped mode. */
+.dashboard-library-group-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 4px;
+	margin: 10px 0 6px 0;
+	border-bottom: 1px solid var(--db-border, var(--background-modifier-border));
+	cursor: pointer;
+	user-select: none;
+	border-radius: var(--db-radius-sm, 4px);
+	transition: background 0.15s ease;
+}
+.dashboard-library-group-header:hover { background: var(--db-bg-hover, rgba(255, 255, 255, 0.05)); }
+.dashboard-library-group-chevron {
+	display: flex;
+	color: var(--db-text-faint, var(--text-faint));
+	flex-shrink: 0;
+}
+.dashboard-library-group-chevron svg { width: 12px; height: 12px; }
+.dashboard-library-group-name {
+	font-size: 0.75em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.dashboard-library-group-header.is-nogroup .dashboard-library-group-name {
+	color: var(--db-text-muted, var(--text-muted));
+	font-style: italic;
+}
+.dashboard-library-group-count {
+	margin-left: auto;
+	flex-shrink: 0;
+	font-size: 0.625em;
+	color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.06));
+	padding: 0 7px;
+	border-radius: 999px;
+}
+.dashboard-library-group-header.is-collapsed { opacity: 0.75; }
+.dashboard-library-group-body.is-hidden { display: none; }
+.dashboard-library-files .dashboard-library-group-header:first-child { margin-top: 0; }
+
 /* Toolbar */
 .dashboard-library-toolbar {
 	display: flex;
@@ -15235,6 +15475,15 @@
 
 /* The S/M/L selector only applies to the card views; hidden elsewhere. */
 .dashboard-library-size-toggle.is-hidden {
+	display: none;
+}
+
+/* Group pill is meaningless in kanban (it has its own config-modal grouping);
+   page-size is meaningless while grouped (pagination is skipped). */
+.dashboard-library-group-toggle.is-hidden,
+.dashboard-library-collapse-toggle.is-hidden,
+.dashboard-media-collapse-toggle.is-hidden,
+.dashboard-library-page-size.is-hidden {
 	display: none;
 }
 

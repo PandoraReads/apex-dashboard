@@ -125,6 +125,22 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.6.3
+- **Grouping for library/folder views** — Grid, gallery, list and table views gain a "Group" toolbar button: no grouping, by folder (top-level folders under the scan folders), or by any frontmatter property; the choice persists per section in the board file; the kanban view keeps its existing config-dialog grouping
+- **Expand/collapse all groups** — With grouping on, library/folder sections gain a toolbar button that expands or collapses every group in one click; the icon and tooltip follow the current state
+- **Resizable widget area** — Side layout: drag the sidebar's edge to resize its width (180–420px, remembered); stacked layout: drag the widget strip to set its height (240–560px); habit & reading widget height tiers (full / two-thirds / half / one-third) are selectable in settings
+- **Music widget playback fix** — Intermittent NetEase -110 entitlement flakes now get spaced retries before giving up, so entitled tracks stop being skipped; genuinely unplayable tracks name themselves and the reason (membership, purchase or regional rights) in a notice before advancing — no more silent hops
+- **One-click archive to today's daily note** — A new "Archive destination" setting: the fixed file (as before) or today's daily note (auto-created from the core Daily notes template when missing); archiving aborts with a notice if the daily note can't be resolved
+- **Custom template for memo-save** — Saving a memo/sticky card as a note now supports a custom template
+- **Refresh performance fix** — Vault changes rebuild only the sections whose scan scope covers the changed path: editing notes elsewhere, RSS drops and image churn no longer flash every library/folder section; a section whose query results are unchanged skips the rebuild entirely (out-of-scope edits: 3 sections per pass → 0)
+- **Scroll position kept everywhere** — Full re-renders snapshot the whole page's scroll state (the stacked widget deck's horizontal scroll, the scroll region, card decks, task lists, widget-internal lists) and replay it exactly afterwards; anchor-based keys survive section/widget reorders — where you were working is where you stay, no more jumping back to the top
+
+### 3.6.2
+- **Theme Studio color schemes & presets** — Every color area gains a scheme dropdown (follow theme / light / dark / custom, the widget-background foreground recipe) with per-field presets for quick picking
+- **Notes-section new-note** — Cover and no-cover notes sections gain a per-card "new note" button, plus section settings for the new-note template and save folder (vault root when unset)
+- **Memo cards render markdown** — Memo and sticky cards render their body through Obsidian's renderer (line-preserving adaptation, existing memos keep their look)
+- **Fix** — The folder-section new-note template was silently dropped on settings save; template frontmatter now merges under the filter props with raw lines preserved
+
 ### 3.6.1
 - **Section toolbars collapse to dropdown buttons** — The view switcher and card-size (S/M/L) controls in library/folder/images/videos sections each collapse into a single button showing the current choice; clicking opens the native menu to pick — a much quieter toolbar
 - **Images/videos display scope** — A new "Display scope" setting: multi-select vault folders (with picker); when set, only files under them show (exclusions still apply within the scope); empty = whole vault

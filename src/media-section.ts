@@ -286,6 +286,51 @@ export function renderMediaSection(
 	}
 	groupSelect.addEventListener('change', () => { groupBy = groupSelect.value as MediaGroupMode; currentPage = 1; render(); });
 
+	// One-click collapse/expand for EVERY group at once (grouped mode only;
+	// the visibility flip lives in render() where groupBy is applied). Same
+	// in-place discipline as the per-group header toggle: flip collapsedGroups
+	// and the DOM classes/chevrons directly, never re-query the vault. The
+	// icon mirrors the current state — chevrons-down-up ("collapse all") while
+	// any group is open, chevrons-up-down ("expand all") once folded.
+	const collapseToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-media-collapse-toggle' });
+	const collapseBtn = collapseToggle.createDiv({
+		cls: 'dashboard-library-view-btn',
+		attr: { 'aria-label': t('library.collapseAllGroups'), title: t('library.collapseAllGroups') },
+	});
+	setIcon(collapseBtn, 'chevrons-down-up');
+	const updateCollapseToggle = (): void => {
+		const headers = Array.from(resultArea.querySelectorAll<HTMLElement>('.dashboard-media-group-header'));
+		const collapse = headers.some(h => !h.hasClass('is-collapsed'));
+		collapseBtn.empty();
+		setIcon(collapseBtn, collapse ? 'chevrons-down-up' : 'chevrons-up-down');
+		const label = collapse ? t('library.collapseAllGroups') : t('library.expandAllGroups');
+		collapseBtn.title = label;
+		collapseBtn.setAttribute('aria-label', label);
+	};
+	collapseBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const headers = Array.from(resultArea.querySelectorAll<HTMLElement>('.dashboard-media-group-header'));
+		if (headers.length === 0) return;
+		const collapse = headers.some(h => !h.hasClass('is-collapsed'));
+		for (const header of headers) {
+			const key = header.dataset.groupKey ?? '';
+			const body = header.nextElementSibling;
+			const chevron = header.querySelector<HTMLElement>('.dashboard-media-group-chevron');
+			if (collapse) {
+				collapsedGroups.add(key);
+				header.addClass('is-collapsed');
+				body?.addClass('is-hidden');
+				if (chevron) setIcon(chevron, 'chevron-right');
+			} else {
+				collapsedGroups.delete(key);
+				header.removeClass('is-collapsed');
+				body?.removeClass('is-hidden');
+				if (chevron) setIcon(chevron, 'chevron-down');
+			}
+		}
+		updateCollapseToggle();
+	});
+
 	// View mode toggle (single dropdown button; menu lists the views)
 	let viewMode: MediaViewMode = 'grid';
 	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle' });
@@ -572,6 +617,9 @@ export function renderMediaSection(
 		releaseVideoMedia(resultArea);
 		resultArea.empty();
 		paginationArea.empty();
+		// Collapse-all sweep only exists in grouped mode; flip early so every
+		// render path (including early returns below) leaves it correct.
+		collapseToggle.toggleClass('is-hidden', groupBy === 'none');
 
 		let results = queryMediaFiles(app, exts!, column.libraryConfig?.excludeFolders ?? [], column.libraryConfig?.includeFolders ?? [], tagService);
 		const q = searchInput.value.trim().toLowerCase();
@@ -643,6 +691,9 @@ export function renderMediaSection(
 				const header = resultArea.createDiv({
 					cls: 'dashboard-media-group-header' + (collapsed ? ' is-collapsed' : ''),
 				});
+				// Key for the collapse-all sweep (it syncs collapsedGroups from
+				// the rendered headers instead of re-querying the vault).
+				header.dataset.groupKey = group.key;
 				const chevron = header.createDiv({ cls: 'dashboard-media-group-chevron' });
 				setIcon(chevron, collapsed ? 'chevron-right' : 'chevron-down');
 				header.createDiv({ cls: 'dashboard-media-group-name', text: group.key });
@@ -663,6 +714,7 @@ export function renderMediaSection(
 						body.addClass('is-hidden');
 						setIcon(chevron, 'chevron-right');
 					}
+					updateCollapseToggle();
 				});
 				const onOpen = (i: number): void => openGroupLightbox(group.offset + i);
 				if (viewMode === 'grid') {
@@ -671,6 +723,10 @@ export function renderMediaSection(
 					renderMediaList(body, group.items, app, kind, onOpen, deleteCb, render, onOpenNote, mounter, openTagEditor);
 				}
 			}
+			// No groups rendered (filters emptied everything): the sweep has
+			// nothing to act on, so hide the button entirely.
+			if (groups.length === 0) collapseToggle.addClass('is-hidden');
+			else updateCollapseToggle();
 			return;
 		}
 

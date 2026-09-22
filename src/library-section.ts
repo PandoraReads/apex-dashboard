@@ -1,4 +1,4 @@
-import { App, Notice, Platform, TFile, setIcon } from 'obsidian';
+import { App, Menu, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
 import { t, getLanguage } from './i18n';
@@ -553,6 +553,7 @@ export function renderLibrarySection(
 			onConfigChange(newConfig);
 			Object.assign(config, { viewMode: mode });
 			applySizeToggleVisibility(mode);
+			applyGroupToggleVisibility(mode);
 			currentPage = 1;
 			buildViewToggle();
 			renderContent(config);
@@ -588,6 +589,131 @@ export function renderLibrarySection(
 	buildViewToggle();
 	buildSizeToggle();
 	applySizeToggleVisibility(config.viewMode);
+
+	// View grouping toggle (grid/gallery/list/table): none / by folder / by a
+	// frontmatter property. Kanban keeps its own config-modal grouping, so the
+	// pill hides there. The menu is built natively (not via
+	// createToolbarDropdown) because property items must be read from the vault
+	// at MENU-OPEN time — new properties appear without a section rebuild — and
+	// because the item list needs separators.
+	const groupableViews: LibraryViewMode[] = ['grid', 'gallery', 'list', 'table'];
+	const groupToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-library-group-toggle' });
+	const currentGroupKey = (): string =>
+		config.viewGroupMode === 'folder' ? 'folder'
+		: config.viewGroupMode === 'property' && config.viewGroupBy ? `prop:${config.viewGroupBy}`
+		: 'none';
+	const groupTitle = (): string => {
+		const k = currentGroupKey();
+		return k === 'folder' ? `${t('library.viewGroup')}: ${t('library.groupByFolder')}`
+			: k.startsWith('prop:') ? `${t('library.viewGroup')}: ${k.slice(5)}`
+			: t('library.viewGroup');
+	};
+	const applyGroupToggleVisibility = (mode: LibraryViewMode): void => {
+		groupToggle.toggleClass('is-hidden', !groupableViews.includes(mode));
+	};
+	const pickGroup = (key: string): void => {
+		// Re-picking the already-active option: no dashboard write, no re-render
+		// (same guard as createToolbarDropdown's onPick).
+		if (key === currentGroupKey()) return;
+		const viewGroupMode = key === 'folder' ? 'folder' as const : key.startsWith('prop:') ? 'property' as const : undefined;
+		const viewGroupBy = key.startsWith('prop:') ? key.slice(5) : undefined;
+		// Collapse keys are raw folder/property values — meaningless once the
+		// grouping dimension changes, so start fresh.
+		collapsedGroups.clear();
+		onConfigChange({ ...config, viewGroupMode, viewGroupBy });
+		Object.assign(config, { viewGroupMode, viewGroupBy });
+		currentPage = 1;
+		buildGroupToggle();
+		renderContent(config);
+	};
+	const buildGroupToggle = (): void => {
+		groupToggle.empty();
+		const btn = groupToggle.createDiv({
+			cls: 'dashboard-library-view-btn',
+			attr: { 'aria-haspopup': 'menu' },
+		});
+		btn.title = groupTitle();
+		btn.setAttribute('aria-label', groupTitle());
+		setIcon(btn, 'rows-3');
+		btn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			const current = currentGroupKey();
+			const menu = new Menu();
+			menu.addItem(mi => mi
+				.setTitle(t('library.viewGroupNone'))
+				.setChecked(current === 'none')
+				.onClick(() => pickGroup('none')));
+			menu.addSeparator();
+			menu.addItem(mi => mi
+				.setTitle(t('library.groupByFolder'))
+				.setIcon('folder')
+				.setChecked(current === 'folder')
+				.onClick(() => pickGroup('folder')));
+			menu.addSeparator();
+			// Property keys from the live vault: pseudo filter-properties
+			// (modified/created/path) are not groupable; 'tags' leads the list.
+			const keys = [...extractFrontmatterProperties(app).keys()]
+				.filter(k => k !== 'modified' && k !== 'created' && k !== 'path' && k !== 'tags')
+				.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+			for (const key of ['tags', ...keys]) {
+				menu.addItem(mi => mi
+					.setTitle(key)
+					.setChecked(current === `prop:${key}`)
+					.onClick(() => pickGroup(`prop:${key}`)));
+			}
+			btn.setAttribute('aria-expanded', 'true');
+			menu.onHide(() => btn.setAttribute('aria-expanded', 'false'));
+			menu.showAtMouseEvent(e);
+		});
+	};
+	buildGroupToggle();
+	applyGroupToggleVisibility(config.viewMode);
+
+	// One-click collapse/expand for EVERY group at once (grouped views only;
+	// the visibility flip lives in renderContent where isGrouped is known).
+	// Follows the per-group header toggle's in-place discipline: flip
+	// collapsedGroups and the DOM classes/chevrons directly, never re-query
+	// the vault. The button reflects the CURRENT state — chevrons-down-up
+	// ("collapse all") while any group is open, chevrons-up-down ("expand
+	// all") once everything is folded.
+	const collapseToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle dashboard-library-collapse-toggle' });
+	const collapseBtn = collapseToggle.createDiv({
+		cls: 'dashboard-library-view-btn',
+		attr: { 'aria-label': t('library.collapseAllGroups'), title: t('library.collapseAllGroups') },
+	});
+	setIcon(collapseBtn, 'chevrons-down-up');
+	const updateCollapseToggle = (): void => {
+		const headers = Array.from(contentArea.querySelectorAll<HTMLElement>('.dashboard-library-group-header'));
+		const collapse = headers.some(h => !h.hasClass('is-collapsed'));
+		collapseBtn.empty();
+		setIcon(collapseBtn, collapse ? 'chevrons-down-up' : 'chevrons-up-down');
+		const label = collapse ? t('library.collapseAllGroups') : t('library.expandAllGroups');
+		collapseBtn.title = label;
+		collapseBtn.setAttribute('aria-label', label);
+	};
+	collapseBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const headers = Array.from(contentArea.querySelectorAll<HTMLElement>('.dashboard-library-group-header'));
+		if (headers.length === 0) return;
+		const collapse = headers.some(h => !h.hasClass('is-collapsed'));
+		for (const header of headers) {
+			const key = header.dataset.groupKey ?? '';
+			const body = header.nextElementSibling;
+			const chevron = header.querySelector<HTMLElement>('.dashboard-library-group-chevron');
+			if (collapse) {
+				collapsedGroups.add(key);
+				header.addClass('is-collapsed');
+				body?.addClass('is-hidden');
+				if (chevron) setIcon(chevron, 'chevron-right');
+			} else {
+				collapsedGroups.delete(key);
+				header.removeClass('is-collapsed');
+				body?.removeClass('is-hidden');
+				if (chevron) setIcon(chevron, 'chevron-down');
+			}
+		}
+		updateCollapseToggle();
+	});
 
 		// Quick date filter button
 		const filterBtn = toolbar.createDiv({ cls: 'dashboard-library-filter-btn' });
@@ -797,6 +923,9 @@ export function renderLibrarySection(
 	const paginationArea = sectionContent.createDiv({ cls: 'dashboard-library-pagination' });
 
 	let currentPage = 1;
+	// Collapsed group headers (runtime state, not persisted) — keys from
+	// groupLibraryResults; toggled in place without re-querying the vault.
+	const collapsedGroups = new Set<string>();
 
 	async function deleteLibraryFileWithConfirm(file: TFile): Promise<void> {
 		const confirmed = await showConfirmDialog(app, {
@@ -865,6 +994,15 @@ export function renderLibrarySection(
 		const totalResults = results.length;
 		countEl.textContent = t('library.fileCount', { count: totalResults });
 
+		// Grouped mode (grid/gallery/list/table): paging chrome is meaningless.
+		// A hand-edited 'property' mode without a key degrades to the flat view
+		// so the menu checkmark and the rendered state stay in sync.
+		const isGrouped = currentConfig.viewMode !== 'kanban'
+			&& (currentConfig.viewGroupMode === 'folder'
+				|| (currentConfig.viewGroupMode === 'property' && !!currentConfig.viewGroupBy));
+		pageSizeSelect.toggleClass('is-hidden', isGrouped);
+		collapseToggle.toggleClass('is-hidden', !isGrouped);
+
 		if (totalResults === 0 && currentConfig.filters.length === 0 && !(currentConfig.folders && currentConfig.folders.length)) {
 			contentArea.createDiv({ cls: 'dashboard-library-empty', text: t('library.noConfig') });
 			return;
@@ -875,37 +1013,90 @@ export function renderLibrarySection(
 			return;
 		}
 
-		// Paginate (kanban skips pagination — it scrolls horizontally instead)
+		// Paginate (kanban scrolls horizontally; grouped mode shows every group
+		// intact — slicing pages would tear the groups apart, mirroring the
+		// media section's grouped mode).
 		const isKanban = currentConfig.viewMode === 'kanban';
-		const effectivePageSize = isKanban ? totalResults : (currentConfig.pageSize ?? DEFAULT_PAGE_SIZE);
-		const totalPages = isKanban ? 1 : Math.ceil(totalResults / effectivePageSize);
+		const skipPagination = isKanban || isGrouped;
+		const effectivePageSize = skipPagination ? totalResults : (currentConfig.pageSize ?? DEFAULT_PAGE_SIZE);
+		const totalPages = skipPagination ? 1 : Math.ceil(totalResults / effectivePageSize);
 		if (currentPage > totalPages) currentPage = totalPages;
 		if (currentPage < 1) currentPage = 1;
 
-		const startIdx = isKanban ? 0 : (currentPage - 1) * effectivePageSize;
-		const endIdx = isKanban ? totalResults : Math.min(startIdx + effectivePageSize, totalResults);
+		const startIdx = skipPagination ? 0 : (currentPage - 1) * effectivePageSize;
+		const endIdx = skipPagination ? totalResults : Math.min(startIdx + effectivePageSize, totalResults);
 		const pageResults = results.slice(startIdx, endIdx);
 
-		switch (currentConfig.viewMode) {
-			case 'grid':
-				renderGridView(contentArea, pageResults, app, isFolder, currentConfig);
-				break;
-			case 'gallery':
-				renderGalleryView(contentArea, pageResults, app, isFolder, currentConfig);
-				break;
-			case 'list':
-				renderListView(contentArea, pageResults, app);
-				break;
-			case 'table':
-				renderTableView(contentArea, pageResults, app, currentConfig, (f) => { void deleteLibraryFileWithConfirm(f); });
-				break;
-			case 'kanban':
-				renderKanbanView(contentArea, pageResults, app, currentConfig);
-				break;
+		const renderView = (host: HTMLElement, items: LibraryFileResult[]): void => {
+			switch (currentConfig.viewMode) {
+				case 'grid':
+					renderGridView(host, items, app, isFolder, currentConfig);
+					break;
+				case 'gallery':
+					renderGalleryView(host, items, app, isFolder, currentConfig);
+					break;
+				case 'list':
+					renderListView(host, items, app);
+					break;
+				case 'table':
+					renderTableView(host, items, app, currentConfig, (f) => { void deleteLibraryFileWithConfirm(f); });
+					break;
+			}
+		};
+
+		if (isGrouped) {
+			const groups = groupLibraryResults(
+				pageResults,
+				currentConfig.viewGroupMode === 'folder' ? 'folder' : 'property',
+				currentConfig.viewGroupBy,
+				currentConfig.folders ?? [],
+			);
+			for (const group of groups) {
+				const collapsed = collapsedGroups.has(group.key);
+				const header = contentArea.createDiv({
+					cls: 'dashboard-library-group-header'
+						+ (collapsed ? ' is-collapsed' : '')
+						+ (group.isNoGroup ? ' is-nogroup' : ''),
+				});
+				// Key for the collapse-all sweep (it syncs collapsedGroups from
+				// the rendered headers instead of re-querying the vault).
+				header.dataset.groupKey = group.key;
+				const chevron = header.createDiv({ cls: 'dashboard-library-group-chevron' });
+				setIcon(chevron, collapsed ? 'chevron-right' : 'chevron-down');
+				header.createDiv({ cls: 'dashboard-library-group-name', text: group.label });
+				header.createDiv({ cls: 'dashboard-library-group-count', text: String(group.items.length) });
+				const body = contentArea.createDiv({ cls: 'dashboard-library-group-body' });
+				if (collapsed) body.addClass('is-hidden');
+				// Collapse in place (no vault re-query): flip the set and the
+				// two elements' classes/chevron directly.
+				header.addEventListener('click', () => {
+					if (collapsedGroups.has(group.key)) {
+						collapsedGroups.delete(group.key);
+						header.removeClass('is-collapsed');
+						body.removeClass('is-hidden');
+						setIcon(chevron, 'chevron-down');
+					} else {
+						collapsedGroups.add(group.key);
+						header.addClass('is-collapsed');
+						body.addClass('is-hidden');
+						setIcon(chevron, 'chevron-right');
+					}
+					updateCollapseToggle();
+				});
+				renderView(body, group.items);
+			}
+			// No groups rendered (filters emptied everything): the sweep has
+			// nothing to act on, so hide the button entirely.
+			if (groups.length === 0) collapseToggle.addClass('is-hidden');
+			else updateCollapseToggle();
+		} else if (isKanban) {
+			renderKanbanView(contentArea, pageResults, app, currentConfig);
+		} else {
+			renderView(contentArea, pageResults);
 		}
 
 		// Render pagination controls (kanban scrolls horizontally, no pagination)
-		if (!isKanban && totalPages > 1) {
+		if (!skipPagination && totalPages > 1) {
 			renderPagination(paginationArea, currentPage, totalPages, totalResults, (page) => {
 				currentPage = page;
 				renderContent(currentConfig);
@@ -1598,6 +1789,73 @@ function ancestorGroupKeys(groupFolders: Map<string, string>): Set<string> {
 		if (paths.some(other => other !== lp && other.startsWith(lp + '/'))) suppressed.add(key);
 	}
 	return suppressed;
+}
+
+/** One toolbar-grouping bucket for the grid/gallery/list/table views. */
+export interface LibraryResultGroup {
+	/** Collapse-set identity. The not-set bucket uses a control-character
+	 * sentinel so it can never collide with a real folder/property value. */
+	key: string;
+	/** Header text. */
+	label: string;
+	/** The missing-value bucket — rendered last with muted styling. */
+	isNoGroup: boolean;
+	items: LibraryFileResult[];
+}
+
+/** Toolbar grouping for grid/gallery/list/table. Folder mode keys by
+ *  folderGroupKey (top-level subfolder under the scan folders — a scan root's
+ *  direct files group under the root's own name) and sorts alphabetically
+ *  (numeric-aware); ancestor-group suppression is deliberately NOT applied —
+ *  it exists for kanban drop semantics, and a passive view should not dump a
+ *  scan root's direct files into the not-set bucket. Property mode copies the
+ *  kanban loop: scalars form one bucket via str(), arrays fan a file into
+ *  every value, missing values fall to a trailing not-set bucket, and groups
+ *  keep first-occurrence order so the section's current sort governs. */
+export function groupLibraryResults(
+	results: LibraryFileResult[],
+	mode: 'folder' | 'property',
+	propKey: string | undefined,
+	scanFolders: string[],
+): LibraryResultGroup[] {
+	const groups = new Map<string, LibraryFileResult[]>();
+	const noGroup: LibraryFileResult[] = [];
+	for (const result of results) {
+		if (mode === 'folder') {
+			const key = folderGroupKey(result.file.path, scanFolders);
+			if (key === undefined) {
+				noGroup.push(result);
+				continue;
+			}
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key)!.push(result);
+			continue;
+		}
+		const value = result.frontmatter[propKey ?? ''];
+		if (value == null) {
+			noGroup.push(result);
+			continue;
+		}
+		if (Array.isArray(value)) {
+			for (const v of value) {
+				const key = String(v);
+				if (!groups.has(key)) groups.set(key, []);
+				groups.get(key)!.push(result);
+			}
+		} else {
+			const key = str(value);
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key)!.push(result);
+		}
+	}
+	if (mode === 'folder') {
+		const sorted = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+		groups.clear();
+		for (const entry of sorted) groups.set(entry[0], entry[1]);
+	}
+	const out: LibraryResultGroup[] = [...groups.entries()].map(([key, items]) => ({ key, label: key, isNoGroup: false, items }));
+	if (noGroup.length > 0) out.push({ key: '\u0000__nogroup__', label: t('library.notSet'), isNoGroup: true, items: noGroup });
+	return out;
 }
 
 /** Make one kanban card draggable (desktop). `fromKey` records the column the
