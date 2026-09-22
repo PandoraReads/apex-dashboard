@@ -5,6 +5,7 @@ import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 import { PathPickerModal } from './path-picker-modal';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
+import type { LibraryConfig } from './types';
 
 export interface FolderConfigResult {
 	folders: string[];
@@ -23,6 +24,45 @@ export interface FolderConfigResult {
 	visibleProperties: string[] | undefined;
 	/** Template note applied to new notes created from this section. */
 	templatePath: string | undefined;
+}
+
+/**
+ * Merge a {@link FolderConfigResult} into the section's {@link LibraryConfig}.
+ * Every field the modal manages comes from `result` (undefined clears it);
+ * `base` — the section's current config, or undefined for a first-time save —
+ * only contributes fields the modal does not touch (viewMode, sortBy, …).
+ *
+ * Extracted from view.ts's save callback so the merge — notably that
+ * templatePath must survive a save — is unit-testable: the inline version
+ * silently dropped the template the user had just picked.
+ */
+export function folderResultToLibraryConfig(
+	base: LibraryConfig | undefined,
+	result: FolderConfigResult,
+): LibraryConfig {
+	const safeBase: LibraryConfig = base ?? {
+		filters: [],
+		viewMode: 'grid',
+		sortBy: 'modified',
+		sortDesc: true,
+	};
+	const filtersWithoutTags = safeBase.filters.filter(f => f.property !== 'tags');
+	const filters = result.tags.length > 0
+		? [...filtersWithoutTags, { property: 'tags', values: result.tags }]
+		: filtersWithoutTags;
+	return {
+		...safeBase,
+		folders: result.folders,
+		excludeFolders: result.excludeFolders.length > 0 ? result.excludeFolders : undefined,
+		filters,
+		kanbanGroupBy: result.groupBy,
+		groupMode: result.groupMode === 'folder' ? 'folder' : undefined,
+		kanbanShowCovers: result.kanbanShowCovers ? true : undefined,
+		showProperties: result.showProperties ? undefined : false,
+		propertyLimit: result.propertyLimit,
+		visibleProperties: result.visibleProperties,
+		templatePath: result.templatePath,
+	};
 }
 
 /**

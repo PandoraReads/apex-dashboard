@@ -1,7 +1,7 @@
 import { App, FuzzySuggestModal, Modal, setIcon } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { BgSize, CustomColors, DashboardSettings } from './types';
-import { CUSTOM_COLOR_TOKENS, refreshAppearanceLive } from './appearance';
+import { CUSTOM_COLOR_TOKENS, refreshAppearanceLive, resolveCustomColorValue } from './appearance';
 import { showConfirmDialog } from './confirm-dialog';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
@@ -62,6 +62,17 @@ interface AdvancedDefaults {
 	radius: number;
 }
 
+/** Stored-value mode for the per-field dropdown (theme-studio color rows). */
+type ColorMode = 'theme' | 'light' | 'dark' | 'custom';
+
+/** Derive the dropdown mode from a stored CustomColors value: the light/dark
+ *  sentinels select themselves, any other value is a custom pick, absent is
+ *  follow-theme. */
+function colorModeOf(value: string | undefined): ColorMode {
+	if (value === 'light' || value === 'dark') return value;
+	return value ? 'custom' : 'theme';
+}
+
 /**
  * Appearance Studio — global DIY panel for color overrides, a background image,
  * and advanced surface controls. Changes apply live to every open dashboard
@@ -80,7 +91,9 @@ export class ThemeStudioModal extends Modal {
 	private fontScale: DashboardSettings['fontScale'];
 	private readonly themeDefaults: Partial<Record<keyof CustomColors, string>>;
 	private readonly advancedDefaults: AdvancedDefaults;
-	private readonly colorInputs = new Map<keyof CustomColors, HTMLInputElement>();
+	/** Per-row re-sync (dropdown + picker + slider state) so external writes —
+	 *  the accent swatches, the section reset — refresh the row UI in place. */
+	private readonly colorRowSyncs = new Map<keyof CustomColors, () => void>();
 	private saveTimer: number | null = null;
 
 	constructor(app: App, plugin: DashboardPlugin) {
@@ -151,7 +164,7 @@ export class ThemeStudioModal extends Modal {
 	// ── Color scheme ───────────────────────────────────────────────────────
 
 	private renderColorsSection(form: HTMLElement): void {
-		this.colorInputs.clear();
+		this.colorRowSyncs.clear();
 		const section = form.createDiv({ cls: 'dashboard-theme-studio-section' });
 		section.createEl('h3', { text: t('themeStudio.color.title') });
 		section.createEl('p', { cls: 'dashboard-theme-studio-desc', text: t('themeStudio.color.desc') });
@@ -166,8 +179,9 @@ export class ThemeStudioModal extends Modal {
 			chip.style.background = hex;
 			chip.addEventListener('click', () => {
 				this.colors = { ...this.colors, accent: hex };
-				const accentInput = this.colorInputs.get('accent');
-				if (accentInput) accentInput.value = hex;
+				// Sync the accent row so its dropdown flips to "custom" and the
+				// picker/slider re-enable alongside the new value.
+				this.colorRowSyncs.get('accent')?.();
 				this.scheduleApply();
 			});
 		}
@@ -184,11 +198,7 @@ export class ThemeStudioModal extends Modal {
 		resetBtn.addEventListener('click', () => {
 			this.colors = {};
 			for (const field of COLOR_FIELDS) {
-				const input = this.colorInputs.get(field.key);
-				if (input) input.value = this.themeDefaults[field.key] ?? '#808080';
-				const row = input?.closest('.dashboard-theme-studio-color-row');
-				const slider = row?.querySelector<HTMLInputElement>('.dashboard-theme-studio-alpha-slider');
-				if (slider) slider.value = '100';
+				this.colorRowSyncs.get(field.key)?.();
 			}
 			this.scheduleApply();
 		});
@@ -200,10 +210,25 @@ export class ThemeStudioModal extends Modal {
 
 		// Stored value grammar: '#rrggbb' at full opacity (legacy configs and
 		// the swatches), 'rgba(r, g, b, a)' once the alpha slider moves below
-		// 100. The token consumers take either — applyCustomColors writes the
-		// raw string straight into the CSS variable.
+		// 100, or the 'light'/'dark' one-click preset sentinels (resolved per
+		// field in appearance.ts). The token consumers take the resolved form —
+		// applyCustomColors writes it straight into the CSS variable.
 		const compose = (hex: string, alphaPct: number): string =>
 			alphaPct >= 100 ? hex : hexToRgbaString(hex, alphaPct / 100);
+
+		// Mode dropdown (the widget-background "text and icon color" recipe):
+		// follow-theme / one-click light & dark presets / custom picker. The
+		// picker and alpha slider only drive the value in "custom" mode; the
+		// other modes keep them disabled but preview the resulting color.
+		const modeSelect = row.createEl('select', { cls: 'dashboard-modal-input dashboard-theme-studio-color-mode' });
+		for (const opt of [
+			{ value: 'theme', labelKey: 'themeStudio.color.modeTheme' },
+			{ value: 'light', labelKey: 'themeStudio.color.modeLight' },
+			{ value: 'dark', labelKey: 'themeStudio.color.modeDark' },
+			{ value: 'custom', labelKey: 'themeStudio.color.modeCustom' },
+		]) {
+			modeSelect.createEl('option', { value: opt.value, text: t(opt.labelKey) });
+		}
 
 		const input = row.createEl('input', {
 			cls: 'dashboard-modal-color-input',
@@ -214,12 +239,45 @@ export class ThemeStudioModal extends Modal {
 			attr: { type: 'range', min: '0', max: '100', step: '5', 'aria-label': t('themeStudio.color.alpha') },
 		});
 
+		/** What the picker/slider should display now: the stored value with
+		 *  presets resolved (falling back to the theme default when unset). */
+		const displayOf = (): { hex: string; alphaPct: number } => {
+			const resolved = resolveCustomColorValue(field.key, this.colors[field.key]);
+			return {
+				hex: rgbPartOf(resolved) ?? this.themeDefaults[field.key] ?? '#808080',
+				alphaPct: alphaPctOf(resolved),
+			};
+		};
+
 		const sync = (): void => {
-			const stored = this.colors[field.key];
-			input.value = rgbPartOf(stored) ?? this.themeDefaults[field.key] ?? '#808080';
-			alphaSlider.value = String(alphaPctOf(stored));
+			const mode = colorModeOf(this.colors[field.key]);
+			modeSelect.value = mode;
+			const { hex, alphaPct } = displayOf();
+			input.value = hex;
+			alphaSlider.value = String(alphaPct);
+			input.disabled = mode !== 'custom';
+			alphaSlider.disabled = mode !== 'custom';
 		};
 		sync();
+
+		modeSelect.addEventListener('change', () => {
+			const mode = modeSelect.value as ColorMode;
+			if (mode === 'theme') {
+				const next = { ...this.colors };
+				delete next[field.key];
+				this.colors = next;
+			} else if (mode === 'light' || mode === 'dark') {
+				this.colors = { ...this.colors, [field.key]: mode };
+			} else {
+				// Custom: seed from whatever the row previews (preset color and
+				// alpha, or the theme default) so nudging a preset keeps it as
+				// the starting point instead of jumping to plain white.
+				const { hex, alphaPct } = displayOf();
+				this.colors = { ...this.colors, [field.key]: compose(hex, alphaPct) };
+			}
+			sync();
+			this.scheduleApply();
+		});
 
 		// `input` fires continuously while picking — apply live but never rebuild
 		// the form, or the native picker would lose focus mid-drag.
@@ -231,7 +289,7 @@ export class ThemeStudioModal extends Modal {
 			this.colors = { ...this.colors, [field.key]: compose(input.value, Number(alphaSlider.value)) };
 			this.scheduleApply();
 		});
-		this.colorInputs.set(field.key, input);
+		this.colorRowSyncs.set(field.key, sync);
 
 		const clearBtn = row.createEl('button', {
 			cls: 'dashboard-theme-studio-color-clear',

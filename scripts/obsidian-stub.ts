@@ -76,6 +76,34 @@ export function normalizePath(path: string): string { return path; }
 export const Platform = { isMobile: false, isMobileApp: false };
 export function setIcon(_el: unknown, _icon: string): void {}
 
+// Component base for MarkdownRenderer.render's lifecycle argument (the real
+// one is the ItemView). Trivial here — nothing in the scripts loads children.
+export class Component {}
+
+// MarkdownRenderer stand-in: records the exact markdown source it was handed
+// as a CHILD ELEMENT (appendText's text slot would be invisible to
+// textContent once the container has element children), so verify scripts can
+// assert what the memo view would render and that the swap moved real nodes.
+export const MarkdownRenderer = {
+	render: async (_app: unknown, markdown: string, el: unknown): Promise<void> => {
+		(el as unknown as { createDiv(o?: { text?: string }): void }).createDiv({ text: `[md]${markdown}` });
+	},
+};
+
+// FuzzySuggestModal base for modules that import it: the verify scripts never
+// open one (the studio's image browser only mounts on a browse click), so a
+// bare class with the Modal surface is enough for the bundle to resolve.
+export class FuzzySuggestModal<T> {
+	app: unknown;
+	constructor(app: unknown) { this.app = app; }
+	open(): void {}
+	close(): void {}
+	// Narrow the unused-generic warning; the stand-in never items items.
+	getItems(): T[] { return []; }
+	getItemText(_item: T): string { return ''; }
+	onChooseItem(_item: T): void {}
+}
+
 // Minimal moment() for date-only code paths (daily-notes computes note paths
 // and "today" via momentOf/nowMoment + .format('YYYY-MM-DD')). Only the
 // surface datetime.ts declares; calendar units are granular enough for the

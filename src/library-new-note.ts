@@ -65,6 +65,15 @@ export function buildNewNoteProps(config?: LibraryConfig): {
 	return { props, skipped };
 }
 
+/**
+ * Folder a notes/projects section's "new note" is created in: the section's
+ * configured save folder (libraryConfig.folders[0]) when set — vault root
+ * (empty string) otherwise.
+ */
+export function sectionNewNoteFolder(config?: LibraryConfig): string {
+	return (config?.folders ?? [])[0]?.trim().replace(/^\/+|\/+$/g, '') ?? '';
+}
+
 /** Escape a YAML scalar body: flatten newlines, then backslashes, then quotes. */
 function escapeYamlScalar(value: string): string {
 	return value.replace(/[\r\n]+/g, ' ').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -98,12 +107,63 @@ export function yamlFrontmatter(props: Record<string, string | string[]>): strin
 }
 
 /**
+ * Group a template frontmatter block (fences stripped by the caller) into
+ * top-level key sections: a `key: value` line at column 0 starts a section,
+ * every following non-key line (indented child, flow-list wrap, …) belongs to
+ * it. Sections are kept or dropped whole, so multiline values survive verbatim.
+ */
+function splitFrontmatterSections(fmLines: string[]): Array<{ key: string; lines: string[] }> {
+	const KEY_LINE_RE = /^(?:"([^"]+)"|'([^']+)'|([^\s:#][^:]*)):/;
+	const sections: Array<{ key: string; lines: string[] }> = [];
+	for (const line of fmLines) {
+		const m = KEY_LINE_RE.exec(line);
+		if (m) {
+			sections.push({ key: (m[1] ?? m[2] ?? m[3])!, lines: [line] });
+		} else if (sections.length > 0) {
+			sections[sections.length - 1]!.lines.push(line);
+		}
+	}
+	return sections;
+}
+
+/**
+ * Compose a new note's content from a template: the template's frontmatter
+ * sections whose keys the filter props do NOT define are carried over with
+ * their raw lines intact (flow-style lists, dates, spacing stay byte-for-byte;
+ * no YAML re-render), the props themselves are added (winning any collision so
+ * the note still matches the section's filters), and the template body
+ * (variables already substituted) follows.
+ */
+export function mergeTemplateNoteContent(
+	tplFm: string,
+	tplBody: string,
+	props: Record<string, string | string[]>,
+): string {
+	// splitFrontmatter's fm is `---\n…\n---\n`: peel the leading fence, the
+	// trailing fence and the trailing newline. Interior blank lines stay — they
+	// can be part of a `|`/`>` block value and must survive byte-for-byte.
+	const fmLines = tplFm ? tplFm.split('\n') : [];
+	if (fmLines.length > 0 && fmLines[0]!.trim() === '---') fmLines.shift();
+	while (fmLines.length > 0 && fmLines[fmLines.length - 1]!.trim() === '') fmLines.pop();
+	if (fmLines.length > 0 && fmLines[fmLines.length - 1]!.trim() === '---') fmLines.pop();
+	const kept = splitFrontmatterSections(fmLines)
+		.filter(section => !(section.key in props))
+		.flatMap(section => section.lines);
+	const propBlock = yamlFrontmatter(props);
+	const propLines = propBlock ? propBlock.split('\n').slice(1, -2) : [];
+	const allLines = [...propLines, ...kept];
+	const fm = allLines.length > 0 ? `---\n${allLines.join('\n')}\n---\n` : '';
+	if (!tplBody) return fm;
+	return fm ? `${fm}${tplBody}\n` : `${tplBody}\n`;
+}
+
+/**
  * Create `folder/Title.md` (uniqued as `-2`, `-3`, … on collision) with the
  * given frontmatter props baked into the initial content — one atomic write,
  * so the vault-'create' refresh already sees a filter-matching note.
- * `templatePath`: a template note whose body (frontmatter stripped) seeds the
- * note under the props block, with {{title}}/{{date:…}} substituted — the
- * quick-note preset pipeline.
+ * `templatePath`: a template note that seeds the new note — its body (with
+ * {{title}}/{{date:…}} substituted) and the frontmatter properties the props
+ * don't define (props win collisions) — the quick-note preset pipeline.
  */
 export async function createNoteWithProps(
 	app: App,
@@ -124,10 +184,11 @@ export async function createNoteWithProps(
 	if (tpl) {
 		const { content: tplContent, found } = await readTemplateContent(app, tpl, { title, now: nowMoment() });
 		if (!found) throw new Error(`Template not found: ${tpl}`);
-		// The template's own frontmatter is dropped: the props block (built
-		// from the section's filters) owns the new note's frontmatter.
-		const body = splitFrontmatter(tplContent).body.replace(/^\n+/, '');
-		content = content === '' ? (body ? `${body}\n` : '') : (body ? `${content}${body}\n` : content);
+		// The template's body seeds the note; its frontmatter properties merge
+		// under the filter props (which win collisions so the note matches the
+		// section's filters).
+		const { fm, body } = splitFrontmatter(tplContent);
+		content = mergeTemplateNoteContent(fm, body.replace(/^\n+/, ''), props);
 	}
 	return app.vault.create(path, content);
 }

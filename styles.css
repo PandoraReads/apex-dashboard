@@ -10919,6 +10919,12 @@
 	color: var(--db-danger) !important;
 }
 
+/* Per-card "new note" (notes/projects sections): accent tint on hover so it
+   reads as a create action next to neutral edit and danger delete. */
+.dashboard-card-btn--newnote:hover {
+	color: var(--db-accent) !important;
+}
+
 .dashboard-card-body {
 	font-size: 0.95em;
 	color: var(--db-text-muted);
@@ -11252,6 +11258,56 @@
 	color: var(--db-text-faint);
 	opacity: 0.5;
 }
+
+/* Markdown-rendered memo view. Obsidian's renderer emits bare document-level
+   elements with full margins; compact them to memo-card scale. pre-wrap must
+   come off or the renderer's own newlines would double-space every block. */
+.dashboard-memo-view--md {
+	white-space: normal;
+	cursor: default;
+}
+.dashboard-memo-view--md > *:first-child { margin-top: 0; }
+.dashboard-memo-view--md > *:last-child { margin-bottom: 0; }
+.dashboard-memo-view--md p { margin: 0 0 0.35em; }
+.dashboard-memo-view--md h1, .dashboard-memo-view--md h2, .dashboard-memo-view--md h3,
+.dashboard-memo-view--md h4, .dashboard-memo-view--md h5, .dashboard-memo-view--md h6 {
+	margin: 0.45em 0 0.2em;
+	font-size: 1em;
+	font-weight: 600;
+	color: var(--db-text);
+}
+.dashboard-memo-view--md ul, .dashboard-memo-view--md ol {
+	margin: 0.2em 0 0.35em;
+	padding-left: 1.35em;
+}
+.dashboard-memo-view--md li { margin: 0.1em 0; }
+.dashboard-memo-view--md blockquote {
+	margin: 0.25em 0;
+	padding: 2px 0 2px 10px;
+	border-left: 3px solid var(--db-quote-border, var(--db-accent, var(--interactive-accent)));
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-memo-view--md code {
+	font-size: 0.88em;
+	padding: 1px 4px;
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--db-text, var(--text-normal)) 10%, transparent);
+}
+.dashboard-memo-view--md pre {
+	margin: 0.25em 0;
+	padding: 6px 8px;
+	font-size: 0.85em;
+	overflow-x: auto;
+	border-radius: var(--db-radius-sm, 6px);
+	background: color-mix(in srgb, var(--db-text, var(--text-normal)) 8%, transparent);
+}
+.dashboard-memo-view--md pre code { padding: 0; background: none; }
+.dashboard-memo-view--md a { color: var(--db-link, var(--db-accent, var(--interactive-accent))); cursor: pointer; }
+.dashboard-memo-view--md img { max-width: 100%; border-radius: var(--db-radius-sm, 6px); }
+/* Task checkboxes stay display-only: clicks pass through to the card, whose
+   whole-view click still switches into edit mode. */
+.dashboard-memo-view--md input[type="checkbox"] { pointer-events: none; }
+.dashboard-memo-view--md hr { margin: 0.5em 0; border-color: var(--db-border, var(--background-modifier-border)); }
 
 .theme-light .dashboard-memo-textarea {
 	color: var(--db-text);
@@ -19251,6 +19307,37 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-theme-studio-color-label {
 	flex: 1;
 	font-size: 0.88em;
+}
+
+/* Color rows carry an extra mode dropdown (follow theme / light / dark /
+   custom); let the controls wrap under the label when the compact modal
+   gets too narrow instead of overflowing. */
+.dashboard-theme-studio-color-row {
+	flex-wrap: wrap;
+}
+
+/* Mode dropdown per color row: same recipe as .dashboard-theme-studio-size —
+   auto width so the closed state never clips, explicit height + line-height +
+   appearance:menulist so raw <select> renders fully under Obsidian/Electron —
+   but sized to the picker/slider row (28px). */
+.dashboard-theme-studio-color-mode {
+	flex: 0 0 auto;
+	width: auto;
+	min-width: 84px;
+	height: 28px;
+	padding: 0 8px;
+	line-height: 26px;
+	box-sizing: border-box;
+	font-size: 0.82em;
+	-webkit-appearance: menulist;
+	appearance: menulist;
+}
+
+/* Follow-theme / light / dark modes drive the value, so the picker + alpha
+   slider sit disabled-but-visible as a preview of the resulting color. */
+.dashboard-theme-studio-color-row input:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
 }
 
 /* Alpha slider rides between the swatch and the clear button: slim, accent-

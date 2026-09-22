@@ -1,6 +1,6 @@
 import { memoCardText } from './card-move';
 import { extractCardParts } from './parser';
-import { App, Platform, TFile, setIcon } from 'obsidian';
+import { App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
@@ -127,6 +127,10 @@ let docDragSource: { cardId: string; docPath: number[] } | null = null;
 // through every function signature. Mirrors the docDragSource module-level idiom.
 let activeHoverParent: HoverParent | null = null;
 let activeNoteOpener: ((file: TFile, subpath?: string) => void) | null = null;
+// The rendering view as a Component — MarkdownRenderer.render requires one for
+// its async lifecycle; null when the caller passed a bare hover parent, in
+// which case memo cards keep the synchronous plain-lines paint.
+let activeMarkdownComponent: Component | null = null;
 
 const VAULT_FILE_EXTS = SUPPORTED_FILE_EXTS;
 
@@ -1814,6 +1818,9 @@ export function renderDashboard(
 ): void {
 	activeHoverParent = hoverParent;
 	activeNoteOpener = callbacks.onOpenNoteInPopover ?? null;
+	// The dashboard view doubles as the markdown Component (ItemView extends
+	// Component); other hover-parent callers fall back to plain memo lines.
+	activeMarkdownComponent = hoverParent instanceof Component ? hoverParent : null;
 
 	container.empty();
 	container.addClass('dashboard-kanban');
@@ -2459,6 +2466,21 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	setIcon(addCardBtn, 'plus');
 	addCardBtn.addEventListener('click', () => callbacks.onCardAdd(column.name));
 
+	// Notes (cover / no-cover) sections: gear opens the per-section new-note
+	// settings (template + save folder). Same dispatch the library sections'
+	// config button uses; view.ts routes it by sectionType.
+	if (sectionType === 'notes' || sectionType === 'projects') {
+		const notesCfgBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('notesCfg.title') },
+		});
+		setIcon(notesCfgBtn, 'settings');
+		notesCfgBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+	}
+
 	const deleteSectionBtn = headerActions.createEl('button', {
 		cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
 		attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
@@ -2643,6 +2665,21 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 				input.remove();
 			});
 			input.click();
+		});
+	}
+
+	// Per-card "new note" (notes/projects sections only): creates a note and
+	// attaches it to this card's doc list (view.handleCardNewNote). Rendered
+	// FIRST in the actions row so it sits left of edit + delete.
+	if (isProjectLike && (sectionType === 'notes' || sectionType === 'projects')) {
+		const newNoteBtn = actions.createEl('button', {
+			cls: 'dashboard-card-btn dashboard-card-btn--newnote',
+			attr: { 'aria-label': t('renderer.cardNewNote') },
+		});
+		setIcon(newNoteBtn, 'file-plus');
+		newNoteBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onCardNewNote(card.id);
 		});
 	}
 
@@ -3330,6 +3367,7 @@ function renderMemoBody(container: HTMLElement, card: DashboardCard, callbacks: 
 
 function renderMemoViewContent(container: HTMLElement, text: string, app: App): void {
 	container.empty();
+	container.removeClass('dashboard-memo-view--md');
 	if (!text) {
 		container.addClass('dashboard-memo-view--empty');
 		container.setText(t('renderer.writeThoughts'));
@@ -3337,6 +3375,17 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 	}
 	container.removeClass('dashboard-memo-view--empty');
 
+	// Instant plain-lines paint so the card never flashes empty while the
+	// async markdown pass is in flight; renderMemoMarkdown swaps it out on
+	// success (and leaves this paint standing on failure).
+	renderMemoPlainLines(container, text, app);
+	const component = activeMarkdownComponent;
+	if (component) void renderMemoMarkdown(container, text, app, component);
+}
+
+/** The legacy line-per-line paint: blockquote lines + wikilink/URL lines.
+ *  Kept as the synchronous fallback under the markdown pass. */
+function renderMemoPlainLines(container: HTMLElement, text: string, app: App): void {
 	const lines = text.split('\n');
 	for (let i = 0; i < lines.length; i++) {
 		if (i > 0) container.createEl('br');
@@ -3348,6 +3397,105 @@ function renderMemoViewContent(container: HTMLElement, text: string, app: App): 
 			renderTextWithLinks(container, line, app);
 		}
 	}
+}
+
+/**
+ * Adapt memo text (written line-per-line in a plain textarea) for markdown
+ * rendering without changing how existing memos read: every plain line becomes
+ * its own paragraph (markdown would otherwise soft-wrap them together), while
+ * consecutive list-item lines stay grouped so `-`/`1.` lists and task lines
+ * render as real lists. Code-fence interiors are passed through untouched.
+ */
+export function memoMarkdownSource(text: string): string {
+	const lines = text.split('\n');
+	const out: string[] = [];
+	let listBuf: string[] = [];
+	let inFence = false;
+	const flush = (): void => {
+		if (listBuf.length > 0) {
+			out.push(...listBuf, '');
+			listBuf = [];
+		}
+	};
+	for (const line of lines) {
+		if (/^\s*(```|~~~)/.test(line)) {
+			flush();
+			inFence = !inFence;
+			out.push(line);
+			continue;
+		}
+		if (inFence) {
+			out.push(line);
+			continue;
+		}
+		const isListItem = /^(\s*)([-*+]|\d+\.)\s+/.test(line);
+		const isContinuation = listBuf.length > 0 && /^\s+\S/.test(line);
+		if (isListItem || isContinuation) {
+			listBuf.push(line);
+		} else {
+			flush();
+			out.push(line, '');
+		}
+	}
+	flush();
+	return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Render the memo view's text as real markdown (Obsidian's renderer), then
+ * wire the produced links to the dashboard's open/hover semantics. Swaps the
+ * container's legacy plain-lines paint in one step on success; on any failure
+ * the plain paint stays. Exported for the verify scripts.
+ */
+export function renderMemoMarkdown(
+	container: HTMLElement,
+	text: string,
+	app: App,
+	component: Component,
+): Promise<void> {
+	const host = createDiv();
+	return MarkdownRenderer.render(app, memoMarkdownSource(text), host, '', component)
+		.then(() => {
+			if (!container.isConnected || !host.hasChildNodes()) return;
+			container.empty();
+			container.addClass('dashboard-memo-view--md');
+			while (host.firstChild) container.appendChild(host.firstChild);
+			wireMemoMarkdownLinks(container, app);
+		})
+		.catch(() => {
+			// Keep the plain-lines paint — a render failure must not blank the card.
+		});
+}
+
+/** Attach open/click (and desktop hover) behavior to the anchors Obsidian's
+ *  markdown pass produced — the same semantics renderWikilink/renderExternalLink
+ *  give the plain paint, so internal links open through the note opener and
+ *  external ones open in the browser. */
+function wireMemoMarkdownLinks(container: HTMLElement, app: App): void {
+	container.querySelectorAll('a').forEach(raw => {
+		const a = raw as HTMLElement;
+		const href = a.getAttribute('href') ?? '';
+		if (a.hasClass('internal-link') || href === '' || href.startsWith('#')) {
+			const target = a.getAttribute('data-href') ?? a.getText();
+			const path = target.split('#')[0]!;
+			const file = resolveNoteFile(app, path);
+			if (file && !Platform.isMobile && activeHoverParent) {
+				attachNoteHover(app, a, file, activeHoverParent, target.includes('#') ? `#${target.split('#').pop()}` : undefined);
+			}
+			a.addEventListener('click', (e) => {
+				e.stopPropagation();
+				e.preventDefault();
+				if (!file) return;
+				activeNoteOpener?.(file, target.includes('#') ? `#${target.split('#').pop()}` : undefined);
+			});
+		} else if (/^https?:/i.test(href)) {
+			a.addEventListener('click', (e) => {
+				e.stopPropagation();
+				e.preventDefault();
+				window.open(href, '_blank');
+			});
+		}
+	});
 }
 
 	function renderProjectBody(container: HTMLElement, card: DashboardCard, callbacks: RenderCallbacks, app: App): void {

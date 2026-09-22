@@ -79,6 +79,11 @@ export class El {
 		return this.children.length;
 	}
 
+	/** Real-DOM parity for the swap guards (renderMemoMarkdown et al.). */
+	hasChildNodes(): boolean {
+		return this.children.length > 0;
+	}
+
 	setAttribute(name: string, value: string): void {
 		this.attrs.set(name, value);
 	}
@@ -131,6 +136,9 @@ export class El {
 	}
 
 	appendChild(child: El): El {
+		// Real-DOM semantics: appending an already-parented node MOVES it
+		// (detaches from the old parent first). Node-move loops rely on this.
+		if (child.parent && child.parent !== this) child.parent.removeChild(child);
 		child.parent = this;
 		this.children.push(child);
 		return child;
@@ -244,11 +252,14 @@ export class El {
 
 	// ---- Obsidian HTMLElement helpers ----
 
-	createEl(tag: string, o?: { cls?: string; text?: string; attr?: Record<string, string> }): El {
+	createEl(tag: string, o?: { cls?: string; text?: string; value?: string; attr?: Record<string, string> }): El {
 		const el = new El(tag);
 		this.appendChild(el);
 		if (o?.cls) el.addClass(...o.cls.split(/\s+/));
 		if (o?.text !== undefined) el.textContent = o.text;
+		// Obsidian's createEl maps a `value` option onto the value attribute
+		// (how <option> rows pass their mode to the select).
+		if (o?.value !== undefined) el.setAttribute('value', o.value);
 		for (const [k, v] of Object.entries(o?.attr ?? {})) el.setAttribute(k, v);
 		return el;
 	}

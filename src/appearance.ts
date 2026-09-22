@@ -17,6 +17,46 @@ export const CUSTOM_COLOR_TOKENS: Readonly<Record<keyof CustomColors, string>> =
 	borderCard: '--db-border-card',
 };
 
+/**
+ * One-click light/dark presets for the theme-studio color dropdown. When a
+ * {@link CustomColors} field holds the 'light'/'dark' sentinel, the matching
+ * entry here is the concrete CSS color applied to the `--db-*` token. Text
+ * presets match the widget-background foreground recipe (white / near-black);
+ * surface presets stay slightly translucent where the theme idiom is.
+ */
+const COLOR_PRESETS: Readonly<Record<'light' | 'dark', Readonly<Partial<Record<keyof CustomColors, string>>>>> = {
+	light: {
+		text: '#ffffff',
+		textMuted: 'rgba(255, 255, 255, 0.62)',
+		accent: '#ffffff',
+		accentLight: 'rgba(255, 255, 255, 0.7)',
+		bg: '#f5f5f7',
+		bgCard: '#ffffff',
+		bgSection: '#ededf0',
+		borderCard: 'rgba(0, 0, 0, 0.14)',
+	},
+	dark: {
+		text: '#111111',
+		textMuted: 'rgba(17, 17, 17, 0.62)',
+		accent: '#111111',
+		accentLight: 'rgba(17, 17, 17, 0.7)',
+		bg: '#141416',
+		bgCard: '#1d1d20',
+		bgSection: '#101013',
+		borderCard: 'rgba(255, 255, 255, 0.16)',
+	},
+};
+
+/** Stored color value -> concrete CSS color. 'light'/'dark' map to their
+ *  per-field preset; hex / rgba / undefined pass through untouched. */
+export function resolveCustomColorValue(
+	field: keyof CustomColors,
+	value: string | undefined,
+): string | undefined {
+	if (value !== 'light' && value !== 'dark') return value;
+	return COLOR_PRESETS[value][field] ?? (value === 'light' ? '#ffffff' : '#111111');
+}
+
 const DEFAULT_DIM = 40;
 
 /** Root font-size multipliers per fontScale option. em-based sizes across the
@@ -103,14 +143,19 @@ function applyBackground(container: HTMLElement, app: App, settings: DashboardSe
 	}
 }
 
-function applyCustomColors(root: HTMLElement, custom: CustomColors | undefined): void {
+/** Apply the customColors overrides (presets resolved) onto a dashboard root.
+ *  Exported for the verify scripts; runtime callers go through
+ *  applyAppearance / refreshAppearanceLive. */
+export function applyCustomColors(root: HTMLElement, custom: CustomColors | undefined): void {
 	if (!custom) return;
 	// Apply only the user's explicit overrides — we deliberately do NOT rewrite
 	// the text tokens to force contrast; that would alter the theme's own color
 	// scheme. (Per-element readability, e.g. the quick-notes bar, is handled
 	// locally where it renders, not by mutating theme tokens here.)
 	(Object.keys(custom) as (keyof CustomColors)[]).forEach(key => {
-		const value = custom[key];
+		// Resolve 'light'/'dark' sentinels first so every write below (token,
+		// inline page paint, later computed reads) sees a concrete color.
+		const value = resolveCustomColorValue(key, custom[key]);
 		if (value && value.trim()) {
 			root.style.setProperty(CUSTOM_COLOR_TOKENS[key], value.trim());
 			// The page background ALSO paints inline: the wash themes paint

@@ -2,7 +2,7 @@ import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Plat
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, DataviewConfig } from './types';
+import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, DataviewConfig } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards } from './renderer';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
@@ -36,8 +36,9 @@ import { StickyCardTypeModal } from './sticky-card-type-modal';
 import { AddSectionModal } from './add-section-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
-import { FolderConfigModal } from './folder-config-modal';
-import { buildNewNoteProps, createNoteWithProps, pickFolderFromMenu } from './library-new-note';
+import { FolderConfigModal, folderResultToLibraryConfig } from './folder-config-modal';
+import { buildNewNoteProps, sectionNewNoteFolder, createNoteWithProps, pickFolderFromMenu } from './library-new-note';
+import { NotesSectionConfigModal } from './notes-config-modal';
 import { DataviewConfigModal } from './dataview-config-modal';
 import { WebConfigModal } from './web-config-modal';
 import { MediaConfigModal } from './media-config-modal';
@@ -513,6 +514,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openWebConfigModal(columnName);
 			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
 				this.openMediaConfigModal(columnName);
+			} else if (col?.sectionType === 'notes' || col?.sectionType === 'projects') {
+				this.openNotesSectionConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
 			}
@@ -1120,6 +1123,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
 			onTaskSaveToDaily: (card: DashboardCard) => this.saveTasksToDaily(card),
 			onDocAdd: (cardId: string, path: string) => this.sync.addDocToCard(cardId, path),
+			onCardNewNote: (cardId: string) => { void this.handleCardNewNote(cardId); },
 			onDocDelete: (cardId: string, docPath: number[]) => this.sync.deleteDoc(cardId, docPath),
 			onDocReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderDocs(cardId, fromPath, toPath, before),
 			onDocMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveDocToCard(srcCardId, fromPath, destCardId, destPath, mode),
@@ -1747,28 +1751,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			libraryConfig?.showProperties,
 			libraryConfig?.propertyLimit,
 			(result) => {
-				const base = libraryConfig ?? {
-					filters: [],
-					viewMode: 'grid' as const,
-					sortBy: 'modified',
-					sortDesc: true,
-				};
-				const filtersWithoutTags = base.filters.filter(f => f.property !== 'tags');
-				const filters = result.tags.length > 0
-					? [...filtersWithoutTags, { property: 'tags', values: result.tags }]
-					: filtersWithoutTags;
-				void this.sync.updateLibraryConfig(colName, {
-					...base,
-					folders: result.folders,
-					excludeFolders: result.excludeFolders.length > 0 ? result.excludeFolders : undefined,
-					filters,
-					kanbanGroupBy: result.groupBy,
-					groupMode: result.groupMode === 'folder' ? 'folder' : undefined,
-					kanbanShowCovers: result.kanbanShowCovers ? true : undefined,
-					showProperties: result.showProperties ? undefined : false,
-					propertyLimit: result.propertyLimit,
-					visibleProperties: result.visibleProperties,
-				});
+				void this.sync.updateLibraryConfig(colName, folderResultToLibraryConfig(libraryConfig, result));
 			},
 			libraryConfig?.groupMode,
 			libraryConfig?.visibleProperties,
@@ -1781,6 +1764,84 @@ export class DashboardView extends ItemView implements HoverParent {
 	/** Reentrancy guard: a second toolbar click while the title prompt is open
 	 *  must not stack a second dialog (overlay stacking is a known bug class). */
 	private libraryNewNoteInFlight = false;
+	private cardNewNoteInFlight = false;
+
+	/** Per-card "new note" (notes/projects sections): prompt for a title, create
+	 *  the note from the section's settings (template + save folder; vault root
+	 *  when no folder is configured), attach it to the card's doc list, and
+	 *  open it. */
+	private async handleCardNewNote(cardId: string): Promise<void> {
+		if (this.cardNewNoteInFlight) return;
+		this.cardNewNoteInFlight = true;
+		try {
+			let found: { column: DashboardColumn; card: DashboardCard } | null = null;
+			for (const column of this.data?.columns ?? []) {
+				const card = column.cards.find(c => c.id === cardId);
+				if (card) { found = { column, card }; break; }
+			}
+			if (!found) return;
+			const { column, card } = found;
+
+			const folder = sectionNewNoteFolder(column.libraryConfig);
+			const templatePath = (column.libraryConfig?.templatePath ?? '').trim();
+			const title = await showPromptDialog(this.app, {
+				title: t('quickNote.titlePrompt'),
+				placeholder: t('quickNote.titlePlaceholder'),
+			});
+			if (title == null) return; // cancelled (empty submit cancels too)
+
+			try {
+				let file: TFile;
+				try {
+					file = await createNoteWithProps(this.app, folder, title, {}, templatePath || undefined);
+				} catch (err) {
+					// A missing template must not kill the creation — fall back to
+					// a bare note and tell the user (the library flow's behavior).
+					if (err instanceof Error && err.message.startsWith('Template not found')) {
+						new Notice(t('quickNote.templateNotFound'));
+						file = await createNoteWithProps(this.app, folder, title, {});
+					} else {
+						throw err;
+					}
+				}
+				await this.sync.addDocToCard(card.id, file.path);
+				await this.app.workspace.getLeaf('tab').openFile(file);
+				new Notice(t('quickNote.created', { name: file.basename }));
+			} catch (err) {
+				console.error('[Dashboard] card new note failed:', err);
+				new Notice(t('library.newNoteFailed'));
+			}
+		} finally {
+			this.cardNewNoteInFlight = false;
+		}
+	}
+
+	/** Notes (cover / no-cover) section settings: new-note template + save
+	 *  folder, persisted through the column's libraryConfig. */
+	private openNotesSectionConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		if (!column) return;
+		const config = column.libraryConfig;
+		const modal = new NotesSectionConfigModal(
+			this.app,
+			{
+				templatePath: config?.templatePath ?? '',
+				folder: (config?.folders ?? [])[0] ?? '',
+			},
+			(settings) => {
+				void this.sync.updateLibraryConfig(colName, {
+					filters: [],
+					viewMode: 'grid',
+					sortBy: 'modified',
+					sortDesc: true,
+					...config,
+					templatePath: settings.templatePath || undefined,
+					folders: settings.folder ? [settings.folder] : undefined,
+				});
+			},
+		);
+		modal.open();
+	}
 
 	/** Toolbar "new note": folder sections create inside their configured folder
 	 *  (menu when several); library sections create at settings.libraryNewNotePath

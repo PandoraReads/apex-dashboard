@@ -208,6 +208,11 @@ export type BackupPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
  * `--db-*` CSS custom property (see CUSTOM_COLOR_TOKENS in appearance.ts). Only
  * non-empty values are applied inline on the root, overriding the `[data-theme]`
  * block via specificity; absent fields fall back to the theme.
+ *
+ * Value grammar (mirrors the widget-background foreground dropdown): `'light'`
+ * / `'dark'` are one-click preset sentinels resolved per field via
+ * resolveCustomColorValue; any other non-empty string is a concrete CSS color
+ * (`#rrggbb`, or `rgba(...)` once its alpha slider drops below 100).
  */
 export interface CustomColors {
 	/** Primary accent (buttons, highlights, progress, links). `--db-accent` */
@@ -836,6 +841,9 @@ export interface RenderCallbacks {
 	onMemoSaveAsNote(card: DashboardCard): void;
 	onTaskSaveToDaily(card: DashboardCard): void;
 	onDocAdd(cardId: string, path: string): void;
+	/** Per-card "new note" (notes/projects sections): create a vault note and
+	 *  attach it to the card's doc list. */
+	onCardNewNote(cardId: string): void;
 	onDocDelete(cardId: string, docPath: number[]): void;
 	onDocReorder(cardId: string, fromPath: number[], toPath: number[], before: boolean): void;
 	onDocMoveToCard(srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest'): void;
