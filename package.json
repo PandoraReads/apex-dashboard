@@ -8,6 +8,7 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test:mobile-stability": "esbuild scripts/verify-mobile-stability.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-mobile-stability.cjs --log-level=warning && node node_modules/.tmp/verify-mobile-stability.cjs",
+		"test:custom-sections": "esbuild scripts/verify-custom-sections.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-custom-sections.cjs --log-level=warning && node node_modules/.tmp/verify-custom-sections.cjs",
 		"test:weather-mapping": "esbuild scripts/verify-weather-mapping.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weather-mapping.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weather-mapping.cjs",
 		"test:folder-tag-search": "esbuild scripts/verify-folder-tag-search.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-folder-tag-search.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-folder-tag-search.cjs",
 		"test:visible-properties": "esbuild scripts/verify-visible-properties.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-visible-properties.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-visible-properties.cjs",

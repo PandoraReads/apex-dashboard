@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig, type Al
 import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
+import { registerSectionDefinition, type CustomSectionDefinition } from './section-registry';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
 import { DataviewGuideModal } from './dataview-guide-modal';
@@ -383,6 +384,16 @@ export default class DashboardPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	/** Register a section renderer contributed by another Obsidian plugin. */
+	registerSection(definition: CustomSectionDefinition): () => void {
+		const unregister = registerSectionDefinition(definition);
+		this.refreshAllDashboards();
+		return () => {
+			unregister();
+			this.refreshAllDashboards();
+		};
 	}
 
 	refreshAllDashboards(): void {

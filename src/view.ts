@@ -101,6 +101,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	private sync: SyncEngine;
 	private data: DashboardData | null = null;
 	private cleanupFns: Array<() => void> = [];
+	private customSectionCleanups = new Map<string, () => void>();
 	private dndCleanupFns: Array<() => void> = [];
 	private suppressNextRender = false;
 	private vaultEventRefs: Array<{ evt: Events; ref: unknown }> = [];
@@ -1198,6 +1199,15 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	private createCallbacks() {
 		return {
+			onCustomSectionCleanup: (columnName: string, cleanup: () => void) => {
+				this.customSectionCleanups.set(columnName, cleanup);
+			},
+			onExtensionConfigChange: (columnName: string, config: Record<string, unknown>) => {
+				this.suppressNextRender = true;
+				void this.sync.updateExtensionConfig(columnName, config).then(() => {
+					this.refreshSectionInPlace(columnName);
+				});
+			},
 			onCardEdit: (card: DashboardCard) => this.openCardEditModal(card),
 			onOpenNoteInPopover: (file: TFile, subpath?: string) => this.openNote(file, subpath),
 			onOpenNoteAtLine: (file: TFile, line?: number) => this.openNote(file, undefined, line),
@@ -1784,6 +1794,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		const column = this.data.columns.find(c => c.name === columnName);
 		if (!column) return false;
 		const callbacks = this.createCallbacks();
+		this.customSectionCleanups.get(columnName)?.();
+		this.customSectionCleanups.delete(columnName);
 		const newEl = renderSection(column, callbacks, this.app, this.data, this.plugin.settings);
 		// The rebuilt row starts every internal scroller at 0, which snaps the
 		// card deck back to its first card and task lists back to their top —
@@ -2423,6 +2435,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 		for (const fn of this.cleanupFns) fn();
 		this.cleanupFns = [];
+		for (const cleanup of this.customSectionCleanups.values()) cleanup();
+		this.customSectionCleanups.clear();
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
 	}

@@ -1,11 +1,14 @@
 import { Modal, setIcon } from 'obsidian';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
+import { registeredSectionDefinitions } from './section-registry';
 
 export interface SectionTypeOption {
 	value: string;
 	icon: string;
-	labelKey: string;
+	labelKey?: string;
+	label?: string;
+	defaultName?: string;
 }
 
 /**
@@ -93,14 +96,14 @@ export class AddSectionModal extends Modal {
 
 	private renderTypeGrid(grid: HTMLElement): void {
 		grid.empty();
-		for (const opt of SECTION_TYPE_OPTIONS) {
+		for (const opt of this.options()) {
 			const card = grid.createDiv({
 				cls: 'dashboard-add-section-card' + (opt.value === this.selectedType ? ' active' : ''),
 				attr: { 'data-type': opt.value, role: 'button' },
 			});
 			const iconEl = card.createDiv({ cls: 'dashboard-add-section-card-icon' });
 			setIcon(iconEl, opt.icon);
-			card.createDiv({ cls: 'dashboard-add-section-card-name', text: t(opt.labelKey) });
+			card.createDiv({ cls: 'dashboard-add-section-card-name', text: this.optionLabel(opt) });
 			card.addEventListener('click', () => {
 				this.selectedType = opt.value;
 				this.renderTypeGrid(grid);
@@ -110,8 +113,24 @@ export class AddSectionModal extends Modal {
 
 	/** Localized label of the currently selected type, used as the default section name. */
 	private defaultName(): string {
-		const opt = SECTION_TYPE_OPTIONS.find((o) => o.value === this.selectedType);
-		return opt ? t(opt.labelKey) : this.selectedType;
+		const opt = this.options().find((o) => o.value === this.selectedType);
+		return opt?.defaultName ?? this.optionLabel(opt);
+	}
+
+	private options(): SectionTypeOption[] {
+		return [
+			...SECTION_TYPE_OPTIONS,
+			...registeredSectionDefinitions().map((definition) => ({
+				value: definition.id,
+				icon: definition.icon,
+				label: definition.label,
+				defaultName: definition.defaultName,
+			})),
+		];
+	}
+
+	private optionLabel(option: SectionTypeOption | undefined): string {
+		return option?.label ?? (option?.labelKey ? t(option.labelKey) : option?.value ?? this.selectedType);
 	}
 
 	private tryConfirm(): void {

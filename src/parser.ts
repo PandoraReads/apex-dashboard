@@ -173,6 +173,9 @@ export function serialize(data: DashboardData): string {
 		if (col.sectionType) {
 			lines.push(`    type: ${col.sectionType}`);
 		}
+		if (col.extensionConfig && Object.keys(col.extensionConfig).length > 0) {
+			lines.push(`    extensionConfig: ${JSON.stringify(col.extensionConfig)}`);
+		}
 		if (col.libraryConfig) {
 			lines.push('    library:');
 			const lc = col.libraryConfig;
@@ -854,7 +857,7 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean; width?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; extensionConfig?: Record<string, unknown>; height?: number; half?: boolean; width?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -867,13 +870,16 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
 		dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
 		webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
+		extensionConfig: item.extensionConfig && typeof item.extensionConfig === 'object' && !Array.isArray(item.extensionConfig)
+			? item.extensionConfig as Record<string, unknown>
+			: undefined,
 		height: typeof item.height === 'number' ? item.height : undefined,
 		half: item.half === true ? true : undefined,
 		width: typeof item.width === 'number' && item.width >= 20 && item.width <= 80 ? Math.round(item.width) : undefined,
 	}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; extensionConfig?: Record<string, unknown>; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -900,6 +906,7 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			ticktickConfig: def?.ticktickConfig,
 			dataviewConfig: def?.dataviewConfig,
 			webConfig: def?.webConfig,
+			extensionConfig: def?.extensionConfig,
 			height: def?.height,
 			half: def?.half,
 			width: def?.half ? def?.width : undefined,
@@ -915,6 +922,8 @@ function resolveSectionType(
 	cards: DashboardCard[],
 	fallback?: string,
 ): string {
+	// Keep third-party section types intact when their owning plugin is disabled.
+	if (fallback && /^[a-z0-9][a-z0-9.-]*:[a-z0-9][a-z0-9.-]*$/.test(fallback)) return fallback;
 	if (fallback && SECTION_TYPES.has(fallback)) return fallback;
 
 	const lower = name.toLowerCase();
