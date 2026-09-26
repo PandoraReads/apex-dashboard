@@ -822,6 +822,8 @@ export interface DashboardColumn {
 	dataviewConfig?: DataviewConfig;
 	/** Web embed section config (sectionType 'web'). */
 	webConfig?: WebEmbedConfig;
+	/** JSON-compatible configuration owned by a registered custom section. */
+	extensionConfig?: Record<string, unknown>;
 	/** User-set max height in px (drag-resize, desktop only). */
 	height?: number;
 	/** Side-by-side pairing: two adjacent `half` columns render as one row
@@ -844,6 +846,9 @@ export interface DashboardData {
 }
 
 export interface RenderCallbacks {
+	/** Register a custom section's per-render cleanup with the current view. */
+	onCustomSectionCleanup?(columnName: string, cleanup: () => void): void;
+	onExtensionConfigChange?(columnName: string, config: Record<string, unknown>): void;
 	onCardEdit(card: DashboardCard): void;
 	/** subpath is the raw `#heading` / `#^block` fragment of a wikilink, when present. */
 	onOpenNoteInPopover(this: void, file: TFile, subpath?: string): void;

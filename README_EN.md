@@ -56,7 +56,7 @@ A customizable banner with an inspirational quote and optional background image.
 Drag cards between sections to reorganize your workspace. Drag task items within Todo cards to reorder. Drag document links between project/note cards.
 
 ### 🧩 Custom Sections
-**14 section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Calendar**, **Weread**, **TickTick**, and **Web** — each with its own layout and behavior, so the board fits your workflow.
+**14 built-in section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Calendar**, **Weread**, **TickTick**, and **Web**. Other Obsidian plugins can register custom section renderers; see the [third-party section guide](CUSTOM_SECTIONS.md).
 
 ### 🕐 Recent Documents
 The sidebar shows recently edited files with relative timestamps, so you can jump back into your latest work.

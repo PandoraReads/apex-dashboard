@@ -21,6 +21,7 @@ import { applyModalTheme } from './modal-theme';
 import { partnerIndexOf } from './column-pairs';
 import { RATIO_SPAN, buildStackedSpanSpecs, resolveStackedSpans, isTieredWidgetKey } from './widget-span';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
+import { getSectionDefinition } from './section-registry';
 import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
 import { readTrackerData, computeStreak } from './tracker-service';
@@ -2245,7 +2246,43 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		saveCollapsedSections(app, collapsed);
 	});
 
-		const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
+	const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
+
+	const customDefinition = getSectionDefinition(sectionType);
+	if (customDefinition || /^[a-z0-9][a-z0-9.-]*:[a-z0-9][a-z0-9.-]*$/.test(sectionType)) {
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (event) => {
+			event.stopPropagation();
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
+		});
+
+		const body = el.createDiv({ cls: 'dashboard-custom-section' });
+		if (!customDefinition) {
+			body.createDiv({ cls: 'dashboard-library-empty', text: t('section.pluginUnavailable', { id: sectionType }) });
+			return el;
+		}
+
+		void Promise.resolve(customDefinition.render({
+			container: body,
+			column,
+			app,
+			config: column.extensionConfig ?? {},
+			setConfig: (config) => callbacks.onExtensionConfigChange?.(column.name, config),
+		})).then((cleanup) => {
+			if (typeof cleanup !== 'function') return;
+			if (!body.isConnected) cleanup();
+			else callbacks.onCustomSectionCleanup?.(column.name, cleanup);
+		}).catch((error: unknown) => {
+			console.error(`[apex-dashboard] custom section ${sectionType} failed`, error);
+			body.empty();
+			body.createDiv({ cls: 'dashboard-library-empty', text: t('section.renderFailed', { label: customDefinition.label }) });
+		});
+		return el;
+	}
 
 	// Sticky ("便利贴") sections mix memo and todo cards: they get the one-click
 	// archive button like todo sections, but NOT the task-template button — cards
