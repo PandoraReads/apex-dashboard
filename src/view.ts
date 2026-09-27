@@ -10,12 +10,12 @@ import { refreshCalendarSections } from './calendar-section';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
 import { refreshAlbumWidgets, destroyAlbumWidgets } from './album-widget';
-import { destroyAnniversaryTimers, parseAnniversaryDate, anniversaryDateThisYear } from './anniversary-widget';
+import { destroyAnniversaryTimers, parseAnniversaryDate, anniversaryDateThisYear, lunarAnniversaryThisYear, lunarYearsBetween } from './anniversary-widget';
 import { refreshMusicWidget } from './music-widget';
 import { getMusicService } from './music-service';
 import { getHabitService } from './habit-service';
 import { getExpenseService } from './expense-service';
-import { renderBanner, BannerEditModal, resolveVaultImage } from './banner';
+import { renderBanner, BannerEditModal, resolveVaultImage, applyBannerFocal } from './banner';
 import { renderWorkspaceSwitcher } from './workspace-switcher';
 import { refreshBannerStats } from './banner-stats';
 import { applyAppearance } from './appearance';
@@ -39,7 +39,7 @@ import { AddSectionModal } from './add-section-modal';
 import { WeatherConfigModal } from './weather-config-modal';
 import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal, folderResultToLibraryConfig } from './folder-config-modal';
-import { buildNewNoteProps, sectionNewNoteFolder, createNoteWithProps, pickFolderFromMenu } from './library-new-note';
+import { buildNewNoteProps, sectionNewNoteFolder, createNoteWithProps, pickFolderFromMenu, sectionTemplatePaths, pickTemplateFromMenu } from './library-new-note';
 import { NotesSectionConfigModal } from './notes-config-modal';
 import { DataviewConfigModal } from './dataview-config-modal';
 import { WebConfigModal } from './web-config-modal';
@@ -512,7 +512,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openWebConfigModal(columnName);
 			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
 				this.openMediaConfigModal(columnName);
-			} else if (col?.sectionType === 'notes' || col?.sectionType === 'projects') {
+			} else if (col?.sectionType === 'projects') {
 				this.openNotesSectionConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
@@ -818,6 +818,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				if (resolved) {
 					bannerEl.style.backgroundImage = `url("${resolved}")`;
 				}
+				applyBannerFocal(bannerEl, banner, images[imgIndex]!);
 
 				const rotateImage = () => {
 					this.bannerImageIndex = (this.bannerImageIndex + 1) % images.length;
@@ -830,6 +831,7 @@ export class DashboardView extends ItemView implements HoverParent {
 						if (nextResolved) {
 							bannerEl.style.backgroundImage = `url("${nextResolved}")`;
 						}
+						applyBannerFocal(bannerEl, banner, nextPath);
 						bannerEl.removeClass('dashboard-banner--fading');
 					}, 600);
 				};
@@ -1231,7 +1233,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
 			onTaskSaveToDaily: (card: DashboardCard) => this.saveTasksToDaily(card),
 			onDocAdd: (cardId: string, path: string) => this.sync.addDocToCard(cardId, path),
-			onCardNewNote: (cardId: string) => { void this.handleCardNewNote(cardId); },
+			onCardNewNote: (cardId: string, pos?: { x: number; y: number }) => { void this.handleCardNewNote(cardId, pos); },
 			onDocDelete: (cardId: string, docPath: number[]) => this.sync.deleteDoc(cardId, docPath),
 			onDocReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderDocs(cardId, fromPath, toPath, before),
 			onDocMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveDocToCard(srcCardId, fromPath, destCardId, destPath, mode),
@@ -1816,6 +1818,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		const libraryConfig = column?.libraryConfig;
 		const currentFolders = libraryConfig?.folders ?? [];
 		const currentTags = libraryConfig?.filters.find(f => f.property === 'tags')?.values ?? [];
+		// Non-tags filters feed the modal's property-filter section; the tags
+		// section owns the dedicated tags filter instead.
+		const currentPropertyFilters = (libraryConfig?.filters ?? []).filter(f => f.property !== 'tags');
 		const currentGroupBy = libraryConfig?.kanbanGroupBy;
 		const modal = new FolderConfigModal(
 			this.app,
@@ -1831,7 +1836,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			libraryConfig?.groupMode,
 			libraryConfig?.visibleProperties,
 			libraryConfig?.kanbanShowCovers,
-			libraryConfig?.templatePath,
+			sectionTemplatePaths(libraryConfig),
+			currentPropertyFilters,
 		);
 		modal.open();
 	}
@@ -1844,8 +1850,9 @@ export class DashboardView extends ItemView implements HoverParent {
 	/** Per-card "new note" (notes/projects sections): prompt for a title, create
 	 *  the note from the section's settings (template + save folder; vault root
 	 *  when no folder is configured), attach it to the card's doc list, and
-	 *  open it. */
-	private async handleCardNewNote(cardId: string): Promise<void> {
+	 *  open it. Several configured templates first offer a picker menu at the
+	 *  click point (dismissal falls back to the first entry). */
+	private async handleCardNewNote(cardId: string, pos?: { x: number; y: number }): Promise<void> {
 		if (this.cardNewNoteInFlight) return;
 		this.cardNewNoteInFlight = true;
 		try {
@@ -1858,7 +1865,12 @@ export class DashboardView extends ItemView implements HoverParent {
 			const { column, card } = found;
 
 			const folder = sectionNewNoteFolder(column.libraryConfig);
-			const templatePath = (column.libraryConfig?.templatePath ?? '').trim();
+			const templates = sectionTemplatePaths(column.libraryConfig);
+			let templatePath = templates[0];
+			if (templates.length > 1 && pos) {
+				// Menu dismissed without a pick: the documented default (first).
+				templatePath = (await pickTemplateFromMenu(templates, pos)) ?? templates[0];
+			}
 			const title = await showPromptDialog(this.app, {
 				title: t('quickNote.titlePrompt'),
 				placeholder: t('quickNote.titlePlaceholder'),
@@ -1891,8 +1903,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 	}
 
-	/** Notes (cover / no-cover) section settings: new-note template + save
-	 *  folder, persisted through the column's libraryConfig. */
+	/** Notes section settings: show covers, new-note templates + save folder.
+	 *  Templates/folder ride the column's libraryConfig; the cover toggle is
+	 *  the column's showCover field — both persist in one write. */
 	private openNotesSectionConfigModal(colName: string): void {
 		const column = this.data?.columns.find(col => col.name === colName);
 		if (!column) return;
@@ -1900,19 +1913,21 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new NotesSectionConfigModal(
 			this.app,
 			{
-				templatePath: config?.templatePath ?? '',
+				templatePaths: sectionTemplatePaths(config),
 				folder: (config?.folders ?? [])[0] ?? '',
+				showCover: column.showCover !== false,
 			},
 			(settings) => {
-				void this.sync.updateLibraryConfig(colName, {
+				void this.sync.updateNotesSectionConfig(colName, {
 					filters: [],
 					viewMode: 'grid',
 					sortBy: 'modified',
 					sortDesc: true,
 					...config,
-					templatePath: settings.templatePath || undefined,
+					templatePaths: settings.templatePaths.length > 0 ? settings.templatePaths : undefined,
+					templatePath: settings.templatePaths[0],
 					folders: settings.folder ? [settings.folder] : undefined,
-				});
+				}, settings.showCover);
 			},
 		);
 		modal.open();
@@ -1921,9 +1936,11 @@ export class DashboardView extends ItemView implements HoverParent {
 	/** Toolbar "new note": folder sections create inside their configured folder
 	 *  (menu when several); library sections create at settings.libraryNewNotePath
 	 *  with the section's property filters pre-filled so the note matches them.
-	 *  A library section with hand-authored scan folders (dashboard-file YAML)
-	 *  follows the folder branch — queryVaultFiles scopes its results to those
-	 *  folders, so the global path would hide the note.
+	 *  Several configured templates offer a picker menu at the click point
+	 *  (dismissal falls back to the first entry). A library section with
+	 *  hand-authored scan folders (dashboard-file YAML) follows the folder
+	 *  branch — queryVaultFiles scopes its results to those folders, so the
+	 *  global path would hide the note.
 	 *  The section refresh rides the vault-'create' debounce (registerVaultListeners
 	 *  → flushVaultRefresh → refreshSectionsFor) — an inline refresh could beat
 	 *  metadataCache indexing and briefly render the section without the new
@@ -1955,6 +1972,14 @@ export class DashboardView extends ItemView implements HoverParent {
 				folder = this.plugin.settings.libraryNewNotePath.trim().replace(/^\/+|\/+$/g, '');
 			}
 
+			// Template picker: only when several are configured. Dismissed
+			// without a pick → the documented default (first entry).
+			const templates = sectionTemplatePaths(column.libraryConfig);
+			let templatePath = templates[0];
+			if (templates.length > 1 && pos) {
+				templatePath = (await pickTemplateFromMenu(templates, pos)) ?? templates[0];
+			}
+
 			const title = await showPromptDialog(this.app, {
 				title: t('quickNote.titlePrompt'),
 				placeholder: t('quickNote.titlePlaceholder'),
@@ -1963,7 +1988,6 @@ export class DashboardView extends ItemView implements HoverParent {
 
 			const { props, skipped } = buildNewNoteProps(column.libraryConfig);
 			try {
-				const templatePath = (column.libraryConfig?.templatePath ?? '').trim();
 				let file: TFile;
 				try {
 					file = await createNoteWithProps(this.app, folder, title, props, templatePath || undefined);
@@ -2609,7 +2633,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Anniversary reminders: fire once a year on the entry's month/day
 		// (outside the columns loop — a per-column placement would just repeat
 		// the same guarded check). Feb 29 entries roll to Mar 1 in common
-		// years via the Date overflow in anniversaryDateThisYear.
+		// years via the Date overflow in anniversaryDateThisYear. Lunar
+		// entries fire on the lunar anniversary's solar date this year (it
+		// drifts through the Gregorian calendar), counted in lunar years.
 		if (this.plugin.settings.anniversaryEnabled) {
 			for (const av of this.plugin.settings.anniversaries ?? []) {
 				if (!av.annualReminder || !av.startDate) continue;
@@ -2617,13 +2643,16 @@ export class DashboardView extends ItemView implements HoverParent {
 				if (this.firedReminders.has(avKey)) continue;
 				const start = parseAnniversaryDate(av.startDate);
 				if (!start) continue;
-				const today = anniversaryDateThisYear(start, now);
+				const lunar = av.calendar === 'lunar';
+				const today = lunar ? lunarAnniversaryThisYear(start, now) : anniversaryDateThisYear(start, now);
 				if (now.getFullYear() === today.getFullYear()
 					&& now.getMonth() === today.getMonth()
 					&& now.getDate() === today.getDate()) {
 					this.firedReminders.add(avKey);
 					const label = av.label || av.startDate;
-					const years = String(now.getFullYear() - start.getFullYear());
+					const years = lunar
+						? String(lunarYearsBetween(start, now) ?? (now.getFullYear() - start.getFullYear()))
+						: String(now.getFullYear() - start.getFullYear());
 					new Notice(t('anniversary.reminderNotice', { label, years }));
 				}
 			}

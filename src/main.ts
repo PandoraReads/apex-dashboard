@@ -367,6 +367,7 @@ export default class DashboardPlugin extends Plugin {
 					id: 'av-default',
 					label: t('defaults.anniversaryLabel'),
 					startDate: oneYearAgoIso(),
+					calendar: 'solar' as const,
 					precision: 'ymd' as const,
 					annualReminder: false,
 					background: {

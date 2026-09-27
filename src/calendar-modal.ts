@@ -2,15 +2,18 @@ import { App, Menu, Modal, Notice, setIcon } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { t } from './i18n';
 import { renderTextWithLinks } from './renderer';
-import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskDayTime, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
+import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskDayTimeRange, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
 import {
 	CALENDAR_TASK_FILTERS,
 	filterTasksByDay,
 	toIsoDate,
+	buildTaskLine,
 	type CalendarTaskFilter,
+	type TaskTimeInput,
 	type VaultTask,
 } from './alltasks-scan';
 import { insertTaskForDay, type TaskInsertTarget } from './daily-notes';
+import { createTaskNote } from './calendar-task-note';
 import { applyModalTheme } from './modal-theme';
 import type { DashboardSettings } from './types';
 
@@ -48,16 +51,16 @@ export function writeCalendarTaskFilter(app: App, filter: CalendarTaskFilter): v
 	void plugin.saveSettings?.();
 }
 
-/** Where calendar-added tasks land in the daily note; anything but 'end'
- *  (including an unreachable plugin) keeps the historical 'start' behavior. */
 /** User-pinned destination override (undefined = the daily-note chain). */
 function readTaskTarget(app: App): import('./types').CalendarTaskTarget | undefined {
 	const target = lookupDashboardPlugin(app)?.settings?.calendarTaskTarget;
-	return target && target.path?.trim() && (target.kind === 'file' || target.kind === 'folder')
+	return target && target.path?.trim() && (target.kind === 'file' || target.kind === 'folder' || target.kind === 'note')
 		? target
 		: undefined;
 }
 
+/** Where calendar-added tasks land in the day's note; anything but 'end'
+ *  (including an unreachable plugin) keeps the historical 'start' behavior. */
 function readTaskInsertPosition(app: App): 'start' | 'end' {
 	return lookupDashboardPlugin(app)?.settings?.calendarTaskInsertPosition === 'end' ? 'end' : 'start';
 }
@@ -293,25 +296,40 @@ export class DayAgendaModal extends Modal {
 		// Add-task row: optional time (HH:MM) + title + Add. Goes into this
 		// day's daily note (top or bottom, per the calendar setting), else —
 		// when that day has no note yet (e.g. a future date) — into today's
-		// daily note, the ⏰/📅 marker keeping the task on this calendar day;
+		// daily note, the date markers keeping the task on its calendar days;
 		// see insertTaskForDay.
 		const addRow = body.createDiv({ cls: 'dashboard-cal-day-add' });
-		const timeInput = addRow.createEl('input', {
-			cls: 'dashboard-modal-input dashboard-cal-day-add-time',
-			attr: { type: 'time', 'aria-label': t('calendar.taskTime') },
-		});
 		const titleInput = addRow.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-cal-day-add-title',
 			attr: { type: 'text', placeholder: t('calendar.addTaskPlaceholder') },
 		});
+		// Optional time groups: start / deadline / scheduled, each date+time.
+		// A time-only group anchors to this day; leave all empty for a plain
+		// date-only task on this day. buildTaskLine assembles the markers.
+		const timesRow = body.createDiv({ cls: 'dashboard-cal-day-times' });
+		const groups: Array<{ key: 'start' | 'due' | 'scheduled'; date: HTMLInputElement; time: HTMLInputElement }> = [];
+		for (const key of ['start', 'due', 'scheduled'] as const) {
+			const group = timesRow.createDiv({ cls: 'dashboard-cal-day-times-group' });
+			group.createDiv({ cls: 'dashboard-cal-day-times-label', text: t(`calendar.taskTime.${key}`) });
+			const date = group.createEl('input', {
+				cls: 'dashboard-modal-input dashboard-cal-day-times-date',
+				attr: { type: 'date', 'aria-label': `${t(`calendar.taskTime.${key}`)} · ${t('calendar.taskDate')}` },
+			});
+			const time = group.createEl('input', {
+				cls: 'dashboard-modal-input dashboard-cal-day-times-time',
+				attr: { type: 'time', 'aria-label': `${t(`calendar.taskTime.${key}`)} · ${t('calendar.taskTime')}` },
+			});
+			groups.push({ key, date, time });
+		}
+		const addTask = (): Promise<void> => this.addTask(titleInput, groups);
 		titleInput.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') { e.preventDefault(); void this.addTask(titleInput, timeInput); }
+			if (e.key === 'Enter') { e.preventDefault(); void addTask(); }
 		});
 		const addBtn = addRow.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm dashboard-cal-day-add-btn',
 			text: t('calendar.addTask'),
 		});
-		addBtn.addEventListener('click', () => void this.addTask(titleInput, timeInput));
+		addBtn.addEventListener('click', () => void addTask());
 
 		if (this.tasks.length === 0) {
 			body.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
@@ -338,7 +356,7 @@ export class DayAgendaModal extends Modal {
 		check.checked = task.checked;
 		check.addEventListener('click', (e) => { e.preventDefault(); void this.toggle(task, !task.checked); });
 
-		const tm = taskDayTime(task, this.iso);
+		const tm = taskDayTimeRange(task, this.iso);
 		if (tm) row.createDiv({ cls: 'dashboard-calendar-event-time', text: tm });
 		appendDayOriginMark(row, task, this.iso);
 
@@ -368,23 +386,45 @@ export class DayAgendaModal extends Modal {
 		return row;
 	}
 
-	/** Add the entered task (optional time + title) for this day: into the day's
-	 *  daily note — top or bottom, per the calendar widget setting — or, when
-	 *  that day has no note yet (e.g. a future date), into today's daily note,
-	 *  the line's ⏰/📅 marker keeping it on this calendar day. */
-	private async addTask(titleInput: HTMLInputElement, timeInput: HTMLInputElement): Promise<void> {
+	/** Add the entered task for this day. Time groups (start / deadline /
+	 *  scheduled, each an optional date + time) become [start::]/[due::]/
+	 *  [scheduled::] markers — a time-only group anchors to this day, and a
+	 *  task with no group keeps the date-only 📅 anchor here. Destination per
+	 *  the calendar settings (default daily-note chain / pinned file or
+	 *  folder / a new note per task). */
+	private async addTask(
+		titleInput: HTMLInputElement,
+		groups: Array<{ key: 'start' | 'due' | 'scheduled'; date: HTMLInputElement; time: HTMLInputElement }>,
+	): Promise<void> {
 		const title = titleInput.value.trim();
 		if (!title) return;
-		const time = timeInput.value; // '' or 'HH:MM'
-		const reminder = time ? `${this.iso} ${time}` : undefined;
-		// Timed tasks use the plugin's ⏰ reminder; date-only tasks use 📅 so they
-		// still land on this calendar day (a task with no date marker wouldn't
-		// be calendar-relevant and would never show up).
-		const line = reminder ? `- [ ] ${title} ⏰ ${reminder}` : `- [ ] ${title} 📅 ${this.iso}`;
+		const times: { start?: TaskTimeInput; due?: TaskTimeInput; scheduled?: TaskTimeInput } = {};
+		for (const g of groups) {
+			times[g.key] = { date: g.date.value, time: g.time.value };
+		}
+		const line = buildTaskLine(title, this.iso, times);
 
 		let target: TaskInsertTarget | null = null;
 		try {
-			target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app), readTaskTarget(this.app));
+			// 'note' target: every task gets its own brand-new note (optionally
+			// template-seeded); the file/folder/default kinds go through the
+			// shared daily-note chain.
+			const targetCfg = readTaskTarget(this.app);
+			if (targetCfg?.kind === 'note') {
+				const res = await createTaskNote(this.app, {
+					iso: this.iso,
+					taskLine: line,
+					folder: targetCfg.path,
+					templatePath: targetCfg.templatePath,
+					untitled: t('calendar.taskUntitled'),
+				});
+				if (res.templateMissing) {
+					new Notice(t('calendar.taskNoteTemplateMissing'), 4000);
+				}
+				target = res;
+			} else {
+				target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app), targetCfg);
+			}
 		} catch (err) {
 			console.error('[Dashboard] add task failed:', err);
 			new Notice(t('calendar.taskAddFailed'), 4000);
@@ -395,19 +435,40 @@ export class DayAgendaModal extends Modal {
 			return;
 		}
 		new Notice(t(
-			target.kind === 'dashboard-list' ? 'calendar.taskAddedDashboard' : 'calendar.taskAddedDaily',
+			target.kind === 'dashboard-list' ? 'calendar.taskAddedDashboard'
+				: target.kind === 'note-created' ? 'calendar.taskAddedNote'
+					: 'calendar.taskAddedDaily',
 			{ path: target.file.path },
 		), 3000);
 
 		// Optimistic: show the new task immediately at its time slot. The
 		// calendar section also re-scans automatically on the vault write event.
-		this.tasks = [...this.tasks, {
-			file: target.file, path: target.file.path, line: target.line, originalLine: target.writtenLine, checked: false,
-			text: title, reminder, due: this.iso, time: time || undefined,
-			priority: undefined, mtime: Date.now(), ctime: Date.now(),
-		}].sort(byDayTaskTime(this.iso));
+		// The row mirrors what scanFileTasks will parse back from the line; a
+		// task anchored entirely to OTHER days (cross-day groups) shows there,
+		// not in this agenda, so it is not appended here.
+		const groupDates = (key: 'start' | 'due' | 'scheduled'): { date?: string; time?: string } => {
+			const g = groups.find(entry => entry.key === key);
+			if (!g) return {};
+			return { date: g.date.value.trim() || (g.time.value.trim() ? this.iso : undefined), time: g.time.value.trim() || undefined };
+		};
+		const start = groupDates('start');
+		const due = groupDates('due');
+		const scheduled = groupDates('scheduled');
+		const anchoredHere = (!start.date && !due.date && !scheduled.date)
+			|| start.date === this.iso || due.date === this.iso || scheduled.date === this.iso;
+		if (anchoredHere) {
+			this.tasks = [...this.tasks, {
+				file: target.file, path: target.file.path, line: target.line, originalLine: target.writtenLine, checked: false,
+				text: title,
+				start: start.date, due: due.date ?? (!start.date && !scheduled.date ? this.iso : undefined),
+				scheduled: scheduled.date, scheduledTime: scheduled.time,
+				time: start.time ?? due.time,
+				endTime: due.time && start.date && due.date === start.date ? due.time : undefined,
+				priority: undefined, mtime: Date.now(), ctime: Date.now(),
+			}].sort(byDayTaskTime(this.iso));
+		}
 		titleInput.value = '';
-		timeInput.value = '';
+		for (const g of groups) { g.date.value = ''; g.time.value = ''; }
 		this.onOpen();
 	}
 

@@ -2,20 +2,25 @@ import { Modal } from 'obsidian';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { PathPickerModal } from './path-picker-modal';
+import { TemplateFilesEditor } from './template-files-editor';
 
-/** Per-section new-note settings as edited by {@link NotesSectionConfigModal}.
- *  Empty strings mean "unset" (bare note / vault root). */
+/** Per-section settings as edited by {@link NotesSectionConfigModal}.
+ *  Empty strings / arrays mean "unset" (bare note / vault root). */
 export interface NotesSectionSettings {
-	templatePath: string;
+	templatePaths: string[];
 	folder: string;
+	/** Cover strip on cards, default on (the retired standalone no-cover
+	 *  section type survives as this toggle switched off). */
+	showCover: boolean;
 }
 
 /**
- * Section settings for notes (cover) and notes (no-cover) sections: the
+ * Section settings for notes sections: whether cards show covers, the
  * template applied to notes created from the section's cards, and the folder
- * they are saved into (vault root when unset). Persisted through the column's
- * libraryConfig (templatePath + folders[0]) so the existing sync/parser
- * plumbing round-trips it.
+ * they are saved into (vault root when unset). Templates + folder persist
+ * through the column's libraryConfig (templatePaths + folders[0]) so the
+ * existing sync/parser plumbing round-trips them; showCover is a column
+ * field (see updateNotesSectionConfig).
  */
 export class NotesSectionConfigModal extends Modal {
 	private readonly cfg: NotesSectionSettings;
@@ -45,27 +50,23 @@ export class NotesSectionConfigModal extends Modal {
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
-		// New-note template (vault file; body + non-conflicting frontmatter seed
-		// the created note).
+		// Show covers: off reproduces the retired 无封面 section look.
+		const coversRow = body.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		const coversBox = coversRow.createEl('input', {
+			cls: 'dashboard-library-config-checkbox',
+			attr: { type: 'checkbox' },
+		});
+		coversBox.checked = this.cfg.showCover;
+		coversBox.addEventListener('change', () => { this.cfg.showCover = coversBox.checked; });
+		coversRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('notesCfg.showCover') });
+
+		// New-note templates (vault files; body + non-conflicting frontmatter
+		// seed the created note). Several entries turn the card's new-note
+		// button into a template picker (first entry = default).
 		const tplSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		tplSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.newNoteTemplate') });
 		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('notesCfg.templateHint') });
-		const tplRow = tplSection.createDiv({ cls: 'dashboard-media-folder-input-row' });
-		const tplInput = tplRow.createEl('input', {
-			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: 'Templates/note.md' },
-		});
-		tplInput.value = this.cfg.templatePath;
-		tplRow.createEl('button', {
-			cls: 'dashboard-media-folder-browse',
-			text: t('folder.browse'),
-		}).addEventListener('click', () => {
-			new PathPickerModal(this.app, 'file', (path) => {
-				this.cfg.templatePath = path;
-				tplInput.value = path;
-			}).open();
-		});
-		tplInput.addEventListener('change', () => { this.cfg.templatePath = tplInput.value.trim(); });
+		const tplEditor = new TemplateFilesEditor(this.app, tplSection, this.cfg.templatePaths);
 
 		// Save folder (created when missing; vault root when unset).
 		const folderSection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -97,10 +98,11 @@ export class NotesSectionConfigModal extends Modal {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
 		}).addEventListener('click', () => {
-			// Inputs are authoritative (the browse picker writes into them too).
+			// Editors are authoritative (the browse picker writes into them too).
 			this.onSave({
-				templatePath: tplInput.value.trim(),
+				templatePaths: tplEditor.value,
 				folder: folderInput.value.trim(),
+				showCover: this.cfg.showCover,
 			});
 			this.close();
 		});

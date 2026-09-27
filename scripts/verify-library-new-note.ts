@@ -415,7 +415,7 @@ async function main(): Promise<void> {
 	}
 
 	// REGRESSION (folder sections): the config saved after FolderConfigModal
-	// must carry the modal's templatePath. The previous inline merge in view.ts
+	// must carry the modal's templates. The previous inline merge in view.ts
 	// omitted it, so a template picked in a folder section's settings was
 	// silently dropped and new notes never used it.
 	const folderResult = (over: Partial<Parameters<typeof folderResultToLibraryConfig>[1]> = {}) =>
@@ -423,13 +423,14 @@ async function main(): Promise<void> {
 			folders: ['00_inbox'],
 			excludeFolders: [],
 			tags: ['lme'],
+			propertyFilters: [],
 			groupBy: undefined,
 			groupMode: 'property' as const,
 			kanbanShowCovers: false,
 			showProperties: true,
 			propertyLimit: 4,
 			visibleProperties: undefined,
-			templatePath: 'Templates/note.md',
+			templatePaths: ['Templates/note.md'],
 			...over,
 		});
 	{
@@ -441,21 +442,45 @@ async function main(): Promise<void> {
 			folders: ['old'],
 			pageSize: 20,
 		};
-		const saved = folderResultToLibraryConfig(base, folderResult());
-		assert.equal(saved.templatePath, 'Templates/note.md', 'templatePath survives the folder-config save');
+		// The modal's property-filter editor owns non-tags filters: when the
+		// modal carries them (opened on an existing config), they round-trip
+		// ahead of the tags filter.
+		const saved = folderResultToLibraryConfig(base, folderResult({
+			propertyFilters: [{ property: 'status', values: ['进行中'] }],
+		}));
+		assert.deepEqual(saved.templatePaths, ['Templates/note.md'], 'templatePaths survives the folder-config save');
+		assert.equal(saved.templatePath, 'Templates/note.md', 'legacy templatePath mirrors the first entry');
 		assert.equal(saved.pageSize, 20, 'base-only fields (pageSize) preserved');
 		assert.deepEqual(saved.folders, ['00_inbox'], 'folders updated from the modal');
-		assert.deepEqual(saved.filters.map(f => f.property), ['status', 'tags'], 'tags filter appended');
+		assert.deepEqual(saved.filters.map(f => f.property), ['status', 'tags'], 'property filters lead, tags filter appended');
 
-		const cleared = folderResultToLibraryConfig(saved, folderResult({ templatePath: undefined }));
-		assert.equal(cleared.templatePath, undefined, 'clearing the template in the modal clears it');
+		// An empty editor clears the config's non-tags filters — the same
+		// authority contract as every other modal-managed field.
+		const clearedFilters = folderResultToLibraryConfig(saved, folderResult());
+		assert.deepEqual(clearedFilters.filters.map(f => f.property), ['tags'], 'empty property-filter editor clears non-tags filters');
 
-		const first = folderResultToLibraryConfig(undefined, folderResult({ templatePath: 'T.md' }));
+		const cleared = folderResultToLibraryConfig(saved, folderResult({ templatePaths: [] }));
+		assert.equal(cleared.templatePaths, undefined, 'clearing the templates in the modal clears them');
+		assert.equal(cleared.templatePath, undefined, 'the legacy mirror clears too');
+
+		const first = folderResultToLibraryConfig(undefined, folderResult({ templatePaths: ['T.md', 'U.md'] }));
 		assert.equal(first.viewMode, 'grid', 'first-time save fills required defaults');
-		assert.equal(first.templatePath, 'T.md', 'first-time save keeps the template');
+		assert.deepEqual(first.templatePaths, ['T.md', 'U.md'], 'first-time save keeps every template');
+		assert.equal(first.templatePath, 'T.md', 'first entry mirrors into the legacy key');
 	}
 
-	// Parser round-trip: templatePath persists through serialize → parse.
+	// sectionTemplatePaths: multi form wins, legacy single upgrades, entries
+	// trim + de-duplicate case-insensitively in order.
+	{
+		const { sectionTemplatePaths } = await import('../src/library-new-note');
+		assert.deepEqual(sectionTemplatePaths({ filters: [], viewMode: 'grid', sortBy: 'modified', sortDesc: true, templatePaths: [' A.md ', 'a.md', 'B.md'] }), ['A.md', 'B.md'], 'trims and de-dupes case-insensitively');
+		assert.deepEqual(sectionTemplatePaths({ filters: [], viewMode: 'grid', sortBy: 'modified', sortDesc: true, templatePath: 'legacy.md' }), ['legacy.md'], 'legacy single template upgrades into the list');
+		assert.deepEqual(sectionTemplatePaths({ filters: [], viewMode: 'grid', sortBy: 'modified', sortDesc: true }), [], 'no templates configured = empty list');
+	}
+
+	// Parser round-trip: templates persist through serialize → parse, the
+	// legacy single key upgrades, and serializing a list mirrors its first
+	// entry back into the legacy key (older plugin versions keep working).
 	{
 		const md = [
 			'---',
@@ -474,8 +499,19 @@ async function main(): Promise<void> {
 		].join('\n');
 		const parsed = parse(md).columns[0]!.libraryConfig!;
 		assert.equal(parsed.templatePath, 'Templates/note.md', 'templatePath parses out of the library block');
+		assert.deepEqual(parsed.templatePaths, ['Templates/note.md'], 'legacy templatePath upgrades into templatePaths');
 		const round = parse(serialize({ ...parse(md), columns: parse(md).columns })).columns[0]!.libraryConfig!;
-		assert.equal(round.templatePath, 'Templates/note.md', 'templatePath survives the serialize round-trip');
+		assert.deepEqual(round.templatePaths, ['Templates/note.md'], 'templatePaths survives the serialize round-trip');
+		assert.equal(round.templatePath, 'Templates/note.md', 'legacy key mirrors the first entry after round-trip');
+
+		const multi = parse(serialize({
+			...parse(md),
+			columns: parse(md).columns.map(col => col.libraryConfig
+				? { ...col, libraryConfig: { ...col.libraryConfig, templatePaths: ['T1.md', 'T2.md', 'T3.md'] } }
+				: col),
+		})).columns[0]!.libraryConfig!;
+		assert.deepEqual(multi.templatePaths, ['T1.md', 'T2.md', 'T3.md'], 'every template survives the round-trip');
+		assert.equal(multi.templatePath, 'T1.md', 'the legacy key mirrors the first entry');
 	}
 
 	console.log('template pipeline + folder-config regression: PASS');

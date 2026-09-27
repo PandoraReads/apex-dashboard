@@ -2,18 +2,21 @@ import { App, Modal, setIcon } from 'obsidian';
 import type { DashboardCard } from './types';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
+import { FocalPointPicker, isCenterFocal } from './focal-point-picker';
 
 export class CardEditModal extends Modal {
 	private card: DashboardCard;
-	private onSave: (updates: { title: string; body: string; coverImage: string }) => void;
+	private onSave: (updates: { title: string; body: string; coverImage: string; coverPos?: { x: number; y: number } }) => void;
 	private linkedPaths: string[];
 	private coverImageValue: string;
+	/** Cover focal-point draft (50/50 = center = unset). */
+	private coverPosValue: { x: number; y: number };
 	private pendingPaths: Set<string> = new Set();
 
 	constructor(
 		app: App,
 		card: DashboardCard,
-		onSave: (updates: { title: string; body: string; coverImage: string }) => void,
+		onSave: (updates: { title: string; body: string; coverImage: string; coverPos?: { x: number; y: number } }) => void,
 	) {
 		super(app);
 		this.card = card;
@@ -25,6 +28,7 @@ export class CardEditModal extends Modal {
 			.map(line => line.slice(2, -2));
 
 		this.coverImageValue = card.coverImage || '';
+		this.coverPosValue = { ...(card.coverPos ?? { x: 50, y: 50 }) };
 	}
 
 	onOpen(): void {
@@ -57,6 +61,19 @@ export class CardEditModal extends Modal {
 			attr: { type: 'text', placeholder: t('cardEdit.coverImagePlaceholder') },
 		});
 		coverInput.value = this.coverImageValue;
+
+		// Cover focal point: drag inside the preview to pick which part of the
+		// image the cover's crop shows (方案 B); center = the historical default.
+		const coverPicker = new FocalPointPicker(this.app, coverField, {
+			path: this.coverImageValue,
+			ratio: 3,
+			value: this.coverPosValue,
+			onChange: (pos) => { this.coverPosValue = pos; },
+		});
+		coverInput.addEventListener('input', () => {
+			this.coverImageValue = coverInput.value;
+			coverPicker.setPath(coverInput.value);
+		});
 
 		const docsField = form.createDiv();
 		docsField.createEl('label', { text: t('cardEdit.linkedDocs') });
@@ -190,10 +207,16 @@ export class CardEditModal extends Modal {
 		});
 		saveBtn.addEventListener('click', () => {
 			const body = this.linkedPaths.map(p => `[[${p}]]`).join('\n');
+			const coverImage = coverInput.value.trim();
 			this.onSave({
 				title: titleInput.value.trim() || this.card.title,
 				body,
-				coverImage: coverInput.value.trim(),
+				coverImage,
+				// Center (or a cleared cover) needs no persisted entry; an
+				// explicit undefined also clears a previously saved position.
+				coverPos: coverImage && !isCenterFocal(this.coverPosValue)
+					? { ...this.coverPosValue }
+					: undefined,
 			});
 			this.close();
 		});

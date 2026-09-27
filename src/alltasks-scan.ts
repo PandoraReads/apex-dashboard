@@ -175,10 +175,15 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 			text = text.replace(COMPLETION_FIELD_REGEX, '').replace(COMPLETION_EMOJI_REGEX, '');
 		}
 
-		// Time-of-day (for the calendar week time-grid): start time from ⏰ / due
-		// / start (whichever carries HH:MM), end time from [end::].
-		const time = hhmm(reminder) ?? hhmm(df?.[1]) ?? hhmm(sf?.[1]);
-		const endTime = hhmm(ef?.[1]);
+		// Time-of-day (for the calendar week time-grid): a START time wins when
+		// present (the block sits at the task's start, not its deadline), then
+		// ⏰, then a due field's time.
+		const time = hhmm(sf?.[1]) ?? hhmm(reminder) ?? hhmm(df?.[1]);
+		// End time from [end::]; a due/⏰ time landing on the START's own day
+		// also closes the block there (a 10:00→18:00 same-day window).
+		const dueCarriedTime = hhmm(reminder) ?? hhmm(df?.[1]);
+		const endTime = hhmm(ef?.[1])
+			?? (due && start && due === start ? dueCarriedTime : undefined);
 
 		out.push({
 			file,
@@ -548,4 +553,49 @@ export function filterTasksByDay(
 		if (kept.length > 0) out.set(iso, kept);
 	}
 	return out;
+}
+
+/* ------------------------- task line building ------------------------- */
+
+/** One optional time group of the calendar add-task form: a date
+ *  (YYYY-MM-DD), a time-of-day (HH:MM), or both. An empty group (no date, no
+ *  time) writes no marker at all. */
+export interface TaskTimeInput {
+	date?: string;
+	time?: string;
+}
+
+/** Normalize one group into a `YYYY-MM-DD( HH:MM)` marker value; undefined
+ *  when the group is empty. A time-only group anchors to `dayIso`. */
+function markerValue(input: TaskTimeInput | undefined, dayIso: string): string | undefined {
+	if (!input) return undefined;
+	const date = (input.date ?? '').trim();
+	const time = (input.time ?? '').trim();
+	if (!date && !time) return undefined;
+	return `${date || dayIso}${time ? ` ${time}` : ''}`;
+}
+
+/**
+ * Assemble the checkbox line the calendar's add-task form writes:
+ * `- [ ] <title>` plus `[start:: …]` / `[due:: …]` / `[scheduled:: …]`
+ * markers for every non-empty group, in that order. Field forms (not the
+ * 🛫/⏳/📅 emoji) because only they carry a time-of-day.
+ *
+ * A task with NO group keeps the historical date-only anchor `📅 <dayIso>`
+ * so it still lands on the clicked calendar day.
+ */
+export function buildTaskLine(
+	title: string,
+	dayIso: string,
+	times: { start?: TaskTimeInput; due?: TaskTimeInput; scheduled?: TaskTimeInput },
+): string {
+	const parts: string[] = [];
+	const start = markerValue(times.start, dayIso);
+	const due = markerValue(times.due, dayIso);
+	const scheduled = markerValue(times.scheduled, dayIso);
+	if (start) parts.push(`[start:: ${start}]`);
+	if (due) parts.push(`[due:: ${due}]`);
+	if (scheduled) parts.push(`[scheduled:: ${scheduled}]`);
+	if (parts.length === 0) parts.push(`📅 ${dayIso}`);
+	return `- [ ] ${title} ${parts.join(' ')}`;
 }

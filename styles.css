@@ -144,12 +144,11 @@
 }
 
 /* --- Per-section pony hues (dark): each section type gets its own Mane-Six
-   color. memo=Pinkie, sticky=Rarity lavender, todo=Applejack, notes=Fluttershy,
+   color. memo=Pinkie, sticky=Rarity lavender, todo=Applejack,
    projects=Rainbow Dash, library=Twilight; the rest round out the rainbow. --- */
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="memo"] { --db-sec-hue: #ff5fb0; --db-sec-glow: rgba(255, 95, 176, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #c084fc; --db-sec-glow: rgba(192, 132, 252, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="todo"] { --db-sec-hue: #ffb03a; --db-sec-glow: rgba(255, 176, 58, 0.16); }
-.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="notes"] { --db-sec-hue: #ffdf5e; --db-sec-glow: rgba(255, 223, 94, 0.15); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #40b5ff; --db-sec-glow: rgba(64, 181, 255, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #a06bff; --db-sec-glow: rgba(160, 107, 255, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #2fd6b5; --db-sec-glow: rgba(47, 214, 181, 0.16); }
@@ -166,7 +165,6 @@
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="memo"] { --db-sec-hue: #e0218a; --db-sec-glow: rgba(224, 33, 138, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #a21caf; --db-sec-glow: rgba(162, 28, 175, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="todo"] { --db-sec-hue: #d97706; --db-sec-glow: rgba(217, 119, 6, 0.14); }
-.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="notes"] { --db-sec-hue: #ca8a04; --db-sec-glow: rgba(202, 138, 4, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #0369a1; --db-sec-glow: rgba(3, 105, 161, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #7c3aed; --db-sec-glow: rgba(124, 58, 237, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #0d9488; --db-sec-glow: rgba(13, 148, 136, 0.14); }
@@ -3826,6 +3824,32 @@
 .dashboard-sidebar-anniversary-date {
 	font-size: 0.68em;
 	color: var(--db-text-muted);
+}
+
+/* Anniversary modal — lunar date entry: year input + month/day selects in one
+   tight row inside the Setting's control area. Only one of the solar / lunar
+   date rows is visible at a time (toggled with .is-hidden). */
+.dashboard-anniversary-solar-setting.is-hidden,
+.dashboard-anniversary-lunar-setting.is-hidden {
+	display: none;
+}
+
+.dashboard-anniversary-lunar-setting .setting-item-control {
+	justify-content: flex-end;
+}
+
+.dashboard-anniversary-lunar-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dashboard-anniversary-lunar-year {
+	width: 72px;
+}
+
+.dashboard-anniversary-lunar-select {
+	min-width: 0;
 }
 
 .dashboard-sidebar-countdown-until {
@@ -9827,6 +9851,8 @@
 .is-tablet button.dashboard-quicknote-cfg-icon-btn,
 .is-tablet button.dashboard-quicknote-cfg-del,
 .is-tablet button.dashboard-library-table-delete,
+.is-tablet button.dashboard-library-card-delete,
+.is-tablet button.dashboard-focal-picker-reset,
 .is-tablet button.dashboard-media-delete,
 .is-tablet button.dashboard-media-icon-btn,
 .is-tablet button.dashboard-weread-cfg-op,
@@ -10292,7 +10318,6 @@
 	}
 }
 
-.dashboard-section-row[data-section-type="notes"],
 .dashboard-section-row[data-section-type="projects"] {
 	max-height: none;
 }
@@ -10374,10 +10399,6 @@
 
 .dashboard-section-row[data-section-type="projects"] .dashboard-section-toggle::before {
 	border-top-color: #10b981;
-}
-
-.dashboard-section-row[data-section-type="notes"] .dashboard-section-toggle::before {
-	border-top-color: #8b5cf6;
 }
 
 .dashboard-section-row--collapsed > .dashboard-section-header .dashboard-section-toggle {
@@ -10615,7 +10636,6 @@
 }
 
 /* Notes, Memo, Todo, Sticky & Projects: horizontal scroll, no wrap */
-.dashboard-section-row[data-section-type="notes"] .dashboard-section-cards,
 .dashboard-section-row[data-section-type="memo"] .dashboard-section-cards,
 .dashboard-section-row[data-section-type="todo"] .dashboard-section-cards,
 .dashboard-section-row[data-section-type="sticky"] .dashboard-section-cards,
@@ -10625,8 +10645,7 @@
 	scrollbar-width: thin;
 }
 
-/* Notes (no cover) & Projects: fixed card width, overflow scrolls horizontally */
-.dashboard-section-row[data-section-type="notes"] .dashboard-section-cards > .dashboard-card,
+/* Notes & Projects: fixed card width, overflow scrolls horizontally */
 .dashboard-section-row[data-section-type="projects"] .dashboard-section-cards > .dashboard-card {
 	flex: 0 0 280px;
 	min-width: 200px;
@@ -12111,6 +12130,13 @@
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	/* The focal-point picker wraps onto its own full-width line below. */
+	flex-wrap: wrap;
+}
+
+.dashboard-modal-image-focal {
+	flex-basis: 100%;
+	min-width: 0;
 }
 
 .dashboard-modal-image-input {
@@ -12140,6 +12166,87 @@
 
 .dashboard-modal-image-delete:hover {
 	color: var(--db-danger, #ef4444) !important;
+}
+
+/* ===== Focal-point picker (banner + card-cover config modals, 方案 B) =====
+   A cover-cropped preview at the target's approximate aspect ratio; the
+   crosshair marks the focal point (where the image's picked point lands in
+   the crop). Drag anywhere inside via pointer events — touch included, with
+   touch-action: none so the drag never scrolls the modal. */
+.dashboard-focal-picker {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	margin: 2px 0 4px;
+}
+
+.dashboard-focal-picker-box {
+	flex: 1;
+	min-width: 0;
+	position: relative;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card, rgba(127, 127, 127, 0.15));
+	background-color: var(--db-bg-card-hover, rgba(127, 127, 127, 0.1));
+	background-size: cover;
+	background-position: center;
+	cursor: crosshair;
+	overflow: hidden;
+	touch-action: none;
+}
+
+.dashboard-focal-picker-box--dragging {
+	cursor: grabbing;
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+/* No/invalid path: a quiet disabled strip instead of an image. */
+.dashboard-focal-picker-box--empty {
+	cursor: default;
+	opacity: 0.55;
+}
+
+.dashboard-focal-picker-marker {
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	border: 2px solid #fff;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
+	pointer-events: none;
+}
+
+.dashboard-focal-picker-marker::after {
+	content: '';
+	position: absolute;
+	inset: 4px;
+	border-radius: 50%;
+	background: var(--db-accent, #8b5cf6);
+}
+
+.dashboard-focal-picker-reset {
+	flex-shrink: 0;
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint, rgba(255, 255, 255, 0.35));
+	cursor: pointer;
+	padding: 3px;
+	min-height: 0;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--db-radius-sm, 6px);
+}
+
+.dashboard-focal-picker-reset:hover {
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-focal-picker-reset svg {
+	width: 15px;
+	height: 15px;
 }
 
 .dashboard-modal-image-delete svg {
@@ -15004,6 +15111,51 @@
 .dashboard-library-group-body.is-hidden { display: none; }
 .dashboard-library-files .dashboard-library-group-header:first-child { margin-top: 0; }
 
+/* Progressive load-more pill (in-group and per-kanban-column) — borrows the
+   pagination button's capsule recipe so it reads as the same control family. */
+.dashboard-library-load-more {
+	cursor: pointer;
+	padding: 4px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	font-size: 0.75em;
+	font-weight: 500;
+	color: var(--db-text, var(--text-normal));
+	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
+	transition: background 0.1s ease;
+	user-select: none;
+}
+.dashboard-library-load-more:hover {
+	background: var(--db-bg-btn-hover, rgba(139, 92, 246, 0.18));
+}
+/* Group bodies are block flow: center the pill under the grid/list/table. */
+.dashboard-library-group-body .dashboard-library-load-more {
+	width: fit-content;
+	margin: 8px auto 2px;
+}
+/* Kanban columns are flex columns: a full-width footer button instead. */
+.dashboard-library-kanban-col .dashboard-library-load-more {
+	width: 100%;
+	text-align: center;
+	margin-top: 2px;
+	flex-shrink: 0;
+}
+
+/* Render-ceiling notice (grouped + kanban paths only; see RENDER_CEILING). */
+.dashboard-library-render-cap {
+	font-size: 0.75em;
+	color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
+	border: 1px solid var(--db-border, var(--background-modifier-border));
+	border-radius: var(--db-radius-sm, 6px);
+	padding: 6px 10px;
+	margin: 0 0 8px 0;
+}
+/* Kanban + cap: the board normally fills its overflow-hidden host, so the
+   sibling notice needs its height reserved or the column bottoms get clipped. */
+.dashboard-library-files.is-capped .dashboard-library-kanban {
+	max-height: calc(100% - 40px);
+}
+
 /* Toolbar */
 .dashboard-library-toolbar {
 	display: flex;
@@ -15450,6 +15602,8 @@
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+	/* Anchor for the hover-reveal delete button (top-right). */
+	position: relative;
 }
 
 /* ===== Gallery view (card grid with frontmatter-driven covers) ===== */
@@ -15483,9 +15637,73 @@
 .dashboard-library-group-toggle.is-hidden,
 .dashboard-library-collapse-toggle.is-hidden,
 .dashboard-media-collapse-toggle.is-hidden,
-.dashboard-library-page-size.is-hidden {
+.dashboard-library-page-size.is-hidden,
+.dashboard-library-cols-btn.is-hidden {
 	display: none;
 }
+
+/* Table-columns picker (eye button): vertical list, one row per property —
+   drag handle to reorder, eye toggle to show/hide. */
+.dashboard-table-cols-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 46vh;
+	overflow-y: auto;
+	padding-right: 2px;
+}
+.dashboard-table-cols-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+}
+.dashboard-table-cols-row.is-dragging {
+	opacity: 0.6;
+	outline: 1px dashed var(--db-accent, var(--interactive-accent));
+}
+.dashboard-table-cols-row.is-off .dashboard-table-cols-name {
+	color: var(--db-text-muted, var(--text-muted));
+	text-decoration: line-through;
+	text-decoration-color: var(--db-text-faint, var(--text-faint));
+}
+.dashboard-table-cols-handle {
+	cursor: grab;
+	color: var(--db-text-faint, var(--text-faint));
+	display: flex;
+	align-items: center;
+	touch-action: none; /* pointer drag owns the gesture on touch */
+	flex-shrink: 0;
+}
+.dashboard-table-cols-handle:active { cursor: grabbing; }
+.dashboard-table-cols-handle svg { width: 14px; height: 14px; }
+.dashboard-table-cols-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.8125em;
+}
+.dashboard-table-cols-eye {
+	cursor: pointer;
+	color: var(--db-text-muted, var(--text-muted));
+	display: flex;
+	align-items: center;
+	padding: 3px;
+	border-radius: 4px;
+	flex-shrink: 0;
+	transition: color 0.15s ease, background 0.15s ease;
+}
+.dashboard-table-cols-eye:hover {
+	color: var(--db-text, var(--text-normal));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
+}
+.dashboard-table-cols-eye svg { width: 15px; height: 15px; }
+.dashboard-table-cols-eye.is-off { color: var(--db-text-faint, var(--text-faint)); }
+
 
 .dashboard-library-card-cover {
 	aspect-ratio: 16 / 10;
@@ -15820,6 +16038,56 @@
 	color: #fff;
 }
 
+/* Card delete (grid / gallery / kanban): pinned to the card's top-right
+   corner, fully hidden — and click-through — until the card is hovered, the
+   media grid's hover-reveal affordance. Dark scrim + white icon reads over
+   both covers and title rows in light and dark themes alike. */
+.dashboard-library-card-delete {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	padding: 0;
+	min-height: 0;
+	opacity: 0;
+	pointer-events: none;
+	cursor: pointer;
+	z-index: 2;
+	transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-library-card-delete svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-library-card:hover .dashboard-library-card-delete,
+.dashboard-library-kanban-card:hover .dashboard-library-card-delete,
+.dashboard-library-card-delete:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.dashboard-library-card-delete:hover {
+	background: rgba(220, 50, 50, 0.85);
+	color: #fff;
+}
+
+/* Phones have no hover: keep the affordance visible (and reachable) instead
+   of stranding it at opacity 0 — same call as the qa-edit/qa-remove buttons.
+   Tablets drive a pointer and keep the hover reveal. */
+.is-mobile:not(.is-tablet) .dashboard-library-card-delete {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .dashboard-library-table-edit-input {
 	width: 100%;
 	padding: 2px 4px;
@@ -15933,6 +16201,8 @@
 	padding: 8px 10px;
 	cursor: pointer;
 	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
+	/* Anchor for the hover-reveal delete button (top-right). */
+	position: relative;
 }
 
 .dashboard-library-kanban-card:hover {
@@ -17703,20 +17973,37 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-calendar.is-full .dashboard-calendar-event-time { font-size: 0.8125em; }
 .dashboard-alltasks-row .dashboard-calendar-event-time { font-size: 0.6875em; }
 
-/* Add-task row in the day agenda modal (time + title + Add -> daily note) */
-.dashboard-cal-day-add { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+/* Add-task row in the day agenda modal (title + Add -> note destination) */
+.dashboard-cal-day-add { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
 /* Equal heights for the add-task row: Chromium renders input[type=time]
    intrinsically taller than the sibling text input; pin both to the button
    height so the row lines up. */
-.dashboard-cal-day-add-time,
 .dashboard-cal-day-add-title {
 	height: 34px;
 	padding: 0 10px;
 	box-sizing: border-box;
 }
-.dashboard-cal-day-add-time { width: 92px; flex-shrink: 0; }
 .dashboard-cal-day-add-title { flex: 1; min-width: 0; }
 .dashboard-cal-day-add-btn { flex-shrink: 0; }
+
+/* Optional time groups under the add row: start / deadline / scheduled, each
+   date + time. Wraps on narrow panes; every input stays short enough that the
+   three groups share one line on desktop. */
+.dashboard-cal-day-times { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; }
+.dashboard-cal-day-times-group { display: flex; align-items: center; gap: 4px; }
+.dashboard-cal-day-times-label {
+	font-size: 0.75em;
+	color: var(--db-text-muted, var(--text-muted));
+	flex-shrink: 0;
+}
+.dashboard-cal-day-times-date,
+.dashboard-cal-day-times-time {
+	height: 30px;
+	padding: 0 6px;
+	box-sizing: border-box;
+}
+.dashboard-cal-day-times-date { width: 132px; }
+.dashboard-cal-day-times-time { width: 86px; }
 
 /* Google-style week time grid (full-screen modal). Hour rows are 48px; day
    column height is 24*48 = 1152px — keep in sync with TIMEGRID_HOUR_PX. */

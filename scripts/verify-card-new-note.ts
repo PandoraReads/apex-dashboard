@@ -6,11 +6,12 @@ import { sectionNewNoteFolder } from '../src/library-new-note';
 import { NotesSectionConfigModal } from '../src/notes-config-modal';
 import type { DashboardCard, DashboardColumn, LibraryConfig, RenderCallbacks } from '../src/types';
 
-// Per-card "new note" on notes (no cover) and projects (cover) sections: the
-// button renders first in each card's actions row (left of edit + delete),
-// fires onCardNewNote with the card id, and is absent on memo/sticky sections
-// and task cards. Both section types also get a header settings gear that
-// dispatches the config event (template + save folder, see view.ts), and
+// Per-card "new note" on notes sections (the retired standalone no-cover type
+// lives on as projects + showCover:false): the button renders first in each
+// card's actions row (left of edit + delete), fires onCardNewNote with the
+// card id, and is absent on memo/sticky sections and task cards. Both cover
+// and coverless notes sections also get a header settings gear that dispatches
+// the config event (show covers + template + save folder, see view.ts), and
 // sectionNewNoteFolder maps the saved config to the creation folder
 // (vault root when unset).
 
@@ -77,8 +78,8 @@ const makeCard = (over: Partial<DashboardCard> = {}): DashboardCard =>
 		...over,
 	} as unknown as DashboardCard);
 
-const makeColumn = (sectionType: string, cards: DashboardCard[], libraryConfig?: LibraryConfig): DashboardColumn =>
-	({ id: 'col1', name: sectionType, sectionType, cards, libraryConfig } as unknown as DashboardColumn);
+const makeColumn = (sectionType: string, cards: DashboardCard[], libraryConfig?: LibraryConfig, showCover?: boolean): DashboardColumn =>
+	({ id: 'col1', name: sectionType, sectionType, cards, libraryConfig, ...(showCover === false ? { showCover: false } : {}) } as unknown as DashboardColumn);
 
 /** Buttons of the card's top-right actions row, in render order. */
 const actionButtons = (section: El): El[] => {
@@ -96,11 +97,12 @@ function main(): void {
 	} as unknown as RenderCallbacks;
 	const app = makeApp();
 
-	// 1. notes section (无封面): new-note button is FIRST in the actions row,
-	//    ahead of the pre-existing edit + delete pair; clicking reports the id.
+	// 1. coverless notes section (projects + showCover:false, the retired
+	//    无封面 type): new-note button is FIRST in the actions row, ahead of
+	//    the pre-existing edit + delete pair; clicking reports the id.
 	{
-		const section = renderSection(makeColumn('notes', [makeCard()]), callbacks, app) as unknown as El;
-		assert.equal(findByClass(section, 'dashboard-card--cover').length, 0, '1: notes cards stay cover-less');
+		const section = renderSection(makeColumn('projects', [makeCard()], undefined, false), callbacks, app) as unknown as El;
+		assert.equal(findByClass(section, 'dashboard-card--cover').length, 0, '1: coverless notes cards stay cover-less');
 		const btns = actionButtons(section);
 		assert.equal(btns.length, 3, '1: three action buttons (new note, edit, delete)');
 		assert.ok(btns[0]!.hasClass('dashboard-card-btn--newnote'), '1: new note renders leftmost');
@@ -128,30 +130,30 @@ function main(): void {
 		assert.ok(!hasNewNote(actionButtons(sticky)), '3: sticky project card has no new-note button');
 	}
 
-	// 4. A task card inside a notes section is not project-like: no button.
+	// 4. A task card inside a coverless notes section is not project-like: no button.
 	{
 		const section = renderSection(
-			makeColumn('notes', [makeCard({ id: 't1', type: 'task' })]),
+			makeColumn('projects', [makeCard({ id: 't1', type: 'task' })], undefined, false),
 			callbacks,
 			app,
 		) as unknown as El;
 		assert.ok(!hasNewNote(actionButtons(section)), '4: task card has no new-note button');
 	}
 
-	// 5. Header settings gear: rendered on notes/projects sections, dispatches
-	//    the config event with the column name (view.ts opens the settings
-	//    modal); memo sections keep their original header buttons.
+	// 5. Header settings gear: rendered on notes sections (covered or not),
+	//    dispatches the config event with the column name (view.ts opens the
+	//    settings modal); memo sections keep their original header buttons.
 	{
 		let eventDetail: { columnName?: string } | undefined;
-		const section = renderSection(makeColumn('notes', [makeCard()]), callbacks, app) as unknown as El;
+		const section = renderSection(makeColumn('projects', [makeCard()], undefined, false), callbacks, app) as unknown as El;
 		(section as unknown as {
 			addEventListener: (type: string, fn: (ev: { detail?: { columnName?: string } }) => void) => void;
 		}).addEventListener('dashboard-library-config', (ev) => { eventDetail = ev.detail; });
 
 		const gear = findTag(section, 'button').find(b => b.getAttribute('aria-label') === '分区设置');
-		assert.ok(gear, '5: settings gear rendered on notes section');
+		assert.ok(gear, '5: settings gear rendered on coverless notes section');
 		gear!.click();
-		assert.equal(eventDetail?.columnName, 'notes', '5: gear dispatches the config event with column name');
+		assert.equal(eventDetail?.columnName, 'projects', '5: gear dispatches the config event with column name');
 
 		const projects = renderSection(makeColumn('projects', [makeCard()]), callbacks, app) as unknown as El;
 		const gear2 = findTag(projects, 'button').find(b => b.getAttribute('aria-label') === '分区设置');
@@ -169,27 +171,42 @@ function main(): void {
 		assert.equal(sectionNewNoteFolder(undefined), '', '6: no config = vault root');
 	}
 
-	// 7. NotesSectionConfigModal: current values prefill, save returns the
-	//    (trimmed) inputs — the browse pickers write into the same inputs.
+	// 7. NotesSectionConfigModal: current templates prefill as chips, adding a
+	//    path appends a chip, save returns the full list (order preserved) plus
+	//    the untouched show-cover state.
 	{
-		const saved: Array<{ templatePath: string; folder: string }> = [];
+		const saved: Array<{ templatePaths: string[]; folder: string; showCover: boolean }> = [];
 		const modal = new NotesSectionConfigModal(
 			app,
-			{ templatePath: 'Templates/note.md', folder: 'Projects' },
+			{ templatePaths: ['Templates/note.md'], folder: 'Projects', showCover: true },
 			(settings) => { saved.push(settings); },
 		);
 		modal.onOpen();
 		const content = modal.contentEl as unknown as El;
-		const inputs = findTag(content, 'input');
-		assert.equal(inputs.length, 2, '7: template + folder inputs rendered');
-		assert.equal(inputs[0]!.value, 'Templates/note.md', '7: template prefilled');
-		assert.equal(inputs[1]!.value, 'Projects', '7: folder prefilled');
+		const chips = findByClass(content, 'dashboard-alltasks-exclude-chip');
+		assert.equal(chips.length, 1, '7: existing template renders as one chip');
+		assert.ok(chips[0]!.textContent.includes('Templates/note.md'), '7: template chip carries the path');
 
-		inputs[0]!.value = '  T2.md  ';
+		// Inputs in render order: show-cover checkbox, template add-row, folder.
+		const inputs = findTag(content, 'input');
+		assert.equal(inputs.length, 3, '7: checkbox + template + folder inputs rendered');
+		assert.equal(inputs[0]!.getAttribute('type'), 'checkbox', '7: show-cover checkbox rendered first');
+		assert.equal(inputs[0]!.checked, true, '7: covers prefilled on');
+		assert.equal(inputs[2]!.value, 'Projects', '7: folder prefilled');
+		inputs[1]!.value = '  T2.md  ';
+		const addBtn = findTag(content, 'button').filter(b => b.textContent === '添加')[0]
+			?? findTag(content, 'button').filter(b => b.textContent === 'Add')[0]!;
+		addBtn.click();
+		assert.equal(findByClass(content, 'dashboard-alltasks-exclude-chip').length, 2, '7: added template renders a second chip');
+
 		const saveBtn = findTag(content, 'button').filter(b => b.textContent === '保存')[0]
 			?? findTag(content, 'button').filter(b => b.textContent === 'Save')[0]!;
 		saveBtn.click();
-		assert.deepEqual(saved, [{ templatePath: 'T2.md', folder: 'Projects' }], '7: save emits trimmed input values');
+		assert.deepEqual(
+			saved,
+			[{ templatePaths: ['Templates/note.md', 'T2.md'], folder: 'Projects', showCover: true }],
+			'7: save emits the template list in order',
+		);
 	}
 
 	console.log('verify-card-new-note: all 7 checks passed');

@@ -3,15 +3,20 @@ import { t } from './i18n';
 import { extractFrontmatterProperties, getAllTags, renderTagsSelector } from './library-section';
 import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
-import { PathPickerModal } from './path-picker-modal';
+import { PropertyFiltersEditor } from './property-filters-editor';
+import { TemplateFilesEditor } from './template-files-editor';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
-import type { LibraryConfig } from './types';
+import type { LibraryConfig, PropertyFilter } from './types';
 
 export interface FolderConfigResult {
 	folders: string[];
 	/** Folders whose files are hidden from the section (path-prefix match). */
 	excludeFolders: string[];
 	tags: string[];
+	/** Persistent property filters (the modal's property-filter section).
+	 *  Authoritative for every non-tags filter: a save replaces whatever
+	 *  non-tags filters the config carried before. */
+	propertyFilters: PropertyFilter[];
 	/** Kanban grouping key: frontmatter property name. */
 	groupBy: string | undefined;
 	/** Kanban grouping mode: property (groupBy) or top-level subfolders. */
@@ -22,8 +27,9 @@ export interface FolderConfigResult {
 	propertyLimit: number;
 	/** Hand-picked card properties (order preserved); undefined = automatic. */
 	visibleProperties: string[] | undefined;
-	/** Template note applied to new notes created from this section. */
-	templatePath: string | undefined;
+	/** Template notes applied to new notes created from this section (first
+	 *  entry = the default when several are set). */
+	templatePaths: string[];
 }
 
 /**
@@ -32,8 +38,8 @@ export interface FolderConfigResult {
  * `base` — the section's current config, or undefined for a first-time save —
  * only contributes fields the modal does not touch (viewMode, sortBy, …).
  *
- * Extracted from view.ts's save callback so the merge — notably that
- * templatePath must survive a save — is unit-testable: the inline version
+ * Extracted from view.ts's save callback so the merge — notably that the
+ * templates must survive a save — is unit-testable: the inline version
  * silently dropped the template the user had just picked.
  */
 export function folderResultToLibraryConfig(
@@ -46,10 +52,14 @@ export function folderResultToLibraryConfig(
 		sortBy: 'modified',
 		sortDesc: true,
 	};
-	const filtersWithoutTags = safeBase.filters.filter(f => f.property !== 'tags');
-	const filters = result.tags.length > 0
-		? [...filtersWithoutTags, { property: 'tags', values: result.tags }]
-		: filtersWithoutTags;
+	// The modal's property-filter editor owns every non-tags filter (same
+	// authority contract as the other modal-managed fields): its value replaces
+	// what the config carried, so removing filters in the UI clears them here.
+	// The tags section contributes its own dedicated tags filter.
+	const tagsFilter = result.tags.length > 0
+		? [{ property: 'tags', values: result.tags }]
+		: [];
+	const filters = [...result.propertyFilters, ...tagsFilter];
 	return {
 		...safeBase,
 		folders: result.folders,
@@ -61,26 +71,30 @@ export function folderResultToLibraryConfig(
 		showProperties: result.showProperties ? undefined : false,
 		propertyLimit: result.propertyLimit,
 		visibleProperties: result.visibleProperties,
-		templatePath: result.templatePath,
+		templatePaths: result.templatePaths.length > 0 ? result.templatePaths : undefined,
+		// Legacy mirror of the first entry for pre-multi-template versions.
+		templatePath: result.templatePaths[0],
 	};
 }
 
 /**
- * Configuration modal for a folder section: the folder path plus an optional
- * tag filter, kanban "group by" selector (by property or by subfolder), and
- * card property display settings.
+ * Configuration modal for a folder section: the folder path, an optional tag
+ * filter, property filters (same editor as the library section), kanban
+ * "group by" selector (by property or by subfolder), and card property
+ * display settings.
  */
 export class FolderConfigModal extends Modal {
 	private folders: string[];
 	private readonly initialExcludeFolders: string[];
 	private selectedTags: string[];
+	private propertyFilters: PropertyFilter[];
 	private groupBy: string;
 	private groupMode: 'property' | 'folder';
 	private kanbanShowCovers: boolean;
 	private showProperties: boolean;
 	private propertyLimit: number;
 	private visibleProperties: string[];
-	private templatePath: string;
+	private templatePaths: string[];
 	private readonly onSave: (result: FolderConfigResult) => void;
 
 	constructor(
@@ -95,19 +109,21 @@ export class FolderConfigModal extends Modal {
 		currentGroupMode?: 'property' | 'folder',
 		currentVisibleProperties?: string[],
 		currentKanbanShowCovers?: boolean,
-		templatePath?: string,
+		templatePaths?: string[],
+		currentPropertyFilters?: PropertyFilter[],
 	) {
 		super(app);
 		this.folders = [...currentFolders];
 		this.initialExcludeFolders = [...(currentExcludeFolders ?? [])];
 		this.selectedTags = [...currentTags];
+		this.propertyFilters = (currentPropertyFilters ?? []).map(filter => ({ ...filter, values: [...filter.values] }));
 		this.groupBy = currentGroupBy ?? '';
 		this.groupMode = currentGroupMode ?? 'property';
 		this.kanbanShowCovers = currentKanbanShowCovers === true;
 		this.showProperties = currentShowProperties !== false;
 		this.propertyLimit = currentPropertyLimit ?? 6;
 		this.visibleProperties = [...(currentVisibleProperties ?? [])];
-		this.templatePath = (templatePath ?? '').trim();
+		this.templatePaths = [...(templatePaths ?? [])];
 		this.onSave = onSave;
 	}
 
@@ -221,6 +237,21 @@ export class FolderConfigModal extends Modal {
 		tagSearchInput.addEventListener('input', () => renderTags());
 		renderTags();
 
+		// Property filters — the same editor the library section's config uses:
+		// pick a frontmatter property, check value chips (or type free text in
+		// contains mode) to narrow the section's files. 'tags' is omitted from
+		// the picker: the dedicated tags section above owns that filter, and a
+		// second tags filter would AND into a silently empty section.
+		const availableProps = extractFrontmatterProperties(this.app);
+		const filterSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		filterSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.property') });
+		const filterEditor = new PropertyFiltersEditor(
+			this.app,
+			filterSection.createDiv({ cls: 'dashboard-library-config-filters' }),
+			this.propertyFilters,
+			{ excludeProperties: ['tags'], availableProps },
+		);
+
 		// Kanban group-by: property vs subfolder mode. The property picker only
 		// applies in property mode, so it hides when subfolder grouping is on.
 		const groupSection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -241,7 +272,7 @@ export class FolderConfigModal extends Modal {
 		propertyControls.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.kanbanGroupByHint') });
 		const groupSelect = propertyControls.createEl('select', { cls: 'dashboard-library-filter-property' });
 		groupSelect.createEl('option', { text: t('library.noGroup'), attr: { value: '' } });
-		const propKeys = [...extractFrontmatterProperties(this.app).keys()].sort();
+		const propKeys = [...availableProps.keys()].sort();
 		for (const key of propKeys) {
 			const opt = groupSelect.createEl('option', { text: key, attr: { value: key } });
 			if (key === this.groupBy) opt.selected = true;
@@ -299,27 +330,13 @@ export class FolderConfigModal extends Modal {
 
 		// Footer
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		// New-note template: body of this note seeds notes created by the
-		// toolbar "+" (frontmatter merged from the section's filter props).
+		// New-note templates: the body of any of these notes seeds notes created
+		// by the toolbar "+" (frontmatter merged from the section's filter
+		// props). Several templates turn the button into a picker menu.
 		const tplSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		tplSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.newNoteTemplate') });
 		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.newNoteTemplateHint') });
-		const tplRow = tplSection.createDiv({ cls: 'dashboard-media-folder-input-row' });
-		const tplInput = tplRow.createEl('input', {
-			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: 'Templates/note.md' },
-		});
-		tplInput.value = this.templatePath;
-		tplRow.createEl('button', {
-			cls: 'dashboard-media-folder-browse',
-			text: t('folder.browse'),
-		}).addEventListener('click', () => {
-			new PathPickerModal(this.app, 'file', (path) => {
-				tplInput.value = path;
-				this.templatePath = path;
-			}).open();
-		});
-		tplInput.addEventListener('change', () => { this.templatePath = tplInput.value.trim(); });
+		const tplEditor = new TemplateFilesEditor(this.app, tplSection, this.templatePaths);
 
 		footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
@@ -335,13 +352,14 @@ export class FolderConfigModal extends Modal {
 				folders: this.folders,
 				excludeFolders: excludeEditor.value,
 				tags: this.selectedTags,
+				propertyFilters: filterEditor.value,
 				groupBy: this.groupBy || undefined,
 				groupMode: this.groupMode,
 				kanbanShowCovers: this.kanbanShowCovers,
 				showProperties: this.showProperties,
 				propertyLimit: this.propertyLimit,
 				visibleProperties: picked.length > 0 ? picked : undefined,
-				templatePath: this.templatePath || undefined,
+				templatePaths: tplEditor.value,
 			});
 			this.close();
 		});

@@ -11,7 +11,10 @@ interface GuideFeature {
 /** The capabilities showcased in the announcement modal. Content is refreshed
  *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'layout-dashboard', textKey: 'announce.featureStackedLayoutLabel' },
+	{ icon: 'trash-2', textKey: 'announce.featureCardDeleteLabel' },
+	{ icon: 'file-plus', textKey: 'announce.featureTemplateNewNoteLabel' },
+	{ icon: 'eye', textKey: 'announce.featureTableColumnsLabel' },
+	{ icon: 'layers', textKey: 'announce.featureGroupRenderLabel' },
 ];
 
 /**

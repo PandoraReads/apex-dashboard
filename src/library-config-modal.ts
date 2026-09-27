@@ -1,16 +1,13 @@
-import { App, Modal, setIcon } from 'obsidian';
-import type { LibraryConfig, PropertyFilterOperator } from './types';
+import { App, Modal } from 'obsidian';
+import type { LibraryConfig } from './types';
 import { extractFrontmatterProperties } from './library-section';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
-import { PathPickerModal } from './path-picker-modal';
+import { PropertyFiltersEditor } from './property-filters-editor';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
-
-/** Pseudo-properties whose filter branches have fixed semantics (path does
-    substring matching, created/modified use date ranges) — no operator UI. */
-const PSEUDO_PROPERTIES = new Set(['path', 'created', 'modified']);
-const OPERATORS: PropertyFilterOperator[] = ['equals', 'contains', 'notEquals'];
+import { TemplateFilesEditor } from './template-files-editor';
+import { sectionTemplatePaths } from './library-new-note';
 
 export class LibraryConfigModal extends Modal {
 	private config: LibraryConfig;
@@ -51,155 +48,18 @@ export class LibraryConfigModal extends Modal {
 		// Body
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
-		// Filters
+		// Filters — shared with the folder-section config (PropertyFiltersEditor).
+		// 'tags' stays pickable here: evaluateFilter's tags branch and the value
+		// extractor make it filter like any other property.
 		const filtersSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		filtersSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.property') });
+		const filterEditor = new PropertyFiltersEditor(
+			this.app,
+			filtersSection.createDiv({ cls: 'dashboard-library-config-filters' }),
+			this.config.filters,
+			{ availableProps: this.availableProps },
+		);
 
-		const filtersContainer = filtersSection.createDiv({ cls: 'dashboard-library-config-filters' });
-
-		const renderFilters = (): void => {
-			filtersContainer.empty();
-
-			for (let i = 0; i < this.config.filters.length; i++) {
-				const filter = this.config.filters[i]!;
-				const row = filtersContainer.createDiv({ cls: 'dashboard-library-filter-row' });
-				const header = row.createDiv({ cls: 'dashboard-library-filter-header' });
-
-				// Property selector (left of the search box in the header row)
-				const propSelect = header.createEl('select', { cls: 'dashboard-library-filter-property' });
-				// 'tags' is intentionally listed: evaluateFilter has a dedicated
-				// tags branch (frontmatter + inline tags) and the property
-				// extractor collects tag values, so it filters like any property.
-				const propKeys = [...this.availableProps.keys()].sort();
-				propSelect.createEl('option', { text: t('library.selectProperty'), attr: { value: '' } });
-				for (const key of propKeys) {
-					const opt = propSelect.createEl('option', { text: key, attr: { value: key } });
-					if (key === filter.property) opt.selected = true;
-				}
-
-				propSelect.addEventListener('change', () => {
-					filter.property = propSelect.value;
-					filter.values = [];
-					renderFilters();
-				});
-
-				// Operator (between the property selector and the value search
-				// box): how checked values compare. Hidden for the
-				// pseudo-properties (path/created/modified) whose filter
-				// branches have fixed semantics of their own.
-				const operator = filter.operator ?? 'equals';
-				if (filter.property && !PSEUDO_PROPERTIES.has(filter.property)) {
-					const opSelect = header.createEl('select', { cls: 'dashboard-library-filter-operator' });
-					opSelect.title = t('library.filterOperator');
-					for (const op of OPERATORS) {
-						const opt = opSelect.createEl('option', {
-							text: t(`library.op${op.charAt(0).toUpperCase()}${op.slice(1)}`),
-							attr: { value: op },
-						});
-						if (op === operator) opt.selected = true;
-					}
-					opSelect.addEventListener('change', () => {
-						filter.operator = opSelect.value as PropertyFilterOperator;
-						renderFilters();
-					});
-				}
-
-				// Value search box (right of the operator dropdown). In contains
-				// mode the placeholder invites free text — Enter adds it as a
-				// custom chip, since a substring usually isn't an existing value.
-				let searchInput: HTMLInputElement | null = null;
-				if (filter.property) {
-					searchInput = header.createEl('input', {
-						cls: 'dashboard-library-value-search',
-						attr: {
-							type: 'text',
-							placeholder: operator === 'contains' ? t('library.searchValuesContains') : t('library.searchValues'),
-						},
-					});
-				}
-
-				// Remove button (far right of the header row)
-				const removeBtn = header.createEl('button', {
-					cls: 'dashboard-library-filter-remove',
-					attr: { 'aria-label': t('library.removeFilter') },
-				});
-				setIcon(removeBtn, 'x');
-				removeBtn.addEventListener('click', () => {
-					this.config.filters = this.config.filters.filter((_, idx) => idx !== i);
-					renderFilters();
-				});
-
-				// Value chips (below the header)
-				if (filter.property && searchInput) {
-					const availableValues = this.availableProps.get(filter.property);
-					const sorted = availableValues ? [...availableValues].sort() : [];
-					const valuesList = row.createDiv({ cls: 'dashboard-library-value-list' });
-
-					const renderValues = (): void => {
-						valuesList.empty();
-						// Custom values (free text added in contains mode) render
-						// alongside existing values so they stay visible and removable.
-						const existing = new Set(sorted);
-						const all = [...filter.values.filter(v => !existing.has(v)), ...sorted];
-						if (all.length === 0) {
-							valuesList.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noValues') });
-							return;
-						}
-						if (!searchInput) return;
-						const query = searchInput.value.trim().toLowerCase();
-						const visible = query ? all.filter(v => v.toLowerCase().includes(query)) : all;
-						if (visible.length === 0) {
-							valuesList.createDiv({ cls: 'dashboard-library-filter-empty', text: t('library.noMatchingValues') });
-							return;
-						}
-						for (const val of visible) {
-							const chip = valuesList.createDiv({
-								cls: 'dashboard-library-filter-chip' + (filter.values.includes(val) ? ' active' : ''),
-								text: val,
-							});
-							chip.addEventListener('click', () => {
-								const idx = filter.values.indexOf(val);
-								if (idx >= 0) {
-									filter.values = filter.values.filter(v => v !== val);
-								} else {
-									filter.values = [...filter.values, val];
-								}
-								renderValues();
-							});
-						}
-					};
-
-					searchInput.addEventListener('input', renderValues);
-					// Contains mode: Enter adds the typed text as a custom value —
-					// substrings usually aren't existing values, so the vault's
-					// chip list alone can't express them.
-					if (operator === 'contains') {
-						searchInput.addEventListener('keydown', (ev) => {
-							if (ev.key !== 'Enter') return;
-							ev.preventDefault();
-							const typed = searchInput.value.trim();
-							if (!typed || filter.values.includes(typed)) return;
-							filter.values = [...filter.values, typed];
-							searchInput.value = '';
-							renderValues();
-						});
-					}
-					renderValues();
-				}
-			}
-		};
-
-		renderFilters();
-
-		// Add filter button
-		const addFilterBtn = filtersSection.createEl('button', {
-			cls: 'dashboard-library-add-filter-btn',
-			text: t('library.addFilter'),
-		});
-		addFilterBtn.addEventListener('click', () => {
-			this.config.filters = [...this.config.filters, { property: '', values: [] }];
-			renderFilters();
-		});
 
 		// Kanban group by
 		const kanbanSection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -273,25 +133,13 @@ export class LibraryConfigModal extends Modal {
 			text: t('common.cancel'),
 		}).addEventListener('click', () => this.close());
 
-		// New-note template: body of this note seeds notes created by the
-		// toolbar "+" (frontmatter merged from the section's filter props).
+		// New-note templates: the body of any of these notes seeds notes created
+		// by the toolbar "+" (frontmatter merged from the section's filter
+		// props). Several templates turn the button into a picker menu.
 		const tplSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		tplSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.newNoteTemplate') });
 		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.newNoteTemplateHint') });
-		const tplRow = tplSection.createDiv({ cls: 'dashboard-media-folder-input-row' });
-		const tplInput = tplRow.createEl('input', {
-			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: 'Templates/note.md' },
-		});
-		tplInput.value = this.config.templatePath ?? '';
-		tplRow.createEl('button', {
-			cls: 'dashboard-media-folder-browse',
-			text: t('folder.browse'),
-		}).addEventListener('click', () => {
-			new PathPickerModal(this.app, 'file', (path) => {
-				tplInput.value = path;
-			}).open();
-		});
+		const tplEditor = new TemplateFilesEditor(this.app, tplSection, sectionTemplatePaths(this.config));
 
 		footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
@@ -299,11 +147,17 @@ export class LibraryConfigModal extends Modal {
 		}).addEventListener('click', () => {
 			const folders = excludeEditor.value;
 			const picked = pinnedEditor.value;
+			const templates = tplEditor.value;
 			this.onSave({
 				...this.config,
+				// The shared editor owns the rows (it works on copies); its value
+				// is the saved truth — half-configured rows (no property picked)
+				// drop out here instead of persisting as no-op filters.
+				filters: filterEditor.value,
 				excludeFolders: folders.length > 0 ? folders : undefined,
 				visibleProperties: picked.length > 0 ? picked : undefined,
-				templatePath: tplInput.value.trim() || undefined,
+				templatePaths: templates.length > 0 ? templates : undefined,
+				templatePath: templates[0],
 			});
 			this.close();
 		});

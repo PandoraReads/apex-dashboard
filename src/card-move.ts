@@ -38,8 +38,10 @@ export function convertMovedCard(card: DashboardCard, source: DashboardColumn, t
 	const targetType = sectionType(target);
 	const moved = { ...card, column: target.name };
 	if (source.name === target.name) return moved;
-	if (targetType === 'sticky' && (sourceType === 'projects' || sourceType === 'notes')) {
-		return { ...moved, noteStyle: sourceType === 'notes' ? 'plain' : 'cover' };
+	if (targetType === 'sticky' && sourceType === 'projects') {
+		// Sticky picks the look per card: a card displayed without a cover in
+		// its source section (the retired 无封面 type) keeps that look.
+		return { ...moved, noteStyle: source.showCover === false ? 'plain' : 'cover' };
 	}
 	if (targetType === 'memo' || (targetType === 'sticky' && sourceType === 'memo')) {
 		return { ...moved, type: 'generic' };
@@ -57,7 +59,7 @@ export function moveDashboardCard(data: DashboardData, cardId: string, targetNam
 	if (!Number.isInteger(targetIndex)) return data;
 	const source = data.columns.find(column => column.cards.some(card => card.id === cardId));
 	const target = data.columns.find(column => column.name === targetName);
-	if (!source || !target || !['memo', 'todo', 'sticky', 'projects', 'notes', 'dashboard'].includes(sectionType(target))) return data;
+	if (!source || !target || !['memo', 'todo', 'sticky', 'projects', 'dashboard'].includes(sectionType(target))) return data;
 	const card = source.cards.find(item => item.id === cardId);
 	if (!card) return data;
 	const moved = convertMovedCard(card, source, target);

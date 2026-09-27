@@ -1,4 +1,5 @@
 import type { App } from 'obsidian';
+import { Solar, Lunar } from 'lunar-typescript';
 import type { AnniversaryConfig } from './types';
 import { t } from './i18n';
 import { applyWidgetBackground, attachWidgetConfigButton } from './widget-background';
@@ -71,6 +72,53 @@ export function anniversaryDateThisYear(start: Date, now: Date): Date {
 	return new Date(now.getFullYear(), start.getMonth(), start.getDate());
 }
 
+/** The lunar date of a solar date as a display string, e.g. 农历二〇二三年闰二月初五
+ *  (getMonthInChinese already carries the 闰 prefix for leap months). Null when
+ *  the date is unusable — lunar-typescript doesn't throw on NaN, it emits
+ *  garbage (农历〇年月), so the guard is explicit. */
+export function formatLunarStartDate(start: Date): string | null {
+	if (Number.isNaN(start.getTime())) return null;
+	try {
+		const lunar = Solar.fromYmd(start.getFullYear(), start.getMonth() + 1, start.getDate()).getLunar();
+		return t('anniversary.lunarDateValue', {
+			year: lunar.getYearInChinese(),
+			month: lunar.getMonthInChinese(),
+			day: lunar.getDayInChinese(),
+		});
+	} catch {
+		return null;
+	}
+}
+
+/** Whole lunar years elapsed between two solar dates (the reminder's "N 年"
+ *  count for lunar entries — the lunar new year boundary, not Jan 1). Null
+ *  when either date is unusable. */
+export function lunarYearsBetween(start: Date, now: Date): number | null {
+	if (Number.isNaN(start.getTime()) || Number.isNaN(now.getTime())) return null;
+	try {
+		return Solar.fromYmd(now.getFullYear(), now.getMonth() + 1, now.getDate()).getLunar().getYear()
+			- Solar.fromYmd(start.getFullYear(), start.getMonth() + 1, start.getDate()).getLunar().getYear();
+	} catch {
+		return null;
+	}
+}
+
+/** The solar date this year carrying a lunar anniversary's lunar month/day:
+ *  the same lunar date of the current lunar year converted back to solar
+ *  (it lands on a different Gregorian date every year). Falls back to the
+ *  plain solar mapping when the conversion fails. */
+export function lunarAnniversaryThisYear(start: Date, now: Date): Date {
+	if (Number.isNaN(start.getTime()) || Number.isNaN(now.getTime())) return anniversaryDateThisYear(start, now);
+	try {
+		const startLunar = Solar.fromYmd(start.getFullYear(), start.getMonth() + 1, start.getDate()).getLunar();
+		const currentLunarYear = Solar.fromYmd(now.getFullYear(), now.getMonth() + 1, now.getDate()).getLunar().getYear();
+		const solar = Lunar.fromYmd(currentLunarYear, startLunar.getMonth(), startLunar.getDay()).getSolar();
+		return new Date(solar.getYear(), solar.getMonth() - 1, solar.getDay());
+	} catch {
+		return anniversaryDateThisYear(start, now);
+	}
+}
+
 /** Render one anniversary card. Hours precision gets a 60s ticker so the
  *  value stays live; coarser precisions are static until the next render.
  *  With `onEdit`, a hover config button opens the full edit modal (label,
@@ -105,7 +153,15 @@ export function renderSidebarAnniversaryWidget(
 	const sub = widget.createDiv({ cls: 'dashboard-sidebar-anniversary-date' });
 	if (start) {
 		const pad = (n: number) => String(n).padStart(2, '0');
-		sub.textContent = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+		const solarText = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+		if (cfg.calendar === 'lunar') {
+			// 农历 entries lead with the lunar date (the 农历 marker the user
+			// asked for); the solar equivalent rides along for scheduling apps.
+			const lunarText = formatLunarStartDate(start);
+			sub.textContent = lunarText ? t('anniversary.lunarWithSolar', { lunar: lunarText, solar: solarText }) : solarText;
+		} else {
+			sub.textContent = solarText;
+		}
 	}
 
 	if (start && cfg.precision === 'hours') {

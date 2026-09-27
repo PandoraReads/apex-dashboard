@@ -6,6 +6,7 @@ import { getDailyNotesConfig } from './daily-notes';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { getHabitService } from './habit-service';
 import { applyModalTheme } from './modal-theme';
+import { FocalPointPicker, focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
 
 export function getActiveQuote(banner: BannerData): QuoteItem {
 	if (banner.quotes && banner.quotes.length > 0) {
@@ -19,6 +20,17 @@ export function getActiveImage(banner: BannerData): string {
 		return banner.images[0]!;
 	}
 	return banner.image;
+}
+
+/** Apply the image's saved focal point (background-position percentages).
+ *  No entry (or the neutral center) leaves the CSS default `center`. */
+export function applyBannerFocal(el: HTMLElement, banner: BannerData, imagePath: string): void {
+	const pos = banner.imagePos?.[imagePath];
+	if (pos && !isCenterFocal(pos)) {
+		el.style.backgroundPosition = focalToBackgroundPosition(pos);
+	} else {
+		el.style.removeProperty('background-position');
+	}
 }
 
 /** Curated quote-font choices. `value` is a full CSS font-family stack so one
@@ -87,6 +99,7 @@ export function renderBanner(
 		if (activeImage) {
 			const resolved = resolveVaultImage(app, activeImage);
 			if (resolved) el.style.backgroundImage = `url("${resolved}")`;
+			applyBannerFocal(el, banner, activeImage);
 		}
 		renderBannerStats(el, banner.statsConfig, app);
 		createBannerEditButton(el, onEdit);
@@ -99,6 +112,7 @@ export function renderBanner(
 		if (resolved) {
 			el.style.backgroundImage = `url("${resolved}")`;
 		}
+		applyBannerFocal(el, banner, activeImage);
 	}
 
 	const overlay = el.createDiv({ cls: 'dashboard-banner-overlay' });
@@ -174,6 +188,8 @@ export class BannerEditModal extends Modal {
 	private onSave: (updates: Partial<BannerData>) => void;
 	private quotes: QuoteItem[];
 	private images: string[];
+	/** Focal-point draft keyed by image path (see BannerData.imagePos). */
+	private imagePosDraft: Record<string, { x: number; y: number }>;
 	private mode: 'quote' | 'stats';
 	private statsDraft: BannerStatsConfig;
 	private quoteColorDraft: string;
@@ -194,6 +210,7 @@ export class BannerEditModal extends Modal {
 		this.images = banner.images && banner.images.length > 0
 			? [...banner.images]
 			: banner.image ? [banner.image] : [];
+		this.imagePosDraft = { ...(banner.imagePos ?? {}) };
 	}
 
 	onOpen(): void {
@@ -330,7 +347,29 @@ export class BannerEditModal extends Modal {
 				});
 				imgInput.value = this.images[i]!;
 				imgInput.addEventListener('input', () => {
-					this.images[i] = imgInput.value;
+					const prev = this.images[i]!;
+					const next = imgInput.value;
+					this.images[i] = next;
+					// The focal draft is keyed by path: follow an edit so the
+					// dragged position survives a path being retyped.
+					if (prev !== next) {
+						const pos = this.imagePosDraft[prev];
+						if (pos) {
+							delete this.imagePosDraft[prev];
+							this.imagePosDraft[next] = pos;
+						}
+						picker.setPath(next);
+					}
+				});
+
+				// Focal-point picker: drag inside the preview to choose which
+				// part of the image the banner's cover crop shows (方案 B).
+				const pickerHost = row.createDiv({ cls: 'dashboard-modal-image-focal' });
+				const picker = new FocalPointPicker(this.app, pickerHost, {
+					path: this.images[i]!,
+					ratio: 6,
+					value: this.imagePosDraft[this.images[i]!],
+					onChange: (pos) => { this.imagePosDraft[this.images[i]!] = pos; },
 				});
 
 				if (this.images.length > 1) {
@@ -704,6 +743,15 @@ export class BannerEditModal extends Modal {
 				updates.image = '';
 				updates.images = undefined;
 			}
+			// Focal points: keep entries for images still configured, drop the
+			// neutral center, drop everything when no image remains.
+			const validSet = new Set(validImages);
+			const imagePos: Record<string, { x: number; y: number }> = {};
+			for (const [path, pos] of Object.entries(this.imagePosDraft)) {
+				if (!validSet.has(path) || isCenterFocal(pos)) continue;
+				imagePos[path] = pos;
+			}
+			updates.imagePos = Object.keys(imagePos).length > 0 ? imagePos : undefined;
 			updates.quoteColor = this.quoteColorDraft === '#ffffff' ? undefined : this.quoteColorDraft;
 			updates.quoteFont = this.quoteFontDraft.trim() || undefined;
 		}

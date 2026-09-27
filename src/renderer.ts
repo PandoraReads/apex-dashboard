@@ -13,6 +13,7 @@ import { renderDataviewSection, setDataviewApp } from './dataview-section';
 import { renderWebSection } from './web-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
+import { focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
 import { ITEM_DRAG_TYPE } from './dnd';
 import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 import { attachFileSuggest } from './file-suggest';
@@ -2550,10 +2551,10 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	setIcon(addCardBtn, 'plus');
 	addCardBtn.addEventListener('click', () => callbacks.onCardAdd(column.name));
 
-	// Notes (cover / no-cover) sections: gear opens the per-section new-note
-	// settings (template + save folder). Same dispatch the library sections'
-	// config button uses; view.ts routes it by sectionType.
-	if (sectionType === 'notes' || sectionType === 'projects') {
+	// Notes sections: gear opens the per-section settings (show covers, new-note
+	// template + save folder). Same dispatch the library sections' config button
+	// uses; view.ts routes it by sectionType.
+	if (sectionType === 'projects') {
 		const notesCfgBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('notesCfg.title') },
@@ -2579,7 +2580,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 
 	for (const card of column.cards) {
 		try {
-			const cardEl = renderCard(card, column.name, sectionType, callbacks, app, data, settings);
+			const cardEl = renderCard(card, column.name, sectionType, callbacks, app, data, settings, column.showCover !== false);
 			cardsContainer.appendChild(cardEl);
 		} catch (err) {
 			console.error('[Dashboard] renderCard error:', card.id, card.type, err);
@@ -2589,7 +2590,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	return el;
 }
 
-function renderCard(card: DashboardCard, columnName: string, sectionType: string, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings): HTMLElement {
+function renderCard(card: DashboardCard, columnName: string, sectionType: string, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings, sectionShowCover = true): HTMLElement {
 	const el = createDiv();
 	el.addClass('dashboard-card', `dashboard-card--${card.type}`);
 	el.dataset.cardId = card.id;
@@ -2609,7 +2610,9 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 	const isWidget = isWeather || isTracker;
 	const isProjectLike = !isMemo && !isTask && !isWidget;
 	const isDashboardSection = sectionType === 'dashboard';
-	const showCover = isProjectLike && !isDashboardSection && sectionType !== 'notes'
+	// Projects cards show covers unless the section's 显示封面 toggle is off
+	// (the retired standalone no-cover type); sticky picks per card instead.
+	const showCover = isProjectLike && !isDashboardSection && sectionShowCover
 		&& (sectionType !== 'sticky' || card.noteStyle !== 'plain');
 
 	if (showCover) {
@@ -2621,6 +2624,11 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		if (resolved) {
 			const cover = el.createDiv({ cls: 'dashboard-project-cover' });
 			cover.style.backgroundImage = `url("${resolved}")`;
+			// Saved focal point (coverPos): background-position percentages;
+			// absent stays the CSS default `center`.
+			if (card.coverPos && !isCenterFocal(card.coverPos)) {
+				cover.style.backgroundPosition = focalToBackgroundPosition(card.coverPos);
+			}
 			cover.setAttribute('draggable', 'true');
 		} else {
 			const cover = el.createDiv({ cls: 'dashboard-project-cover dashboard-project-cover--default' });
@@ -2752,10 +2760,11 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		});
 	}
 
-	// Per-card "new note" (notes/projects sections only): creates a note and
-	// attaches it to this card's doc list (view.handleCardNewNote). Rendered
-	// FIRST in the actions row so it sits left of edit + delete.
-	if (isProjectLike && (sectionType === 'notes' || sectionType === 'projects')) {
+	// Per-card "new note" (notes sections only): creates a note and attaches it
+	// to this card's doc list (view.handleCardNewNote). Rendered FIRST in the
+	// actions row so it sits left of edit + delete. The click point anchors the
+	// template menu when the section lists several templates.
+	if (isProjectLike && sectionType === 'projects') {
 		const newNoteBtn = actions.createEl('button', {
 			cls: 'dashboard-card-btn dashboard-card-btn--newnote',
 			attr: { 'aria-label': t('renderer.cardNewNote') },
@@ -2763,7 +2772,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		setIcon(newNoteBtn, 'file-plus');
 		newNoteBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			callbacks.onCardNewNote(card.id);
+			callbacks.onCardNewNote(card.id, { x: e.clientX, y: e.clientY });
 		});
 	}
 
@@ -3812,7 +3821,6 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'todo') return 'todo';
 	if (lower === 'sticky') return 'sticky';
 	if (lower === 'projects') return 'projects';
-	if (lower === 'notes') return 'notes';
 	if (lower === 'dashboard') return 'dashboard';
 	if (lower === 'library') return 'library';
 	if (lower === 'folder') return 'folder';

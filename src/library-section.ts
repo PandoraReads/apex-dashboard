@@ -6,6 +6,7 @@ import { attachNoteHover } from './hover-preview';
 import { showConfirmDialog } from './confirm-dialog';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 import { createToolbarDropdown } from './toolbar-dropdown';
+import { TableColumnsModal } from './table-columns-modal';
 import { KANBAN_FILE_DRAG_TYPE } from './dnd';
 import { resolveCoverAsObjectUrl } from './book-service';
 import { applyModalTheme } from './modal-theme';
@@ -30,6 +31,12 @@ export interface LibraryFileResult {
 
 const DEFAULT_PAGE_SIZE = 20;
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+/** Progressive rendering: cards rendered per group / kanban column up front. */
+export const GROUP_PAGE_SIZE = 50;
+/** Hard cap on items for the pagination-skipping paths (grouped + kanban).
+ * Beyond this the result set is truncated with a notice instead of rendered:
+ * thousands of synchronous card builds freeze the workspace outright. */
+export const RENDER_CEILING = 2000;
 
 export function extractFrontmatterProperties(app: App): Map<string, Set<string>> {
 	const props = new Map<string, Set<string>>();
@@ -535,6 +542,44 @@ export function renderLibrarySection(
 	const sortDirBtn = toolbar.createDiv({ cls: 'dashboard-library-sort-dir' });
 	setIcon(sortDirBtn, config.sortDesc ? 'arrow-down-wide-narrow' : 'arrow-up-wide-narrow');
 
+	// Table columns picker (eye): which properties the table view shows, in
+	// which order, and which are hidden. Only meaningful in table view, so it
+	// hides otherwise (same gating as the card size toggle); it shows as
+	// active while a custom column layout is stored.
+	const colsBtn = toolbar.createDiv({
+		cls: 'dashboard-library-view-btn dashboard-library-cols-btn',
+		attr: { 'aria-label': t('library.tableProperties') },
+	});
+	setIcon(colsBtn, 'eye');
+	colsBtn.title = t('library.tableProperties');
+	// Latest unfiltered scan of the section (updated by renderContent) — the
+	// picker seeds its rows from the properties these notes actually carry.
+	let latestSamples: Array<Record<string, unknown>> = [];
+	const colsCustomized = (cfg: LibraryConfig): boolean =>
+		Boolean((cfg.tableOrder?.length ?? 0) > 0 || (cfg.tableHidden?.length ?? 0) > 0 || (cfg.tableProperties?.length ?? 0) > 0);
+	const applyColsBtnState = (mode: LibraryViewMode): void => {
+		colsBtn.toggleClass('is-hidden', mode !== 'table');
+		colsBtn.toggleClass('active', colsCustomized(config));
+	};
+	colsBtn.addEventListener('click', () => {
+		const seed = tablePickerRows(config, latestSamples);
+		new TableColumnsModal(app, seed, (rows) => {
+			const tableOrder = rows.map(r => r.key).filter(k => k.length > 0);
+			const tableHidden = rows.filter(r => r.hidden).map(r => r.key);
+			// The new model replaces the legacy chip form on save.
+			const patch = {
+				tableOrder: tableOrder.length > 0 ? tableOrder : undefined,
+				tableHidden: tableHidden.length > 0 ? tableHidden : undefined,
+				tableProperties: undefined,
+			};
+			onConfigChange({ ...config, ...patch });
+			Object.assign(config, patch);
+			applyColsBtnState(config.viewMode);
+			renderContent(config);
+		}).open();
+	});
+	applyColsBtnState(config.viewMode);
+
 	// View mode toggle: single dropdown button (current view's icon); the
 	// native menu lists every view with a check on the active one.
 	const viewToggle = toolbar.createDiv({ cls: 'dashboard-library-view-toggle' });
@@ -554,6 +599,7 @@ export function renderLibrarySection(
 			Object.assign(config, { viewMode: mode });
 			applySizeToggleVisibility(mode);
 			applyGroupToggleVisibility(mode);
+			applyColsBtnState(mode);
 			currentPage = 1;
 			buildViewToggle();
 			renderContent(config);
@@ -620,6 +666,10 @@ export function renderLibrarySection(
 		// Collapse keys are raw folder/property values — meaningless once the
 		// grouping dimension changes, so start fresh.
 		collapsedGroups.clear();
+		// Same for the progressive-render limits: their keys are the same raw
+		// values and could collide across dimensions (folder "status" vs a
+		// property value "status").
+		renderedLimits.clear();
 		onConfigChange({ ...config, viewGroupMode, viewGroupBy });
 		Object.assign(config, { viewGroupMode, viewGroupBy });
 		currentPage = 1;
@@ -706,6 +756,9 @@ export function renderLibrarySection(
 				body?.addClass('is-hidden');
 				if (chevron) setIcon(chevron, 'chevron-right');
 			} else {
+				// Fill a never-rendered body before revealing it — same
+				// no-empty-flash ordering as the per-header expand above.
+				lazyRenderers.get(key)?.();
 				collapsedGroups.delete(key);
 				header.removeClass('is-collapsed');
 				body?.removeClass('is-hidden');
@@ -926,6 +979,16 @@ export function renderLibrarySection(
 	// Collapsed group headers (runtime state, not persisted) — keys from
 	// groupLibraryResults; toggled in place without re-querying the vault.
 	const collapsedGroups = new Set<string>();
+	// Per-group progressive-render limits (runtime state, not persisted).
+	// Absent key = GROUP_PAGE_SIZE. Deliberately survives search/sort/page
+	// re-renders within the same grouping dimension (a group the user already
+	// expanded should not snap back to the first page); cleared together with
+	// collapsedGroups when the dimension itself changes (pickGroup).
+	const renderedLimits = new Map<string, number>();
+	// One-shot lazy renderers for groups that were collapsed AT render time —
+	// their bodies stay empty placeholders until first expand. Recreated every
+	// renderContent, so a stale closure can never render into detached DOM.
+	const lazyRenderers = new Map<string, () => void>();
 
 	async function deleteLibraryFileWithConfirm(file: TFile): Promise<void> {
 		const confirmed = await showConfirmDialog(app, {
@@ -946,11 +1009,19 @@ export function renderLibrarySection(
 	function renderContent(currentConfig: LibraryConfig): void {
 		contentArea.empty();
 		paginationArea.empty();
+		// Previous render's lazy renderers point at now-detached bodies; the
+		// fresh render below re-registers the ones it still needs.
+		lazyRenderers.clear();
+		// Reset the render-cap marker; re-added below if this render overflows.
+		contentArea.removeClass('is-capped');
 		// Tag the current view so CSS can give the kanban its own (Trello-style)
 		// scrolling layout without affecting grid/list/table.
 		contentArea.dataset.viewMode = currentConfig.viewMode;
 
 		let results = queryVaultFiles(app, currentConfig);
+		// Snapshot the section's full scope (pre-search/-filter) for the table
+		// columns picker's candidate seeding.
+		latestSamples = results.map(r => r.frontmatter);
 
 		// Apply search
 		const search = searchInput.value.trim().toLowerCase();
@@ -1027,26 +1098,43 @@ export function renderLibrarySection(
 		const endIdx = skipPagination ? totalResults : Math.min(startIdx + effectivePageSize, totalResults);
 		const pageResults = results.slice(startIdx, endIdx);
 
+		// DOM ceiling for the pagination-skipping paths (grouped + kanban would
+		// otherwise render everything at once; past a few thousand cards the
+		// synchronous build freezes the workspace outright). The flat paginated
+		// view is naturally bounded by pageSize and stays untouched. The count
+		// in the toolbar keeps showing the real total; the notice explains the
+		// gap and how to narrow it.
+		const overCeiling = skipPagination && totalResults > RENDER_CEILING;
+		if (overCeiling) {
+			contentArea.addClass('is-capped');
+			contentArea.createDiv({
+				cls: 'dashboard-library-render-cap',
+				text: t('library.renderCapped', { shown: RENDER_CEILING, total: totalResults }),
+			});
+		}
+		const cappedResults = overCeiling ? pageResults.slice(0, RENDER_CEILING) : pageResults;
+
+		const handleDelete = (file: TFile): void => { void deleteLibraryFileWithConfirm(file); };
 		const renderView = (host: HTMLElement, items: LibraryFileResult[]): void => {
 			switch (currentConfig.viewMode) {
 				case 'grid':
-					renderGridView(host, items, app, isFolder, currentConfig);
+					renderGridView(host, items, app, isFolder, currentConfig, handleDelete);
 					break;
 				case 'gallery':
-					renderGalleryView(host, items, app, isFolder, currentConfig);
+					renderGalleryView(host, items, app, isFolder, currentConfig, handleDelete);
 					break;
 				case 'list':
 					renderListView(host, items, app);
 					break;
 				case 'table':
-					renderTableView(host, items, app, currentConfig, (f) => { void deleteLibraryFileWithConfirm(f); });
+					renderTableView(host, items, app, currentConfig, handleDelete);
 					break;
 			}
 		};
 
 		if (isGrouped) {
 			const groups = groupLibraryResults(
-				pageResults,
+				cappedResults,
 				currentConfig.viewGroupMode === 'folder' ? 'folder' : 'property',
 				currentConfig.viewGroupBy,
 				currentConfig.folders ?? [],
@@ -1064,13 +1152,56 @@ export function renderLibrarySection(
 				const chevron = header.createDiv({ cls: 'dashboard-library-group-chevron' });
 				setIcon(chevron, collapsed ? 'chevron-right' : 'chevron-down');
 				header.createDiv({ cls: 'dashboard-library-group-name', text: group.label });
+				// Data total, not rendered count — the load-more pill carries
+				// the "how much is hidden" part of the story.
 				header.createDiv({ cls: 'dashboard-library-group-count', text: String(group.items.length) });
+				// The body element ALWAYS exists: the collapse-all sweep walks
+				// headers and flips their nextElementSibling, so a collapsed
+				// group gets an empty placeholder instead of no element.
 				const body = contentArea.createDiv({ cls: 'dashboard-library-group-body' });
 				if (collapsed) body.addClass('is-hidden');
+
+				// In-group progressive rendering: first GROUP_PAGE_SIZE cards,
+				// then a load-more pill. The pill rebuilds the body contents in
+				// place with a bigger slice (the body element itself stays put,
+				// so the section's scroll position survives). slice() shrinks
+				// harmlessly when a later re-render narrows the group below the
+				// remembered limit.
+				const renderGroupBody = (): void => {
+					const limit = renderedLimits.get(group.key) ?? GROUP_PAGE_SIZE;
+					body.empty();
+					renderView(body, group.items.slice(0, limit));
+					if (group.items.length > limit) {
+						const more = body.createDiv({
+							cls: 'dashboard-library-load-more',
+							text: t('library.showMore', { count: group.items.length - limit }),
+						});
+						more.addEventListener('click', (e) => {
+							e.stopPropagation();
+							renderedLimits.set(group.key, limit + GROUP_PAGE_SIZE);
+							renderGroupBody();
+						});
+					}
+				};
+
+				if (collapsed) {
+					// Collapsed at render time: defer the body build entirely.
+					// One-shot so re-collapsing keeps the already-built DOM
+					// instead of rebuilding on every expand.
+					lazyRenderers.set(group.key, () => {
+						lazyRenderers.delete(group.key);
+						renderGroupBody();
+					});
+				} else {
+					renderGroupBody();
+				}
+
 				// Collapse in place (no vault re-query): flip the set and the
-				// two elements' classes/chevron directly.
+				// two elements' classes/chevron directly. Expanding fills a
+				// never-rendered body BEFORE revealing it (no empty flash).
 				header.addEventListener('click', () => {
 					if (collapsedGroups.has(group.key)) {
+						lazyRenderers.get(group.key)?.();
 						collapsedGroups.delete(group.key);
 						header.removeClass('is-collapsed');
 						body.removeClass('is-hidden');
@@ -1083,14 +1214,13 @@ export function renderLibrarySection(
 					}
 					updateCollapseToggle();
 				});
-				renderView(body, group.items);
 			}
 			// No groups rendered (filters emptied everything): the sweep has
 			// nothing to act on, so hide the button entirely.
 			if (groups.length === 0) collapseToggle.addClass('is-hidden');
 			else updateCollapseToggle();
 		} else if (isKanban) {
-			renderKanbanView(contentArea, pageResults, app, currentConfig);
+			renderKanbanView(contentArea, cappedResults, app, currentConfig, handleDelete);
 		} else {
 			renderView(contentArea, pageResults);
 		}
@@ -1233,19 +1363,21 @@ async function trashLibraryFile(app: App, file: TFile): Promise<void> {
 	await app.fileManager.trashFile(file);
 }
 
-function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig): void {
-	renderFileCards(container, results, app, showTags, config, { covers: false });
+function renderGridView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig, onDelete: (file: TFile) => void): void {
+	renderFileCards(container, results, app, showTags, config, { covers: false, onDelete });
 }
 
 /** Gallery view: the familiar card grid with a frontmatter-driven cover
  *  image on top of each card (see {@link extractCoverValue}). */
-function renderGalleryView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig): void {
-	renderFileCards(container, results, app, showTags, config, { covers: true });
+function renderGalleryView(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig, onDelete: (file: TFile) => void): void {
+	renderFileCards(container, results, app, showTags, config, { covers: true, onDelete });
 }
 
 interface FileCardRenderOptions {
 	/** Gallery mode: render cover slots and drop the cover field from badges. */
 	covers: boolean;
+	/** Hover-reveal delete affordance on each card (see attachCardDeleteButton). */
+	onDelete: (file: TFile) => void;
 }
 
 /** Turn a cover slot into a themed placeholder: the bundled default image when
@@ -1260,6 +1392,25 @@ function renderPlaceholderCover(coverEl: HTMLElement): void {
 	}
 }
 
+/** Hover-reveal delete affordance shared by the card views (grid/gallery) and
+ *  the kanban cards: a trash button pinned to the card's top-right corner.
+ *  Visibility is pure CSS (opacity 0 — and click-through — until the card is
+ *  hovered); the click stops propagation so neither the card's open-file
+ *  handler nor the kanban drag wiring sees it. */
+function attachCardDeleteButton(card: HTMLElement, file: TFile, onDelete: (file: TFile) => void): void {
+	const btn = card.createEl('button', {
+		cls: 'dashboard-library-card-delete',
+		attr: { 'aria-label': t('library.delete') },
+	});
+	btn.title = t('library.delete');
+	setIcon(btn, 'trash-2');
+	btn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		e.preventDefault();
+		onDelete(file);
+	});
+}
+
 function renderFileCards(container: HTMLElement, results: LibraryFileResult[], app: App, showTags: boolean, config: LibraryConfig, opts: FileCardRenderOptions): void {
 	// Card size narrows/widens the auto-fill column track (covers follow via
 	// aspect-ratio). 'medium' is the un-suffixed default, so legacy sections
@@ -1271,6 +1422,7 @@ function renderFileCards(container: HTMLElement, results: LibraryFileResult[], a
 		const card = grid.createDiv({ cls: 'dashboard-library-card' });
 		attachItemHover(app, card, result.file);
 		card.addEventListener('click', () => openFile(app, result.file));
+		attachCardDeleteButton(card, result.file, opts.onDelete);
 
 		// Cover slot (gallery only). Created up-front so the async fill has a
 		// stable target; removed again when nothing resolves. The winning field
@@ -1602,22 +1754,131 @@ function startCellEdit(
 	input.addEventListener('blur', () => finish(true));
 }
 
-function renderTableView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig, onDelete: (file: TFile) => void): void {
-	// Determine which property columns to show
-	const propKeys = new Set<string>();
-	for (const filter of config.filters) {
+/** 'name'/'modified' are the table's fixed columns — never property columns. */
+const FIXED_COLUMN_KEYS: readonly string[] = ['name', 'modified'];
+
+/** Candidate property keys for a section's table: its filter properties
+ *  (minus the tags/modified/created/path pseudo filter keys) followed by every
+ *  frontmatter key of `samples` in first-seen order (position skipped),
+ *  deduped, uncapped. Shared by the column rendering and the picker seeding. */
+function tableCandidateKeys(
+	filters: readonly PropertyFilter[] | undefined,
+	samples: Array<Record<string, unknown>>,
+): string[] {
+	const out: string[] = [];
+	const seen = new Set<string>();
+	for (const filter of filters ?? []) {
+		const key = filter.property.trim();
+		if (!key || seen.has(key) || key === 'tags' || key === 'modified' || key === 'created' || key === 'path') continue;
+		seen.add(key);
+		out.push(key);
+	}
+	for (const frontmatter of samples) {
+		for (const key of Object.keys(frontmatter)) {
+			if (key === 'position' || seen.has(key)) continue;
+			seen.add(key);
+			out.push(key);
+		}
+	}
+	return out;
+}
+
+/**
+ * Which property columns the table view shows.
+ *
+ *  1. Picker model (`tableOrder` set): the ordered keys, then candidate keys
+ *     the order doesn't know yet (properties that appeared later default to
+ *     visible), minus `tableHidden` — both name/modified guards dropped.
+ *  2. Legacy chip model (`tableProperties` non-empty): exactly the picked
+ *     keys, in pick order (pre-picker plugin versions).
+ *  3. Automatic: filter properties plus candidate keys, capped at `autoLimit`
+ *     total — the historical behavior.
+ */
+export function selectTableColumns(
+	config: { filters?: readonly PropertyFilter[]; tableProperties?: readonly string[]; tableOrder?: readonly string[]; tableHidden?: readonly string[] },
+	samples: Array<Record<string, unknown>>,
+	autoLimit = 6,
+): string[] {
+	if (config.tableOrder && config.tableOrder.length > 0) {
+		const hidden = new Set(config.tableHidden ?? []);
+		const order = config.tableOrder.map(k => k.trim()).filter(k => k.length > 0);
+		const inOrder = new Set(order);
+		const tail = tableCandidateKeys(config.filters, samples).filter(k => !inOrder.has(k));
+		return [...order, ...tail]
+			.filter(k => !FIXED_COLUMN_KEYS.includes(k) && !hidden.has(k));
+	}
+
+	const picks = (config.tableProperties ?? [])
+		.map(k => k.trim())
+		.filter(k => k.length > 0 && !FIXED_COLUMN_KEYS.includes(k));
+	if (picks.length > 0) return picks;
+
+	const auto = new Set<string>();
+	for (const filter of config.filters ?? []) {
 		if (filter.property !== 'tags' && filter.property !== 'modified' && filter.property !== 'created' && filter.property !== 'path') {
-			propKeys.add(filter.property);
+			auto.add(filter.property);
 		}
 	}
-	// Also collect common properties from results
-	for (const result of results.slice(0, 20)) {
-		for (const key of Object.keys(result.frontmatter)) {
+	for (const frontmatter of samples) {
+		for (const key of Object.keys(frontmatter)) {
 			if (key === 'position') continue;
-			propKeys.add(key);
-			if (propKeys.size >= 6) break;
+			// Cap BEFORE adding so the limit can't be overshot one key per
+			// later sample (the historical break only exited the inner loop).
+			if (auto.size >= autoLimit) return [...auto];
+			auto.add(key);
 		}
 	}
+	return [...auto];
+}
+
+/** One row of the table-columns picker: a property key and its visibility. */
+export interface TableColumnRow {
+	key: string;
+	hidden: boolean;
+}
+
+/**
+ * Seed rows for the table-columns picker. Everything defaults VISIBLE (the
+ * inverse-chosen UX: hide the few you don't want): the automatic candidate
+ * order for fresh sections, the stored order + hidden set for picker-managed
+ * ones, and (legacy chip configs) the old picks shown first with the rest
+ * hidden — preserving what those configs meant.
+ */
+export function tablePickerRows(
+	config: { filters?: readonly PropertyFilter[]; tableProperties?: readonly string[]; tableOrder?: readonly string[]; tableHidden?: readonly string[] },
+	samples: Array<Record<string, unknown>>,
+): TableColumnRow[] {
+	const candidates = tableCandidateKeys(config.filters, samples);
+
+	if (config.tableOrder && config.tableOrder.length > 0) {
+		const hidden = new Set(config.tableHidden ?? []);
+		const order = config.tableOrder.map(k => k.trim()).filter(k => k.length > 0 && !FIXED_COLUMN_KEYS.includes(k));
+		const inOrder = new Set(order);
+		return [
+			...order.map(key => ({ key, hidden: hidden.has(key) })),
+			...candidates.filter(k => !inOrder.has(k)).map(key => ({ key, hidden: false })),
+		];
+	}
+
+	const picks = (config.tableProperties ?? [])
+		.map(k => k.trim())
+		.filter(k => k.length > 0 && !FIXED_COLUMN_KEYS.includes(k));
+	if (picks.length > 0) {
+		const picked = new Set(picks);
+		return [
+			...picks.map(key => ({ key, hidden: false })),
+			...candidates.filter(k => !picked.has(k)).map(key => ({ key, hidden: true })),
+		];
+	}
+
+	return candidates.map(key => ({ key, hidden: false }));
+}
+
+function renderTableView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig, onDelete: (file: TFile) => void): void {
+	const propKeys = selectTableColumns(
+		config,
+		results.slice(0, 20).map(result => result.frontmatter),
+	);
 
 	const columns = ['name', 'modified', ...propKeys];
 
@@ -2048,13 +2309,18 @@ async function setKanbanGroupProperty(
 }
 
 /** Rewrite a column title so its count matches the cards now in the DOM
- *  (covers the optimistic-move window before the debounced re-render). */
+ *  (covers the optimistic-move window before the debounced re-render).
+ *  With in-column progressive rendering the DOM only holds the rendered
+ *  slice, so the load-more pill's data-hidden-count tops the count back up
+ *  to the data total. */
 function refreshKanbanColumnCount(col: HTMLElement): void {
 	const title = col.querySelector(':scope > .dashboard-library-kanban-col-title');
 	const label = col.dataset.groupLabel;
 	if (!title || !label) return;
-	const count = col.querySelectorAll(':scope > .dashboard-library-kanban-card').length;
-	title.setText(`${label} (${count})`);
+	const rendered = col.querySelectorAll(':scope > .dashboard-library-kanban-card').length;
+	const hiddenRaw = col.querySelector(':scope > .dashboard-library-load-more')?.getAttribute('data-hidden-count');
+	const hidden = hiddenRaw != null && hiddenRaw !== '' && Number.isFinite(parseInt(hiddenRaw, 10)) ? parseInt(hiddenRaw, 10) : 0;
+	title.setText(`${label} (${rendered + hidden})`);
 }
 
 /** Cover slot on a kanban card — the gallery view's classes and extraction
@@ -2077,7 +2343,7 @@ function renderKanbanCardCover(card: HTMLElement, result: LibraryFileResult, app
 	return cover;
 }
 
-function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig): void {
+function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], app: App, config: LibraryConfig, onDelete: (file: TFile) => void): void {
 	const groupBy = config.kanbanGroupBy ?? 'tags';
 	const byFolder = config.groupMode === 'folder';
 	const showCovers = config.kanbanShowCovers === true;
@@ -2101,6 +2367,7 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 		const card = col.createDiv({ cls: 'dashboard-library-kanban-card' });
 		attachItemHover(app, card, result.file);
 		card.addEventListener('click', () => openFile(app, result.file));
+		attachCardDeleteButton(card, result.file, onDelete);
 		if (dragEnabled) attachKanbanCardDrag(card, result.file, fromKey, dragState, dragHint);
 		let badgeFrontmatter = result.frontmatter;
 		if (showCovers) {
@@ -2119,11 +2386,17 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 	 *  stay draggable out into real groups. */
 	const wireColumnDrop = (col: HTMLElement, groupKey: string | undefined): void => {
 		col.dataset.groupLabel = groupKey ?? t('library.notSet');
+		// Optimistic card moves append past the load-more pill; put it back at
+		// the column bottom so it stays the visual "end of rendered cards".
+		const keepLoadMoreLast = (): void => {
+			const more = col.querySelector(':scope > .dashboard-library-load-more');
+			if (more) col.appendChild(more);
+		};
 		if (!dragEnabled) return;
 		if (byFolder) {
 			const targetFolder = groupFolders.get(groupKey ?? '');
 			attachKanbanColumnDrop(col, targetFolder !== undefined,
-				(file, cardEl) => { if (targetFolder) void moveKanbanCard(app, file, targetFolder, cardEl, col); },
+				(file, cardEl) => { if (targetFolder) void moveKanbanCard(app, file, targetFolder, cardEl, col); keepLoadMoreLast(); },
 				dragState);
 			return;
 		}
@@ -2135,7 +2408,7 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 			return;
 		}
 		attachKanbanColumnDrop(col, true,
-			(file, cardEl) => void setKanbanGroupProperty(app, file, groupBy, groupKey, dragState.fromKey, cardEl, col),
+			(file, cardEl) => { void setKanbanGroupProperty(app, file, groupBy, groupKey, dragState.fromKey, cardEl, col); keepLoadMoreLast(); },
 			dragState);
 	};
 
@@ -2194,23 +2467,51 @@ function renderKanbanView(container: HTMLElement, results: LibraryFileResult[], 
 		for (const entry of sorted) groups.set(entry[0], entry[1]);
 	}
 
+	/** One column with in-column progressive rendering: the first
+	 *  GROUP_PAGE_SIZE cards up front, then a load-more pill that truly
+	 *  appends the next batch via makeCard (no rebuild, existing cards keep
+	 *  their DOM and drag wiring). data-hidden-count on the pill lets
+	 *  refreshKanbanColumnCount keep the title at the data total across the
+	 *  optimistic-move window. */
+	const renderColumn = (name: string, items: LibraryFileResult[], groupKey: string | undefined): void => {
+		const col = kanban.createDiv({ cls: 'dashboard-library-kanban-col' });
+		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${name} (${items.length})` });
+		wireColumnDrop(col, groupKey);
+		const syncHiddenCount = (): void => {
+			const more = col.querySelector(':scope > .dashboard-library-load-more');
+			if (more) more.setAttribute('data-hidden-count', String(Math.max(0, items.length - rendered)));
+		};
+		let rendered = Math.min(items.length, GROUP_PAGE_SIZE);
+		for (let i = 0; i < rendered; i++) makeCard(col, items[i]!, groupKey ?? null);
+		if (items.length > GROUP_PAGE_SIZE) {
+			const more = col.createDiv({
+				cls: 'dashboard-library-load-more',
+				text: t('library.showMore', { count: items.length - rendered }),
+			});
+			more.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const end = Math.min(items.length, rendered + GROUP_PAGE_SIZE);
+				for (let i = rendered; i < end; i++) makeCard(col, items[i]!, groupKey ?? null);
+				rendered = end;
+				if (rendered >= items.length) {
+					more.remove();
+				} else {
+					more.setText(t('library.showMore', { count: items.length - rendered }));
+					col.appendChild(more); // appended cards land after it; move it back to the bottom
+				}
+				syncHiddenCount();
+			});
+			syncHiddenCount();
+		}
+	};
+
 	// Render columns
 	for (const [groupName, groupResults] of groups) {
-		const col = kanban.createDiv({ cls: 'dashboard-library-kanban-col' });
-		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${groupName} (${groupResults.length})` });
-		wireColumnDrop(col, groupName);
-		for (const result of groupResults) {
-			makeCard(col, result, groupName);
-		}
+		renderColumn(groupName, groupResults, groupName);
 	}
 
 	if (noGroup.length > 0) {
-		const col = kanban.createDiv({ cls: 'dashboard-library-kanban-col' });
-		col.createDiv({ cls: 'dashboard-library-kanban-col-title', text: `${t('library.notSet')} (${noGroup.length})` });
 		// groupKey undefined → declines drops, while its cards stay draggable.
-		wireColumnDrop(col, undefined);
-		for (const result of noGroup) {
-			makeCard(col, result, null);
-		}
+		renderColumn(t('library.notSet'), noGroup, undefined);
 	}
 }

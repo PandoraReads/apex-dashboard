@@ -125,6 +125,17 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.6.5
+- **Delete cards in place** — Grid, gallery and kanban cards in database/folder sections show a corner trash button on hover (always visible on mobile) — no more menu digging
+- **New note from multiple templates** — The "new note template" setting now takes multiple templates; pick one per click on the toolbar "+", and the note comes pre-filled with the section's filters. Single-template settings migrate automatically
+- **Table view column control** — A toolbar eye button lists every property field: hide what you don't need and drag to reorder, remembered per section; legacy column settings migrate automatically
+- **Big-vault render protection** — Grouped and kanban views render progressively (50 per group/column with a show-more pill) and cap at 2000 items with a notice — sections with thousands of files no longer freeze the dashboard
+- **Lunar anniversaries** — Anniversary dates can be lunar (stored as solar dates losslessly); reminders map to lunar anniversaries
+- **Cover & banner focal points** — Project covers and banner backgrounds let you drag-pick the focal position, remembered per rotating image
+- **Calendar task times & destinations** — Tasks support start/due/scheduled date fields with optional times across days (`[start::]`/`[due::]`/`[scheduled::]`); a "one note per task" destination mode creates/appends a dated note automatically
+- **No-cover sections merged into Notes** — The "no-cover notes" type merges into "Notes" with a "show covers" toggle per section; old configs migrate automatically
+- **Property filters for folder sections** — Folder sections gain the same property-filter editor as database sections (equals/contains/notEquals)
+
 ### 3.6.3
 - **Grouping for library/folder views** — Grid, gallery, list and table views gain a "Group" toolbar button: no grouping, by folder (top-level folders under the scan folders), or by any frontmatter property; the choice persists per section in the board file; the kanban view keeps its existing config-dialog grouping
 - **Expand/collapse all groups** — With grouping on, library/folder sections gain a toolbar button that expands or collapses every group in one click; the icon and tooltip follow the current state

@@ -23,9 +23,13 @@ import type {
 } from './types';
 import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
+import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-picker';
 import { normalizeColumnPairs } from './column-pairs';
 
-const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle']);
+const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle']);
+// 'notes' is the retired standalone no-cover section type: it parses (old
+// dashboard files still carry `type: notes`) but immediately migrates to
+// projects + showCover:false in parseColumns, so it never survives a load.
 const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
@@ -112,6 +116,18 @@ export function serialize(data: DashboardData): string {
 			lines.push(`    - "${escapeYamlString(img)}"`);
 		}
 	}
+	// Per-image focal points, keyed by image path (see BannerData.imagePos).
+	// Center entries are pruned like the card coverPos line — the whole map
+	// drops when nothing non-center remains.
+	if (data.banner.imagePos) {
+		const entries = Object.entries(data.banner.imagePos).filter(([, pos]) => !isCenterFocal(pos));
+		if (entries.length > 0) {
+			lines.push('  imagePos:');
+			for (const [path, pos] of entries) {
+				lines.push(`    "${escapeYamlString(path)}": "${formatFocalPoint(pos)}"`);
+			}
+		}
+	}
 	if (data.banner.mode === 'stats') {
 		lines.push('  mode: stats');
 	}
@@ -173,6 +189,10 @@ export function serialize(data: DashboardData): string {
 		if (col.sectionType) {
 			lines.push(`    type: ${col.sectionType}`);
 		}
+		// Only the cover opt-out is persisted (true is the default).
+		if (col.showCover === false) {
+			lines.push(`    showCover: false`);
+		}
 		if (col.libraryConfig) {
 			lines.push('    library:');
 			const lc = col.libraryConfig;
@@ -203,7 +223,16 @@ export function serialize(data: DashboardData): string {
 					lines.push(`        - "${escapeYamlString(f)}"`);
 				}
 			}
-			if (lc.templatePath) {
+			// Multi-template list (the authoritative form). The first entry also
+			// lands in the legacy single `templatePath` key so pre-multi-template
+			// plugin versions reading this file keep a working template.
+			if (lc.templatePaths && lc.templatePaths.length > 0) {
+				lines.push('      templatePaths:');
+				for (const tpl of lc.templatePaths) {
+					lines.push(`        - "${escapeYamlString(tpl)}"`);
+				}
+				lines.push(`      templatePath: "${escapeYamlString(lc.templatePaths[0]!)}"`);
+			} else if (lc.templatePath) {
 				lines.push(`      templatePath: "${escapeYamlString(lc.templatePath)}"`);
 			}
 			if (lc.taskGroupBy) {
@@ -238,6 +267,26 @@ export function serialize(data: DashboardData): string {
 			if (lc.visibleProperties && lc.visibleProperties.length > 0) {
 				lines.push(`      visibleProperties:`);
 				for (const p of lc.visibleProperties) {
+					lines.push(`        - "${escapeYamlString(p)}"`);
+				}
+			}
+			if (lc.tableProperties && lc.tableProperties.length > 0) {
+				lines.push(`      tableProperties:`);
+				for (const p of lc.tableProperties) {
+					lines.push(`        - "${escapeYamlString(p)}"`);
+				}
+			}
+			// Picker model: full row order + hidden keys (the authoritative
+			// form; tableProperties above is the legacy chip mirror).
+			if (lc.tableOrder && lc.tableOrder.length > 0) {
+				lines.push(`      tableOrder:`);
+				for (const p of lc.tableOrder) {
+					lines.push(`        - "${escapeYamlString(p)}"`);
+				}
+			}
+			if (lc.tableHidden && lc.tableHidden.length > 0) {
+				lines.push(`      tableHidden:`);
+				for (const p of lc.tableHidden) {
 					lines.push(`        - "${escapeYamlString(p)}"`);
 				}
 			}
@@ -408,6 +457,11 @@ export function serialize(data: DashboardData): string {
 
 			if (card.coverImage) {
 				lines.push(`cover: ${card.coverImage}`);
+			}
+
+			// Cover focal point ("35,80"); center is the default and stays unpersisted.
+			if (card.coverPos && !isCenterFocal(card.coverPos)) {
+				lines.push(`coverPos: ${formatFocalPoint(card.coverPos)}`);
 			}
 
 			if (card.width > 0) {
@@ -769,6 +823,20 @@ function parseBanner(fm: Record<string, unknown>): BannerData {
 		images = (imagesRaw as unknown[]).map((item: unknown) => String(item)).filter((s: string) => s.trim());
 	}
 
+	// Per-image focal points: map of path → "x,y". Entries for images no
+	// longer in the list are kept (harmless, and survive undos); invalid
+	// values drop silently.
+	const imagePosRaw = raw.imagePos;
+	let imagePos: Record<string, { x: number; y: number }> | undefined;
+	if (imagePosRaw && typeof imagePosRaw === 'object' && !Array.isArray(imagePosRaw)) {
+		const entries = Object.entries(imagePosRaw as Record<string, unknown>)
+			.map(([path, value]) => [path, parseFocalPoint(typeof value === 'string' ? value : undefined)] as const)
+			.filter((entry): entry is readonly [string, { x: number; y: number }] => entry[1] !== undefined);
+		if (entries.length > 0) {
+			imagePos = Object.fromEntries(entries);
+		}
+	}
+
 	return {
 		quote: (raw.quote as string) ?? DEFAULT_BANNER.quote,
 		author: (raw.author as string) ?? DEFAULT_BANNER.author,
@@ -777,6 +845,7 @@ function parseBanner(fm: Record<string, unknown>): BannerData {
 		quoteFont: (raw.quoteFont as string) || undefined,
 		quotes,
 		images,
+		imagePos,
 		mode: raw.mode === 'stats' ? 'stats' : 'quote',
 		statsConfig: parseStatsConfig(raw.statsConfig),
 	};
@@ -854,26 +923,27 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean; width?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
 	return (raw as Array<Record<string, unknown>>).map(item => ({
 			name: String((item.name ?? 'Unnamed') as string | number | boolean),
 			color: String((item.color ?? '#6366f1') as string | number | boolean),
-		sectionType: item.type ? String(item.type as string | number | boolean) : undefined,
-		libraryConfig: item.library ? parseLibraryConfig(item.library as Record<string, unknown>) : undefined,
-		wereadConfig: item.weread ? parseWereadConfig(item.weread as Record<string, unknown>) : undefined,
-		ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
-		dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
-		webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
-		height: typeof item.height === 'number' ? item.height : undefined,
-		half: item.half === true ? true : undefined,
-		width: typeof item.width === 'number' && item.width >= 20 && item.width <= 80 ? Math.round(item.width) : undefined,
-	}));
+			sectionType: item.type ? String(item.type as string | number | boolean) : undefined,
+			libraryConfig: item.library ? parseLibraryConfig(item.library as Record<string, unknown>) : undefined,
+			wereadConfig: item.weread ? parseWereadConfig(item.weread as Record<string, unknown>) : undefined,
+			ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
+			dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
+			webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
+			showCover: item.showCover === false ? false : undefined,
+			height: typeof item.height === 'number' ? item.height : undefined,
+			half: item.half === true ? true : undefined,
+			width: typeof item.width === 'number' && item.width >= 20 && item.width <= 80 ? Math.round(item.width) : undefined,
+		}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -889,10 +959,15 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 		}
 		const cards = parseCards(section.content, section.heading);
 		const resolvedType = resolveSectionType(section.heading, cards, def?.sectionType);
+		// Legacy 'notes' (无封面) sections render as the projects type with the
+		// cover toggle off, so old dashboards look identical after the type was
+		// folded into projects; the next write persists the migrated form.
+		const isLegacyNotes = resolvedType === 'notes';
 		return {
 			name: section.heading,
 			color: def?.color ?? '#6366f1',
-			sectionType: resolvedType,
+			sectionType: isLegacyNotes ? 'projects' : resolvedType,
+			showCover: isLegacyNotes ? false : def?.showCover,
 			// Memo rendering includes task/doc trees; retain their structure on reload.
 			cards,
 			libraryConfig: def?.libraryConfig,
@@ -976,6 +1051,24 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 				: [];
 			return list.length > 0 ? [...new Set(list)] : undefined;
 		})(),
+		tableProperties: (() => {
+			const list = Array.isArray(raw.tableProperties)
+				? raw.tableProperties.map((v: unknown) => str(v)).filter(s => s.length > 0)
+				: [];
+			return list.length > 0 ? [...new Set(list)] : undefined;
+		})(),
+		tableOrder: (() => {
+			const list = Array.isArray(raw.tableOrder)
+				? raw.tableOrder.map((v: unknown) => str(v)).filter(s => s.length > 0)
+				: [];
+			return list.length > 0 ? [...new Set(list)] : undefined;
+		})(),
+		tableHidden: (() => {
+			const list = Array.isArray(raw.tableHidden)
+				? raw.tableHidden.map((v: unknown) => str(v)).filter(s => s.length > 0)
+				: [];
+			return list.length > 0 ? [...new Set(list)] : undefined;
+		})(),
 		cardSize: ['small', 'medium', 'large'].includes(str(raw.cardSize ?? ''))
 			? (raw.cardSize as import('./types').LibraryConfig['cardSize'])
 			: undefined,
@@ -983,6 +1076,15 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		folderFilter: Array.isArray(raw.folderFilter) ? raw.folderFilter.map((v: unknown) => String(v)) : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
 		includeFolders: Array.isArray(raw.includeFolders) ? raw.includeFolders.map((v: unknown) => String(v)) : undefined,
+		// Multi-template list wins; the legacy single key upgrades into it.
+		templatePaths: (() => {
+			const list = Array.isArray(raw.templatePaths)
+				? raw.templatePaths.map((v: unknown) => str(v)).filter(s => s.length > 0)
+				: [];
+			if (list.length > 0) return [...new Set(list)];
+			return typeof raw.templatePath === 'string' && raw.templatePath.length > 0
+				? [raw.templatePath] : undefined;
+		})(),
 		templatePath: typeof raw.templatePath === 'string' ? raw.templatePath : undefined,
 		taskGroupBy: ['date', 'priority', 'none'].includes(str(raw.taskGroupBy ?? '')) ? (raw.taskGroupBy as import('./types').LibraryConfig['taskGroupBy']) : undefined,
 			quickDateFilter: raw.quickDateFilter && typeof raw.quickDateFilter === 'object' ? {
@@ -1149,6 +1251,7 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 		blockquote,
 		color: normalizeHexColor(metadata.color),
 		coverImage: metadata.cover ?? '',
+		coverPos: parseFocalPoint(metadata.coverPos),
 		width: parseInt(metadata.width ?? '0', 10) || 0,
 			size: parseCardSize(metadata.size),
 		gridCols: parseInt(metadata.cols ?? '0', 10) || 0,

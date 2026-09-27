@@ -1520,10 +1520,13 @@ onyx: t('settings.styleOnyx'),
 		const list = this.plugin.settings.anniversaries ?? [];
 		for (const cfg of list) {
 			const summary = cfg.label || cfg.startDate || t('anniversary.unnamed');
+			const dateSummary = cfg.calendar === 'lunar'
+				? `${t('anniversary.calendarLunar')} · ${cfg.startDate}`
+				: cfg.startDate;
 			new Setting(card)
 				.setName(summary)
 				.setDesc(cfg.startDate
-					? `${cfg.startDate} · ${cfg.annualReminder ? t('anniversary.reminderOn') : t('anniversary.reminderOff')}`
+					? `${dateSummary} · ${cfg.annualReminder ? t('anniversary.reminderOn') : t('anniversary.reminderOff')}`
 					: t('anniversary.setDate'))
 				.addExtraButton(btn => btn
 					.setIcon('pencil')
@@ -1555,6 +1558,7 @@ onyx: t('settings.styleOnyx'),
 			id: `av-${Date.now()}`,
 			label: '',
 			startDate: '',
+			calendar: 'solar',
 			precision: 'ymd',
 			annualReminder: false,
 		};
@@ -1693,17 +1697,62 @@ onyx: t('settings.styleOnyx'),
 				}));
 
 		// Fixed destination override: default chain (daily note → dashboard),
-		// a specific file, or a folder with one YYYY-MM-DD note per day.
+		// a specific file, a folder with one YYYY-MM-DD note per day, or a
+		// folder with a NEW note per task (template-seeded, see below).
 		const currentTarget = this.plugin.settings.calendarTaskTarget;
 		const targetMode: () => string = () => currentTarget?.kind ?? 'default';
+		const isFolderish = (mode: string): boolean => mode === 'folder' || mode === 'note';
 		const targetSetting = new Setting(card)
 			.setName(t('settings.calendarTarget'))
 			.setDesc(t('settings.calendarTargetDesc'));
 		let targetInput: HTMLInputElement | null = null;
+		// Template picker for the 'note' kind — hidden for the other modes.
+		const noteTplSetting = new Setting(card)
+			.setName(t('settings.calendarTaskNoteTemplate'))
+			.setDesc(t('settings.calendarTaskNoteTemplateDesc'));
+		let noteTplInput: HTMLInputElement | null = null;
+		const applyNoteTplVisibility = (mode: string): void => {
+			noteTplSetting.settingEl.style.display = mode === 'note' ? '' : 'none';
+			if (noteTplInput) {
+				noteTplInput.value = this.plugin.settings.calendarTaskTarget?.templatePath ?? '';
+			}
+		};
+		noteTplSetting.addText(text => {
+			noteTplInput = text.inputEl;
+			text.setPlaceholder('Templates/task.md')
+				.setValue(currentTarget?.templatePath ?? '')
+				.onChange(async (value) => {
+					const tgt = this.plugin.settings.calendarTaskTarget;
+					if (tgt?.kind !== 'note') return;
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarTaskTarget: { ...tgt, templatePath: value.trim() || undefined },
+					};
+					await this.plugin.saveSettings();
+				});
+		});
+		noteTplSetting.addExtraButton(btn => btn
+			.setIcon('file-search')
+			.setTooltip(t('pathPicker.pickFile'))
+			.onClick(() => {
+				if (this.plugin.settings.calendarTaskTarget?.kind !== 'note') return;
+				new PathPickerModal(this.app, 'file', (path) => {
+					const tgt = this.plugin.settings.calendarTaskTarget;
+					if (tgt?.kind !== 'note') return;
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarTaskTarget: { ...tgt, templatePath: path },
+					};
+					void this.plugin.saveSettings();
+					if (noteTplInput) noteTplInput.value = path;
+				}).open();
+			}));
+		applyNoteTplVisibility(targetMode());
 		targetSetting.addDropdown(d => {
 			d.addOption('default', t('settings.calendarTargetDefault'))
 				.addOption('file', t('settings.calendarTargetFile'))
 				.addOption('folder', t('settings.calendarTargetFolder'))
+				.addOption('note', t('settings.calendarTargetNote'))
 				.setValue(targetMode())
 				.onChange(async (value) => {
 					if (value === 'default') {
@@ -1712,23 +1761,29 @@ onyx: t('settings.styleOnyx'),
 						const existing = this.plugin.settings.calendarTaskTarget;
 						this.plugin.settings = {
 							...this.plugin.settings,
-							calendarTaskTarget: { kind: value as 'file' | 'folder', path: existing?.path ?? '' },
+							// templatePath rides along across file/folder/note switches.
+							calendarTaskTarget: {
+								kind: value as 'file' | 'folder' | 'note',
+								path: existing?.path ?? '',
+								templatePath: existing?.templatePath,
+							},
 						};
 					}
 					await this.plugin.saveSettings();
 					if (targetInput) {
 						targetInput.value = this.plugin.settings.calendarTaskTarget?.path ?? '';
 						targetInput.disabled = value === 'default';
-						targetInput.placeholder = value === 'folder'
+						targetInput.placeholder = isFolderish(value)
 							? t('settings.calendarTargetFolderPlaceholder')
 							: 'Notes/tasks.md';
 					}
+					applyNoteTplVisibility(value);
 				});
 		});
 		targetSetting.addText(text => {
 			targetInput = text.inputEl;
 			text.inputEl.disabled = targetMode() === 'default';
-			text.setPlaceholder(currentTarget?.kind === 'folder'
+			text.setPlaceholder(isFolderish(targetMode())
 				? t('settings.calendarTargetFolderPlaceholder')
 				: 'Notes/tasks.md')
 				.setValue(currentTarget?.path ?? '')
@@ -1747,7 +1802,7 @@ onyx: t('settings.styleOnyx'),
 			.setTooltip(t('pathPicker.pickFile'))
 			.onClick(() => {
 				const tgt = this.plugin.settings.calendarTaskTarget;
-				const mode: 'file' | 'folder' = tgt?.kind === 'folder' ? 'folder' : 'file';
+				const mode: 'file' | 'folder' = tgt && isFolderish(tgt.kind) ? 'folder' : 'file';
 				new PathPickerModal(this.app, mode, (path) => {
 					if (!this.plugin.settings.calendarTaskTarget) return;
 					this.plugin.settings = {

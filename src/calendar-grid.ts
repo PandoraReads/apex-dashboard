@@ -56,6 +56,16 @@ export function taskDayTime(task: VaultTask, iso: string): string | undefined {
 	return taskTime(task);
 }
 
+/** Time label for one day as a RANGE when the task closes on the same day it
+ *  starts (start 10:00 / end 12:00 renders "10:00-12:00"); the bare start
+ *  time otherwise. Shared by the month bars, week grid events and the day
+ *  agenda so all three read identically. */
+export function taskDayTimeRange(task: VaultTask, iso: string): string | undefined {
+	const tm = taskDayTime(task, iso);
+	if (!tm) return undefined;
+	return task.endTime && task.endTime > tm ? `${tm}-${task.endTime}` : tm;
+}
+
 /** Sort comparator for one day's task list: active tasks before completed ones,
  * then by that day's time-of-day; untimed last. */
 export function byDayTaskTime(iso: string): (a: VaultTask, b: VaultTask) => number {
@@ -380,7 +390,7 @@ function renderBar(layer: HTMLElement, bar: BarEntry & { lane: number }, opts: M
 	el.setAttribute('aria-label', aria);
 	el.setAttribute('title', task.text);
 
-	const tm = taskDayTime(task, bar.firstIso);
+	const tm = taskDayTimeRange(task, bar.firstIso);
 	if (tm) el.createDiv({ cls: 'dashboard-calendar-bar-time', text: tm });
 	const text = el.createDiv({ cls: 'dashboard-calendar-bar-text' });
 	renderTextWithLinks(text, task.text, opts.app);
@@ -580,7 +590,7 @@ export function renderWeekTimeGrid(
 				top: `${Math.round(startMin * TIMEGRID_HOUR_PX / 60)}px`,
 				height: `${Math.max(Math.round((endMin - startMin) * TIMEGRID_HOUR_PX / 60), 20)}px`,
 			});
-			ev.createDiv({ cls: 'dashboard-calgrid-event-time', text: tm });
+			ev.createDiv({ cls: 'dashboard-calgrid-event-time', text: taskDayTimeRange(task, iso) ?? tm });
 			const title = ev.createDiv({ cls: 'dashboard-calgrid-event-title' });
 			renderTextWithLinks(title, task.text, opts.app);
 
@@ -633,7 +643,7 @@ function renderDayTask(task: VaultTask, iso: string, opts: MonthGridOptions): HT
 	}
 
 	if (opts.showTimes) {
-		const tm = taskDayTime(task, iso);
+		const tm = taskDayTimeRange(task, iso);
 		if (tm) row.createDiv({ cls: 'dashboard-calendar-event-time', text: tm });
 	}
 

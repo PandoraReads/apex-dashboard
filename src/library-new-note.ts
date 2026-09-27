@@ -2,6 +2,7 @@ import { App, Menu, TFile } from 'obsidian';
 import { ensureFolder } from './daily-notes';
 import { sanitizeFilename, uniquePath, readTemplateContent, splitFrontmatter } from './quick-note-section';
 import { nowMoment } from './datetime';
+import { t } from './i18n';
 import { LibraryConfig } from './types';
 
 /** Frontmatter pseudo-properties that no creation-time value can satisfy:
@@ -72,6 +73,56 @@ export function buildNewNoteProps(config?: LibraryConfig): {
  */
 export function sectionNewNoteFolder(config?: LibraryConfig): string {
 	return (config?.folders ?? [])[0]?.trim().replace(/^\/+|\/+$/g, '') ?? '';
+}
+
+/**
+ * A section's new-note templates in configured order (first = default):
+ * `templatePaths` (the multi form), falling back to the legacy single
+ * `templatePath`. Trimmed, de-duplicated case-insensitively, order preserved.
+ */
+export function sectionTemplatePaths(config?: LibraryConfig): string[] {
+	const raw = config?.templatePaths && config.templatePaths.length > 0
+		? config.templatePaths
+		: (config?.templatePath ? [config.templatePath] : []);
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const entry of raw) {
+		const tpl = entry.trim();
+		if (!tpl) continue;
+		const key = tpl.toLowerCase();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(tpl);
+	}
+	return out;
+}
+
+/**
+ * Let the user pick one of several configured templates from a native Menu
+ * anchored at `pos` (the toolbar click point). Resolves null when dismissed —
+ * callers fall back to the first entry (the documented default).
+ */
+export function pickTemplateFromMenu(templates: string[], pos: { x: number; y: number }): Promise<string | null> {
+	return new Promise((resolve) => {
+		let settled = false;
+		const menu = new Menu();
+		templates.forEach((tpl, i) => {
+			menu.addItem((item) => {
+				item.setIcon('file-text');
+				item.setTitle(i === 0 ? `${tpl}${t('library.templateDefaultTag')}` : tpl).onClick(() => {
+					if (settled) return;
+					settled = true;
+					resolve(tpl);
+				});
+			});
+		});
+		menu.onHide(() => {
+			if (settled) return;
+			settled = true;
+			resolve(null);
+		});
+		menu.showAtPosition(pos);
+	});
 }
 
 /** Escape a YAML scalar body: flatten newlines, then backslashes, then quotes. */

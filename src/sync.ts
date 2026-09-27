@@ -346,7 +346,7 @@ export class SyncEngine {
 		this.scheduleDeferredWrite();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {
@@ -386,7 +386,7 @@ export class SyncEngine {
 		if (!this.data) return;
 		const column = this.data.columns.find(col => col.name === columnName);
 		const sectionType = column?.sectionType;
-		const cardTitle = overrides?.title ?? this.getDefaultCardTitle(columnName, sectionType);
+		const cardTitle = overrides?.title ?? this.getDefaultCardTitle(columnName, sectionType, column?.showCover);
 		const cardType = overrides?.type ?? this.getDefaultCardType(columnName, sectionType);
 
 		const newCard: DashboardCard = {
@@ -456,6 +456,24 @@ export class SyncEngine {
 			...this.data,
 			columns: this.data.columns.map(col =>
 				col.name === columnName ? { ...col, libraryConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
+	/** Notes (projects) section settings from the gear modal: the new-note
+	 *  config (libraryConfig transport) and the show-covers toggle land in one
+	 *  disk write. showCover true drops the persisted opt-out (it is the
+	 *  default; only false is written). */
+	async updateNotesSectionConfig(columnName: string, config: import('./types').LibraryConfig, showCover: boolean): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName
+					? { ...col, libraryConfig: config, showCover: showCover ? undefined : false }
+					: col
 			),
 		};
 		await this.writeToDisk();
@@ -852,7 +870,7 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	private getDefaultCardTitle(columnName: string, sectionType?: string): string {
+	private getDefaultCardTitle(columnName: string, sectionType?: string, showCover?: boolean): string {
 		const effective = sectionType?.toLowerCase();
 		if (effective === 'memo' || effective === 'sticky' || (!effective && columnName.toLowerCase() === 'memo')) {
 			const now = new Date();
@@ -860,7 +878,9 @@ export class SyncEngine {
 			return t('sync.memoTitle', { date });
 		}
 		if (effective === 'todo' || (!effective && columnName.toLowerCase() === 'todo')) return t('sync.todoTitle');
-		if (effective === 'notes') return t('sync.notesTitle');
+		// Coverless notes sections (the retired 无封面 type) keep their legacy
+		// 笔记本 default title so migrated dashboards behave exactly as before.
+		if (effective === 'projects' && showCover === false) return t('sync.notesTitle');
 		if (columnName.toLowerCase() === 'projects') return t('sync.projectTitle');
 		return t('sync.newCard');
 	}

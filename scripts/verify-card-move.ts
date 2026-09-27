@@ -58,9 +58,9 @@ assert.equal(serialize(initial), snapshot, 'input is not mutated');
 const nested = extractCardParts('- [ ] A\n    - [ ] B\n        - [x] C\n    - [ ] D');
 assert.equal(nested.tasks[0]?.children?.[0]?.children?.[0]?.text, 'C');
 assert.equal(nested.tasks[0]?.children?.[1]?.text, 'D');
-for (const sectionType of ['projects', 'notes']) {
+for (const showCover of [true, false]) {
  const noteData = { ...initial, columns: [...initial.columns, {
-  name: '笔记区', sectionType, color: '#fff', cards: [{ ...find(initial, 'memo-1'),
+  name: '笔记区', sectionType: 'projects', color: '#fff', ...(showCover ? {} : { showCover: false }), cards: [{ ...find(initial, 'memo-1'),
    id: 'note-1', column: '笔记区', type: 'project' as const, wikiLink: '原笔记', coverImage: 'cover.png',
    docs: [{ path: '附件', children: [{ path: '附件子项' }] }],
   }],
@@ -68,7 +68,7 @@ for (const sectionType of ['projects', 'notes']) {
  const stickyNote = moveDashboardCard(noteData, 'note-1', '便签', 0);
  const persisted = find(parse(serialize(stickyNote)), 'note-1');
  assert.equal(persisted.type, 'project');
- assert.equal(persisted.noteStyle, sectionType === 'notes' ? 'plain' : 'cover');
+ assert.equal(persisted.noteStyle, showCover ? 'cover' : 'plain');
  assert.equal(persisted.coverImage, 'cover.png');
  assert.equal(persisted.wikiLink, '原笔记');
  const memoNote = find(parse(serialize(moveDashboardCard(noteData, 'note-1', '记录', 0))), 'note-1');

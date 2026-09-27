@@ -18,7 +18,6 @@ export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
 	{ value: 'todo', icon: 'check-square', labelKey: 'renderer.typeTodo' },
 	{ value: 'memo', icon: 'sticky-note', labelKey: 'renderer.typeMemo' },
 	{ value: 'sticky', icon: 'layers', labelKey: 'renderer.typeSticky' },
-	{ value: 'notes', icon: 'file-text', labelKey: 'renderer.typeNotesPlain' },
 	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
 	{ value: 'library', icon: 'database', labelKey: 'renderer.typeLibrary' },
 	{ value: 'folder', icon: 'folder', labelKey: 'renderer.typeFolder' },
