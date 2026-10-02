@@ -1,5 +1,5 @@
 import { Platform, type App } from 'obsidian';
-import type { CustomColors, DashboardSettings } from './types';
+import type { CustomColors, CustomTheme, DashboardSettings } from './types';
 import { resolveVaultImage } from './banner';
 
 /**
@@ -55,6 +55,42 @@ export function resolveCustomColorValue(
 ): string | undefined {
 	if (value !== 'light' && value !== 'dark') return value;
 	return COLOR_PRESETS[value][field] ?? (value === 'light' ? '#ffffff' : '#111111');
+}
+
+/** Snapshot the studio-controllable appearance state of a settings object —
+ *  exactly the fields a saved CustomTheme captures and restores. */
+export function captureAppearanceSnapshot(settings: DashboardSettings): Omit<CustomTheme, 'id' | 'name'> {
+	return {
+		base: settings.stylePreset,
+		colors: { ...settings.customColors },
+		bgImage: settings.bgImage,
+		bgDim: settings.bgDim,
+		bgBlur: settings.bgBlur,
+		bgSize: settings.bgSize,
+		surfaceOpacity: settings.surfaceOpacity,
+		glassBlur: settings.glassBlur,
+		radiusScale: settings.radiusScale,
+		fontScale: settings.fontScale ?? 'medium',
+	};
+}
+
+/** Settings slice that applies a saved theme: base preset + every studio
+ *  override, plus the active-theme id the dropdown reads. Pure — callers
+ *  merge it into settings, persist, and refresh. */
+export function customThemeSettingsSlice(theme: CustomTheme): Partial<DashboardSettings> {
+	return {
+		stylePreset: theme.base,
+		customColors: { ...theme.colors },
+		bgImage: theme.bgImage,
+		bgDim: theme.bgDim,
+		bgBlur: theme.bgBlur,
+		bgSize: theme.bgSize,
+		surfaceOpacity: theme.surfaceOpacity,
+		glassBlur: theme.glassBlur,
+		radiusScale: theme.radiusScale,
+		fontScale: theme.fontScale,
+		activeCustomThemeId: theme.id,
+	};
 }
 
 const DEFAULT_DIM = 40;

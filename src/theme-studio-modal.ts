@@ -1,8 +1,15 @@
-import { App, FuzzySuggestModal, Modal, setIcon } from 'obsidian';
+import { App, FuzzySuggestModal, Modal, Notice, setIcon } from 'obsidian';
 import type DashboardPlugin from './main';
-import type { BgSize, CustomColors, DashboardSettings } from './types';
-import { CUSTOM_COLOR_TOKENS, refreshAppearanceLive, resolveCustomColorValue } from './appearance';
+import type { BgSize, CustomColors, CustomTheme, DashboardSettings } from './types';
+import {
+	CUSTOM_COLOR_TOKENS,
+	captureAppearanceSnapshot,
+	customThemeSettingsSlice,
+	refreshAppearanceLive,
+	resolveCustomColorValue,
+} from './appearance';
 import { showConfirmDialog } from './confirm-dialog';
+import { showPromptDialog } from './prompt-dialog';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 
@@ -158,6 +165,7 @@ export class ThemeStudioModal extends Modal {
 		this.renderColorsSection(form);
 		this.renderBackgroundSection(form);
 		this.renderAdvancedSection(form);
+		this.renderSavedThemesSection(form);
 		this.renderActions(container);
 	}
 
@@ -520,10 +528,135 @@ export class ThemeStudioModal extends Modal {
 
 	private renderActions(container: HTMLElement): void {
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
+		// Snapshot the current look (kept live in plugin.settings by
+		// scheduleApply) under a user-chosen name — the "no fear of losing
+		// customizations" escape hatch.
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel dashboard-theme-studio-savetheme',
+			text: t('themeStudio.saveAsTheme'),
+			attr: { type: 'button' },
+		}).addEventListener('click', () => { void this.saveAsTheme(); });
 		footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.done'),
+			attr: { type: 'button' },
 		}).addEventListener('click', () => this.close());
+	}
+
+	// ── Saved themes (my themes) ───────────────────────────────────────────
+
+	private renderSavedThemesSection(form: HTMLElement): void {
+		const section = form.createDiv({ cls: 'dashboard-theme-studio-section dashboard-theme-studio-mythemes' });
+		section.createEl('h3', { text: t('themeStudio.myThemes') });
+		const themes = this.plugin.settings.customThemes ?? [];
+		section.createEl('p', {
+			cls: 'dashboard-theme-studio-desc',
+			text: themes.length ? t('themeStudio.myThemesDesc') : t('themeStudio.myThemesEmpty'),
+		});
+		const list = section.createDiv({ cls: 'dashboard-theme-studio-mythemes-list' });
+		for (const theme of themes) {
+			const row = list.createDiv({ cls: 'dashboard-theme-studio-mytheme-item' });
+			const name = row.createDiv({ cls: 'dashboard-theme-studio-mytheme-name' });
+			name.createSpan({ text: theme.name });
+			name.createSpan({ cls: 'dashboard-theme-studio-mytheme-base', text: theme.base });
+			if (this.plugin.settings.activeCustomThemeId === theme.id) {
+				row.addClass('is-active');
+			}
+			row.createEl('button', {
+				cls: 'dashboard-theme-studio-mytheme-apply',
+				text: t('themeStudio.applyTheme'),
+				attr: { type: 'button' },
+			}).addEventListener('click', () => { void this.applySavedTheme(theme); });
+			const delBtn = row.createEl('button', {
+				cls: 'dashboard-theme-studio-mytheme-delete',
+				attr: {
+					type: 'button',
+					'aria-label': t('themeStudio.deleteTheme'),
+					title: t('themeStudio.deleteTheme'),
+				},
+			});
+			setIcon(delBtn, 'trash-2');
+			delBtn.addEventListener('click', () => { void this.deleteSavedTheme(theme); });
+		}
+	}
+
+	/** Prompt for a name, then persist the current appearance as a theme. */
+	private async saveAsTheme(): Promise<void> {
+		const name = await showPromptDialog(this.app, {
+			title: t('themeStudio.themeNamePrompt'),
+			placeholder: t('themeStudio.themeNamePlaceholder'),
+		});
+		if (!name) return;
+		if ((this.plugin.settings.customThemes ?? []).some(th => th.name === name)) {
+			new Notice(t('themeStudio.themeNameExists'));
+			return;
+		}
+		const theme: CustomTheme = {
+			id: `theme-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+			name,
+			...captureAppearanceSnapshot(this.plugin.settings),
+		};
+		this.plugin.settings = {
+			...this.plugin.settings,
+			customThemes: [...(this.plugin.settings.customThemes ?? []), theme],
+			activeCustomThemeId: theme.id,
+		};
+		await this.plugin.saveSettings();
+		new Notice(t('themeStudio.themeSaved', { name }));
+		this.renderBody();
+	}
+
+	/** Apply a saved theme: full bundle into settings, persist, re-render the
+	 *  dashboards (the base preset may differ — data-theme needs the render),
+	 *  then resync this modal's drafts so further edits start from it. */
+	private async applySavedTheme(theme: CustomTheme): Promise<void> {
+		if (this.saveTimer !== null) {
+			window.clearTimeout(this.saveTimer);
+			this.saveTimer = null;
+			await this.plugin.saveSettings();
+		}
+		this.plugin.settings = {
+			...this.plugin.settings,
+			...customThemeSettingsSlice(theme),
+		};
+		await this.plugin.saveSettings();
+		this.syncDraftsFromSettings();
+		this.renderBody();
+		this.plugin.refreshAllDashboards();
+	}
+
+	private async deleteSavedTheme(theme: CustomTheme): Promise<void> {
+		const ok = await showConfirmDialog(this.app, {
+			title: t('themeStudio.deleteTheme'),
+			message: t('themeStudio.deleteThemeConfirm', { name: theme.name }),
+			confirmLabel: t('common.confirm'),
+			destructive: true,
+		});
+		if (!ok) return;
+		const wasActive = this.plugin.settings.activeCustomThemeId === theme.id;
+		this.plugin.settings = {
+			...this.plugin.settings,
+			customThemes: (this.plugin.settings.customThemes ?? []).filter(th => th.id !== theme.id),
+			// The current look intentionally survives the delete; only the
+			// dropdown marker goes so it shows the underlying built-in theme.
+			...(wasActive ? { activeCustomThemeId: '' } : {}),
+		};
+		await this.plugin.saveSettings();
+		this.renderBody();
+	}
+
+	/** Point the modal's editing drafts at the (already-updated) settings. */
+	private syncDraftsFromSettings(): void {
+		const s = this.plugin.settings;
+		this.colors = { ...s.customColors };
+		this.bgImage = s.bgImage;
+		this.bgDim = s.bgDim;
+		this.bgBlur = s.bgBlur;
+		this.bgSize = s.bgSize;
+		this.surfaceOpacity = s.surfaceOpacity;
+		this.glassBlur = s.glassBlur;
+		this.radiusScale = s.radiusScale;
+		this.fontScale = s.fontScale ?? 'medium';
 	}
 
 	// ── Global one-click restore ───────────────────────────────────────────

@@ -35,8 +35,10 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 export const GROUP_PAGE_SIZE = 50;
 /** Hard cap on items for the pagination-skipping paths (grouped + kanban).
  * Beyond this the result set is truncated with a notice instead of rendered:
- * thousands of synchronous card builds freeze the workspace outright. */
-export const RENDER_CEILING = 2000;
+ * thousands of synchronous card builds freeze the workspace outright.
+ * Rae, 2026-10-02: lowered 2000 → 500 — the freeze guard only needs headroom
+ * past a realistic screenful, and 2000 kept more dead weight in the DOM. */
+export const RENDER_CEILING = 500;
 
 export function extractFrontmatterProperties(app: App): Map<string, Set<string>> {
 	const props = new Map<string, Set<string>>();

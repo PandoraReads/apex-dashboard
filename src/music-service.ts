@@ -216,13 +216,13 @@ export class MusicService {
 
 	// ===== Transport =====
 
-	/** Play playlist[index]; skips with a notice when the track needs an
-	    account entitlement the anonymous session does not have. */
+	/** Play playlist[index]. Tracks the anonymous session lacks an entitlement
+	    for are refused silently — Rae, 2026-10-02: per-track "cannot play"
+	    popups were disturbance, not information. */
 	play(index: number): void {
 		const track = this.playlist[index];
 		if (!track) return;
 		if (!isPlayableByFee(track.fee, this.account.loggedIn)) {
-			new Notice(t('music.vipSkipped', { name: track.name }));
 			return;
 		}
 		this.playAttempts = 0;
@@ -414,10 +414,9 @@ export class MusicService {
 					else retry();
 					return;
 				}
-				// Concluded unplayable. Name the track and the constraint —
-				// silent hops left "it skipped a few songs and stopped"
-				// undiagnosable, and the fee guard never fires when signed in.
-				new Notice(t('music.unplayableSkipped', { name: track.name }));
+				// Concluded unplayable — skip SILENTLY (Rae, 2026-10-02: the
+				// per-track popup was pure disturbance; the stop-after-failures
+				// notice below still explains a fully stalled playlist).
 				this.advanceAfterFailure();
 				return;
 			}

@@ -6,13 +6,14 @@ import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
 import { DataviewGuideModal } from './dataview-guide-modal';
+import { ThemeStudioModal } from './theme-studio-modal';
 
 /** Version of the CURRENT announcement content (DataviewGuideModal). The
  *  announcement pops only when the user's stored version differs from this —
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
  *  shipped with 2.5.1. */
-const ANNOUNCE_VERSION = '3.6.0';
+const ANNOUNCE_VERSION = '3.6.6';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
@@ -166,9 +167,20 @@ export default class DashboardPlugin extends Plugin {
 				const themes = ['earth', 'nordic', 'aurora', 'blossom', 'lilac', 'island', 'tundra', 'matcha', 'mono', 'neon', 'volt', 'magma', 'onyx'];
 				const idx = themes.indexOf(this.settings.stylePreset);
 				const next = themes[(idx + 1) % themes.length] ?? 'earth';
-				this.settings = { ...this.settings, stylePreset: next };
+				this.settings = { ...this.settings, stylePreset: next, activeCustomThemeId: '' };
 				await this.saveSettings();
 				this.refreshAllDashboards();
+			},
+		});
+
+		// Direct studio access: opening it over the dashboard (instead of from
+		// Settings, whose dialog covers the window) makes the live preview
+		// actually visible while dragging pickers and sliders.
+		this.addCommand({
+			id: 'open-appearance-studio',
+			name: t('main.openAppearanceStudio'),
+			callback: () => {
+				new ThemeStudioModal(this.app, this).open();
 			},
 		});
 

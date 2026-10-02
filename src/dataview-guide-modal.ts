@@ -1,6 +1,7 @@
 import { App, Modal, setIcon } from 'obsidian';
 import { t } from './i18n';
 import { WECHAT_GROUP_QR_DATA_URL } from './assets/wechat-group-qr';
+import { ANNOUNCE_BANNER_DATA_URL } from './assets/announce-banner';
 import { applyModalTheme } from './modal-theme';
 
 interface GuideFeature {
@@ -11,10 +12,8 @@ interface GuideFeature {
 /** The capabilities showcased in the announcement modal. Content is refreshed
  *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'trash-2', textKey: 'announce.featureCardDeleteLabel' },
-	{ icon: 'file-plus', textKey: 'announce.featureTemplateNewNoteLabel' },
-	{ icon: 'eye', textKey: 'announce.featureTableColumnsLabel' },
-	{ icon: 'layers', textKey: 'announce.featureGroupRenderLabel' },
+	{ icon: 'palette', textKey: 'announce.featureAppearance' },
+	{ icon: 'volume-x', textKey: 'announce.featureMusicQuiet' },
 ];
 
 /**
@@ -46,6 +45,16 @@ export class DataviewGuideModal extends Modal {
 		header.createDiv({ cls: 'dashboard-dataview-guide-title', text: t('announce.title') });
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+
+		// Release banner under the title (this cycle: the LME launch promo).
+		// Click opens the raw image at full size — same affordance as the QR.
+		const banner = body.createEl('img', {
+			cls: 'dashboard-dataview-guide-banner',
+			attr: { src: ANNOUNCE_BANNER_DATA_URL, alt: '' },
+		});
+		banner.addEventListener('click', () => {
+			window.open(ANNOUNCE_BANNER_DATA_URL, '_blank');
+		});
 
 		// Intro is optional per release: an empty announce.intro renders nothing
 		// (no stray empty paragraph above the feature list).

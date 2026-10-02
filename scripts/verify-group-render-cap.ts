@@ -1,8 +1,7 @@
 /**
  * Verifies the grouped/kanban render-crash protections (GROUP_PAGE_SIZE /
- * RENDER_CEILING) added to renderLibrarySection:
- *
- * 1. Constants export — 50 per group/column, 2000 total ceiling.
+ * RENDER_CEILING) added to renderLibrarySection: *
+ * 1. Constants export — 50 per group/column, 500 total ceiling.
  * 2. In-group progressive rendering — first GROUP_PAGE_SIZE cards per group,
  *    load-more pill with the remaining count, small groups render whole.
  * 3. Load-more rebuild — bigger slice, one view container per body (rebuild,
@@ -14,7 +13,7 @@
  * 6. Collapse-all sweep folds everything and keeps already-built DOM.
  * 7. renderedLimits lifecycle — survives same-dimension re-renders (view
  *    switch), cleared when the grouping dimension changes (pickGroup).
- * 8. Render ceiling (grouped) — 2011 results truncate to 2000 with a notice;
+ * 8. Render ceiling (grouped) — 511 results truncate to 500 with a notice;
  *    a 123-result section never caps.
  * 9. Render ceiling (kanban) — same truncation, column title keeps the data
  *    total.
@@ -43,7 +42,7 @@ import { El, findByClass, findTag } from './mini-dom';
 // ---------- 1. Constants ----------
 
 assert.equal(GROUP_PAGE_SIZE, 50, 'group page size is 50');
-assert.equal(RENDER_CEILING, 2000, 'render ceiling is 2000');
+assert.equal(RENDER_CEILING, 500, 'render ceiling is 500');
 console.log('constants: PASS');
 
 // ---------- fixtures + harness ----------
@@ -237,23 +236,23 @@ assert.equal(tableRows(m2.bodies()[0]!), 50, 'collapse keeps the built DOM');
 console.log('sweep collapse keeps DOM: PASS');
 
 // ---------- 8. render ceiling, grouped ----------
-// small's mtimes (5000+) sort ABOVE big's, so the 2000-cap drops the TAIL of
-// big: 1989 of its 2000 survive. That ordering is deliberate — it exercises
+// small's mtimes (5000+) sort ABOVE big's, so the 500-cap drops the TAIL of
+// big: 489 of its 500 survive. That ordering is deliberate — it exercises
 // truncation slicing into a group, not just dropping a whole trailing group.
 const hugeFixture = (): StubFile[] => [
-	...genFiles('big', 2000, 1000, { status: 'todo' }),
+	...genFiles('big', 500, 1000, { status: 'todo' }),
 	...genFiles('small', 11, 5000, { status: 'todo' }),
 ];
 
 const m3 = mount(hugeFixture(), { viewGroupMode: 'folder' });
 const capNotice = findByClass(m3.el, 'dashboard-library-render-cap')[0] ?? assert.fail('cap notice rendered');
-assert.ok(capNotice.textContent!.includes('2011'), 'notice names the real total');
-assert.ok(capNotice.textContent!.includes('2000'), 'notice names the rendered count');
+assert.ok(capNotice.textContent!.includes('511'), 'notice names the real total');
+assert.ok(capNotice.textContent!.includes('500'), 'notice names the rendered count');
 assert.ok(m3.filesEl().hasClass('is-capped'), 'content area carries is-capped');
 assert.equal(findByClass(m3.headers()[0]!, 'dashboard-library-group-name')[0]!.textContent, 'big', 'truncation keeps the biggest group');
-assert.equal(findByClass(m3.headers()[0]!, 'dashboard-library-group-count')[0]!.textContent, '1989', 'big badge reflects the truncated input');
+assert.equal(findByClass(m3.headers()[0]!, 'dashboard-library-group-count')[0]!.textContent, '489', 'big badge reflects the truncated input');
 assert.equal(cards(m3.bodies()[0]!), 50, 'ceiling mount still renders progressively');
-assert.equal(loadMore(m3.bodies()[0]!)?.textContent, '显示更多（剩 1939 条）', 'pill reflects the truncated group size');
+assert.equal(loadMore(m3.bodies()[0]!)?.textContent, '显示更多（剩 439 条）', 'pill reflects the truncated group size');
 console.log('render ceiling (grouped): PASS');
 
 // ---------- 9 + 10. kanban ----------
@@ -265,9 +264,9 @@ assert.ok(findByClass(m4.el, 'dashboard-library-render-cap').length > 0, 'kanban
 assert.ok(m4.filesEl().hasClass('is-capped'), 'kanban content area carries is-capped');
 const cols4 = findByClass(m4.el, 'dashboard-library-kanban-col');
 assert.equal(cols4.length, 2, 'two kanban columns (big, small)');
-assert.equal(findByClass(cols4[0]!, 'dashboard-library-kanban-col-title')[0]!.textContent, 'big (1989)', 'column title keeps the truncated data total');
+assert.equal(findByClass(cols4[0]!, 'dashboard-library-kanban-col-title')[0]!.textContent, 'big (489)', 'column title keeps the truncated data total');
 assert.equal(findByClass(cols4[0]!, 'dashboard-library-kanban-card').length, 50, 'big column renders 50 cards');
-assert.equal(loadMore(cols4[0]!)?.textContent, '显示更多（剩 1939 条）', 'kanban pill shows the remainder');
+assert.equal(loadMore(cols4[0]!)?.textContent, '显示更多（剩 439 条）', 'kanban pill shows the remainder');
 console.log('render ceiling (kanban): PASS');
 
 const m5 = mount(smallFixture(), kanbanCfg);

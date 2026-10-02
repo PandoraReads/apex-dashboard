@@ -3591,6 +3591,181 @@
 	opacity: 0.5;
 }
 
+/* Foreign-input-hijack shield: other plugins ship GLOBAL rules like
+   `body.their-theme input[type="text"] { padding: 12px 24px; border-radius:
+   999px; border: 1.5px solid ... }` with !important (language-made-easy's
+   mindful-oasis style does, static + runtime-injected). At (0,2,2) that beats
+   the single-class rules above: the pill border reads as a stray frame and
+   the forced 24px side padding clips this ~50px flex field to an invisible
+   sliver — placeholder AND typed digits vanish. Four classes + !important
+   (0,4,0) out-ranks any body-prefixed two-class hijack and the :where()
+   dark-mode variants (0,3,1) without touching the normal cascade. */
+.dashboard-sidebar-widget.dashboard-sidebar-expense .dashboard-sidebar-expense-form .dashboard-sidebar-expense-amount,
+.dashboard-sidebar-widget.dashboard-sidebar-expense .dashboard-sidebar-expense-form .dashboard-sidebar-expense-note {
+	border: none !important;
+	border-radius: 0 !important;
+	padding: 3px 0 !important;
+	background: none !important;
+	box-shadow: none !important;
+	font-family: var(--db-font) !important;
+}
+
+/* ── Foreign global-input-hijack shield, consolidated ─────────────────────
+   Some plugins ship GLOBAL `body.their-theme input[type="text"] { ... !important }`
+   rules (language-made-easy's mindful-oasis does — static styles.css plus a
+   runtime-injected <style>, at (0,2,2) with a (0,2,3) :focus twin). Single-class
+   rules lose to that EVEN WITH !important: narrow flex fields clip to an
+   invisible sliver (see the expense shield above) and wide ones become
+   foreign-font pills. Every selector below carries three-plus classes with
+   !important so it out-ranks the hijacks; values mirror each family's own base
+   rule exactly, so nothing changes when no hijack is present. Textareas and
+   selects are untouched (the hijacks only target text/search inputs). */
+
+/* Boxed modal inputs — the .dashboard-modal-input family (config modals,
+   backfill, studio, banner editor) plus the settings-tab path/folder fields
+   and the prompt dialog. Excludes the section-name special case two blocks
+   below, which deliberately uses card border tokens. */
+.dashboard-library-config-modal .dashboard-modal-input.dashboard-modal-input:not(.dashboard-section-name-input):is(input[type='text'], input[type='search']),
+.modal--dashboard .dashboard-modal .dashboard-modal-input.dashboard-modal-input:not(.dashboard-section-name-input):is(input[type='text'], input[type='search']),
+.modal-container .dashboard-workspace-path-input.dashboard-workspace-path-input,
+.modal-container .dashboard-settings-folder-input.dashboard-settings-folder-input {
+	border: 1px solid var(--db-border-input, var(--background-modifier-border)) !important;
+	border-radius: var(--db-radius-sm, 6px) !important;
+	padding: 8px 12px !important;
+	background: var(--db-bg-input, var(--background-modifier-form-field)) !important;
+	box-shadow: none !important;
+	font-family: var(--db-font, var(--font-interface)) !important;
+	color: var(--db-text, var(--text-normal)) !important;
+}
+
+.dashboard-library-config-modal .dashboard-modal-input.dashboard-modal-input:is(input[type='text'], input[type='search']):focus,
+.modal--dashboard .dashboard-modal .dashboard-modal-input.dashboard-modal-input:is(input[type='text'], input[type='search']):focus,
+.modal-container .dashboard-workspace-path-input.dashboard-workspace-path-input:focus,
+.modal-container .dashboard-settings-folder-input.dashboard-settings-folder-input:focus {
+	border-color: var(--db-border-input-focus, var(--interactive-accent)) !important;
+	box-shadow: none !important;
+}
+
+/* Prompt dialog input (body-level confirm-card, not the modal skeleton). */
+.dashboard-confirm-overlay .dashboard-confirm-card .dashboard-prompt-input.dashboard-prompt-input {
+	padding: 8px 12px !important;
+	border: 1px solid rgba(255, 255, 255, 0.12) !important;
+	border-radius: 8px !important;
+	background: rgba(255, 255, 255, 0.06) !important;
+	box-shadow: none !important;
+	font-family: var(--db-font, var(--font-interface)) !important;
+}
+
+/* Borderless inline fields inside the dashboard (task add-rows). */
+.apex-dashboard-root .dashboard-task-input.dashboard-task-input {
+	padding: 4px 0 !important;
+	border-radius: 0 !important;
+	font-family: var(--db-font) !important;
+}
+
+/* Boxed search/inline-edit fields inside the dashboard — grouped by shared
+   geometry so each line restores its own rhythm. */
+.apex-dashboard-root .dashboard-library-search.dashboard-library-search,
+.apex-dashboard-root .dashboard-library-table-edit-input.dashboard-library-table-edit-input,
+.apex-dashboard-root .dashboard-dataview-search.dashboard-dataview-search,
+.apex-dashboard-root .dashboard-expense-ledger-search.dashboard-expense-ledger-search {
+	padding: 4px 10px !important;
+	border-radius: var(--db-radius-sm, 6px) !important;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08)) !important;
+	font-family: var(--db-font, var(--font-interface)) !important;
+}
+
+.apex-dashboard-root .dashboard-library-table-edit-input.dashboard-library-table-edit-input {
+	padding: 2px 4px !important;
+	border-radius: 3px !important;
+	border: 1px solid var(--db-accent, var(--interactive-accent)) !important;
+}
+
+.apex-dashboard-root .dashboard-dataview-search.dashboard-dataview-search {
+	padding: 3px 8px !important;
+}
+
+.apex-dashboard-root .dashboard-expense-ledger-search.dashboard-expense-ledger-search {
+	padding: 4px 8px !important;
+}
+
+.apex-dashboard-root .dashboard-section-rename-input.dashboard-section-rename-input,
+.apex-dashboard-root .dashboard-title-edit-input.dashboard-title-edit-input {
+	padding: 2px 6px !important;
+	border-radius: var(--db-radius-sm) !important;
+	border: 1px solid var(--db-border-input-focus) !important;
+	font-family: var(--db-font) !important;
+}
+
+.apex-dashboard-root .dashboard-ticktick-rename-input.dashboard-ticktick-rename-input {
+	padding: 1px 4px !important;
+	border-radius: 4px !important;
+	border: 1px solid var(--db-accent, var(--interactive-accent)) !important;
+}
+
+.apex-dashboard-root .dashboard-media-filter-date.dashboard-media-filter-date {
+	padding: 4px 6px !important;
+	border-radius: var(--db-radius-sm, 6px) !important;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08)) !important;
+}
+
+.apex-dashboard-root .dashboard-media-filter-folder.dashboard-media-filter-folder {
+	padding: 4px 8px !important;
+	border-radius: var(--db-radius-sm, 6px) !important;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08)) !important;
+}
+
+/* Sidebar music widget fields (boxed on the section surface). */
+.apex-dashboard-root .dashboard-sidebar-music-search-input.dashboard-sidebar-music-search-input,
+.apex-dashboard-root .dashboard-sidebar-music-import-input.dashboard-sidebar-music-import-input {
+	padding: 5px 8px !important;
+	border-radius: var(--db-radius-sm, 6px) !important;
+	border: 1px solid var(--db-border-card) !important;
+	background: var(--db-bg-section, rgba(127, 127, 127, 0.08)) !important;
+	font-family: var(--db-font) !important;
+}
+
+/* Quick-note capture pill (body-level bar; padding already had !important but
+   lost on specificity — see the block comment). */
+.dashboard-quicknote .dashboard-quicknote-capture .dashboard-quicknote-capture-input.dashboard-quicknote-capture-input {
+	padding: 0 10px 0 32px !important;
+	border-radius: var(--db-radius-sm) !important;
+	border: none !important;
+	font-family: var(--db-font, var(--font-interface)) !important;
+}
+
+/* Reading-widget book fields (overlay panel). */
+.modal--dashboard .dashboard-reading-book-input.dashboard-reading-book-input,
+.apex-dashboard-root .dashboard-reading-book-input.dashboard-reading-book-input {
+	padding: 8px 12px !important;
+	border-radius: 8px !important;
+	border: 1px solid var(--db-border, rgba(0, 0, 0, 0.15)) !important;
+	font-family: var(--db-font) !important;
+}
+
+.modal--dashboard .dashboard-reading-book-manual-input.dashboard-reading-book-manual-input,
+.apex-dashboard-root .dashboard-reading-book-manual-input.dashboard-reading-book-manual-input {
+	padding: 4px 8px !important;
+	border-radius: 6px !important;
+	border: 1px solid var(--db-border, rgba(0, 0, 0, 0.15)) !important;
+	font-family: var(--db-font) !important;
+}
+
+.apex-dashboard-root .dashboard-reading-end-page-input.dashboard-reading-end-page-input {
+	padding: 8px 10px !important;
+	border-radius: 8px !important;
+	border: 1px solid var(--db-border, rgba(0, 0, 0, 0.15)) !important;
+	font-family: var(--db-font) !important;
+}
+
+/* Document-search field (quick-actions config modal, roomier rhythm). */
+.modal--dashboard .dashboard-docsearch-input.dashboard-docsearch-input {
+	padding: 10px 14px !important;
+	border-radius: var(--db-radius-sm, 6px) !important;
+	border: 1px solid var(--db-border-input, var(--background-modifier-border)) !important;
+	font-family: var(--db-font, var(--font-interface)) !important;
+}
+
 .dashboard-sidebar-expense-invalid {
 	color: var(--db-danger, #e74c3c) !important;
 	animation: dashboard-expense-shake 0.3s;
@@ -12029,7 +12204,7 @@
 .dashboard-modal-quote-fields {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 6px;
 	flex: 1;
 	min-width: 0;
 }
@@ -16732,6 +16907,17 @@
 	color: var(--db-text, var(--text-normal));
 }
 
+/* Release banner under the title: full-width artwork, rounded to match the
+   modal, preserves its aspect ratio (no fixed height). Click = full size. */
+.dashboard-dataview-guide-banner {
+	display: block;
+	width: 100%;
+	height: auto;
+	border-radius: var(--db-radius-md, 10px);
+	margin-bottom: 14px;
+	cursor: zoom-in;
+}
+
 .dashboard-dataview-guide-intro {
 	margin: 0 0 16px;
 	font-size: 0.875em;
@@ -19985,6 +20171,100 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-text-faint, var(--text-faint));
 	font-style: italic;
 	min-width: 64px;
+}
+
+/* ===== Appearance Studio — my themes (saved snapshots) ===== */
+.dashboard-theme-studio-mythemes-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dashboard-theme-studio-mytheme-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.08));
+	border: 1px solid var(--db-border, var(--background-modifier-border));
+}
+
+.dashboard-theme-studio-mytheme-item.is-active {
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-theme-studio-mytheme-name {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	font-size: 0.85em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+}
+
+.dashboard-theme-studio-mytheme-base {
+	font-size: 0.78em;
+	color: var(--db-text-faint, var(--text-faint));
+	text-transform: capitalize;
+}
+
+.dashboard-theme-studio-mytheme-apply {
+	flex-shrink: 0;
+	font-size: 0.75em;
+	padding: 3px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-btn, var(--background-modifier-border));
+	background: var(--db-bg-btn, transparent);
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	font-family: var(--db-font, var(--font-interface));
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.dashboard-theme-studio-mytheme-apply:hover {
+	background: var(--db-bg-btn-hover, rgba(128, 128, 128, 0.12));
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-theme-studio-mytheme-item.is-active .dashboard-theme-studio-mytheme-apply {
+	border-color: var(--db-accent, var(--interactive-accent));
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-theme-studio-mytheme-delete {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint, var(--text-faint));
+	cursor: pointer;
+	border-radius: var(--db-radius-sm, 6px);
+	transition: color 0.15s ease, background 0.15s ease;
+}
+
+.dashboard-theme-studio-mytheme-delete:hover {
+	color: var(--db-danger, #ef4444) !important;
+	background: var(--db-bg-hover-strong, rgba(128, 128, 128, 0.16)) !important;
+}
+
+.dashboard-theme-studio-mytheme-delete svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* Footer's save-as-theme sits left of Done (margin-right auto on the
+   flex-end footer keeps the confirm button right-aligned). */
+.dashboard-theme-studio-savetheme {
+	margin-right: auto;
 }
 
 /* ===== Quick Notes region — single-line accent navbar (masthead strip) =====

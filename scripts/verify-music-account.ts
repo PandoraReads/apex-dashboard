@@ -135,9 +135,8 @@ async function run(): Promise<void> {
 	assert.equal(calls.length, 2, 'two URL fetches (initial + one retry)');
 	assert.equal(calls[0]?.headers?.Cookie, 'MUSIC_U=member', 'member cookie sent');
 
-	// Persistent -110: the retries exhaust, the skip names the track (the fee
-	// guard never fires when signed in — this notice is the only per-track
-	// explanation), and playback advances to the next track.
+	// Persistent -110: the retries exhaust and the skip is SILENT (Rae,
+	// 2026-10-02: per-track popups removed); playback advances to the next track.
 	seen = messages().length;
 	resetNetwork([
 		{ data: [{ code: -110, url: null }] },
@@ -149,8 +148,7 @@ async function run(): Promise<void> {
 	await sleep(1900);
 	assert.equal(calls.length, 4, 'three attempts on the denied track + one on the next');
 	const skipMsgs = messages().slice(seen);
-	assert.equal(skipMsgs.length, 1, 'exactly one per-track notice');
-	assert.ok(skipMsgs[0]!.includes('flake'), `notice names the skipped track: ${skipMsgs[0]}`);
+	assert.equal(skipMsgs.length, 0, 'exhausted-entitlement skip is fully silent');
 	assert.equal(svc.getState().status, 'playing', 'advanced to the next track');
 	assert.equal(svc.getState().current?.name, 'next', 'next track is current');
 
@@ -168,19 +166,19 @@ async function run(): Promise<void> {
 	await sleep(150);
 	assert.equal(calls.length, 4, 'two tracks x two attempts (immediate retry, no spacing)');
 	const stopMsgs = messages().slice(seen);
-	assert.equal(stopMsgs.filter(m => m.includes('dead1') || m.includes('dead2')).length, 2, 'both dead tracks named');
-	assert.ok(stopMsgs.some(m => /已停止|Stopped/.test(m)), `circuit-breaker notice shown: ${stopMsgs.join(' | ')}`);
+	assert.equal(stopMsgs.filter(m => m.includes('dead1') || m.includes('dead2')).length, 0, 'per-track skip notices are gone (silent skips)');
+	assert.ok(stopMsgs.some(m => /已停止|Stopped/.test(m)), `circuit-breaker notice still shown: ${stopMsgs.join(' | ')}`);
 	assert.equal(svc.getState().status, 'idle', 'stopped after the whole playlist failed');
 	assert.equal(audio.src, null, 'audio src cleared on stop');
 
-	// Anonymous fee-1 click: the pre-flight fee guard still fires and the
-	// server is never asked.
+	// Anonymous fee-1 click: the pre-flight fee guard refuses SILENTLY (Rae,
+	// 2026-10-02: per-track skip popups removed) and the server is never asked.
 	setCookies([]);
 	await svc.account.cookie();
 	seen = messages().length;
 	resetNetwork([]);
 	svc.play(0);
-	assert.ok(messages().slice(seen).some(m => m.includes('dead1')), 'anonymous fee-1 click keeps the vipSkipped notice');
+	assert.equal(messages().slice(seen).length, 0, 'anonymous fee-1 click is fully silent');
 	assert.equal(calls.length, 0, 'no network for a pre-flight skip');
 
 	process.stdout.write('verify-music-account: login, cancellation, cleanup, account-isolated playback and -110 retry/skip notices OK\n');

@@ -37,6 +37,12 @@ export interface DashboardSettings {
 	recentDocCount: number;
 	language: Language;
 	stylePreset: string;
+	/** User-saved Appearance-Studio snapshots, listed under a "my themes" group
+	 *  in the theme dropdown. Selecting one applies the whole bundle. */
+	customThemes?: CustomTheme[];
+	/** id of the custom theme currently applied ('' / undefined = a built-in
+	 *  theme is active). Drives the dropdown's displayed value. */
+	activeCustomThemeId?: string;
 	/** Board arrangement: widgets in a left rail ('side', default) or a
 	    horizontal strip under the banner ('stacked'). Desktop/tablet only;
 	    phones keep their own layout regardless of this value. */
@@ -264,6 +270,31 @@ export interface CustomColors {
 
 /** How a dashboard background image fills the background layer. */
 export type BgSize = 'cover' | 'contain';
+
+/** A user-saved theme: the full Appearance-Studio snapshot at save time, so a
+ *  hand-tuned look can be re-applied (or shared as a preset) after switching
+ *  to other themes — customizations are never lost to a theme switch. */
+export interface CustomTheme {
+	/** Stable unique id (timestamp-based). */
+	id: string;
+	/** User-chosen display name. */
+	name: string;
+	/** Built-in stylePreset the snapshot was taken from (data-theme base). */
+	base: string;
+	/** Color overrides exactly as the studio stored them (sentinels included). */
+	colors: CustomColors;
+	/** Background image snapshot (empty string = none). */
+	bgImage: string;
+	bgDim: number;
+	bgBlur: number;
+	bgSize: BgSize;
+	/** Advanced overrides (null = theme default, same grammar as settings). */
+	surfaceOpacity: number | null;
+	glassBlur: number | null;
+	radiusScale: number | null;
+	fontScale: DashboardSettings['fontScale'];
+}
+
 
 /** One "quick-create" button in the Quick Notes region: creates a note from a
  *  template file into a folder, with `{{date}}`/`{{time}}`/`{{title}}` resolved. */

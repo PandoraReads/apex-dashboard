@@ -11,6 +11,7 @@ import { WidgetBackgroundModal } from './widget-background';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { TickTickLoginModal } from './ticktick-login-modal';
 import { ThemeStudioModal } from './theme-studio-modal';
+import { customThemeSettingsSlice } from './appearance';
 import { QuickNoteConfigModal } from './quick-note-config-modal';
 import { showConfirmDialog } from './confirm-dialog';
 import { showPromptDialog } from './prompt-dialog';
@@ -379,31 +380,58 @@ export class DashboardSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName(t('settings.stylePreset'))
 			.setDesc(t('settings.stylePresetDesc'))
-			.addDropdown(dropdown => dropdown
-				.addOptions({
-earth: t('settings.styleEarth'),
-nordic: t('settings.styleNordic'),
-aurora: t('settings.styleAurora'),
-blossom: t('settings.styleBlossom'),
-lilac: t('settings.styleLilac'),
-island: t('settings.styleIsland'),
-tundra: t('settings.styleTundra'),
-matcha: t('settings.styleMatcha'),
-mono: t('settings.styleMono'),
-neon: t('settings.styleNeon'),
-volt: t('settings.styleVolt'),
-magma: t('settings.styleMagma'),
-onyx: t('settings.styleOnyx'),
-				})
-				.setValue(this.plugin.settings.stylePreset)
-				.onChange(async (value) => {
-					this.plugin.settings = {
-						...this.plugin.settings,
-						stylePreset: value,
-					};
+			.addDropdown(dropdown => {
+				dropdown
+					.addOptions({
+						earth: t('settings.styleEarth'),
+						nordic: t('settings.styleNordic'),
+						aurora: t('settings.styleAurora'),
+						blossom: t('settings.styleBlossom'),
+						lilac: t('settings.styleLilac'),
+						island: t('settings.styleIsland'),
+						tundra: t('settings.styleTundra'),
+						matcha: t('settings.styleMatcha'),
+						mono: t('settings.styleMono'),
+						neon: t('settings.styleNeon'),
+						volt: t('settings.styleVolt'),
+						magma: t('settings.styleMagma'),
+						onyx: t('settings.styleOnyx'),
+					});
+				// Saved studio snapshots ride under their own optgroup, keyed
+				// `custom:<id>`; picking one applies the whole appearance bundle.
+				const saved = this.plugin.settings.customThemes ?? [];
+				if (saved.length > 0) {
+					// addOptions has no optgroup support (nested records render
+					// as "[object Object]"), so the group is appended manually.
+					const group = dropdown.selectEl.createEl('optgroup', { attr: { label: t('settings.myThemes') } });
+					for (const th of saved) {
+						group.createEl('option', { value: `custom:${th.id}`, text: th.name });
+					}
+				}
+				const active = this.plugin.settings.activeCustomThemeId;
+				dropdown.setValue(active && saved.some(th => th.id === active)
+					? `custom:${active}`
+					: this.plugin.settings.stylePreset);
+				dropdown.onChange(async (value) => {
+					if (value.startsWith('custom:')) {
+						const theme = (this.plugin.settings.customThemes ?? [])
+							.find(th => `custom:${th.id}` === value);
+						if (!theme) return;
+						this.plugin.settings = {
+							...this.plugin.settings,
+							...customThemeSettingsSlice(theme),
+						};
+					} else {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							stylePreset: value,
+							activeCustomThemeId: '',
+						};
+					}
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllDashboards();
-				}));
+				});
+			});
 
 		new Setting(containerEl)
 			.setName(t('themeStudio.title'))
@@ -412,6 +440,10 @@ onyx: t('settings.styleOnyx'),
 				.setButtonText(t('themeStudio.open'))
 				.setCta()
 				.onClick(() => {
+					// The settings dialog covers the whole window, which hides
+					// the studio's live updates. Close the shell so the compact
+					// studio modal floats over the dashboard it is editing.
+					(this.app as unknown as { setting?: { close?: () => void } }).setting?.close?.();
 					new ThemeStudioModal(this.app, this.plugin).open();
 				}));
 
