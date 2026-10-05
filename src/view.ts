@@ -46,6 +46,7 @@ import { buildNewNoteProps, sectionNewNoteFolder, createNoteWithProps, pickFolde
 import { NotesSectionConfigModal } from './notes-config-modal';
 import { DataviewConfigModal } from './dataview-config-modal';
 import { WebConfigModal } from './web-config-modal';
+import { RssConfigModal } from './rss-config-modal';
 import { MediaConfigModal } from './media-config-modal';
 import { WereadConfigModal } from './weread-config-modal';
 import { fetchTickTickProjects } from './ticktick-config-modal';
@@ -506,7 +507,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.bannerStatsEl = null;
 			boardHost = imm.grid;
 			setupImmersiveDnD(imm.grid, () => this.immItems, next => this.commitImmersiveItems(next), this.dndCleanupFns);
-			setupImmersiveTileMenu(imm.grid, id => void this.removeImmersiveItem(id), () => void this.tidyImmersiveLayout(), this.dndCleanupFns);
+			setupImmersiveTileMenu(imm.grid, id => void this.removeImmersiveItem(id), this.dndCleanupFns);
 			this.attachImmersiveResizeHandles(imm.grid);
 		} else {
 			const bannerEl = renderBanner(
@@ -686,12 +687,26 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openDataviewConfigModal(columnName);
 			} else if (col?.sectionType === 'web') {
 				this.openWebConfigModal(columnName);
+			} else if (col?.sectionType === 'rss') {
+				this.openRssConfigModal(columnName);
 			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
 				this.openMediaConfigModal(columnName);
 			} else if (col?.sectionType === 'projects') {
 				this.openNotesSectionConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);
+			}
+		}) as EventListener);
+
+		// RSS page-size change — dispatched from the section toolbar select.
+		board.addEventListener('dashboard-rss-page-size', ((e: CustomEvent) => {
+			const { columnName, pageSize } = e.detail as { columnName: string; pageSize: number };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (col?.rssConfig && typeof pageSize === 'number') {
+				const next = { ...col.rssConfig, pageSize };
+				void this.sync.updateRssConfig(columnName, next).then(() => {
+					this.refreshSectionInPlace(columnName);
+				});
 			}
 		}) as EventListener);
 
@@ -1641,6 +1656,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.openDataviewConfigModal(name);
 		} else if (sectionType === 'web') {
 			this.openWebConfigModal(name);
+		} else if (sectionType === 'rss') {
+			this.openRssConfigModal(name);
 		}
 	}
 
@@ -1714,18 +1731,6 @@ export class DashboardView extends ItemView implements HoverParent {
 				albums: this.plugin.settings.albums,
 			}),
 		}];
-		await this.sync.updateImmersive(next);
-	}
-
-	/** 整理布局: drop every explicit coordinate and let the packer re-flow
-	 *  the whole board (auto-layout after free placement). */
-	private async tidyImmersiveLayout(): Promise<void> {
-		if (!this.data) return;
-		const next = this.immItems.map(item => {
-			const { x: _x, y: _y, ...rest } = item;
-			void _x; void _y;
-			return rest;
-		});
 		await this.sync.updateImmersive(next);
 	}
 
@@ -1842,6 +1847,19 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existing,
 			(config) => { void this.sync.updateWebConfig(colName, config); },
+		);
+		modal.open();
+	}
+
+	/** RSS section: subscription sources + download folder. Same plain sync
+	 *  path — the section rebuilds in place and re-reads its feeds. */
+	private openRssConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const existing = column?.rssConfig ?? { feeds: [], downloadFolder: '' };
+		const modal = new RssConfigModal(
+			this.app,
+			existing,
+			(config) => { void this.sync.updateRssConfig(colName, config); },
 		);
 		modal.open();
 	}

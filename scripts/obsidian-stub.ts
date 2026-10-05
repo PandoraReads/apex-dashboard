@@ -85,9 +85,12 @@ export const Platform = { isMobile: false, isMobileApp: false };
 export function setIcon(_el: unknown, _icon: string): void {}
 
 // Component base for MarkdownRenderer.render's lifecycle argument (the real
-// one is the ItemView). Trivial here — nothing in the scripts loads children.
-export class Component {}
-
+// one is the ItemView). Trivial here — nothing in the scripts loads children,
+// but load/unload must exist (the RSS reader modal manages one's lifecycle).
+export class Component {
+	load(): void {}
+	unload(): void {}
+}
 // MarkdownRenderer stand-in: records the exact markdown source it was handed
 // as a CHILD ELEMENT (appendText's text slot would be invisible to
 // textContent once the container has element children), so verify scripts can

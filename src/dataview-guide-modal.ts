@@ -13,6 +13,7 @@ interface GuideFeature {
  *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
 	{ icon: 'gallery-vertical', textKey: 'announce.featureImmersive' },
+	{ icon: 'rss', textKey: 'announce.featureRss' },
 ];
 
 /**

@@ -29,6 +29,9 @@ Query your vault with a built-in DQL engine — no Dataview plugin required. Add
 ### 🌐 Web
 Embed any web page right in a section — paste a URL and browse it like an in-board browser pane. **Auto mode** prechecks the site's framing policy: frameable sites embed directly as an iframe, while refusers switch to a desktop webview (with its own persistent login — recommended for Keep, Todoist web, and other sign-in apps); mobile shows a fallback card with an open-in-browser button. You can also force iframe/webview mode and scale the page 0.5–2× for dense web apps. Prefer https sites on mobile; embedding is read-oriented — popups and downloads belong in a real browser.
 
+### 📡 RSS
+Subscribe to blogs and news feeds right on the board: add any RSS 2.0 / Atom link and the latest articles from all feeds flow together in one reverse-chronological list (source tags, unread dots), with an unread filter and mark-all-read. Click an entry to read the full article in a modal — feeds that ship full text render directly, summary-only feeds are fetched and main-content-extracted automatically. Every entry has a download button that saves the article as a vault note (date-prefixed name, source frontmatter, original link) into the configured folder; saved entries jump straight to the note. Feed content is cached locally for 30 minutes; read and saved state persist across sessions.
+
 ### ⚡ Quick Actions
 Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
 
@@ -56,7 +59,7 @@ A customizable banner with an inspirational quote and optional background image.
 Drag cards between sections to reorganize your workspace. Drag task items within Todo cards to reorder. Drag document links between project/note cards.
 
 ### 🧩 Custom Sections
-**14 section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Calendar**, **Weread**, **TickTick**, and **Web** — each with its own layout and behavior, so the board fits your workflow.
+**15 section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Calendar**, **Weread**, **TickTick**, **Web**, and **RSS** — each with its own layout and behavior, so the board fits your workflow.
 
 ### 🕐 Recent Documents
 The sidebar shows recently edited files with relative timestamps, so you can jump back into your latest work.
@@ -124,6 +127,21 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 </p>
 
 ## What's New
+
+### 3.7.1
+- **All-new RSS section** — Subscribe to any RSS 2.0 / Atom feed and every source flows together in one reverse-chronological stream: unread dots and an unread filter, buckets by group or by feed (managed group list, creatable right from a feed row), and pagination with a configurable page size (10/20/50/100). Click an article to read it in a themed reader modal — summary-only feeds get their full page fetched and main-content-extracted automatically, degrading to the summary plus an open-in-browser button. Every article saves into the vault as a note in one click (frontmatter mirrors the 「01 收集」 inbox template, feeding the PARA pipeline), and saved entries jump straight to their note. OPML import (categories become groups, URL-deduped) and export included. Feeds cache locally for 30 minutes (failed sources retry in 5, four-wide polite concurrency), and failing feeds are named per-row with their reason in the config modal. Read-marker retention is a setting (30/90/180/365 days or forever)
+- **Immersive-layout readability fixes** — input text invisible in light Obsidian sessions (Obsidian's input rules outranked the plugin's) and kanban column titles washed out white (a missing --db-bg in the immersive variable block) both fixed at the root; small icon buttons in sections and modals no longer get repainted or squashed by Obsidian's native button chrome
+- **Expense preset categories are editable** — presets now behave exactly like custom ones: delete, reorder and group mapping for all; history keeps displaying under removed labels and freed names can be re-added; each direction keeps at least one category
+- **Immersive right-click menu trimmed** — the underperforming "tidy layout" entry is gone; "remove card" remains
+
+### 3.7.0
+- **All-new immersive workspace layout** — every workspace can switch to an immersive mode: a full-bleed poster backdrop with a clock and centered capture bar, and every widget, memo, and todo as a freely movable glass card — resize from the edges, align with smart snapping. Create one from the + button on the workspace switcher
+
+### 3.6.6
+- **Appearance Studio saved themes** — custom looks save as themes with one-click switching, plus a quick-command entry
+- **Input hijack shields** — third-party snippets can no longer hijack the dashboard's input fields with global styles
+- **Music silent-skip fix** — occasional NetEase playback failures no longer skip silently; they notify per cause first
+- **Render ceiling raised** — progressive group rendering now caps at 500 items, so very large sections show more of themselves
 
 ### 3.6.5
 - **Delete cards in place** — Grid, gallery and kanban cards in database/folder sections show a corner trash button on hover (always visible on mobile) — no more menu digging

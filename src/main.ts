@@ -5,6 +5,7 @@ import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
 import { setLanguage, t } from './i18n';
+import { setRssReadRetentionDays } from './rss-store';
 import { DataviewGuideModal } from './dataview-guide-modal';
 import { ThemeStudioModal } from './theme-studio-modal';
 
@@ -13,7 +14,7 @@ import { ThemeStudioModal } from './theme-studio-modal';
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
  *  shipped with 2.5.1. */
-const ANNOUNCE_VERSION = '3.6.6';
+const ANNOUNCE_VERSION = '3.7.1';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
@@ -353,6 +354,7 @@ export default class DashboardPlugin extends Plugin {
 			workspaceNames: workspace.names,
 			dashboardFile: workspace.active,
 		};
+		setRssReadRetentionDays(this.settings.rssReadRetentionDays);
 		// First install only (no data.json has ever existed): start with the
 		// Common Actions bar enabled and the sidebar pinned open. Applied here
 		// instead of DEFAULT_SETTINGS so users upgrading from older versions —
@@ -415,6 +417,7 @@ export default class DashboardPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+		setRssReadRetentionDays(this.settings.rssReadRetentionDays);
 	}
 
 	refreshAllDashboards(): void {

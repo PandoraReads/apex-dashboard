@@ -155,6 +155,7 @@
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="heatmap"] { --db-sec-hue: #ff6b81; --db-sec-glow: rgba(255, 107, 129, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #35e0e8; --db-sec-glow: rgba(53, 224, 232, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #7f8cff; --db-sec-glow: rgba(127, 140, 255, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #ffb454; --db-sec-glow: rgba(255, 180, 84, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #ff4d7e; --db-sec-glow: rgba(255, 77, 126, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #e879f9; --db-sec-glow: rgba(232, 121, 249, 0.16); }
 
@@ -169,6 +170,7 @@
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="heatmap"] { --db-sec-hue: #dc2626; --db-sec-glow: rgba(220, 38, 38, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #0e7490; --db-sec-glow: rgba(14, 116, 144, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #4f46e5; --db-sec-glow: rgba(79, 70, 229, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #b45309; --db-sec-glow: rgba(180, 83, 9, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #e11d48; --db-sec-glow: rgba(225, 29, 72, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #c026d3; --db-sec-glow: rgba(192, 38, 211, 0.14); }
 
@@ -10523,7 +10525,8 @@
 .dashboard-section-row[data-section-type="ticktick"],
 .dashboard-section-row[data-section-type="heatmap"],
 .dashboard-section-row[data-section-type="dataview"],
-.dashboard-section-row[data-section-type="web"] {
+.dashboard-section-row[data-section-type="web"],
+.dashboard-section-row[data-section-type="rss"] {
 	max-height: 800px;
 }
 
@@ -13849,6 +13852,12 @@
 	 * the 800px library clamp so the 60vh height is the only ruler. */
 	.dashboard-section-row[data-section-type="library"],
 	.dashboard-section-row[data-section-type="folder"] {
+		height: 60vh;
+		max-height: none;
+	}
+
+	/* RSS: same workhorse height as library — the list is the content. */
+	.dashboard-section-row[data-section-type="rss"] {
 		height: 60vh;
 		max-height: none;
 	}
@@ -22539,6 +22548,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		--db-border-card: rgba(255, 255, 255, 0.24);
 		--db-border-section: rgba(255, 255, 255, 0.24);
 		--db-backdrop-blur: none;
+		/* Page-background token: the board is ALWAYS dark glass here, but the
+		   theme's own --db-bg (e.g. nordic in a light Obsidian session is
+		   near-white) used to fall through — the kanban column titles layer
+		   --db-bg-section over --db-bg for their sticky opaque backdrop, so
+		   they rendered white-on-white. Pin it dark with the scrim family. */
+		--db-bg: #0e1116;
 		/* Surface family: static glass — no blur dependency, stronger fills
 		   (the scrim behind keeps the composite dark, light text reads on
 		   every layer). */
@@ -22558,6 +22573,39 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		   but its content is invisible" bug. */
 		--db-bg-modal: #171a21;
 		--db-bg-modal-raised: #1f232c;
+	}
+
+	/* --- Input legibility on the dark-glass board -------------------------
+	   Obsidian's own field rules (`textarea, input[type='text'] { color:
+	   var(--text-normal) }`) out-specify the plugin's per-input color rules,
+	   so in a LIGHT Obsidian session every board input went dark-text-on-
+	   dark-glass (typed text invisible — sticky-card task inputs, expense
+	   fields). The immersive board is always dark glass with light text;
+	   force the pair at the root so app.css cannot flip it per-field. */
+	[data-layout="immersive"] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+	[data-layout="immersive"] textarea,
+	[data-layout="immersive"] select {
+		color: rgba(255, 255, 255, 0.92) !important;
+	}
+	[data-layout="immersive"] input::placeholder,
+	[data-layout="immersive"] textarea::placeholder {
+		color: rgba(255, 255, 255, 0.5) !important;
+		opacity: 1;
+	}
+
+	/* Grouped library/folder headers: an explicit dark strip keeps the title
+	   readable whatever glass/poster composite sits behind the tile — on a
+	   bright poster the translucent white glass washed out to near-white and
+	   swallowed the light title text. */
+	[data-layout="immersive"] .dashboard-library-group-header {
+		background: rgba(8, 10, 14, 0.38);
+		border-bottom-color: rgba(255, 255, 255, 0.22);
+		padding-left: 8px;
+		padding-right: 8px;
+	}
+	[data-layout="immersive"] .dashboard-library-group-header .dashboard-library-group-name,
+	[data-layout="immersive"] .dashboard-library-group-header .dashboard-library-group-count {
+		color: rgba(255, 255, 255, 0.9) !important;
 	}
 
 	/* --- Shell -------------------------------------------------------------- */
@@ -23178,4 +23226,605 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		user-select: none;
 		-webkit-user-select: none;
 	}
+}
+
+/* ============================================================
+   RSS section: subscription list, reader modal, config modal.
+   ============================================================ */
+
+/* --- Section content --- */
+.dashboard-rss-content {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+}
+
+.dashboard-rss-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+/* The filter control is the shared toolbar dropdown (all / unread / per
+   feed-group) — house classes carry its look; only a small size tweak. */
+.dashboard-rss-toolbar .dashboard-toolbar-dropdown {
+	flex-shrink: 0;
+}
+
+.dashboard-rss-count {
+	font-size: 11px;
+	color: var(--db-text-faint);
+}
+
+.dashboard-rss-markread {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: var(--db-radius-sm);
+	color: var(--db-text-faint);
+	cursor: pointer;
+}
+
+.dashboard-rss-markread:hover {
+	color: var(--db-accent);
+	background: var(--db-bg-hover);
+}
+
+.dashboard-rss-markread svg {
+	width: 15px;
+	height: 15px;
+}
+
+.dashboard-rss-refreshing {
+	font-size: 11px;
+	color: var(--db-text-faint);
+}
+
+/* --- Article rows --- */
+.dashboard-rss-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	overflow-y: auto;
+	min-height: 0;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-rss-list:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-rss-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px;
+	border-radius: var(--db-radius-md);
+	background: var(--db-bg-card);
+	border: 1px solid var(--db-border-card);
+	cursor: pointer;
+}
+
+.dashboard-rss-item:hover {
+	background: var(--db-bg-card-hover);
+}
+
+.dashboard-rss-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--db-accent);
+	flex-shrink: 0;
+}
+
+.dashboard-rss-item.is-read .dashboard-rss-dot {
+	background: var(--db-border-card);
+}
+
+.dashboard-rss-item-main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.dashboard-rss-item-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--db-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	line-height: 1.4;
+}
+
+.dashboard-rss-item.is-read .dashboard-rss-item-title {
+	color: var(--db-text-faint);
+	font-weight: 500;
+}
+
+/* Meta row: date leads, feed label trails and SHRINKS (min-width:0 + the
+   row's own overflow clamp keep a long feed name from spilling under the
+   download button — the row's width is bounded by item-main, which is
+   bounded by the button's left edge). */
+.dashboard-rss-item-meta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	color: var(--db-text-faint);
+	min-width: 0;
+	overflow: hidden;
+}
+
+.dashboard-rss-item-feed {
+	color: color-mix(in srgb, var(--db-accent) 65%, var(--db-text));
+	min-width: 0;
+	flex: 0 1 auto;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-rss-item-date {
+	flex-shrink: 0;
+}
+
+/* Download / open-note button: a flat icon button. !important on the box
+   properties because Obsidian's `button:not(.clickable-icon)` chrome
+   (interactive bg + shadow) otherwise paints over it — the quicknote-chip
+   idiom. svg sizing also needs !important: app.css's `svg.svg-icon` ties
+   width to var(--icon-size), which ties lose on cascade order. */
+.dashboard-rss-item-save {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	flex-shrink: 0;
+	/* padding 0 or Obsidian's generic button padding (4px 12px) eats the
+	   32px box and the flex-item svg shrinks to the leftover ~8px. */
+	padding: 0 !important;
+	border: none !important;
+	border-radius: var(--db-radius-sm);
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-muted) !important;
+	cursor: pointer;
+}
+
+.dashboard-rss-item-save:hover {
+	color: var(--db-accent) !important;
+	background: var(--db-bg-hover) !important;
+}
+
+.dashboard-rss-item-save svg {
+	width: 17px !important;
+	height: 17px !important;
+	flex-shrink: 0;
+}
+
+.dashboard-rss-item-save.is-busy {
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+.dashboard-rss-empty,
+.dashboard-rss-more {
+	font-size: 12px;
+	color: var(--db-text-faint);
+	padding: 10px 4px;
+	text-align: center;
+}
+
+.dashboard-rss-error {
+	font-size: 11px;
+	color: var(--db-danger);
+	cursor: help;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* --- Unconfigured state --- */
+.dashboard-rss-empty-config {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	padding: 26px 12px;
+}
+
+.dashboard-rss-empty-config-icon {
+	color: var(--db-text-faint);
+}
+
+.dashboard-rss-empty-config-icon svg {
+	width: 28px;
+	height: 28px;
+}
+
+.dashboard-rss-empty-config-text {
+	font-size: 13px;
+	color: var(--db-text-muted);
+}
+
+.dashboard-rss-empty-config-hint {
+	font-size: 11px;
+	color: var(--db-text-faint);
+	margin-bottom: 8px;
+}
+
+/* --- Reader modal --- */
+.modal-container.dashboard-rss-reader .modal {
+	max-width: 860px;
+	width: 94%;
+	height: 86vh;
+	max-height: 86vh;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.dashboard-rss-reader-modal {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+}
+
+.dashboard-rss-reader-wrap {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+	padding: 18px 20px 6px;
+}
+
+.dashboard-rss-reader-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--db-border);
+	flex-shrink: 0;
+}
+
+.dashboard-rss-reader-headmain {
+	flex: 1;
+	min-width: 0;
+}
+
+.dashboard-rss-reader-title {
+	font-size: 17px;
+	font-weight: 700;
+	color: var(--db-text);
+	line-height: 1.35;
+}
+
+.dashboard-rss-reader-meta {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	font-size: 12px;
+	color: var(--db-text-faint);
+	margin-top: 5px;
+}
+
+.dashboard-rss-reader-feed {
+	color: color-mix(in srgb, var(--db-accent) 65%, var(--db-text));
+}
+
+.dashboard-rss-reader-actions {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	flex-shrink: 0;
+	margin-left: auto;
+}
+
+/* Reader header buttons: flat icon buttons with the same anti-Obsidian-chrome
+   !important treatment as the row save button (modals are body-level, so
+   app.css button rules apply there too). */
+/* Labeled save-to-vault button (top-right of the reader): a real pill so the
+   affordance is unmissable. Anti-chrome !important set included — app.css
+   button chrome would repaint it. */
+.dashboard-rss-reader-save {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	flex-shrink: 0;
+	height: 32px;
+	padding: 0 14px !important;
+	border: 1px solid color-mix(in srgb, var(--db-accent) 45%, transparent) !important;
+	border-radius: 999px !important;
+	background: color-mix(in srgb, var(--db-accent) 16%, transparent) !important;
+	box-shadow: none !important;
+	color: var(--db-text) !important;
+	font-size: 12.5px;
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.dashboard-rss-reader-save:hover {
+	background: color-mix(in srgb, var(--db-accent) 26%, transparent) !important;
+}
+
+.dashboard-rss-reader-save.is-saved {
+	border-color: color-mix(in srgb, var(--db-text-muted) 40%, transparent) !important;
+	background: var(--db-bg-hover) !important;
+	color: var(--db-text-muted) !important;
+	font-weight: 500;
+}
+
+.dashboard-rss-reader-save-icon {
+	display: inline-flex;
+	flex-shrink: 0;
+}
+
+.dashboard-rss-reader-save-icon svg {
+	width: 15px !important;
+	height: 15px !important;
+	flex-shrink: 0;
+}
+
+.dashboard-rss-reader-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0 !important;
+	border: none !important;
+	border-radius: var(--db-radius-sm);
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-muted) !important;
+	cursor: pointer;
+}
+
+.dashboard-rss-reader-btn:hover {
+	color: var(--db-accent) !important;
+	background: var(--db-bg-hover) !important;
+}
+
+.dashboard-rss-reader-btn svg {
+	width: 18px !important;
+	height: 18px !important;
+	flex-shrink: 0;
+}
+
+.dashboard-rss-reader-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	margin-top: 12px;
+	padding-right: 8px;
+	font-size: 14px;
+	line-height: 1.7;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-rss-reader-body:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-rss-reader-body img {
+	max-width: 100%;
+}
+
+.dashboard-rss-reader-loading {
+	color: var(--db-text-faint);
+	padding: 32px 12px;
+	text-align: center;
+	font-size: 13px;
+}
+
+.dashboard-rss-reader-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+	padding: 40px 12px;
+}
+
+.dashboard-rss-reader-empty-text {
+	font-size: 13px;
+	color: var(--db-text-muted);
+}
+
+/* --- Config modal source rows --- */
+.dashboard-rss-cfg-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.dashboard-rss-cfg-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-rss-cfg-row.is-error .dashboard-rss-cfg-url {
+	border-color: var(--db-danger);
+}
+
+/* Group management rows + per-feed group select. */
+.dashboard-rss-cfg-groups {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.dashboard-rss-cfg-group-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 8px;
+	border-radius: var(--db-radius-sm);
+	background: var(--db-bg-hover);
+}
+
+.dashboard-rss-cfg-group-name {
+	flex: 1;
+	min-width: 0;
+	font-size: 12px;
+	color: var(--db-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-rss-cfg-group-remove svg {
+	width: 14px !important;
+	height: 14px !important;
+	flex-shrink: 0;
+}
+
+.dashboard-rss-cfg-group-add-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-rss-cfg-group-add-input {
+	flex: 1;
+	min-width: 0;
+}
+
+.dashboard-rss-cfg-group-select {
+	flex: 0 0 auto;
+	max-width: 130px;
+}
+
+/* Bucket-dimension row (groups section head): label + inline select. */
+.dashboard-rss-cfg-groupby-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.dashboard-rss-cfg-groupby-label {
+	font-size: 12px;
+	color: var(--db-text-muted);
+	flex-shrink: 0;
+}
+
+.dashboard-rss-cfg-groupby-select {
+	flex: 0 0 auto;
+}
+
+/* OPML interchange + add-feed actions row: one right-aligned group. */
+.dashboard-rss-cfg-opml-row {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.dashboard-rss-cfg-opml-btn {
+	font-size: 12px;
+}
+
+.dashboard-rss-cfg-opml-file {
+	display: none;
+}
+
+.dashboard-rss-cfg-name {
+	flex: 0 0 24%;
+	min-width: 0;
+}
+
+.dashboard-rss-cfg-url {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Per-feed failure status (row rides before the delete button): a compact
+ * danger chip; the hover title carries the feed's full error reason. */
+.dashboard-rss-cfg-status {
+	flex-shrink: 0;
+	font-size: 10.5px;
+	padding: 1px 7px;
+	border-radius: 999px;
+	white-space: nowrap;
+	max-width: 88px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: help;
+}
+
+.dashboard-rss-cfg-status.is-error {
+	color: var(--db-danger);
+	background: color-mix(in srgb, var(--db-danger) 12%, transparent);
+	border: 1px solid color-mix(in srgb, var(--db-danger) 30%, transparent);
+}
+
+/* Config-modal row delete: bigger icon + the anti-chrome !important set. */
+.dashboard-rss-cfg-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	flex-shrink: 0;
+	padding: 0 !important;
+	border: none !important;
+	border-radius: var(--db-radius-sm);
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint) !important;
+	cursor: pointer;
+}
+
+.dashboard-rss-cfg-remove:hover {
+	color: var(--db-danger) !important;
+	background: var(--db-bg-hover) !important;
+}
+
+.dashboard-rss-cfg-remove svg {
+	width: 18px !important;
+	height: 18px !important;
+	flex-shrink: 0;
+}
+
+.dashboard-rss-cfg-add {
+	margin-top: 4px;
+}
+
+.dashboard-rss-cfg-folder-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-rss-cfg-folder {
+	flex: 1;
+	min-width: 0;
+}
+
+/* --- Phones: trim informational chrome, keep the controls --- */
+.is-mobile:not(.is-tablet) .dashboard-rss-count,
+.is-mobile:not(.is-tablet) .dashboard-rss-refreshing {
+	display: none;
+}
+
+.is-mobile:not(.is-tablet) .dashboard-rss-item-meta {
+	gap: 6px;
+	font-size: 10px;
 }

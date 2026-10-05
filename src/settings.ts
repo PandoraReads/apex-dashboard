@@ -571,6 +571,21 @@ export class DashboardSettingTab extends PluginSettingTab {
 					this.plugin.settings = { ...this.plugin.settings, disableNotePopover: value };
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName(t('settings.rssReadRetention'))
+			.setDesc(t('settings.rssReadRetentionDesc'))
+			.addDropdown(dropdown => {
+				const options: Record<string, string> = { '30': t('settings.rssRetentionDays', { count: '30' }), '90': t('settings.rssRetentionDays', { count: '90' }), '180': t('settings.rssRetentionDays', { count: '180' }), '365': t('settings.rssRetentionDays', { count: '365' }), '0': t('settings.rssRetentionForever') };
+				dropdown
+					.addOptions(options)
+					.setValue(String(this.plugin.settings.rssReadRetentionDays ?? 180))
+					.onChange(async (value) => {
+						const days = parseInt(value) || 0;
+						this.plugin.settings = { ...this.plugin.settings, rssReadRetentionDays: days };
+						await this.plugin.saveSettings();
+					});
+			});
 	}
 
 	/** Workspace registry management: draggable rows (reorder), a path input

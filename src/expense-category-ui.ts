@@ -292,7 +292,6 @@ export function showCategoryManager(doc: Document, service: ExpenseService): voi
 			wireSortHandles(catRows, commitCatOrder);
 			cats.forEach((key, i) => {
 				const row = catRows[i]!;
-				const isCustom = !categoriesFor(type).includes(key);
 				row.createSpan({ cls: 'dashboard-expense-catmgr-name', text: categoryLabel(key) });
 
 				const primarySelect = row.createEl('select', {
@@ -328,7 +327,10 @@ export function showCategoryManager(doc: Document, service: ExpenseService): voi
 					text: t('expense.cat.usage', { n: service.countCategoryUsage(type, key) }),
 				});
 				addMoveButtons(row, i, cats.length, commitCatOrder);
-				if (isCustom) {
+				// Delete applies to presets too — membership is a persisted
+				// list, so a removed preset behaves exactly like a removed
+				// custom (history keeps displaying under its label).
+				{
 					const del = row.createDiv({
 						cls: 'dashboard-expense-catmgr-delete',
 						attr: { role: 'button', tabindex: '0', 'aria-label': t('common.delete') },
@@ -339,7 +341,9 @@ export function showCategoryManager(doc: Document, service: ExpenseService): voi
 							title: t('expense.cat.removeConfirmTitle'),
 							message: t('expense.cat.removeConfirmMessage', { name: categoryLabel(key) }),
 						});
-						if (yes && service.removeCustomCategory(type, key)) render();
+						if (!yes) return;
+						if (service.removeCategory(type, key)) render();
+						else new Notice(t('expense.cat.removeLastDenied'));
 					};
 					del.addEventListener('click', () => { void confirmRemove(); });
 				}

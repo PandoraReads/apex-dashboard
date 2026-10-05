@@ -46,6 +46,9 @@ export class El {
 	/** No-op: no real focus in the stand-in. */
 	focus(): void {}
 
+	/** No-op: HTMLInputElement.select parity (prompt dialogs defer-select). */
+	select(): void {}
+
 	constructor(tag: string) {
 		this.tagName = tag.toUpperCase();
 	}
@@ -250,6 +253,13 @@ export class El {
 			stopPropagation: () => { stopped = true; },
 			preventDefault: () => {},
 		}, ev);
+		// Native DOM event instances (Node 19+ ships CustomEvent) expose
+		// type/detail as prototype getters — Object.assign copies only own
+		// enumerable props, so backfill the fields listeners actually read.
+		if (full.type === undefined && ev.type !== undefined) full.type = ev.type;
+		if (full.detail === undefined && (ev as { detail?: unknown }).detail !== undefined) {
+			full.detail = (ev as { detail?: unknown }).detail;
+		}
 		let cur: El | null = this;
 		while (cur && !stopped) {
 			for (const fn of [...(cur.listeners.get(ev.type) ?? [])]) {

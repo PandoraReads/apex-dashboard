@@ -206,6 +206,9 @@ export interface DashboardSettings {
 	    base size; 'small'/'large' scale it (em-based sizes cascade from the
 	    root, so titles/body/banner/widgets grow or shrink together). */
 	fontScale: 'small' | 'medium' | 'large';
+	/** RSS read-marker retention in days (0 = keep forever; default 180).
+	 *  Read markers older than this are pruned from rss.json on writes. */
+	rssReadRetentionDays: number;
 	/** Quick Notes region master toggle (pinned top of the kanban). */
 	quickNotesEnabled: boolean;
 	/** Quick-create presets (template + folder + filename). Global (Layer 1). */
@@ -426,6 +429,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	glassBlur: null,
 	radiusScale: null,
 	fontScale: 'medium',
+	rssReadRetentionDays: 180,
 	quickNotesEnabled: false,
 	quickNotePresets: [] as QuickNotePreset[],
 	quickCaptureEnabled: false,
@@ -929,6 +933,37 @@ export interface WebEmbedConfig {
 	zoom?: number;
 }
 
+/** One subscription entry in an RSS section config. */
+export interface RssFeedSource {
+	/** Optional display label; defaults to the feed's own title once fetched. */
+	name?: string;
+	/** Feed URL (RSS 2.0 / Atom). Normalized + validated via web-precheck. */
+	url: string;
+	/** Optional group label — feeds sharing one form a filter bucket in the
+	 *  section toolbar (all / unread / per-group), separate from read state. */
+	group?: string;
+}
+
+/** RSS section config (sectionType 'rss'): subscription list + where article
+ *  downloads land. Fetched feed content and read/saved state live in the
+ *  plugin's rss.json cache (see rss-store), not here. */
+export interface RssConfig {
+	feeds: RssFeedSource[];
+	/** Folder article downloads are saved into ('' = vault root). */
+	downloadFolder: string;
+	/** Managed group list (config-modal order = filter-menu order). Feeds may
+	 *  reference groups not in this list (hand-edited files) — the effective
+	 *  set is the union, see rssGroupNames. */
+	groups?: string[];
+	/** What the section toolbar's filter buckets group by: 'group' (managed
+	 *  groups, the default when unset), 'feed' (one bucket per source), or
+	 *  'none' (all/unread only). */
+	groupBy?: 'none' | 'group' | 'feed';
+	/** List page size (library-section idiom; one of 10/20/50/100, default 20).
+	 *  Persisted so a long board survives re-renders at the user's density. */
+	pageSize?: number;
+}
+
 export interface DashboardColumn {
 	name: string;
 	color: string;
@@ -943,6 +978,8 @@ export interface DashboardColumn {
 	dataviewConfig?: DataviewConfig;
 	/** Web embed section config (sectionType 'web'). */
 	webConfig?: WebEmbedConfig;
+	/** RSS section config (sectionType 'rss'). */
+	rssConfig?: RssConfig;
 	/** Notes (projects) sections: render the cover strip on cards. Default
 	 *  true; false reproduces the retired standalone 'notes' (无封面) section
 	 *  type, which migrates to projects + showCover:false at parse time.

@@ -1064,11 +1064,12 @@ export function openImmersiveAddMenu(opts: {
 }
 
 /** Right-click a widget tile → remove it from the board (the card form of
- *  the section delete button; underlying widget config stays untouched). */
+ *  the section delete button; underlying widget config stays untouched).
+ *  No "tidy layout" entry on purpose: the auto re-flow packed worse than the
+ *  user's own placement (retired at Rae's request). */
 export function setupImmersiveTileMenu(
 	grid: HTMLElement,
 	onRemove: (itemId: string) => void,
-	onTidy: () => void,
 	cleanupFns: Array<() => void>,
 ): void {
 	const handler = (e: MouseEvent) => {
@@ -1079,14 +1080,7 @@ export function setupImmersiveTileMenu(
 		e.stopPropagation();
 		const id = tile.dataset.immId;
 		const menu = new Menu();
-		// 整理布局: clear every explicit coordinate and re-flow the pack —
-		// the escape hatch back to auto-layout after free placement.
-		menu.addItem(item => item
-			.setTitle(t('immersive.tidyLayout'))
-			.setIcon('layout-grid')
-			.onClick(() => onTidy()));
 		if (tile.hasAttribute?.('data-widget-key') || tile.dataset.widgetKey) {
-			menu.addSeparator();
 			menu.addItem(item => item
 				.setTitle(t('immersive.removeCard'))
 				.setIcon('trash-2')

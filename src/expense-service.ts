@@ -29,6 +29,11 @@ export interface ExpenseData {
 	lastCategory: { expense?: string; income?: string };
 	/** User-added category names per direction (absent in pre-1.9.6 files). */
 	customCategories?: { expense?: string[]; income?: string[] };
+	/** Full category membership per direction (preset keys + custom names,
+	 *  materialized from the legacy dual sources on first load). Deletions
+	 *  and additions edit THIS list; customCategories keeps being written for
+	 *  old-version compat but is no longer the authority once this exists. */
+	categories?: { expense?: string[]; income?: string[] };
 	/** Full display order per direction (preset keys + custom names mixed).
 	 *  Absent in files that never reordered; missing categories fall back to
 	 *  default order at read time (getOrderedCategories), never on save. */
@@ -62,6 +67,14 @@ export const INCOME_CATEGORIES = [
 /** The preset category keys for a direction. */
 export function categoriesFor(type: ExpenseType): readonly string[] {
 	return type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+}
+
+/** Every preset key across directions (label resolution for the service). */
+const ALL_PRESET_KEYS = new Set<string>([...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES]);
+
+/** Display label of a category: preset keys via i18n, custom names as-is. */
+function categoryLabelOf(key: string): string {
+	return ALL_PRESET_KEYS.has(key) ? t(`expense.cat.${key}`) : key;
 }
 
 /** Custom-category guards shared with the manager UI. */
@@ -130,6 +143,10 @@ function mergeData(disk: ExpenseData, session: ExpenseData): ExpenseData {
 	const records = [...byId.values()].sort((a, b) =>
 		a.date === b.date ? a.createdAt - b.createdAt : (a.date < b.date ? -1 : 1));
 	const customCategories = mergeCustomCategories(disk.customCategories, session.customCategories);
+	// Membership is explicit user intent (additions AND deletions): the
+	// session list wins wholesale when present; only a session that never
+	// materialized one falls back to the disk list.
+	const categories = session.categories ?? disk.categories;
 	const categoryOrder = mergeCategoryOrder(disk.categoryOrder, session.categoryOrder);
 	const primaryCategories = mergePrimaryCategories(disk.primaryCategories, session.primaryCategories);
 	const categoryParents = mergeCategoryParents(disk.categoryParents, session.categoryParents, primaryCategories);
@@ -138,6 +155,7 @@ function mergeData(disk: ExpenseData, session: ExpenseData): ExpenseData {
 		records,
 		lastCategory: { ...disk.lastCategory, ...session.lastCategory },
 		...(customCategories ? { customCategories } : {}),
+		...(categories ? { categories } : {}),
 		...(categoryOrder ? { categoryOrder } : {}),
 		...(primaryCategories ? { primaryCategories } : {}),
 		...(categoryParents ? { categoryParents } : {}),
@@ -255,6 +273,7 @@ function normalizeData(raw: unknown): ExpenseData {
 	}
 	const customCategories = normalizeCustomCategories(obj.customCategories);
 	const categoryOrder = normalizeCategoryOrder(obj.categoryOrder, customCategories);
+	const categories = normalizeCategories(obj.categories, categoryOrder, customCategories);
 	const primaryCategories = normalizePrimaryCategories(obj.primaryCategories);
 	const categoryParents = normalizeCategoryParents(obj.categoryParents, customCategories, primaryCategories);
 	return {
@@ -262,10 +281,63 @@ function normalizeData(raw: unknown): ExpenseData {
 		records,
 		lastCategory,
 		...(customCategories ? { customCategories } : {}),
+		...(categories ? { categories } : {}),
 		...(categoryOrder ? { categoryOrder } : {}),
 		...(primaryCategories ? { primaryCategories } : {}),
 		...(categoryParents ? { categoryParents } : {}),
 	};
+}
+
+/** Validate a stored full-membership list; undefined when absent (legacy
+ *  file — the materializer below derives it). */
+function normalizeCategories(
+	raw: unknown,
+	categoryOrder: ExpenseData['categoryOrder'],
+	customCategories: ExpenseData['customCategories'],
+): ExpenseData['categories'] {
+	const materialize = (type: 'expense' | 'income'): string[] | undefined => {
+		const presets = categoriesFor(type);
+		const customs = customCategories?.[type] ?? [];
+		const order = categoryOrder?.[type];
+		if (!order) return [...presets, ...customs];
+		// The stored order is a full cover (reorderCategories enforces exact
+		// cover), so respect it; anything it lost falls back to default order.
+		const seen = new Set<string>();
+		const out: string[] = [];
+		for (const key of order) {
+			if ((presets.includes(key) || customs.includes(key)) && !seen.has(key)) {
+				seen.add(key);
+				out.push(key);
+			}
+		}
+		for (const key of [...presets, ...customs]) {
+			if (!seen.has(key)) out.push(key);
+		}
+		return out;
+	};
+	if (!raw || typeof raw !== 'object') {
+		// Legacy file: derive both directions once so deletions have a list
+		// to act on from the very first edit.
+		const expense = materialize('expense');
+		const income = materialize('income');
+		return { ...(expense ? { expense } : {}), ...(income ? { income } : {}) };
+	}
+	const out: { expense?: string[]; income?: string[] } = {};
+	for (const type of ['expense', 'income'] as const) {
+		const list = (raw as Record<string, unknown>)[type];
+		if (!Array.isArray(list)) continue;
+		const keys: string[] = [];
+		const seen = new Set<string>();
+		for (const v of list) {
+			if (typeof v !== 'string' || v.length === 0) continue;
+			const key = v.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			keys.push(v);
+		}
+		if (keys.length > 0) out[type] = keys;
+	}
+	return out.expense === undefined && out.income === undefined ? undefined : out;
 }
 
 /** Keep only usable custom category names per type: non-empty trimmed strings
@@ -685,8 +757,12 @@ export class ExpenseService {
 
 	// ===== Custom categories =====
 
-	/** Preset keys followed by the user's custom names for a direction. */
+	/** Full category membership for a direction: the materialized list when
+	 *  present (the authority — deletions edit it), else the legacy dual
+	 *  sources (preset keys + custom names). */
 	getCategories(type: ExpenseType): string[] {
+		const list = this.data.categories?.[type];
+		if (list && list.length > 0) return [...list];
 		return [...categoriesFor(type), ...(this.data.customCategories?.[type] ?? [])];
 	}
 
@@ -725,33 +801,42 @@ export class ExpenseService {
 	}
 
 	/** Register a custom category name for a direction; rejected when empty/
-	 *  over-long, shadowing a preset, already present, or past the cap. */
+	 *  over-long, shadowing an ACTIVE category (a deleted preset's label may
+	 *  be reused), already present, or past the cap. */
 	addCustomCategory(type: ExpenseType, rawName: string): AddCategoryResult {
 		const name = rawName.trim().slice(0, EXPENSE_CATEGORY_NAME_MAX);
 		if (name.length === 0) return { ok: false, reason: 'invalid' };
-		const existing = this.data.customCategories?.[type] ?? [];
-		if (collidesWithPreset(name, type) || existing.some(n => n.toLowerCase() === name.toLowerCase())) {
+		const active = this.getCategories(type);
+		const lower = name.toLowerCase();
+		if (active.some(key => key.toLowerCase() === lower || categoryLabelOf(key).toLowerCase() === lower)) {
 			return { ok: false, reason: 'duplicate' };
 		}
-		if (existing.length >= EXPENSE_MAX_CUSTOM_CATEGORIES) return { ok: false, reason: 'limit' };
-		const next = { ...this.data.customCategories, [type]: [...existing, name] };
-		this.data = { ...this.data, customCategories: next };
+		if (active.length >= EXPENSE_MAX_CUSTOM_CATEGORIES + categoriesFor(type).length) return { ok: false, reason: 'limit' };
+		const existing = this.data.customCategories?.[type] ?? [];
+		const custom = { ...this.data.customCategories, [type]: [...existing, name] };
+		const categories = { ...this.data.categories, [type]: [...active, name] };
+		this.data = { ...this.data, customCategories: custom, categories };
 		this.save();
 		this.notify();
 		return { ok: true, name };
 	}
 
-	/** Remove a custom category (case-insensitive). Existing records keep the
-	 *  name — display falls back to the raw key (categoryLabel). The name is
-	 *  also dropped from the stored order and any primary mapping so it stops
-	 *  appearing in manager/filter lists immediately. */
-	removeCustomCategory(type: ExpenseType, name: string): boolean {
-		const existing = this.data.customCategories?.[type] ?? [];
-		const next = existing.filter(n => n.toLowerCase() !== name.toLowerCase());
-		if (next.length === existing.length) return false;
-		const custom = { ...this.data.customCategories, [type]: next };
-		// Drop the key entirely when empty so the JSON stays tidy.
-		if (next.length === 0) delete custom[type];
+	/** Remove a category — preset or custom alike. Existing records keep the
+	 *  key: display still resolves preset labels (labelOf), customs fall back
+	 *  to the raw name, and stats/history keep reading. The key drops from
+	 *  the membership list, custom list, stored order, primary mapping, and
+	 *  lastCategory. Refuses the direction's last remaining category. */
+	removeCategory(type: ExpenseType, name: string): boolean {
+		const active = this.getCategories(type);
+		if (active.length <= 1) return false;
+		const next = active.filter(n => n.toLowerCase() !== name.toLowerCase());
+		if (next.length === active.length) return false;
+		const categories = { ...this.data.categories, [type]: next };
+
+		const existingCustom = this.data.customCategories?.[type] ?? [];
+		const nextCustom = existingCustom.filter(n => n.toLowerCase() !== name.toLowerCase());
+		const custom = { ...this.data.customCategories, [type]: nextCustom };
+		if (nextCustom.length === 0) delete custom[type];
 
 		const orderList = this.data.categoryOrder?.[type] ?? [];
 		let categoryOrder = this.data.categoryOrder;
@@ -768,9 +853,14 @@ export class ExpenseService {
 			categoryParents = { ...this.data.categoryParents, [type]: rest };
 		}
 
+		const lastCategory = { ...this.data.lastCategory };
+		if (lastCategory[type]?.toLowerCase() === name.toLowerCase()) delete lastCategory[type];
+
 		this.data = {
 			...this.data,
+			categories,
 			customCategories: custom,
+			lastCategory,
 			...(categoryOrder !== this.data.categoryOrder ? { categoryOrder } : {}),
 			...(categoryParents !== this.data.categoryParents ? { categoryParents } : {}),
 		};

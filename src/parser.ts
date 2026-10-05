@@ -21,6 +21,8 @@ import type {
 	TickTickConfig,
 	DataviewConfig,
 	WebEmbedConfig,
+	RssConfig,
+	RssFeedSource,
 	ImmersiveItem,
 } from './types';
 import { parse as parseYaml } from 'yaml';
@@ -34,7 +36,7 @@ const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
 // sticky), so they never survive a load.
-const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web']);
+const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web', 'rss']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
 // does not register them as tags. Restore the '#' here; legacy '#xxxxxx' values
@@ -444,6 +446,35 @@ export function serialize(data: DashboardData): string {
 				lines.push(`      zoom: ${wc.zoom}`);
 			}
 		}
+		if (col.rssConfig) {
+			const rc = col.rssConfig;
+			lines.push('    rss:');
+			if (rc.feeds.length > 0) {
+				lines.push('      feeds:');
+				for (const feed of rc.feeds) {
+					if (feed.name) lines.push(`        - name: ${JSON.stringify(feed.name)}`);
+					// First list line needs the dash; a nameless feed puts it on the url.
+					if (!feed.name) lines.push(`        - url: ${JSON.stringify(feed.url)}`);
+					else lines.push(`          url: ${JSON.stringify(feed.url)}`);
+					if (feed.group) lines.push(`          group: ${JSON.stringify(feed.group)}`);
+				}
+			}
+			if (rc.groups && rc.groups.length > 0) {
+				lines.push('      groups:');
+				for (const group of rc.groups) lines.push(`        - ${JSON.stringify(group)}`);
+			}
+			// 'group' is the default bucket dimension — omit it so old files
+			// stay clean and round-trips stay idempotent.
+			if (rc.groupBy && rc.groupBy !== 'group') {
+				lines.push(`      groupBy: ${rc.groupBy}`);
+			}
+			if (typeof rc.pageSize === 'number' && rc.pageSize !== 20) {
+				lines.push(`      pageSize: ${rc.pageSize}`);
+			}
+			if (rc.downloadFolder) {
+				lines.push(`      downloadFolder: ${JSON.stringify(rc.downloadFolder)}`);
+			}
+		}
 	}
 
 	lines.push('---');
@@ -453,7 +484,7 @@ export function serialize(data: DashboardData): string {
 		lines.push(`## ${column.name}`);
 		lines.push('');
 
-		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview' || column.sectionType === 'web') continue;
+		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview' || column.sectionType === 'web' || column.sectionType === 'rss') continue;
 
 		for (const card of column.cards) {
 			lines.push(`### ${card.title}`);
@@ -1077,7 +1108,7 @@ function parseImmersiveItems(fm: Record<string, unknown>): ImmersiveItem[] | und
 	return items.length > 0 ? items : undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -1090,6 +1121,7 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 			ticktickConfig: item.ticktick ? parseTickTickConfig(item.ticktick as Record<string, unknown>) : undefined,
 			dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
 			webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
+			rssConfig: item.rss ? parseRssConfig(item.rss as Record<string, unknown>) : undefined,
 			showCover: item.showCover === false ? false : undefined,
 			height: typeof item.height === 'number' ? item.height : undefined,
 			half: item.half === true ? true : undefined,
@@ -1097,7 +1129,7 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -1132,6 +1164,7 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			ticktickConfig: def?.ticktickConfig,
 			dataviewConfig: def?.dataviewConfig,
 			webConfig: def?.webConfig,
+			rssConfig: def?.rssConfig,
 			height: def?.height,
 			half: def?.half,
 			width: def?.half ? def?.width : undefined,
@@ -1332,6 +1365,40 @@ function parseWebConfig(raw: Record<string, unknown>): WebEmbedConfig {
 	// dropping it keeps serialize(parse(serialize(x))) === serialize(x).
 	const zoom = zoomRaw != null && zoomRaw >= 0.5 && zoomRaw <= 2 && zoomRaw !== 1 ? zoomRaw : undefined;
 	return { url, zoom };
+}
+
+function parseRssConfig(raw: Record<string, unknown>): RssConfig {
+	const feeds: RssFeedSource[] = [];
+	if (Array.isArray(raw.feeds)) {
+		for (const entry of raw.feeds) {
+			if (typeof entry !== 'object' || entry === null) continue;
+			const rec = entry as Record<string, unknown>;
+			const url = str(rec.url ?? '').trim();
+			if (!url) continue;
+			const name = str(rec.name ?? '').trim();
+			const group = str(rec.group ?? '').trim();
+			feeds.push({
+				...(name ? { name } : {}),
+				url,
+				...(group ? { group } : {}),
+			});
+		}
+	}
+	const downloadFolder = str(raw.downloadFolder ?? '').trim().replace(/^\/+|\/+$/g, '');
+	const groups = (Array.isArray(raw.groups) ? raw.groups : [])
+		.map((g: unknown) => str(g).trim())
+		.filter((g: string) => g.length > 0);
+	const groupByRaw = str(raw.groupBy ?? '');
+	const groupBy = groupByRaw === 'none' || groupByRaw === 'feed' ? groupByRaw : undefined;
+	const pageSizeRaw = typeof raw.pageSize === 'number' ? raw.pageSize : undefined;
+	const pageSize = pageSizeRaw != null && [10, 20, 50, 100].includes(pageSizeRaw) && pageSizeRaw !== 20 ? pageSizeRaw : undefined;
+	return {
+		feeds,
+		downloadFolder,
+		...(groups.length > 0 ? { groups } : {}),
+		...(groupBy ? { groupBy } : {}),
+		...(pageSize ? { pageSize } : {}),
+	};
 }
 
 function splitByH2(body: string): Array<{ heading: string; content: string }> {

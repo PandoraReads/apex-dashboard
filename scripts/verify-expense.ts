@@ -37,6 +37,7 @@ import {
 	periodShift,
 	windowFor,
 } from '../src/expense-period';
+import { expenseToday } from '../src/expense-service';
 
 // ---- Harness ---------------------------------------------------------------
 
@@ -254,9 +255,28 @@ const serviceChecks = async (): Promise<void> => {
 		service.setCategoryParent('expense', '奶茶', '生活X');
 		const withMilk = service.getOrderedCategories('expense');
 		service.reorderCategories('expense', ['奶茶', ...withMilk.filter(c => c !== '奶茶')]);
-		assert.equal(service.removeCustomCategory('expense', '奶茶'), true);
+		assert.equal(service.removeCategory('expense', '奶茶'), true);
 		assert.equal(service.getCategoryParent('expense', '奶茶'), undefined, 'mapping cleaned with the custom');
 		assert.ok(!service.getOrderedCategories('expense').includes('奶茶'), 'order cleaned with the custom');
+
+		// Presets are deletable like customs: membership is a persisted list,
+		// history keeps resolving the label, the freed label can be re-added.
+		{
+			const { service, flush } = boot(record({}));
+			await service.load();
+			assert.ok(service.getCategories('expense').includes('food'), 'preset present initially');
+			assert.equal(service.removeCategory('expense', 'food'), true, 'preset removal succeeds');
+			assert.ok(!service.getCategories('expense').includes('food'), 'preset gone from membership');
+			assert.ok(!service.getOrderedCategories('expense').includes('food'), 'preset gone from ordered view');
+			// Record written under the deleted preset keeps validating/display paths.
+			assert.equal(service.addRecord({ type: 'expense', amount: 12, category: 'food', date: expenseToday() }) === null, true, 'deleted preset rejected for NEW records');
+			// Re-adding the freed label as a custom now works.
+			assert.equal(service.addCustomCategory('expense', '餐饮').ok, true, 'freed preset label re-addable');
+			// Deleting down to one is refused.
+			const remaining = service.getCategories('expense');
+			for (const key of remaining.slice(0, remaining.length - 1)) service.removeCategory('expense', key);
+			assert.equal(service.removeCategory('expense', remaining[remaining.length - 1]!), false, 'last category refused');
+		}
 	}
 
 	// Merge on persist with an external writer: session-first order/primaries,

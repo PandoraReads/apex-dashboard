@@ -11,6 +11,7 @@ import { renderWereadSection } from './weread-section';
 import { renderTickTickSection } from './ticktick-section';
 import { renderDataviewSection, setDataviewApp } from './dataview-section';
 import { renderWebSection } from './web-section';
+import { renderRssSection } from './rss-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
@@ -2641,6 +2642,41 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		return el;
 	}
 
+	// RSS section: subscription list rendered by rss-section (mixed reverse-
+	// chronological rows, reader modal, per-row article download).
+	if (sectionType === 'rss') {
+		const refreshBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('web.refresh') },
+		});
+		setIcon(refreshBtn, 'refresh-cw');
+		let reload: (() => void) | null = null;
+		refreshBtn.addEventListener('click', () => reload?.());
+
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('rss.configure') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
+		});
+
+		renderRssSection(el, column, app, (fn) => { reload = fn; });
+		return el;
+	}
+
 	const addCardBtn = headerActions.createEl('button', {
 		cls: 'dashboard-section-add-btn',
 		attr: { 'aria-label': t('renderer.addCardTo', { column: column.name }) },
@@ -3947,6 +3983,7 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'weread') return 'weread';
 	if (lower === 'ticktick') return 'ticktick';
 	if (lower === 'web') return 'web';
+	if (lower === 'rss') return 'rss';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);
