@@ -61,6 +61,10 @@ export class FocalPointPicker {
 			ratio?: number;
 			value?: { x: number; y: number };
 			onChange: (pos: { x: number; y: number }) => void;
+			/** Optional destructive action rendered as a second button
+			 *  directly BELOW the reset button (e.g. the banner editor's
+			 *  per-image delete). */
+			deleteAction?: { label: string; onDelete: () => void };
 		},
 	) {
 		this.pos = { ...(opts.value ?? CENTER) };
@@ -70,7 +74,9 @@ export class FocalPointPicker {
 		this.box.style.aspectRatio = String(opts.ratio ?? 3);
 		this.box.title = t('focal.hint');
 		this.marker = this.box.createDiv({ cls: 'dashboard-focal-picker-marker' });
-		const resetBtn = wrap.createEl('button', {
+		// Reset (and optionally delete) stack vertically beside the preview.
+		const actions = wrap.createDiv({ cls: 'dashboard-focal-picker-actions' });
+		const resetBtn = actions.createEl('button', {
 			cls: 'dashboard-focal-picker-reset',
 			attr: { 'aria-label': t('focal.reset') },
 		});
@@ -81,6 +87,15 @@ export class FocalPointPicker {
 			this.paint();
 			opts.onChange({ ...this.pos });
 		});
+		if (opts.deleteAction) {
+			const delBtn = actions.createEl('button', {
+				cls: 'dashboard-focal-picker-delete',
+				attr: { 'aria-label': opts.deleteAction.label },
+			});
+			delBtn.title = opts.deleteAction.label;
+			setIcon(delBtn, 'trash-2');
+			delBtn.addEventListener('click', () => opts.deleteAction!.onDelete());
+		}
 
 		this.setPath(opts.path);
 		this.paint();

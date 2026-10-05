@@ -2,6 +2,7 @@ import { App, setIcon } from 'obsidian';
 import { t } from './i18n';
 import type { AlbumConfig, DashboardSettings } from './types';
 import { resolveVaultImage } from './banner';
+import { isInPreserveScope, type PreserveScope } from './preserve-scope';
 
 /** Rotation tick timers keyed by timer id, mapped to the widget root they
  *  animate. destroyAlbumWidgets skips entries still inside a preserved widget
@@ -93,9 +94,9 @@ export function listAlbumImages(app: App, folder: string, recursive: boolean): s
  *  timers animating widgets inside it survive so the re-attached DOM keeps
  *  rotating. Stragglers of a discarded DOM unwind themselves via the per-tick
  *  isConnected check. */
-export function destroyAlbumWidgets(preserveWidgets?: HTMLElement | null): void {
+export function destroyAlbumWidgets(preserveWidgets?: PreserveScope): void {
 	for (const [id, widget] of albumTimers) {
-		if (preserveWidgets && preserveWidgets.contains(widget)) continue;
+		if (isInPreserveScope(preserveWidgets, widget)) continue;
 		window.clearInterval(id);
 		albumTimers.delete(id);
 	}

@@ -69,6 +69,8 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Workspace switcher
 		'workspace.newTitle': 'New workspace',
+		'workspace.newImmersiveTitle': 'New immersive workspace',
+		'workspace.layoutNeedsView': 'Open a dashboard view first, then switch its layout from the workspace pill',
 		'workspace.namePlaceholder': 'Workspace name',
 		'workspace.defaultName': 'Workspace {n}',
 		'workspace.renameTitle': 'Rename workspace',
@@ -129,9 +131,10 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Layout Mode
 		'settings.layoutMode': 'Layout',
-		'settings.layoutModeDesc': 'Widget arrangement: sidebar beside the board, or a horizontal strip under the banner (desktop and tablet only; phones are unaffected)',
+		'settings.layoutModeDesc': 'This workspace board layout: sidebar, stacked strip, or the immersive poster board with widgets and sections in one free grid. Each workspace keeps its own; new workspaces start from the global default (desktop and tablet only; phones are unaffected)',
 		'settings.layoutSide': 'Sidebar',
 		'settings.layoutStacked': 'Stacked',
+		'settings.layoutImmersive': 'Immersive',
 		// Sidebar/strip resize handles (aria labels)
 		'view.sidebarResizeHint': 'Drag to resize the sidebar',
 		'view.stripResizeHint': 'Drag to resize the widget strip',
@@ -283,8 +286,7 @@ const translations: Record<Language, Record<string, string>> = {
 		// shown once per plugin version — see DataviewGuideModal)
 		'announce.title': 'Happy National Day! Come grab my newly launched language-learning plugin 🎉',
 		'announce.intro': '',
-		'announce.featureAppearance': 'Appearance Studio, upgraded: a quick command opens it right over the dashboard, hand-tuned looks save as reusable custom themes, and every edit renders live.',
-		'announce.featureMusicQuiet': 'Quieter music playback: unplayable VIP tracks are skipped silently instead of popping a notice each time.',
+		'announce.featureImmersive': 'All-new immersive workspace: a full-bleed poster backdrop with a clock, a centered capture bar, and every widget, memo, and todo as a freely movable glass card — resize from the edges, align with smart snapping, right-click to tidy. Create one from the + button on the workspace switcher.',
 		'announce.groupTitle': 'Join the Apex Dashboard community',
 		'announce.groupFallback': 'Invite expired? Add WeChat: PandoraReads',
 		'announce.gotIt': 'Got it',
@@ -310,6 +312,8 @@ const translations: Record<Language, Record<string, string>> = {
 				
 		// Main
 		'main.openDashboard': 'Open dashboard',
+		'main.switchFirstWorkspace': 'Dashboard: switch to first workspace',
+		'main.alreadyFirstWorkspace': 'Already on the first workspace',
 		'main.dashboard': 'Dashboard',
 		'main.cycleTheme': 'Cycle to next theme',
 		'main.openAppearanceStudio': 'Open the appearance studio',
@@ -325,6 +329,7 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Renderer
 		// Default dashboard content
+		'default.stickyName': 'Sticky Notes',
 		'default.memoTitle': '{date} memo',
 		'default.memoBody': 'Welcome to Apex Dashboard! Click here to edit your first memo.',
 		'default.memoPathTitle': 'Tip: Dashboard File Path',
@@ -344,6 +349,14 @@ const translations: Record<Language, Record<string, string>> = {
 		'default.projectTitle': 'My First Project',
 
 		'renderer.addSection': '+ Add section',
+		'renderer.addCard': '+ Add card',
+		'immersive.addSectionItem': 'Add section',
+		'immersive.addMemoCard': 'Memo card',
+		'immersive.addTodoCard': 'Todo list card',
+		'immersive.removeCard': 'Remove card',
+		'immersive.tidyLayout': 'Tidy layout',
+		'settings.widgetTogglesScope': 'Widget switches: side/stacked boards only',
+		'settings.widgetTogglesScopeDesc': 'These switches rule the sidebar and stacked layouts. Immersive boards keep their own widget cards — add them from the + Add card tile on the board, remove them by right-clicking a card.',
 		'renderer.scrollToTop': 'Back to top',
 		'renderer.sectionName': 'Section name:',
 		'renderer.dragSection': 'Drag to reorder section',
@@ -352,8 +365,6 @@ const translations: Record<Language, Record<string, string>> = {
 		'renderer.addCardTo': 'Add card to {column}',
 		'renderer.deleteSection': 'Delete section {column}',
 		'renderer.typeNotes': 'Notes',
-		'renderer.typeTodo': 'Todo',
-		'renderer.typeMemo': 'Memo',
 		'renderer.typeSticky': 'Sticky Notes',
 		'sticky.selectType': 'Choose Card Type',
 		'sticky.memoLabel': 'Memo',
@@ -490,6 +501,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'exclude.folderPlaceholder': 'Folder path (e.g. Archive/Templates)',
 		'renderer.editCard': 'Edit card',
 		'renderer.cardNewNote': 'New note in this card',
+		'renderer.pinToTop': 'Pin to top',
 		'renderer.deleteCard': 'Delete card',
 		'renderer.confirmDeleteSection': 'Delete the "{column}" section and all its cards? This cannot be undone.',
 		'renderer.sectionDeleted': 'Section deleted',
@@ -1705,6 +1717,8 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Workspace switcher
 		'workspace.newTitle': '新建工作台',
+		'workspace.newImmersiveTitle': '新建沉浸式工作台',
+		'workspace.layoutNeedsView': '请先打开一个工作台视图，再从工作台药丸切换布局',
 		'workspace.namePlaceholder': '工作台名称',
 		'workspace.defaultName': '工作台 {n}',
 		'workspace.renameTitle': '重命名工作台',
@@ -1765,9 +1779,10 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Layout Mode
 		'settings.layoutMode': '布局',
-		'settings.layoutModeDesc': '小组件排布方式：与看板左右分栏，或在横幅下方横向堆叠（仅桌面与平板，手机布局不受影响）',
+		'settings.layoutModeDesc': '当前工作台的布局：侧栏、堆叠，或沉浸式海报混排网格。每个工作台独立保存，新工作台沿用全局默认（仅桌面与平板，手机布局不受影响）',
 		'settings.layoutSide': '侧栏',
 		'settings.layoutStacked': '堆叠',
+		'settings.layoutImmersive': '沉浸式',
 		// Sidebar/strip resize handles (aria labels)
 		'view.sidebarResizeHint': '拖动调整侧栏宽度',
 		'view.stripResizeHint': '拖动调整小组件条高度',
@@ -1918,8 +1933,7 @@ const translations: Record<Language, Record<string, string>> = {
 		// 版本公告 + 社区群（内容随版本更新；每个版本只弹一次 — 见 DataviewGuideModal）
 		'announce.title': '国庆快乐！欢迎来下载我最新上架的外语学习插件🎉',
 		'announce.intro': '',
-		'announce.featureAppearance': '自定义外观大升级：新增快捷命令一键直达，调好的外观可保存为自定义主题随时切换，所有改动实时渲染、所见即所得。',
-		'announce.featureMusicQuiet': '音乐更安静：VIP 单曲无法播放时静默跳过，不再逐条弹通知打扰。',
+		'announce.featureImmersive': '全新沉浸式工作台：海报铺满全页，时钟与输入框居中，小组件、备忘录、待办全部化作可自由拖拽的玻璃卡片——边缘拉伸调整大小、智能吸附对齐、右键整理布局。在工作台切换器的 + 按钮里即可新建。',
 		'announce.groupTitle': '加入 Apex Dashboard 交流群',
 		'announce.groupFallback': '邀请码过期?可添加微信:PandoraReads',
 		'announce.gotIt': '知道了',
@@ -1945,6 +1959,8 @@ const translations: Record<Language, Record<string, string>> = {
 				
 		// Main
 		'main.openDashboard': '打开工作台',
+		'main.switchFirstWorkspace': '工作台：回到第一个工作台',
+		'main.alreadyFirstWorkspace': '已经在第一个工作台',
 		'main.dashboard': '工作台',
 		'main.cycleTheme': '切换到下一个主题',
 		'main.openAppearanceStudio': '打开外观定制',
@@ -1960,6 +1976,7 @@ const translations: Record<Language, Record<string, string>> = {
 
 		// Renderer
 		// Default dashboard content
+		'default.stickyName': '便利贴',
 		'default.memoTitle': '{date} 备忘',
 		'default.memoBody': '欢迎使用 Apex Dashboard！点击此处编辑你的第一条备忘。',
 		'default.memoPathTitle': '提示：Dashboard 文件路径',
@@ -1979,6 +1996,14 @@ const translations: Record<Language, Record<string, string>> = {
 		'default.projectTitle': '我的第一个项目',
 
 		'renderer.addSection': '+ 添加分区',
+		'renderer.addCard': '+ 添加卡片',
+		'immersive.addSectionItem': '添加分区',
+		'immersive.addMemoCard': '备忘录卡片',
+		'immersive.addTodoCard': '待办清单卡片',
+		'immersive.removeCard': '移除卡片',
+		'immersive.tidyLayout': '整理布局',
+		'settings.widgetTogglesScope': '小组件开关：仅作用于侧栏/堆叠工作台',
+		'settings.widgetTogglesScopeDesc': '这些开关只控制侧栏与堆叠布局。沉浸式工作台的小组件卡片随板面独立管理——在板面「+ 添加卡片」里添加，右键卡片移除。',
 		'renderer.scrollToTop': '回到顶部',
 		'renderer.sectionName': '分区名称：',
 		'renderer.dragSection': '拖拽以调整分区顺序',
@@ -1987,8 +2012,6 @@ const translations: Record<Language, Record<string, string>> = {
 		'renderer.addCardTo': '添加卡片到 {column}',
 		'renderer.deleteSection': '删除分区 {column}',
 		'renderer.typeNotes': '笔记',
-		'renderer.typeTodo': '待办',
-		'renderer.typeMemo': '备忘',
 		'renderer.typeSticky': '便利贴',
 		'sticky.selectType': '选择卡片类型',
 		'sticky.memoLabel': '备忘卡片',
@@ -2125,6 +2148,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'exclude.folderPlaceholder': '文件夹路径（如 归档/模板）',
 		'renderer.editCard': '编辑卡片',
 		'renderer.cardNewNote': '新建笔记到卡片',
+		'renderer.pinToTop': '置顶',
 		'renderer.deleteCard': '删除卡片',
 		'renderer.confirmDeleteSection': '确定删除「{column}」分区及其所有卡片吗？此操作无法撤销。',
 		'renderer.sectionDeleted': '分区已删除',

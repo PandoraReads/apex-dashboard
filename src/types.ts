@@ -9,7 +9,30 @@ import type {
 	WereadRecency,
 } from './weread-shelf-model';
 
-export type DashboardLayoutMode = 'side' | 'stacked';
+export type DashboardLayoutMode = 'side' | 'stacked' | 'immersive';
+
+/** One tile of the immersive free grid: a widget card or a section card.
+ *  `id` is `widget:<key>` or `section:<column name>`; array order is the
+ *  packing order (grid coordinates are always derived, never persisted).
+ *  Lives in the workspace file's frontmatter so every board keeps its own
+ *  arrangement. Entries for deleted/disabled items are kept (position
+ *  memory) and filtered at render time. */
+export interface ImmersiveItem {
+	id: string;
+	/** Column span, 1..12 (IMM_COLS in immersive-grid.ts). */
+	w: number;
+	/** Row cap in fine rows (see IMM_ROW_UNIT). For widgets and
+	 *  user-resized tiles (fixed) this IS the exact height; otherwise
+	 *  content-fit sizes the tile up to this cap. */
+	h: number;
+	/** User resized this tile: the cap becomes the EXACT size (content
+	 *  scrolls inside) — the content fit must not shrink it back. */
+	fixed?: boolean;
+	/** Explicit grid origin (0-based column / row) — set by a free drop.
+	 *  Absent = auto-flow (the packer assigns). */
+	x?: number;
+	y?: number;
+}
 
 /** Fixed destination override for calendar-added tasks.
  *  - 'file': the task is inserted into one pinned note (created when missing);
@@ -43,9 +66,11 @@ export interface DashboardSettings {
 	/** id of the custom theme currently applied ('' / undefined = a built-in
 	 *  theme is active). Drives the dropdown's displayed value. */
 	activeCustomThemeId?: string;
-	/** Board arrangement: widgets in a left rail ('side', default) or a
-	    horizontal strip under the banner ('stacked'). Desktop/tablet only;
-	    phones keep their own layout regardless of this value. */
+	/** Board arrangement: widgets in a left rail ('side', default), a
+	    horizontal strip under the banner ('stacked'), or a full-bleed poster
+	    background with widgets and sections mixed in one free grid
+	    ('immersive'). Desktop/tablet only; phones keep their own layout
+	    regardless of this value. */
 	layoutMode: DashboardLayoutMode;
 	/** Habit card height ratio in the stacked layout (side layout ignores it;
 	    the card is content-height there). */
@@ -414,7 +439,21 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickNoteGuideShownVersion: '',
 	dataviewGuideShownVersion: '',
 	countdownEnabled: false,
-	countdowns: [] as CountdownConfig[],
+	habitBackground: { image: 'https://images.pexels.com/photos/4958013/pexels-photo-4958013.jpeg', opacity: 100, dim: 40, blur: 0, foreground: 'light' },
+	quickActionsBackground: { image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
+	musicBackground: { image: 'https://images.pexels.com/photos/22710827/pexels-photo-22710827.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
+	countdowns: [
+		// Rae's default: the year-end countdown ships pre-seeded (also the
+		// tile new immersive boards carry).
+		{
+			id: 'cd-2026-end',
+			label: '2026年结束',
+			targetDate: '2027-01-01T00:00:00',
+			displayMode: 'days',
+			reminderDays: 0,
+			background: { image: 'https://images.pexels.com/photos/31409439/pexels-photo-31409439.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
+		},
+	] as CountdownConfig[],
 	mediaTags: {},
 	readingEnabled: false,
 	readingSoundEnabled: true,
@@ -924,9 +963,17 @@ export interface DashboardColumn {
 
 export interface DashboardData {
 	banner: BannerData;
+	/** THIS workspace's board layout. Absent = fall back to the global
+	 *  settings.layoutMode default (upgrade path: pre-per-workspace boards
+	 * keep behaving exactly as before). */
+	layout?: DashboardLayoutMode;
 	quickActions: QuickAction[];
 	quickActionOrder?: string[];
 	hiddenPresets?: string[];
+	/** Immersive-layout arrangement (tile order + spans). Undefined = the
+	 *  workspace never used the immersive layout; defaults are derived on
+	 *  first entry and persisted on the first user drag. */
+	immersive?: ImmersiveItem[];
 	columns: DashboardColumn[];
 }
 
@@ -937,6 +984,8 @@ export interface RenderCallbacks {
 	/** Open a note scrolled to a 1-based line (calendar section/agenda task jumps). */
 	onOpenNoteAtLine?(this: void, file: TFile, line?: number): void;
 	onCardDelete(cardId: string): void;
+	/** Sticky-card pin-to-top: move the card to the first slot of its section. */
+	onCardPinTop(cardId: string, columnName: string): void;
 	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;
 	onTaskDelete(cardId: string, taskPath: number[]): void;

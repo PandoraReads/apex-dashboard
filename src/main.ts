@@ -1,5 +1,5 @@
 import { Notice, Platform, Plugin, TAbstractFile, TFile } from 'obsidian';
-import { DEFAULT_SETTINGS, type DashboardSettings, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
+import { DEFAULT_SETTINGS, type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
 import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
@@ -158,6 +158,25 @@ export default class DashboardPlugin extends Plugin {
 			id: 'open-dashboard',
 			name: t('main.openDashboard'),
 			callback: () => this.openDashboard(),
+		});
+
+		// The "back to start" quick command: hop straight to the FIRST
+		// workspace pill (order = the switcher's). Registered as a normal
+		// Obsidian command so the quick-command bar can bind it like any
+		// other.
+		this.addCommand({
+			id: 'switch-first-workspace',
+			name: t('main.switchFirstWorkspace'),
+			callback: async () => {
+				const first = this.settings.workspaceFiles[0];
+				if (!first) return;
+				const active = normalizeWorkspacePath(this.settings.dashboardFile);
+				if (active === normalizeWorkspacePath(first)) {
+					new Notice(t('main.alreadyFirstWorkspace'));
+					return;
+				}
+				await this.switchWorkspace(first);
+			},
 		});
 
 		this.addCommand({
@@ -469,20 +488,63 @@ export default class DashboardPlugin extends Plugin {
 
 	/** Create a new workspace file with default board content, register it and
 	 *  switch to it. */
-	async createWorkspace(name: string): Promise<void> {
-		return this.runWorkspaceOp(() => this.doCreateWorkspace(name));
+	/** The first open dashboard view, if any (settings/pill menu helper). */
+	getActiveDashboardView(): DashboardView | null {
+		for (const leaf of this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)) {
+			const view = (leaf as { view?: unknown }).view;
+			if (view instanceof DashboardView) return view;
+		}
+		return null;
 	}
 
-	private async doCreateWorkspace(name: string): Promise<void> {
+	/** Switch the ACTIVE workspace's layout (the pill context menu's
+	 *  per-workspace switcher). Needs an open dashboard view — its sync
+	 *  engine writes the board file's `layout:` field. */
+	async setActiveBoardLayout(layout: DashboardLayoutMode): Promise<void> {
+		const view = this.getActiveDashboardView();
+		if (!view) {
+			new Notice(t('workspace.layoutNeedsView'));
+			return;
+		}
+		await view.setBoardLayout(layout);
+	}
+
+	async createWorkspace(name: string, layout?: DashboardLayoutMode): Promise<void> {
+		return this.runWorkspaceOp(() => this.doCreateWorkspace(name, layout));
+	}
+
+	private async doCreateWorkspace(name: string, layout?: DashboardLayoutMode): Promise<void> {
 		const trimmed = name.trim();
 		const path = nextWorkspacePath(
 			this.settings.workspaceFiles,
 			trimmed,
 			(p) => this.workspaceFileExists(p),
 		);
+		// Immersive boards carry the year-end countdown tile; its settings
+		// entry (managed globally) is ensured here so the tile can render
+		// (added once for installs whose data.json predates the default).
+		if (layout === 'immersive' && !this.settings.countdowns.some(c => c.id === 'cd-2026-end')) {
+			const seeded = (await this.loadData()) as Partial<DashboardSettings> | null;
+			const rawCountdowns = seeded?.countdowns;
+			this.settings = {
+				...this.settings,
+				countdowns: [
+					...(rawCountdowns ?? this.settings.countdowns),
+					{
+						id: 'cd-2026-end',
+						label: '2026年结束',
+						targetDate: '2027-01-01T00:00:00',
+						displayMode: 'days' as const,
+						reminderDays: 0,
+						background: { image: 'https://images.pexels.com/photos/31409439/pexels-photo-31409439.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
+					},
+				],
+			};
+			await this.saveSettings();
+		}
 		try {
 			const withExt = path.endsWith('.md') ? path : `${path}.md`;
-			await this.app.vault.create(withExt, generateDefaultMarkdown());
+			await this.app.vault.create(withExt, generateDefaultMarkdown(layout));
 		} catch (err) {
 			console.error('Workspace file creation failed:', err);
 			new Notice(t('workspace.createFailed'));

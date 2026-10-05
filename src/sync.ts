@@ -579,6 +579,31 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	/** Persist the immersive arrangement (tile order + spans). Callers apply
+	 *  the new layout optimistically in the DOM first; the full-render echo is
+	 *  swallowed via suppressNextRender and the file-watcher reload no-ops on
+	 *  the serialize-equality check. */
+	async updateImmersive(items: import('./types').ImmersiveItem[]): Promise<void> {
+		if (!this.data) return;
+		this.data = {
+			...this.data,
+			immersive: items.map(item => ({ ...item })),
+		};
+		await this.writeToDisk();
+	}
+
+	/** Set/clear THIS workspace's layout override (undefined = follow the
+	 *  global default). One disk write; the notify echo re-renders the board
+	 *  through the planDashboardUpdate 'full' path (banner-level change). */
+	async updateLayout(layout: import('./types').DashboardLayoutMode | undefined): Promise<void> {
+		if (!this.data) return;
+		this.data = {
+			...this.data,
+			layout,
+		};
+		await this.writeToDisk();
+	}
+
 
 	/** Resolve a column to a single index. Prefers the UI-provided index (the
 	 *  exact section the user clicked) when its name still matches — with
@@ -872,12 +897,13 @@ export class SyncEngine {
 
 	private getDefaultCardTitle(columnName: string, sectionType?: string, showCover?: boolean): string {
 		const effective = sectionType?.toLowerCase();
-		if (effective === 'memo' || effective === 'sticky' || (!effective && columnName.toLowerCase() === 'memo')) {
+		// Migrated memo sections (type now sticky) keep the dated memo title.
+		if (effective === 'sticky' || (!effective && columnName.toLowerCase() === 'memo')) {
 			const now = new Date();
 			const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 			return t('sync.memoTitle', { date });
 		}
-		if (effective === 'todo' || (!effective && columnName.toLowerCase() === 'todo')) return t('sync.todoTitle');
+		if (!effective && columnName.toLowerCase() === 'todo') return t('sync.todoTitle');
 		// Coverless notes sections (the retired 无封面 type) keep their legacy
 		// 笔记本 default title so migrated dashboards behave exactly as before.
 		if (effective === 'projects' && showCover === false) return t('sync.notesTitle');
@@ -887,8 +913,9 @@ export class SyncEngine {
 
 	private getDefaultCardType(columnName: string, sectionType?: string): CardType {
 		const effective = sectionType?.toLowerCase();
-		if (effective === 'todo' || (!effective && columnName.toLowerCase() === 'todo')) return 'task';
-		if (effective === 'memo' || (!effective && columnName.toLowerCase() === 'memo')) return 'generic';
+		// Migrated sections are sticky; legacy name lookups keep old behavior.
+		if (!effective && columnName.toLowerCase() === 'todo') return 'task';
+		if (!effective && columnName.toLowerCase() === 'memo') return 'generic';
 		// Sticky sections pick the type per card via StickyCardTypeModal; a bare
 		// addCard (no overrides) falls back to a memo card.
 		if (effective === 'sticky') return 'generic';

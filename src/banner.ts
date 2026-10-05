@@ -8,6 +8,10 @@ import { getHabitService } from './habit-service';
 import { applyModalTheme } from './modal-theme';
 import { FocalPointPicker, focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
 
+/** Poster rotation cadence shared by the banner strip and the immersive
+ *  background layer (both surfaces stay in lockstep on the time seed). */
+export const BANNER_IMAGE_ROTATION_MS = 30 * 60 * 1000;
+
 export function getActiveQuote(banner: BannerData): QuoteItem {
 	if (banner.quotes && banner.quotes.length > 0) {
 		return banner.quotes[0]!;
@@ -150,9 +154,10 @@ export function renderBanner(
 	return el;
 }
 
-/** The wand button that opens the banner editor. Shared by both banner modes;
- *  positioned absolutely so it works whether it hangs off the banner or its overlay. */
-function createBannerEditButton(parent: HTMLElement, onEdit: () => void): HTMLButtonElement {
+/** The wand button that opens the banner editor. Shared by both banner modes
+ *  (hanging off the banner / its overlay) and by the immersive layout's
+ *  top-right background control; positioned absolutely by CSS per surface. */
+export function createBannerEditButton(parent: HTMLElement, onEdit: () => void): HTMLButtonElement {
 	const btn = parent.createEl('button', {
 		cls: 'dashboard-banner-edit-btn',
 		attr: { 'aria-label': t('banner.editLabel') },
@@ -163,6 +168,42 @@ function createBannerEditButton(parent: HTMLElement, onEdit: () => void): HTMLBu
 		onEdit();
 	});
 	return btn;
+}
+
+/** Rotate `el`'s background through the banner's poster images on the shared
+ *  time-seed cadence (same index math the banner strip uses, so both surfaces
+ *  stay in lockstep). The initial paint + focal apply immediately; the timer
+ *  lands in the caller's cleanup list. No-op with fewer than two images.
+ *  Consumers: the banner element (side/stacked) and the immersive full-bleed
+ *  background layer. */
+export function startBannerImageRotation(
+	el: HTMLElement,
+	banner: BannerData,
+	app: App,
+	rotationMs: number,
+	registerCleanup: (fn: () => void) => void,
+): void {
+	const images = banner.images;
+	if (!images || images.length < 2) return;
+	let index = Math.floor(Date.now() / rotationMs) % images.length;
+
+	const resolved = resolveVaultImage(app, images[index]!);
+	if (resolved) el.style.backgroundImage = `url("${resolved}")`;
+	applyBannerFocal(el, banner, images[index]!);
+
+	const rotate = () => {
+		index = (index + 1) % images.length;
+		const nextPath = images[index]!;
+		const nextResolved = resolveVaultImage(app, nextPath);
+		el.addClass('dashboard-banner--fading');
+		window.setTimeout(() => {
+			if (nextResolved) el.style.backgroundImage = `url("${nextResolved}")`;
+			applyBannerFocal(el, banner, nextPath);
+			el.removeClass('dashboard-banner--fading');
+		}, 600);
+	};
+	const timer = window.setInterval(rotate, rotationMs);
+	registerCleanup(() => window.clearInterval(timer));
 }
 
 export function resolveVaultImage(app: App, relativePath: string): string | null {
@@ -370,19 +411,18 @@ export class BannerEditModal extends Modal {
 					ratio: 6,
 					value: this.imagePosDraft[this.images[i]!],
 					onChange: (pos) => { this.imagePosDraft[this.images[i]!] = pos; },
+					// Per-image delete, stacked right under the focal reset —
+					// the row-level hover × was too shy to find.
+					deleteAction: {
+						label: t('banner.deleteImage'),
+						onDelete: () => {
+							const path = this.images[i]!;
+							this.images.splice(i, 1);
+							delete this.imagePosDraft[path];
+							renderImages();
+						},
+					},
 				});
-
-				if (this.images.length > 1) {
-					const delBtn = row.createEl('button', {
-						cls: 'dashboard-modal-image-delete',
-						attr: { 'aria-label': t('banner.deleteImage') },
-					});
-					setIcon(delBtn, 'x');
-					delBtn.addEventListener('click', () => {
-						this.images.splice(i, 1);
-						renderImages();
-					});
-				}
 			}
 		};
 

@@ -10,21 +10,23 @@ function workspaceLabel(name: string, path: string): string {
 	return name.trim() || `${path}.md`;
 }
 
-/** Open the "new workspace" dialog and create the workspace on confirm. */
-async function promptNewWorkspace(plugin: DashboardPlugin): Promise<void> {
+/** Open the "new workspace" dialog and create the workspace on confirm.
+ *  `layout` seeds the board file's `layout:` override (the immersive-hub
+ *  flavour of the + menu). */
+async function promptNewWorkspace(plugin: DashboardPlugin, layout?: 'immersive'): Promise<void> {
 	const files = plugin.settings.workspaceFiles;
 	const fallback = t('workspace.defaultName', { n: files.length + 1 });
 	const name = await showPromptDialog(plugin.app, {
-		title: t('workspace.newTitle'),
+		title: layout === 'immersive' ? t('workspace.newImmersiveTitle') : t('workspace.newTitle'),
 		placeholder: t('workspace.namePlaceholder'),
 		defaultValue: fallback,
 	});
 	if (name === null) return;
-	await plugin.createWorkspace(name === '' ? fallback : name);
+	await plugin.createWorkspace(name === '' ? fallback : name, layout);
 }
 
 /** Long-press / right-click management menu for one workspace button. */
-function openWorkspaceMenu(plugin: DashboardPlugin, file: string, name: string, ev: Event): void {
+function openWorkspaceMenu(plugin: DashboardPlugin, file: string, name: string, isActive: boolean, ev: MouseEvent): void {
 	const menu = new Menu();
 	menu.addItem((item) => {
 		item.setTitle(t('workspace.renameTitle'))
@@ -52,7 +54,23 @@ function openWorkspaceMenu(plugin: DashboardPlugin, file: string, name: string, 
 			if (confirmed) await plugin.removeWorkspace(file);
 		});
 	});
-	menu.showAtMouseEvent(ev as MouseEvent);
+	// Layout lives PER WORKSPACE: the active board's pill carries the
+	// switcher (a non-active file has no open sync engine to write through).
+	if (isActive) {
+		menu.addSeparator();
+		const activeView = plugin.getActiveDashboardView();
+		const current = activeView?.getBoardData()?.layout ?? plugin.settings.layoutMode;
+		for (const mode of ['side', 'stacked', 'immersive'] as const) {
+			menu.addItem(item => {
+				item
+					.setTitle(t(mode === 'side' ? 'settings.layoutSide' : mode === 'stacked' ? 'settings.layoutStacked' : 'settings.layoutImmersive'))
+					.setIcon(mode === 'side' ? 'panels-top-left' : mode === 'stacked' ? 'rows-3' : 'gallery-vertical')
+					.setChecked(current === mode)
+					.onClick(() => { void plugin.setActiveBoardLayout(mode); });
+			});
+		}
+	}
+	menu.showAtMouseEvent(ev);
 }
 
 /**
@@ -84,7 +102,7 @@ export function renderWorkspaceSwitcher(container: HTMLElement, plugin: Dashboar
 		btn.addEventListener('contextmenu', (ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
-			openWorkspaceMenu(plugin, file, name, ev);
+			openWorkspaceMenu(plugin, file, name, isActive, ev as MouseEvent);
 		});
 	});
 
@@ -95,6 +113,17 @@ export function renderWorkspaceSwitcher(container: HTMLElement, plugin: Dashboar
 	setIcon(addBtn, 'plus');
 	addBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		void promptNewWorkspace(plugin);
+		// Two birth flavours: a regular board, or an immersive hub page (the
+		// poster-board layout is a workspace TYPE, not a global switch).
+		const menu = new Menu();
+		menu.addItem(item => item
+			.setTitle(t('workspace.newTitle'))
+			.setIcon('plus')
+			.onClick(() => { void promptNewWorkspace(plugin); }));
+		menu.addItem(item => item
+			.setTitle(t('workspace.newImmersiveTitle'))
+			.setIcon('gallery-vertical')
+			.onClick(() => { void promptNewWorkspace(plugin, 'immersive'); }));
+		menu.showAtMouseEvent(e);
 	});
 }

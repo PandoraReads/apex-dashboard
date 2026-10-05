@@ -23,10 +23,15 @@ export function planDashboardUpdate(
 	source: DashboardUpdateSource,
 ): DashboardRenderPlan {
 	if (!previous || source === 'external') return { kind: 'full' };
+	// A per-workspace layout flip rebuilds the whole board shell.
+	if (previous.layout !== next.layout) return { kind: 'full' };
 	if (!sameValue(previous.banner, next.banner)) return { kind: 'full' };
 	if (!sameValue(previous.quickActions, next.quickActions)) return { kind: 'full' };
 	if (!sameValue(previous.quickActionOrder, next.quickActionOrder)) return { kind: 'full' };
 	if (!sameValue(previous.hiddenPresets, next.hiddenPresets)) return { kind: 'full' };
+	// Immersive arrangement changes (external edits, another pane's drag) take
+	// the full path; local drags suppress this echo and update the DOM inline.
+	if (!sameValue(previous.immersive, next.immersive)) return { kind: 'full' };
 	if (previous.columns.length !== next.columns.length) return { kind: 'full' };
 
 	const changed: string[] = [];

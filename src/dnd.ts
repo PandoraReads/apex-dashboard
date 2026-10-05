@@ -15,6 +15,13 @@ export const KANBAN_FILE_DRAG_TYPE = 'application/x-apex-libcard';
  *  drop and left empty cards (no item handlers to win the race) undroppable. */
 export const ITEM_DRAG_TYPE = 'application/x-apex-item';
 
+/** Custom drag type marking "an immersive whole-tile reorder drag" (set by
+ *  the immersive grid's DnD; the tile is a widget card or a whole section).
+ *  The card/section handlers below check for it at dragover time to decline
+ *  the drag — a tile move is neither a card move nor a section-reorder, and
+ *  painting their drop indicators over it would be misleading. */
+export const IMM_ITEM_DRAG_TYPE = 'application/x-apex-imm';
+
 interface DnDState {
 	draggingCardId: string | null;
 	draggingElement: HTMLElement | null;
@@ -28,6 +35,7 @@ export function setupDragAndDrop(
 	container: HTMLElement,
 	callbacks: RenderCallbacks,
 	cleanupFns: Array<() => void>,
+	opts?: { skipSectionGrip?: boolean },
 ): void {
 	const state: DnDState = {
 		draggingCardId: null,
@@ -44,7 +52,9 @@ export function setupDragAndDrop(
 
 		// Section reorder grip handle (desktop). Sets sectionDragSource so the row's
 		// dragover/drop handlers branch into section-reorder logic instead of card moves.
-		const grip = colEl.querySelector<HTMLElement>('.dashboard-section-grip');
+		// The immersive grid skips this wiring: its grip arms the whole-TILE
+		// reorder drag instead (setupImmersiveDnD in immersive.ts).
+		const grip = opts?.skipSectionGrip ? null : colEl.querySelector<HTMLElement>('.dashboard-section-grip');
 		if (grip) {
 			const onGripDragStart = (e: DragEvent) => {
 				e.stopPropagation();
@@ -116,6 +126,9 @@ export function setupDragAndDrop(
 			// (no card move, no section reorder): decline the same way so no
 			// misleading card drop indicator is painted over empty row space.
 			if (e.dataTransfer?.types.includes(ITEM_DRAG_TYPE) && !state.sectionDragSource && !state.draggingCardId) return;
+			// An immersive whole-tile drag is handled by the grid's own DnD
+			// layer; never paint section/card indicators under it.
+			if (e.dataTransfer?.types.includes(IMM_ITEM_DRAG_TYPE) && !state.sectionDragSource && !state.draggingCardId) return;
 			if (state.sectionDragSource) {
 				e.preventDefault();
 				e.stopPropagation();

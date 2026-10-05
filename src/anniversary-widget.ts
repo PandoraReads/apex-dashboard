@@ -3,6 +3,7 @@ import { Solar, Lunar } from 'lunar-typescript';
 import type { AnniversaryConfig } from './types';
 import { t } from './i18n';
 import { applyWidgetBackground, attachWidgetConfigButton } from './widget-background';
+import { isInPreserveScope, type PreserveScope } from './preserve-scope';
 // Runtime-only use inside a click handler; the module cycle with
 // anniversary-settings-modal (it imports formatElapsed from here) is safe
 // because both sides defer cross-references to call time.
@@ -18,9 +19,9 @@ const anniversaryTimers = new Map<number, HTMLElement>();
 /** Clear every anniversary ticker ahead of a re-render. `preserveWidgets` is
  *  the detached-but-reused sidebar widgets element: tickers animating widgets
  *  inside it survive so the re-attached DOM keeps ticking. */
-export function destroyAnniversaryTimers(preserveWidgets?: HTMLElement | null): void {
+export function destroyAnniversaryTimers(preserveWidgets?: PreserveScope): void {
 	for (const [id, el] of anniversaryTimers) {
-		if (preserveWidgets && preserveWidgets.contains(el)) continue;
+		if (isInPreserveScope(preserveWidgets, el)) continue;
 		window.clearInterval(id);
 		anniversaryTimers.delete(id);
 	}

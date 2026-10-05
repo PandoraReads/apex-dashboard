@@ -10,6 +10,7 @@ import type {
 	DashboardCard,
 	DashboardColumn,
 	DashboardData,
+	DashboardLayoutMode,
 	QuickAction,
 	TaskItem,
 	DocNode,
@@ -20,16 +21,19 @@ import type {
 	TickTickConfig,
 	DataviewConfig,
 	WebEmbedConfig,
+	ImmersiveItem,
 } from './types';
 import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
 import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-picker';
 import { normalizeColumnPairs } from './column-pairs';
+import { clampSpanW, clampSpanH, migrateLegacyHeight } from './immersive-grid';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle']);
-// 'notes' is the retired standalone no-cover section type: it parses (old
-// dashboard files still carry `type: notes`) but immediately migrates to
-// projects + showCover:false in parseColumns, so it never survives a load.
+// 'notes', 'memo' and 'todo' are retired standalone section types: they parse
+// (old dashboard files still carry `type: notes|memo|todo`) but immediately
+// migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
+// sticky), so they never survive a load.
 const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
@@ -64,8 +68,7 @@ const DEFAULT_BANNER: BannerData = {
 };
 
 const DEFAULT_COLUMNS = [
-	{ name: 'Memo', color: '#f59e0b', sectionType: 'memo' },
-	{ name: 'Todo', color: '#6366f1', sectionType: 'todo' },
+	{ name: '便利贴', color: '#f59e0b', sectionType: 'sticky' },
 	{ name: 'Projects', color: '#10b981', sectionType: 'projects' },
 	{ name: 'Library', color: '#8b5cf6', sectionType: 'projects' },
 ];
@@ -79,10 +82,24 @@ export function parse(markdown: string): DashboardData {
 	const columns = parseColumns(body, columnDefs);
 
 	const data: DashboardData = { banner, quickActions, columns };
+	const layout = parseLayoutField(frontmatter);
+	if (layout) data.layout = layout;
 	if (quickActionOrder) data.quickActionOrder = quickActionOrder;
 	const hiddenPresets = parseHiddenPresets(frontmatter);
 	if (hiddenPresets) data.hiddenPresets = hiddenPresets;
+	const immersive = parseImmersiveItems(frontmatter);
+	if (immersive) data.immersive = immersive;
 	return data;
+}
+
+const KNOWN_LAYOUTS = new Set<string>(['side', 'stacked', 'immersive']);
+
+/** This workspace's layout override; absent/unknown → undefined (the global
+ *  settings default rules — the upgrade path for pre-per-workspace boards). */
+function parseLayoutField(fm: Record<string, unknown>): DashboardLayoutMode | undefined {
+	const raw = fm.layout;
+	if (typeof raw === 'string' && KNOWN_LAYOUTS.has(raw)) return raw as DashboardLayoutMode;
+	return undefined;
 }
 
 export function serialize(data: DashboardData): string {
@@ -90,6 +107,12 @@ export function serialize(data: DashboardData): string {
 
 	lines.push('---');
 	lines.push('dashboard: true');
+
+	// This workspace's layout override — only written when set (absent means
+	// the global default, which keeps legacy files byte-stable).
+	if (data.layout) {
+		lines.push(`layout: ${data.layout}`);
+	}
 
 	lines.push('banner:');
 	lines.push(`  quote: "${escapeYamlString(data.banner.quote)}"`);
@@ -179,6 +202,26 @@ export function serialize(data: DashboardData): string {
 		lines.push('hiddenPresets:');
 		for (const key of data.hiddenPresets) {
 			lines.push(`  - "${escapeYamlString(key)}"`);
+		}
+	}
+
+	// Immersive-layout arrangement: ordered tiles, coordinates derived by the
+	// packer at render time. ids are quoted — section names may contain ':'.
+	// The height field is `cap` (fine 10px rows, content-fit build): the name
+	// IS the version marker — legacy `h` entries (coarse 92px rows from the
+	// first private build) migrate once at parse and never come back, so a
+	// small cap can never be re-inflated by a later load.
+	if (data.immersive && data.immersive.length > 0) {
+		lines.push('immersive:');
+		for (const tile of data.immersive) {
+			lines.push(`  - id: "${escapeYamlString(tile.id)}"`);
+			lines.push(`    w: ${clampSpanW(tile.w)}`);
+			lines.push(`    cap: ${clampSpanH(tile.h)}`);
+			if (tile.fixed) lines.push('    fixed: true');
+			if (typeof tile.x === 'number' && typeof tile.y === 'number') {
+				lines.push(`    x: ${Math.max(0, Math.round(tile.x))}`);
+				lines.push(`    y: ${Math.max(0, Math.round(tile.y))}`);
+			}
 		}
 	}
 
@@ -530,24 +573,112 @@ export function serialize(data: DashboardData): string {
 	return lines.join('\n');
 }
 
-export function generateDefaultMarkdown(): string {
+export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 	const today = new Date();
 	const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+	const stickyName = t('default.stickyName');
 
+	// The immersive default poster: the full-bleed backdrop new immersive
+	// boards open on (side/stacked boards keep the classic banner default).
+	const IMMERSIVE_DEFAULT_BANNER: BannerData = {
+		...DEFAULT_BANNER,
+		image: 'https://images.unsplash.com/photo-1788651946293-893d6b217f34?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.1.0',
+		images: ['https://images.unsplash.com/photo-1788651946293-893d6b217f34?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.1.0'],
+	};
+	// Rae's arranged immersive board (assets/60 工作台/5-3.md, 2026-10-05) as
+	// the literal new-board template: free-placed tiles (explicit x/y, fixed
+	// sizes), the sticky demo cards + the Library section, the Unsplash
+	// poster. Quick COMMAND chips live in global settings (quickCommands)
+	// and appear on the quick-actions tile of every board automatically.
+	const IM = (id: string, w: number, h: number, x: number, y: number): ImmersiveItem =>
+		({ id, w, h, fixed: true, x, y });
+	const IMMERSIVE_DEFAULT_TILES: ImmersiveItem[] = [
+		IM('widget:quickActions', 3, 18, 9, 10),
+		IM('widget:weather', 3, 19, 0, 17),
+		IM('widget:calendar', 3, 33, 0, 36),
+		IM('widget:habit', 2, 19, 10, 58),
+		IM('widget:pomodoro', 2, 14, 10, 28),
+		IM('widget:expense', 2, 16, 10, 42),
+		IM('widget:countdown-cd-2026-end', 3, 10, 9, 0),
+		IM('widget:music', 3, 17, 0, 0),
+		IM('card:demo-memo-1', 3, 21, 3, 0),
+		IM('card:demo-memo-path', 4, 21, 6, 32),
+		IM('card:demo-todo-1', 3, 32, 6, 0),
+		IM('card:demo-todo-2', 3, 32, 3, 21),
+		IM('section:Library', 7, 28, 3, 53),
+	];
+	const card = (over: Partial<DashboardCard> & { id: string; title: string; type: CardType; column: string }): DashboardCard => ({
+		body: '', tasks: [], docs: [], url: '', wikiLink: '', progress: -1,
+		streak: 0, dueDate: '', blockquote: '', color: '', coverImage: '',
+		width: 0, size: 'M' as const, gridCols: 0, gridRows: 0, gridCol: 0, gridRow: 0,
+		...over,
+	});
+	const immersiveBoard: DashboardData = {
+		banner: IMMERSIVE_DEFAULT_BANNER,
+		layout: 'immersive',
+		quickActions: [],
+		immersive: IMMERSIVE_DEFAULT_TILES,
+		columns: [
+			{
+				name: stickyName,
+				color: '#f59e0b',
+				sectionType: 'sticky',
+				cards: [
+					card({ id: 'demo-memo-1', title: `${dateStr} 备忘`, type: 'generic', column: stickyName, body: '欢迎使用 Apex Dashboard！点击此处编辑你的第一条备忘。' }),
+					card({
+						id: 'demo-memo-path', title: '提示', type: 'generic', column: stickyName,
+						body: '- 你可以在 **设置** > **Apex Dashboard** 中**修改 dashboard 文件路径**。\n- 双击分区标题即可**重命名分区**。',
+					}),
+					card({
+						id: 'demo-todo-1', title: '快速上手', type: 'task', column: stickyName,
+						tasks: [
+							{ text: '尝试添加一张新卡片', checked: false },
+							{ text: '在不同分区之间拖拽卡片', checked: false },
+							{ text: '编辑 Banner 区的名言', checked: false },
+							{ text: '添加一个快捷链接', checked: false },
+						],
+					}),
+					card({
+						id: 'demo-todo-2', title: '界面操作指南', type: 'task', column: stickyName,
+						tasks: [
+							{ text: '点击左侧隐藏条拉出左侧栏', checked: false },
+							{ text: '点击图钉按钮取消固定左侧栏', checked: false },
+							{ text: '点击 Banner 区的书签按钮收起 Banner', checked: false },
+							{ text: '在设置中开启更多小组件', checked: false },
+						],
+					}),
+				],
+			} as DashboardColumn,
+			{
+				name: 'Library',
+				color: '#8b5cf6',
+				sectionType: 'projects',
+				showCover: false,
+				libraryConfig: { viewMode: 'grid', sortBy: 'modified', sortDesc: true, filters: [] },
+				cards: [
+					card({ id: 'demo-lib-reading', title: 'Reading', type: 'project', column: 'Library' }),
+					card({ id: 'demo-lib-toread', title: 'To Read', type: 'project', column: 'Library' }),
+					card({ id: 'demo-lib-done', title: 'Done', type: 'project', column: 'Library' }),
+				],
+			} as DashboardColumn,
+		],
+	};
+	if (layout === 'immersive') return serialize(immersiveBoard);
 	return serialize({
 		banner: DEFAULT_BANNER,
+		layout,
 		quickActions: [],
 		columns: [
 			{
-				name: 'Memo',
+				name: stickyName,
 				color: '#f59e0b',
-				sectionType: 'memo',
+				sectionType: 'sticky',
 				cards: [
 					{
 						id: 'demo-memo-1',
 						title: t('default.memoTitle', { date: dateStr }),
 						type: 'generic',
-						column: 'Memo',
+						column: stickyName,
 						body: t('default.memoBody'),
 						tasks: [],
 						docs: [],
@@ -570,7 +701,7 @@ export function generateDefaultMarkdown(): string {
 						id: 'demo-memo-path',
 						title: t('default.memoPathTitle'),
 						type: 'generic',
-						column: 'Memo',
+						column: stickyName,
 						body: t('default.memoPathBody'),
 						tasks: [],
 						docs: [],
@@ -593,7 +724,7 @@ export function generateDefaultMarkdown(): string {
 						id: 'demo-memo-rename',
 						title: t('default.memoRenameTitle'),
 						type: 'generic',
-						column: 'Memo',
+						column: stickyName,
 						body: t('default.memoRenameBody'),
 						tasks: [],
 						docs: [],
@@ -612,18 +743,11 @@ export function generateDefaultMarkdown(): string {
 					gridCol: 0,
 					gridRow: 0,
 					},
-				],
-			},
-			{
-				name: 'Todo',
-				color: '#6366f1',
-				sectionType: 'todo',
-				cards: [
 					{
 						id: 'demo-todo-1',
 						title: t('default.todoTitle1'),
 						type: 'task',
-						column: 'Todo',
+						column: stickyName,
 						body: '',
 						tasks: [
 							{ text: t('default.todo1'), checked: false },
@@ -651,7 +775,7 @@ export function generateDefaultMarkdown(): string {
 						id: 'demo-todo-2',
 						title: t('default.todoTitle2'),
 						type: 'task',
-						column: 'Todo',
+						column: stickyName,
 						body: '',
 						tasks: [
 							{ text: t('default.guide1'), checked: false },
@@ -923,6 +1047,36 @@ function parseHiddenPresets(fm: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
+/** Immersive arrangement tiles from frontmatter. Entries without a usable id
+ *  are dropped; spans are clamped (hand-edited guard). Orphan ids (deleted
+ *  sections / disabled widgets) parse through untouched — position memory is
+ *  reconciled against the live tile set at render time (normalizeImmersive). */
+function parseImmersiveItems(fm: Record<string, unknown>): ImmersiveItem[] | undefined {
+	const raw = fm.immersive;
+	if (!Array.isArray(raw) || raw.length === 0) return undefined;
+	const items: ImmersiveItem[] = [];
+	for (const entry of raw) {
+		if (!entry || typeof entry !== 'object') continue;
+		const record = entry as Record<string, unknown>;
+		const id = typeof record.id === 'string' ? record.id.trim() : '';
+		if (!id) continue;
+		// `cap` = fine 10px rows (current). Absent `cap` falls back to the
+		// legacy coarse `h`, migrated ONCE here — the field rename means a
+		// later load reads `cap` and can never re-inflate a small value.
+		const legacyH = typeof record.h === 'number' && Number.isFinite(record.h)
+			? migrateLegacyHeight(record.h)
+			: record.h;
+		const h = typeof record.cap === 'number' && Number.isFinite(record.cap)
+			? clampSpanH(record.cap)
+			: clampSpanH(legacyH);
+		const xy = (typeof record.x === 'number' && typeof record.y === 'number')
+			? { x: Math.max(0, Math.round(record.x)), y: Math.max(0, Math.round(record.y)) }
+			: {};
+		items.push({ id, w: clampSpanW(record.w), h, ...(record.fixed === true ? { fixed: true } : {}), ...xy });
+	}
+	return items.length > 0 ? items : undefined;
+}
+
 function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
@@ -962,11 +1116,14 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 		// Legacy 'notes' (无封面) sections render as the projects type with the
 		// cover toggle off, so old dashboards look identical after the type was
 		// folded into projects; the next write persists the migrated form.
+		// Likewise 'memo'/'todo' sections fold into sticky ("便利贴"), which
+		// renders both card flavors natively — the cards themselves are untouched.
 		const isLegacyNotes = resolvedType === 'notes';
+		const isLegacyMemoTodo = resolvedType === 'memo' || resolvedType === 'todo';
 		return {
 			name: section.heading,
 			color: def?.color ?? '#6366f1',
-			sectionType: isLegacyNotes ? 'projects' : resolvedType,
+			sectionType: isLegacyMemoTodo ? 'sticky' : isLegacyNotes ? 'projects' : resolvedType,
 			showCover: isLegacyNotes ? false : def?.showCover,
 			// Memo rendering includes task/doc trees; retain their structure on reload.
 			cards,

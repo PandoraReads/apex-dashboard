@@ -16,21 +16,10 @@ export function memoCardText(card: DashboardCard): string {
 }
 
 function sectionType(column: DashboardColumn): string {
-	return column.sectionType ?? column.name.toLowerCase();
-}
-
-function additionalTasks(card: DashboardCard): TaskItem[] {
-	const docs = (nodes: DocNode[]): TaskItem[] => nodes.map(node => ({
-		text: `[[${node.path}]]`, checked: false, collapsed: node.collapsed,
-		...(node.children ? { children: docs(node.children) } : {}),
-	}));
-	return [
-		...[card.blockquote, card.body].flatMap(text => text.split('\n'))
-			.map(text => text.trim()).filter(Boolean).map(text => ({ text, checked: false })),
-		...docs(card.docs),
-		...(card.wikiLink ? [{ text: `[[${card.wikiLink}]]`, checked: false }] : []),
-		...(card.url ? [{ text: card.url, checked: false }] : []),
-	];
+	const raw = column.sectionType ?? column.name.toLowerCase();
+	// The memo/todo section types retired into sticky (parse-time migration);
+	// the name fallback can still surface them for hand-built columns.
+	return raw === 'memo' || raw === 'todo' ? 'sticky' : raw;
 }
 
 export function convertMovedCard(card: DashboardCard, source: DashboardColumn, target: DashboardColumn): DashboardCard {
@@ -40,15 +29,9 @@ export function convertMovedCard(card: DashboardCard, source: DashboardColumn, t
 	if (source.name === target.name) return moved;
 	if (targetType === 'sticky' && sourceType === 'projects') {
 		// Sticky picks the look per card: a card displayed without a cover in
-		// its source section (the retired 无封面 type) keeps that look.
+		// its source section (the retired 无封面 type) keeps that look. Card
+		// flavor (memo vs todo) is left untouched — sticky renders both.
 		return { ...moved, noteStyle: source.showCover === false ? 'plain' : 'cover' };
-	}
-	if (targetType === 'memo' || (targetType === 'sticky' && sourceType === 'memo')) {
-		return { ...moved, type: 'generic' };
-	}
-	if (targetType === 'todo' || (targetType === 'sticky' && sourceType === 'todo')) {
-		return { ...moved, type: 'task', tasks: [...card.tasks, ...additionalTasks(card)],
-			body: '', blockquote: '', docs: [], wikiLink: '', url: '' };
 	}
 	return moved;
 }
@@ -59,7 +42,7 @@ export function moveDashboardCard(data: DashboardData, cardId: string, targetNam
 	if (!Number.isInteger(targetIndex)) return data;
 	const source = data.columns.find(column => column.cards.some(card => card.id === cardId));
 	const target = data.columns.find(column => column.name === targetName);
-	if (!source || !target || !['memo', 'todo', 'sticky', 'projects', 'dashboard'].includes(sectionType(target))) return data;
+	if (!source || !target || !['sticky', 'projects', 'dashboard'].includes(sectionType(target))) return data;
 	const card = source.cards.find(item => item.id === cardId);
 	if (!card) return data;
 	const moved = convertMovedCard(card, source, target);

@@ -146,9 +146,7 @@
 /* --- Per-section pony hues (dark): each section type gets its own Mane-Six
    color. memo=Pinkie, sticky=Rarity lavender, todo=Applejack,
    projects=Rainbow Dash, library=Twilight; the rest round out the rainbow. --- */
-.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="memo"] { --db-sec-hue: #ff5fb0; --db-sec-glow: rgba(255, 95, 176, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #c084fc; --db-sec-glow: rgba(192, 132, 252, 0.16); }
-.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="todo"] { --db-sec-hue: #ffb03a; --db-sec-glow: rgba(255, 176, 58, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #40b5ff; --db-sec-glow: rgba(64, 181, 255, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #a06bff; --db-sec-glow: rgba(160, 107, 255, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #2fd6b5; --db-sec-glow: rgba(47, 214, 181, 0.16); }
@@ -162,9 +160,7 @@
 
 /* --- Light-mode pony hues: same identities, deepened for contrast on the
    cotton-candy sky (butter yellow in particular must go amber). --- */
-.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="memo"] { --db-sec-hue: #e0218a; --db-sec-glow: rgba(224, 33, 138, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #a21caf; --db-sec-glow: rgba(162, 28, 175, 0.14); }
-.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="todo"] { --db-sec-hue: #d97706; --db-sec-glow: rgba(217, 119, 6, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #0369a1; --db-sec-glow: rgba(3, 105, 161, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #7c3aed; --db-sec-glow: rgba(124, 58, 237, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #0d9488; --db-sec-glow: rgba(13, 148, 136, 0.14); }
@@ -1717,6 +1713,28 @@
 	min-height: 4px;
 	border-radius: 2.5px;
 	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 16%, transparent);
+}
+
+/* Zone 2c (immersive): the poster washes the whole mock (no banner strip),
+   unequal glass tiles float on it in a tiny free grid. */
+.dashboard-layout-preview--immersive {
+	background: linear-gradient(135deg,
+		color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, #10131a),
+		color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, #10131a));
+}
+.dashboard-layout-preview--immersive .lp-grid {
+	flex: 1;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: repeat(12, minmax(0, 1fr));
+	grid-auto-rows: 1fr;
+	gap: 3px;
+}
+.dashboard-layout-preview--immersive .lp-grid .lp-cell {
+	border-radius: 2.5px;
+	background: color-mix(in srgb, #ffffff 30%, transparent);
+	border: 1px solid color-mix(in srgb, #ffffff 34%, transparent);
+	min-height: 4px;
 }
 
 .dashboard-layout-option-label {
@@ -10564,14 +10582,6 @@
 	opacity: 1;
 }
 
-.dashboard-section-row[data-section-type="memo"] .dashboard-section-toggle::before {
-	border-top-color: #f59e0b;
-}
-
-.dashboard-section-row[data-section-type="todo"] .dashboard-section-toggle::before {
-	border-top-color: #6366f1;
-}
-
 .dashboard-section-row[data-section-type="projects"] .dashboard-section-toggle::before {
 	border-top-color: #10b981;
 }
@@ -10810,9 +10820,7 @@
 	max-height: 100%;
 }
 
-/* Notes, Memo, Todo, Sticky & Projects: horizontal scroll, no wrap */
-.dashboard-section-row[data-section-type="memo"] .dashboard-section-cards,
-.dashboard-section-row[data-section-type="todo"] .dashboard-section-cards,
+/* Notes, Sticky & Projects: horizontal scroll, no wrap */
 .dashboard-section-row[data-section-type="sticky"] .dashboard-section-cards,
 .dashboard-section-row[data-section-type="projects"] .dashboard-section-cards {
 	flex-wrap: nowrap;
@@ -10827,65 +10835,11 @@
 	max-width: 500px;
 }
 
-.dashboard-section-row[data-section-type="memo"] .dashboard-section-cards > .dashboard-card {
-	flex: 0 0 260px;
-	min-width: 200px;
-	max-width: 600px;
-}
-
-.dashboard-section-row[data-section-type="todo"] .dashboard-section-cards > .dashboard-card,
+/* Sticky ("便利贴") cards (memo + todo flavors) */
 .dashboard-section-row[data-section-type="sticky"] .dashboard-section-cards > .dashboard-card {
 	flex: 0 0 260px;
 	min-width: 200px;
 	max-width: 500px;
-}
-
-/* Memo section: fixed height to align with Quick Links */
-.dashboard-section-row[data-section-type="memo"] {
-	height: 250px;
-	display: flex;
-	flex-direction: column;
-	flex-shrink: 0;
-	overflow: hidden;
-}
-
-.dashboard-section-row[data-section-type="memo"] > .dashboard-section-header {
-	flex-shrink: 0;
-}
-
-.dashboard-section-row[data-section-type="memo"] > .dashboard-section-cards {
-	flex: 1;
-	min-height: 0;
-	align-items: stretch;
-}
-
-.dashboard-section-row[data-section-type="memo"] .dashboard-card {
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	padding: 10px 16px 10px 12px;
-	flex-shrink: 0;
-}
-
-.dashboard-section-row[data-section-type="memo"] .dashboard-card:hover {
-	overflow: hidden;
-}
-
-.dashboard-section-row[data-section-type="memo"] .dashboard-card-body {
-	flex: 1;
-	min-height: 0;
-	display: flex;
-	flex-direction: column;
-}
-
-.dashboard-section-row[data-section-type="memo"] .dashboard-memo-textarea {
-	resize: none;
-	flex: 1;
-	min-height: 0;
-}
-
-.dashboard-section-row[data-section-type="memo"] .dashboard-card-header {
-	flex-shrink: 0;
 }
 
 /* Card size button (dashboard widgets only) */
@@ -10912,14 +10866,6 @@
 	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.dashboard-section-row[data-section-type="memo"] .dashboard-card:hover {
-	overflow: hidden;
-}
-
-.dashboard-section-row[data-section-type="memo"] .dashboard-card:hover .dashboard-card-resize-handle,
-.dashboard-section-row[data-section-type="memo"] .dashboard-card--resizing .dashboard-card-resize-handle,
-.dashboard-section-row[data-section-type="todo"] .dashboard-card:hover .dashboard-card-resize-handle,
-.dashboard-section-row[data-section-type="todo"] .dashboard-card--resizing .dashboard-card-resize-handle,
 .dashboard-section-row[data-section-type="sticky"] .dashboard-card:hover .dashboard-card-resize-handle,
 .dashboard-section-row[data-section-type="sticky"] .dashboard-card--resizing .dashboard-card-resize-handle,
 .dashboard-section-row[data-section-type="projects"] .dashboard-card:hover .dashboard-card-resize-handle,
@@ -10935,26 +10881,6 @@
 
 .dashboard-card--resizing {
 	user-select: none;
-}
-
-/* Todo cards: body uses flex column so task-list scrolls inside */
-.dashboard-section-row[data-section-type="todo"] .dashboard-card-body {
-	flex: 1;
-	min-height: 0;
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-}
-
-.dashboard-section-row[data-section-type="todo"] .dashboard-task-list {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-}
-
-.dashboard-section-row[data-section-type="todo"] .dashboard-task-add,
-.dashboard-section-row[data-section-type="todo"] .dashboard-progress {
-	flex-shrink: 0;
 }
 
 /* ===== Sticky ("便利贴") section: memo + todo cards in one todo-style row =====
@@ -11988,13 +11914,21 @@
 	padding: 18px 20px 16px;
 }
 
-.dashboard-modal.modal {
+.dashboard-modal.modal,
+.modal.modal--dashboard {
 	background: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
 }
 
-/* Glass modal: override Obsidian's .modal container */
+/* Glass modal: override Obsidian's stock .modal box.
+   LOAD-BEARING selector shape: modals add `modal--dashboard` to their
+   CONTAINER element (.modal-container), so the box inside must be targeted
+   through it — the historical `.modal.modal--dashboard` form never matched
+   (dead code), the height cap + inner scroll never engaged, and tall
+   dialogs (card editor, widget configs) overflowed the viewport with their
+   bottom half unreachable — the "modal content not fully visible" bug. */
+.modal-container.modal--dashboard .modal,
 .modal.modal--dashboard {
 	background: transparent !important;
 	border: none !important;
@@ -12003,23 +11937,28 @@
 	border-radius: var(--db-radius-lg, 12px);
 	overflow-y: auto;
 	max-height: 85vh;
+	overscroll-behavior: contain;
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
+.modal-container.modal--dashboard .modal::-webkit-scrollbar,
 .modal.modal--dashboard::-webkit-scrollbar {
 	width: 4px;
 }
 
+.modal-container.modal--dashboard .modal::-webkit-scrollbar-track,
 .modal.modal--dashboard::-webkit-scrollbar-track {
 	background: transparent;
 }
 
+.modal-container.modal--dashboard .modal::-webkit-scrollbar-thumb,
 .modal.modal--dashboard::-webkit-scrollbar-thumb {
 	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
 	border-radius: 4px;
 }
 
+.modal-container.modal--dashboard .modal::-webkit-scrollbar-thumb:hover,
 .modal.modal--dashboard::-webkit-scrollbar-thumb:hover {
 	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 35%, transparent);
 }
@@ -12031,7 +11970,8 @@
 }
 
 .modal.modal--dashboard > .modal-close-button,
-.modal.modal--dashboard .modal-close-button {
+.modal.modal--dashboard .modal-close-button,
+.modal-container.modal--dashboard .modal-close-button {
 	color: var(--db-text-muted) !important;
 }
 
@@ -12353,6 +12293,38 @@
 	align-items: flex-start;
 	gap: 6px;
 	margin: 2px 0 4px;
+}
+
+/* Reset + delete stack vertically beside the preview (delete BELOW reset). */
+.dashboard-focal-picker-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+
+.dashboard-focal-picker-delete {
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint, rgba(255, 255, 255, 0.35));
+	cursor: pointer;
+	padding: 3px;
+	min-height: 0;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.15s ease;
+}
+
+.dashboard-focal-picker-delete:hover {
+	color: var(--db-danger, #ef4444) !important;
+}
+
+.dashboard-focal-picker-delete svg {
+	width: 13px;
+	height: 13px;
 }
 
 .dashboard-focal-picker-box {
@@ -13489,6 +13461,7 @@
 	.theme-light [data-theme] .dashboard-modal,
 	.theme-dark [data-theme] .dashboard-modal,
 	.modal--dashboard,
+	.modal-container.modal--dashboard .modal,
 	.modal-bg--dashboard {
 		backdrop-filter: none !important;
 		-webkit-backdrop-filter: none !important;
@@ -13910,25 +13883,6 @@
 		scrollbar-width: thin;
 	}
 
-	/* Memo section: override fixed height — use same 30vh */
-	.dashboard-section-row[data-section-type="memo"] {
-		height: 30vh;
-		flex-shrink: 0;
-	}
-
-	.dashboard-section-row[data-section-type="memo"] .dashboard-section-cards > .dashboard-card {
-		flex: 0 0 70vw !important;
-		min-width: 70vw !important;
-		max-width: 70vw !important;
-	}
-
-	/* Todo section cards: match mobile width */
-	.dashboard-section-row[data-section-type="todo"] .dashboard-section-cards > .dashboard-card {
-		flex: 0 0 60vw !important;
-		min-width: 60vw !important;
-		max-width: 60vw !important;
-	}
-
 	/* Sticky: mixed memo/todo cards — todo lists need a bit less than the
 	   generic 50vh (compact memo cards dominate), tuned to 45vh. Desktop drag
 	   heights don't clamp it here; renderSection skips them on mobile. */
@@ -14044,10 +13998,6 @@
 	/* Hide memo color picker on mobile (color input doesn't work on mobile) */
 	.dashboard-card-btn--color {
 		display: none;
-	}
-
-	.dashboard-section-row[data-section-type="memo"] .dashboard-card:hover {
-		overflow: hidden;
 	}
 }
 
@@ -22545,4 +22495,687 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	display: flex;
 	justify-content: flex-end;
 	margin-top: 4px;
+}
+
+/* ======================================================================
+   IMMERSIVE LAYOUT (desktop/tablet only, >=641px)
+   Full-bleed poster background; widget cards and section cards mixed in
+   one free 12-column grid; every card is dark glass with light text.
+
+   Guards mirror the stacked block: the whole chapter sits inside
+   @media (min-width: 641px), the exact inverse of the phone block's
+   max-width: 640px, and phones never receive data-layout="immersive"
+   (resolveEffectiveLayout pins them to 'side') — so the phone CSS keeps
+   winning by construction and the iOS backdrop-filter kill-switch stays
+   untouched.
+   ====================================================================== */
+@media (min-width: 641px) {
+
+	/* --- Token overrides: light text + guaranteed glass --------------------
+	   Three identical blocks beat every theme layer by specificity + source
+	   order: the base pair matches .apex-dashboard-root[data-theme="x"]
+	   (0,2,0); the .theme-light/.theme-dark pairs (0,3,0) match the theme
+	   polarity variant blocks. Source order (end of file) settles any tie.
+	   Theme identity survives through --db-accent and the per-section
+	   --db-sec-hue; the SURFACE tokens flip to translucent white so every
+	   content surface inside a tile (cards, inputs, buttons, hovers) becomes
+	   glass over the poster instead of opaque theme fills — flipping only the
+	   text tokens would put white text on near-white cards. Inline
+	   custom-color overrides (Appearance Studio) still win over all three —
+	   an accepted, documented behavior.
+	   backdrop-blur is deliberately NONE here: a dozen tiles each blurring
+	   18px over a position:fixed poster re-rasterizes everything on every
+	   scroll frame — the GPU pressure read as flicker and occasionally
+	   blank tiles (the classic Chromium backdrop-filter pathology; iframes
+	   worst). The glass look comes from the stronger fills instead; real
+	   blur stays available as an opt-in via the glassBlur setting, which
+	   re-emits this token inline on the root. */
+	.apex-dashboard-root[data-layout="immersive"],
+	.theme-light .apex-dashboard-root[data-layout="immersive"],
+	.theme-dark .apex-dashboard-root[data-layout="immersive"] {
+		--db-text: rgba(255, 255, 255, 0.96);
+		--db-text-muted: rgba(255, 255, 255, 0.74);
+		--db-text-faint: rgba(255, 255, 255, 0.52);
+		--db-border-card: rgba(255, 255, 255, 0.24);
+		--db-border-section: rgba(255, 255, 255, 0.24);
+		--db-backdrop-blur: none;
+		/* Surface family: static glass — no blur dependency, stronger fills
+		   (the scrim behind keeps the composite dark, light text reads on
+		   every layer). */
+		--db-bg-card: rgba(255, 255, 255, 0.10);
+		--db-bg-card-hover: rgba(255, 255, 255, 0.16);
+		--db-bg-section: rgba(255, 255, 255, 0.10);
+		--db-bg-input: rgba(255, 255, 255, 0.14);
+		--db-bg-btn: rgba(255, 255, 255, 0.12);
+		--db-bg-btn-hover: rgba(255, 255, 255, 0.20);
+		--db-bg-hover: rgba(255, 255, 255, 0.10);
+		--db-bg-hover-strong: rgba(255, 255, 255, 0.16);
+		--db-bg-add-section: rgba(255, 255, 255, 0.08);
+		--db-bg-overlay: rgba(255, 255, 255, 0.12);
+		/* Dialogs live OUTSIDE the root but mirror these tokens
+		   (applyModalTheme): give them solid dark surfaces so white text on
+		   mirrored translucent surfaces stays readable — the "modal opens
+		   but its content is invisible" bug. */
+		--db-bg-modal: #171a21;
+		--db-bg-modal-raised: #1f232c;
+	}
+
+	/* --- Shell -------------------------------------------------------------- */
+	[data-layout="immersive"] .dashboard-imm {
+		position: relative; /* anchor for the corner controls */
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+	}
+
+	/* The poster layer: banner image, full-bleed and fixed. The banner
+	   rotator (startBannerImageRotation) drives it, including the shared
+	   .dashboard-banner--fading crossfade. z-index -1: a POSITIONED sibling at
+	   z-index 0 would paint AFTER static in-flow content (CSS painting order)
+	   and swallow the board — negative keeps it behind everything while
+	   staying inside .dashboard-imm's own stacking context. */
+	[data-layout="immersive"] .dashboard-imm-bg {
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+		transition: opacity 0.6s ease;
+	}
+	/* Readability scrim: keeps the mid-dark average that light text needs,
+	   whichever poster is up. Slightly stronger at the top so the centered
+	   week calendar and capture field read cleanly. */
+	[data-layout="immersive"] .dashboard-imm-bg-scrim {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(rgba(8, 10, 14, 0.42), rgba(8, 10, 14, 0.30) 30%, rgba(8, 10, 14, 0.38));
+	}
+
+	/* --- Top region: clock centered, quick-notes bar re-flowed ---------------- */
+	/* Top region spans the FULL page width; each row manages its own
+	   measure (the input row centers at 440px, the chips row runs wide). */
+	/* The top region lives INSIDE the scroll region: horizontal rails come
+	   from the scroll region's padding; only the top breathing room is its
+	   own. Everything scrolls away together. */
+	[data-layout="immersive"] .dashboard-imm-top {
+		flex: 0 0 auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		width: 100%;
+		box-sizing: border-box;
+		padding: 28px 0 8px;
+	}
+	/* Didot — the same editorial serif the banner quotes default to. Its
+	   high-contrast strokes read as a proper magazine masthead at clock
+	   scale (macOS ships Didot; Windows falls to Bodoni MT/Georgia). */
+	[data-layout="immersive"] .dashboard-imm-clock-time {
+		font-family: Didot, 'Bodoni MT', 'Playfair Display', Georgia, serif;
+		font-size: 5em;
+		font-weight: 500;
+		letter-spacing: 0.07em;
+		line-height: 1;
+		color: rgba(255, 255, 255, 0.97);
+		text-shadow: 0 2px 26px rgba(0, 0, 0, 0.45);
+		font-variant-numeric: lining-nums;
+		margin-left: 0.07em; /* optical centering against the tracking */
+	}
+
+	/* The quick-notes work bar flips from its side/stacked row (chips left,
+	   capture right) into a centered column: capture field on top, chips
+	   below — pure CSS re-flow, the DOM/render path is untouched.
+	   Chrome-start-page styling: NO container panel — the capture field is a
+	   wide translucent pill floating on the poster and the chips are ghost
+	   buttons; the bar itself is fully transparent. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 10px;
+		width: 100%;
+		background: none;
+		border: none;
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+		border-radius: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+	/* Capture field row first: the pill stretches the full bar width. */
+	/* The input row keeps the compact 440px measure, centered; the chips
+	   row below spans the FULL width and is not capped by the input. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-actions {
+		order: 0;
+		justify-content: center;
+		gap: 8px;
+		width: 100%;
+		max-width: 440px;
+		margin: 0 auto;
+	}
+	/* The capture field is a CARD-matched input: the same radius language as
+	   the board tiles, no pencil icon up front, whitespace carried by the
+	   textarea's own padding, nothing pre-rendered inside. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture {
+		flex: 1 1 auto;
+		background: color-mix(in srgb, rgba(8, 10, 14, 0.72) 78%, var(--db-bg-card));
+		border: 1px solid rgba(255, 255, 255, 0.16);
+		backdrop-filter: var(--db-backdrop-blur);
+		-webkit-backdrop-filter: var(--db-backdrop-blur);
+		border-radius: var(--db-radius-lg, 12px);
+		padding: 0;
+		overflow: hidden;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture:focus-within {
+		border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 65%, rgba(255, 255, 255, 0.3));
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 22%, transparent);
+	}
+	/* The pencil goes away entirely (the field is a clean card). */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture-icon {
+		display: none;
+	}
+	/* Kill the narrow cqw sizing: the field fills the card, its own padding
+	   is the whitespace. Both the resting and focus-width rules of the base
+	   bar are overridden. */
+	/* The doubled class mirrors the base !important rule's specificity trick
+	   (quick-note-config overrides carry the doubled class), so the immersive
+	   padding wins the !important-vs-!important fight. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote .dashboard-quicknote-capture .dashboard-quicknote-capture-input.dashboard-quicknote-capture-input,
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture-input:focus {
+		width: 100%;
+		min-width: 0;
+		height: 42px;
+		min-height: 42px;
+		line-height: 22px;
+		padding: 10px 14px !important;
+		background: transparent;
+		font-size: 0.92em;
+	}
+	/* Cog: a proper card-matched button, sized to be an easy target. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-cog {
+		width: 42px;
+		height: 42px;
+		flex: 0 0 42px;
+		margin-top: 0;
+		background: color-mix(in srgb, rgba(8, 10, 14, 0.72) 78%, var(--db-bg-card)) !important;
+		border: 1px solid rgba(255, 255, 255, 0.16) !important;
+		border-radius: var(--db-radius-lg, 12px) !important;
+		color: rgba(255, 255, 255, 0.78) !important;
+		opacity: 1;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-cog svg {
+		width: 18px;
+		height: 18px;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-cog:hover {
+		color: rgba(255, 255, 255, 1) !important;
+		border-color: rgba(255, 255, 255, 0.3) !important;
+	}
+	/* ...chips below: ghost pills — text on the poster, faint hover fill,
+	   no chip backgrounds, no separators. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-nav {
+		order: 1;
+		flex: 0 1 auto;
+		min-width: 0;
+		justify-content: center;
+		flex-wrap: wrap;
+		overflow-x: visible;
+		gap: 6px;
+		padding: 0 4px;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip {
+		background: none;
+		border: 1px solid transparent;
+		color: rgba(255, 255, 255, 0.72);
+		border-radius: 999px;
+		padding: 4px 10px;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip::before {
+		display: none;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip:hover {
+		background: rgba(255, 255, 255, 0.14);
+		border-color: rgba(255, 255, 255, 0.14);
+		color: rgba(255, 255, 255, 0.96);
+	}
+
+	/* --- Scroll region: the one scrolling layer ------------------------------ */
+	[data-layout="immersive"] .dashboard-scroll-region {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		overflow-y: auto;
+		/* Generous side rails at wide panes; the runtime narrows them as the
+		   pane shrinks (sidebars opening) so cards keep their width —
+		   --imm-h-pad is set by observeImmersiveGrid from the live width. */
+		padding: 0 var(--imm-h-pad, 48px) 24px;
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+	}
+	[data-layout="immersive"] .dashboard-scroll-region:hover {
+		scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+	}
+
+	/* --- The grid: the kanban becomes a 12-column free board ----------------
+	   Content-fit ("贴合") height model: rows are FINE 10px tracks with row-gap
+	   0 (a row-gap between every fine track would multiply inside a span).
+	   Each tile's real height is measured from its content by
+	   refitImmersiveGrid and stamped as an explicit row span; the visual
+	   vertical gap is the tile's own bottom margin, living INSIDE its span.
+	   The .apex-dashboard-root prefix is load-bearing specificity: the
+	   transparent-theme cluster sets `gap: 8px` at (0,3,0) — the shorthand
+	   would silently reinstate an 8px row gap INSIDE every span. */
+	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban {
+		display: grid;
+		grid-template-columns: repeat(12, minmax(0, 1fr));
+		grid-auto-rows: 10px; /* IMM_ROW_UNIT (immersive-grid.ts) — keep in sync */
+		row-gap: 0;
+		column-gap: var(--db-kanban-gap, 10px);
+		align-content: start;
+		overflow: visible; /* the scroll region owns scrolling */
+		flex: 1;
+	}
+
+	/* --- Glass tiles ----------------------------------------------------------
+	   A tile is ANY direct grid child carrying data-imm-id: a section row, a
+	   widget card, or a refresh-swap mount wrapper (refreshDataWidget replaces
+	   async-refresh widgets with a bare mount that carries the id). Tiles are
+	   a stronger cast of the same translucent-white glass the inner surfaces
+	   use (--db-bg-card above), so the board reads as one material with a
+	   tile/content hierarchy.
+	   Sizing: tiles keep NATURAL boxes (height auto + the fit's inline
+	   min-height floor that fills the spanned tracks). Natural boxes are the
+	   observation contract: content growth changes the tile's box, which the
+	   per-tile ResizeObserver sees — a stretched box would be pinned to the
+	   tracks and hide growth (the deadlock behind both the missed re-fits and
+	   the observer churn). Box = max(content, tracks-10); content past the
+	   inline max-height cap scrolls INSIDE the tile. */
+	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] {
+		position: relative; /* containing block for the strips/delete chrome */
+		background: color-mix(in srgb, var(--db-bg-card) 35%, rgba(8, 10, 14, 0.74));
+		border: 1px solid rgba(255, 255, 255, 0.22);
+		backdrop-filter: var(--db-backdrop-blur);
+		-webkit-backdrop-filter: var(--db-backdrop-blur);
+		color: var(--db-text);
+		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+		overflow: hidden;
+		min-width: 0;
+		align-self: start;
+		height: auto;
+		margin-bottom: 10px; /* IMM_TILE_GAP — the visual vertical spacing */
+		grid-column: auto;
+		grid-row: auto;
+	}
+	/* Sections keep their NATIVE internal scrolling model (per-type
+	   max-heights, horizontal card decks, kanban sticky) — overriding it to
+	   overflow:visible backfired: cards decks are overflow-x:auto, and the
+	   CSS quirk (one auto axis forces the other to auto) turned every deck
+	   into a nested vertical scroller chasing the tile's size — the
+	   "strobing sections" bug. The section-row base 500px cap is cleared so
+	   the fit/user cap governs; content past the tile cap scrolls the TILE. */
+	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id].dashboard-section-row {
+		max-height: none;
+	}
+	/* Mount-wrapped widget tiles: the mount is the glass tile; the widget
+	   card inside goes transparent (no glass-on-glass double fill) and sizes
+	   with its own content (height auto — the mount/tile handles the cap). */
+	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > .dashboard-sidebar-widget-mount {
+		display: flex;
+		flex-direction: column;
+	}
+	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-sidebar-widget,
+	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > .dashboard-sidebar-widget.dashboard-sidebar-widget {
+		/* Widgets are FIXED-HEIGHT tiles (the stacked sizing design): the
+		   card fills the tile and manages its own internal scrolling. */
+		flex: 1 1 auto;
+		min-height: 0;
+		height: auto;
+	}
+	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-sidebar-widget {
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+	}
+
+	/* The add-section ghost rides the end of the pack: a modest dashed tile
+	   instead of the full-width slab. Auto placement lands it after the last
+	   explicitly placed tile. Fixed pixel height — fine rows would make
+	   "span 2" a 20px sliver. */
+	[data-layout="immersive"] .dashboard-add-section {
+		grid-column: auto / span 3;
+		grid-row: auto / span 12;
+		flex: none;
+		margin-bottom: 0;
+		border-color: rgba(255, 255, 255, 0.28);
+		color: var(--db-text-muted);
+		background: color-mix(in srgb, var(--db-bg-card) 25%, rgba(8, 10, 14, 0.55));
+		backdrop-filter: var(--db-backdrop-blur);
+		-webkit-backdrop-filter: var(--db-backdrop-blur);
+	}
+
+	/* --- Corner controls -------------------------------------------------------
+	   The workspace switcher keeps its banner spot semantics (top-left); the
+	   wand (background editor) moves top-right. Both hang off .dashboard-imm
+	   (position: relative above). */
+	[data-layout="immersive"] .dashboard-imm > .dashboard-workspace-switcher {
+		top: 8px;
+		left: 10px;
+		z-index: 3;
+	}
+	/* Resting at half opacity: unlike the banner (surface hover reveals it),
+	   there is no banner surface here — an invisible button on a poster is
+	   undiscoverable. */
+	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-edit-btn {
+		top: 8px;
+		right: 10px;
+		bottom: auto;
+		z-index: 3;
+		opacity: 0.45;
+		color: var(--db-text);
+		border-color: rgba(255, 255, 255, 0.25);
+		background: rgba(8, 10, 14, 0.35);
+	}
+	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-edit-btn:hover {
+		opacity: 1;
+	}
+
+	/* --- Tile interactions: edge resize + reorder indicators ------------------
+	   Resize is EDGE-BASED: the right edge drags width (ew), the bottom edge
+	   drags height (ns), the corner does both. Strips are INSIDE the tile box
+	   (tiles are overflow: hidden — a negative offset would be cropped). At
+	   rest each strip shows a hairline accent bar on tile hover (the design-
+	   tool affordance); during the drag the tile lifts out of the flow and
+	   follows the pointer in raw pixels. */
+	.dashboard-imm-resize-h,
+	.dashboard-imm-resize-v,
+	.dashboard-imm-resize-handle {
+		position: absolute;
+		z-index: 40;
+		touch-action: none;
+		opacity: 0;
+		transition: opacity 0.15s ease;
+	}
+	.dashboard-imm-resize-h {
+		top: 0;
+		bottom: 14px;
+		right: 0;
+		width: 9px;
+		cursor: ew-resize;
+	}
+	.dashboard-imm-resize-v {
+		left: 0;
+		right: 14px;
+		bottom: 0;
+		height: 9px;
+		cursor: ns-resize;
+	}
+	.dashboard-imm-resize-handle {
+		right: 0;
+		bottom: 0;
+		width: 16px;
+		height: 16px;
+		cursor: nwse-resize;
+		background: linear-gradient(135deg, transparent 46%, rgba(255, 255, 255, 0.55) 46%, rgba(255, 255, 255, 0.55) 54%, transparent 54%);
+		border-bottom-right-radius: var(--db-radius-lg);
+	}
+	/* Hairline edge accents, revealed on tile hover. */
+	.dashboard-imm-resize-h::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		right: 2px;
+		width: 2px;
+		border-radius: 2px;
+		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, white);
+	}
+	.dashboard-imm-resize-v::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 2px;
+		height: 2px;
+		border-radius: 2px;
+		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, white);
+	}
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-handle,
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-h::after,
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-v::after,
+	.dashboard-imm-resize-h:hover::after,
+	.dashboard-imm-resize-v:hover::after {
+		opacity: 0.9;
+	}
+
+	/* Reorder drop indicators: accent glow on the leading/trailing edge of
+	   the hovered tile (left half = insert before, right half = after). */
+	.dashboard-imm-tile--over-left {
+		box-shadow: -3px 0 0 0 var(--db-accent), 0 8px 28px rgba(0, 0, 0, 0.22);
+	}
+	.dashboard-imm-tile--over-right {
+		box-shadow: 3px 0 0 0 var(--db-accent), 0 8px 28px rgba(0, 0, 0, 0.22);
+	}
+	.dashboard-imm-tile--dragging {
+		opacity: 0.4;
+	}
+	/* Resize keeps the tile IN PLACE (in flow, no lift): an accent ring
+	   marks the active card, content stays inert for the gesture. */
+	.dashboard-imm-tile--resizing {
+		outline: 2px solid var(--db-accent);
+		outline-offset: -2px;
+	}
+	.dashboard-imm-tile--resizing > *:not([class*="dashboard-imm-resize"]) {
+		pointer-events: none;
+	}
+
+	/* --- Everything is a card --------------------------------------------------
+	   No "sections" on the immersive board: memo/todo/library tiles wear the
+	   same card costume as widget tiles. Section chrome collapses to a card
+	   header — smaller title, ghost hover-revealed controls, no grip (the
+	   header IS the drag surface, see setupImmersiveDnD). */
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id].dashboard-section-row {
+		padding: 12px 14px;
+	}
+	[data-layout="immersive"] .dashboard-section-header {
+		margin-bottom: 6px;
+		min-height: 22px;
+		cursor: grab;
+	}
+	[data-layout="immersive"] .dashboard-section-header:active {
+		cursor: grabbing;
+	}
+	[data-layout="immersive"] .dashboard-section-title-wrap {
+		gap: 6px;
+	}
+	[data-layout="immersive"] .dashboard-section-title {
+		font-size: 0.85em;
+		font-weight: 600;
+		letter-spacing: 0.01em;
+	}
+	[data-layout="immersive"] .dashboard-section-grip {
+		display: none; /* retired: the header is the handle */
+	}
+	[data-layout="immersive"] .dashboard-section-toggle {
+		opacity: 0.45;
+	}
+	/* Header controls: ghost icon buttons at rest, fully revealed on card
+	   hover (the widget config-button recipe — a card full of lit buttons is
+	   a panel, not a card). */
+	[data-layout="immersive"] .dashboard-section-header-actions button {
+		background: none;
+		border: none;
+		box-shadow: none;
+		color: var(--db-text-faint);
+		opacity: 0.35;
+		transition: opacity 0.15s ease, color 0.15s ease;
+	}
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover .dashboard-section-header-actions button {
+		opacity: 1;
+		color: var(--db-text-muted);
+	}
+	[data-layout="immersive"] .dashboard-section-header-actions button:hover {
+		color: var(--db-text);
+	}
+	/* Library/tool toolbars lose their inner card box — the tile IS the card;
+	   the search field keeps its input chrome (functional). */
+	[data-layout="immersive"] .dashboard-library-toolbar,
+	[data-layout="immersive"] .dashboard-dataview-toolbar {
+		background: none;
+		padding: 2px 0;
+		margin-bottom: 6px;
+	}
+	[data-layout="immersive"] .dashboard-library-toolbar button,
+	[data-layout="immersive"] .dashboard-dataview-toolbar button {
+		background: none;
+		border: none;
+		box-shadow: none;
+		color: var(--db-text-faint);
+	}
+	[data-layout="immersive"] .dashboard-library-toolbar button:hover,
+	[data-layout="immersive"] .dashboard-dataview-toolbar button:hover {
+		color: var(--db-text);
+	}
+	/* The add-card ghost reads as a shy tile, not a slab. */
+	[data-layout="immersive"] .dashboard-add-section {
+		font-size: 0.75em;
+		letter-spacing: 0.04em;
+	}
+
+	/* Hover × on widget tiles (the visible removal affordance); the card's
+	   own corner config gear shifts down so the chips stack. */
+	/* Icon-only removal affordance: a small quiet × — NO background, no
+	   border, no shadow (explicit !important: Obsidian's stock button styles
+	   reappear under theme layers and read as a white chip that covered the
+	   widget's own config gear). */
+	.dashboard-imm-widget-del {
+		position: absolute;
+		top: 3px;
+		right: 3px;
+		z-index: 45;
+		width: 16px;
+		height: 16px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: none !important;
+		background: none !important;
+		box-shadow: none !important;
+		outline: none;
+		color: rgba(255, 255, 255, 0.55);
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity 0.15s ease, color 0.15s ease;
+	}
+	.dashboard-imm-widget-del svg {
+		width: 11px;
+		height: 11px;
+	}
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-widget-del,
+	.dashboard-imm-widget-del:focus-visible {
+		opacity: 1;
+	}
+	.dashboard-imm-widget-del:hover {
+		color: #ff8080;
+	}
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id] .dashboard-widget-cfg-btn {
+		top: 28px;
+	}
+
+	/* The add-card button rides the chips row: same height as the function
+	   buttons, pinned to the row's right edge (the top region spans the page
+	   and never scrolls). As a mid-page fixed FAB it shadowed tiles near the
+	   right edge and ate their resize-strip presses. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-nav {
+		position: relative;
+		width: 100%;
+		align-self: stretch;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-imm-add-btn {
+		position: absolute;
+		right: 0;
+		top: 50%;
+		transform: translateY(-50%);
+		z-index: 8;
+		width: 28px;
+		height: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: none;
+		background: none;
+		color: rgba(255, 255, 255, 0.75);
+		cursor: pointer;
+		transition: color 0.15s ease, transform 0.15s ease;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-imm-add-btn:hover {
+		color: #ffffff;
+		transform: translateY(-50%) scale(1.12);
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-imm-add-btn svg {
+		width: 15px;
+		height: 15px;
+	}
+	/* Without the quick-notes bar the button anchors to the top region's
+	   right instead. */
+	[data-layout="immersive"] .dashboard-imm-top > .dashboard-imm-add-btn {
+		top: 8px;
+		transform: none;
+	}
+
+	/* Move-drag landing preview: a dashed accent placeholder occupying the
+	   exact grid slot the dragged card would take — the drop destination is
+	   readable at a glance instead of inferred from edge glows. */
+	.dashboard-imm-drop-ghost {
+		border: 2px dashed color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 80%, white);
+		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+		border-radius: var(--db-radius-lg, 12px);
+		margin-bottom: 10px;
+		pointer-events: none;
+		z-index: 5;
+		box-sizing: border-box;
+	}
+	/* The collapse chevron has no role on immersive boards (tiles are always
+	 * expanded — renderSection skips the collapsed class there). */
+	[data-layout="immersive"] .dashboard-section-toggle {
+		display: none;
+	}
+	/* The "Today" chip follows the same light ghost language as its
+	   siblings (the base bar paints it accent — loud on the poster). */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip.dashboard-quicknote-today,
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-today .dashboard-quicknote-icon {
+		color: rgba(255, 255, 255, 0.72) !important;
+		font-weight: 500;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip.dashboard-quicknote-today:hover {
+		color: rgba(255, 255, 255, 0.96) !important;
+	}
+	/* Pointer-move session: no text selection, grabbing cursor, and the
+	 * pressed tile doesn't hijack scroll. */
+	.dashboard-imm-pointer-dragging {
+		user-select: none;
+		-webkit-user-select: none;
+		cursor: grabbing;
+	}
+	.dashboard-imm-pointer-dragging * {
+		cursor: grabbing !important;
+	}
+	/* Move-handle surfaces must not start NATIVE TEXT-SELECTION drags: a
+	 * press on header text + move made the browser hijack the gesture (all
+	 * pointer events cease — no move, no up), which read as "memo/todo cards
+	 * can't be moved". Selection off; click/dblclick-rename unaffected. */
+	[data-layout="immersive"] .dashboard-section-header,
+	[data-layout="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-card-header,
+	[data-layout="immersive"] .dashboard-kanban > [data-widget-key] {
+		user-select: none;
+		-webkit-user-select: none;
+	}
 }

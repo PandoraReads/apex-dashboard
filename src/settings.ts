@@ -1,6 +1,7 @@
 import { renderMusicAccountSettings } from './music-account-settings';
 import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem, type TextComponent } from 'obsidian';
 import type DashboardPlugin from './main';
+import { DASHBOARD_VIEW_TYPE, DashboardView } from './view';
 import { type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig, type BackupPeriod, type WidgetHeightRatio } from './types';
 import { t, setLanguage, type Language } from './i18n';
 import { geocodeCity } from './weather-service';
@@ -286,76 +287,9 @@ export class DashboardSettingTab extends PluginSettingTab {
 	 *  content spilled onto the rows around it). The active card carries the
 	 *  accent ring and a filled circle; the choice saves and refreshes
 	 *  immediately. */
-	private renderLayoutPicker(containerEl: HTMLElement): void {
-		const picker = containerEl.createDiv({ cls: 'dashboard-layout-picker' });
-		picker.setAttribute('role', 'radiogroup');
-		const modes: DashboardLayoutMode[] = ['side', 'stacked'];
-
-		const option = (mode: DashboardLayoutMode): HTMLElement => {
-			const current = this.plugin.settings.layoutMode;
-			const card = picker.createDiv({
-				cls: 'dashboard-layout-option' + (current === mode ? ' dashboard-layout-option--active' : ''),
-			});
-			card.dataset.mode = mode;
-			const label = mode === 'side' ? t('settings.layoutSide') : t('settings.layoutStacked');
-			card.setAttribute('aria-label', label);
-
-			// Three-zone mock: banner bar, widget zone (left rail in side
-			// mode / horizontal strip in stacked mode), main sections.
-			const preview = card.createDiv({
-				cls: `dashboard-layout-preview dashboard-layout-preview--${mode}`,
-			});
-			preview.createDiv({ cls: 'lp-banner' });
-			if (mode === 'side') {
-				const main = preview.createDiv({ cls: 'lp-main' });
-				const rail = main.createDiv({ cls: 'lp-rail' });
-				for (let i = 0; i < 3; i++) rail.createDiv({ cls: 'lp-widget' });
-				const board = main.createDiv({ cls: 'lp-board' });
-				for (let i = 0; i < 3; i++) board.createDiv({ cls: 'lp-section' });
-			} else {
-				const strip = preview.createDiv({ cls: 'lp-strip' });
-				for (let i = 0; i < 4; i++) strip.createDiv({ cls: 'lp-widget' });
-				const board = preview.createDiv({ cls: 'lp-board' });
-				for (let i = 0; i < 3; i++) board.createDiv({ cls: 'lp-section' });
-			}
-
-			// The circle is the only interactive element (a real button so it
-			// is focusable; reset styling comes from the CSS class).
-			const circle = card.createEl('button', {
-				cls: 'dashboard-layout-radio',
-				attr: { type: 'button', role: 'radio', 'aria-checked': String(current === mode), title: label },
-			});
-			circle.createDiv({ cls: 'dashboard-layout-radio-dot' });
-			card.createDiv({ cls: 'dashboard-layout-option-label', text: label });
-
-			circle.addEventListener('click', () => {
-				if (this.plugin.settings.layoutMode === mode) return;
-				void (async () => {
-					this.plugin.settings = { ...this.plugin.settings, layoutMode: mode };
-					await this.plugin.saveSettings();
-					this.plugin.refreshAllDashboards();
-					picker.querySelectorAll('.dashboard-layout-option').forEach(el => {
-						const opt = el as HTMLElement;
-						const active = opt.dataset.mode === mode;
-						opt.toggleClass('dashboard-layout-option--active', active);
-						const radio = opt.querySelector('.dashboard-layout-radio');
-						radio?.setAttribute('aria-checked', String(active));
-					});
-				})();
-			});
-			return card;
-		};
-
-		for (const mode of modes) option(mode);
-	}
-
 	/** Top block: layout, language, style, quick notes, paths. Shared by
 	 *  display() (pre-1.13) and the declarative General section (1.13+). */
 	private renderGeneralSettings(containerEl: HTMLElement): void {
-		new Setting(containerEl)
-			.setName(t('settings.layoutMode'));
-		this.renderLayoutPicker(containerEl);
-
 		new Setting(containerEl)
 			.setName(t('settings.language'))
 			.setDesc(t('settings.languageDesc'))
@@ -855,6 +789,12 @@ export class DashboardSettingTab extends PluginSettingTab {
 	 *  Countdown renders after the expense card (the tab order is weather →
 	 *  calendar → these five, with countdown last). */
 	private renderWidgetSettings(containerEl: HTMLElement): void {
+		// Scope note first: these toggles rule the side/stacked rails only —
+		// immersive boards manage their widget cards in-board.
+		new Setting(containerEl)
+			.setName(t('settings.widgetTogglesScope'))
+			.setDesc(t('settings.widgetTogglesScopeDesc'));
+
 		// --- Pomodoro card ---
 		const pomodoroCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(pomodoroCard)

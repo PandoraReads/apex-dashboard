@@ -21,6 +21,9 @@ import { showConfirmDialog } from './confirm-dialog';
 import { applyModalTheme } from './modal-theme';
 import { partnerIndexOf } from './column-pairs';
 import { RATIO_SPAN, buildStackedSpanSpecs, resolveStackedSpans, isTieredWidgetKey } from './widget-span';
+import { effectiveLayout } from './immersive-grid';
+import { carryImmersivePlacement } from './immersive';
+import { isInPreserveScope, type PreserveScope } from './preserve-scope';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 import { attachNoteHover } from './hover-preview';
 import { fetchWeather, getCachedWeather, getWeatherEmoji, getWeatherDescription } from './weather-service';
@@ -67,13 +70,13 @@ function destroyChart(cardId: string): void {
  *  previous render (see renderSidebarWidgets): timers animating its countdowns
  *  survive so the re-attached DOM keeps ticking. Timers are also self-cleaning
  *  (they check isConnected), so any survivors of a discarded DOM unwind themselves. */
-export function destroyAllCharts(preserveWidgets?: HTMLElement | null): void {
+export function destroyAllCharts(preserveWidgets?: PreserveScope): void {
 	for (const [, chart] of chartInstances) {
 		chart.destroy();
 	}
 	chartInstances.clear();
 	for (const [id, content] of countdownTimers) {
-		if (preserveWidgets && preserveWidgets.contains(content)) continue;
+		if (isInPreserveScope(preserveWidgets, content)) continue;
 		window.clearInterval(id);
 		countdownTimers.delete(id);
 	}
@@ -266,12 +269,29 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 	}
 }
 
+/** The effective board layout. Layout is PER-WORKSPACE: the board file's
+ *  `layout:` frontmatter overrides the global default (settings.layoutMode),
+ *  so two workspaces can run different layouts. Phones are always excluded:
+ *  their layout is CSS-fixed and must not change shape because a desktop-only
+ *  setting flipped — they always resolve to 'side'. Every layout branch
+ *  funnels through this one helper (or isStackedLayout below) so the gate can
+ *  never drift. */
+export function resolveEffectiveLayout(
+	settings: import('./types').DashboardSettings,
+	data?: import('./types').DashboardData | null,
+): 'side' | 'stacked' | 'immersive' {
+	return effectiveLayout(data?.layout ?? settings.layoutMode, Platform.isPhone);
+}
+
 /** True when the board should render top-bottom (widget strip under the
- *  banner). Phones are excluded: their layout is CSS-fixed and must not
- *  change shape because a desktop-only setting flipped. Every call site
- *  funnels through this one helper so the gate can never drift. */
-export function isStackedLayout(settings: import('./types').DashboardSettings): boolean {
-	return settings.layoutMode === 'stacked' && !Platform.isPhone;
+ *  banner). Convenience view over resolveEffectiveLayout for the many
+ *  side/stacked binary branches; the immersive layout takes its own path
+ *  before these branches. */
+export function isStackedLayout(
+	settings: import('./types').DashboardSettings,
+	data?: import('./types').DashboardData | null,
+): boolean {
+	return resolveEffectiveLayout(settings, data) === 'stacked';
 }
 
 /** Fingerprint of every input the sidebar widgets depend on. The view compares
@@ -284,13 +304,14 @@ export function sidebarWidgetSignature(
 	hasReading: boolean,
 	hasHolidayData: boolean,
 	quickActionsSig: string,
+	data?: import('./types').DashboardData | null,
 ): string {
 	return JSON.stringify({
 		// The stacked widget area has a different internal structure (quick
-		// actions card pinned leftmost + column-major strip wrapper), so a
-		// layout switch must rebuild rather than re-attach the previous mode's
-		// DOM.
-		stacked: isStackedLayout(settings),
+		// actions card pinned leftmost + column-major strip wrapper) and the
+		// immersive grid re-parents cards one per tile, so ANY layout switch
+		// must rebuild rather than re-attach the previous mode's DOM.
+		layout: resolveEffectiveLayout(settings, data),
 		weatherEnabled: settings.widgetWeatherEnabled,
 		weatherCity: settings.widgetWeatherCity,
 		weatherLat: settings.widgetWeatherLat,
@@ -374,16 +395,19 @@ export function renderSidebarWidgets(
 	reuse?: HTMLElement | null,
 	onOpenNote?: (file: TFile, line?: number) => void,
 	renderQuickActions?: (container: HTMLElement) => void,
+	data?: import('./types').DashboardData | null,
 ): HTMLElement | null {
 	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || (settings.albums?.length ?? 0) > 0 || (settings.anniversaryEnabled && (settings.anniversaries?.length ?? 0) > 0) || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || (settings.widgetMusicEnabled && !Platform.isPhone);
 	if (!anyEnabled) return null;
 
-	const stacked = isStackedLayout(settings);
+	const stacked = isStackedLayout(settings, data);
 	// Unchanged inputs: keep the previous DOM (and its live timers/listeners).
 	// The layout marker check is local defense-in-depth on top of the caller's
 	// signature gate: a side-built area (flat children) must never re-attach
 	// into a stacked render (strip wrapper expected) or vice versa, even if a
-	// future caller forgets to include the layout in its signature.
+	// future caller forgets to include the layout in its signature. The
+	// immersive layout never calls this builder (its grid mounts cards one per
+	// tile via buildWidgetEntries), so 'immersive' never matches here either.
 	if (reuse && reuse.isConnected === false && reuse.childElementCount > 0
 		&& reuse.dataset.layout === (stacked ? 'stacked' : 'side')) {
 		container.appendChild(reuse);
@@ -393,87 +417,10 @@ export function renderSidebarWidgets(
 	const widgetArea = container.createDiv({ cls: 'dashboard-sidebar-widgets' });
 	widgetArea.dataset.layout = stacked ? 'stacked' : 'side';
 
-	const DEFAULT_ORDER = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'anniversary', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'];
-	// Legacy: an order saved before quick buttons were a widget lacks the
-	// 'quickActions' key. Render it first there (its historical spot, above the
-	// other widgets) until the user drags it elsewhere.
-	const order = settings.widgetOrder?.length ? settings.widgetOrder : DEFAULT_ORDER;
-
-	type WidgetEntry = { key: string; render: (host: HTMLElement) => void };
-	const enabled: WidgetEntry[] = [];
-	if (settings.widgetQuickActionsEnabled && renderQuickActions) {
-		const renderQuick = renderQuickActions;
-		enabled.push({ key: 'quickActions', render: (host) => { renderQuick(host); } });
-	}
-	if (settings.widgetLunarEnabled) {
-		enabled.push({ key: 'lunar', render: (host) => renderSidebarLunarWidget(host, holidayData ?? {}, app) });
-	}
-	if (settings.widgetYearProgressEnabled) {
-		enabled.push({ key: 'yearProgress', render: (host) => renderSidebarYearProgress(host, settings.yearProgressBackground, app, bg => saveSingletonBackground(app, 'yearProgressBackground', bg)) });
-	}
-	if (settings.widgetCalendarEnabled) {
-		enabled.push({ key: 'calendar', render: (host) => renderSidebarCalendar(host, settings, app, onOpenNote) });
-	}
-	if (settings.widgetWeatherEnabled) {
-		enabled.push({ key: 'weather', render: (host) => renderSidebarWeather(host, settings, app) });
-	}
-	if (settings.pomodoroEnabled && pomodoroService) {
-		enabled.push({ key: 'pomodoro', render: (host) => renderSidebarPomodoro(host, pomodoroService, settings, app, bg => saveSingletonBackground(app, 'pomodoroBackground', bg)) });
-	}
-	if (settings.readingEnabled && readingService) {
-		enabled.push({ key: 'reading', render: (host) => renderSidebarReading(host, readingService) });
-	}
-	if (settings.widgetHabitEnabled) {
-		enabled.push({ key: 'habit', render: (host) => renderSidebarHabitWidget(host, app, settings.habitBackground, bg => saveSingletonBackground(app, 'habitBackground', bg)) });
-	}
-	if (settings.widgetExpenseEnabled) {
-		enabled.push({ key: 'expense', render: (host) => renderSidebarExpenseWidget(host, app) });
-	}
-	// Multiple album widgets: one card per albums[] entry, keyed album-<id>.
-	// renderSidebarAlbumWidget reads the legacy flat fields, so each entry
-	// renders through a per-album settings shim (spread — never mutated).
-	for (const cfg of settings.albums ?? []) {
-		const ref = cfg;
-		enabled.push({
-			key: `album-${ref.id}`,
-			render: (host) => renderSidebarAlbumWidget(host, {
-				...settings,
-				widgetAlbumFolder: ref.folder,
-				widgetAlbumIntervalSec: ref.intervalSec,
-				widgetAlbumRecursive: ref.recursive,
-				widgetAlbumRatio: ref.ratio,
-				widgetAlbumTransition: ref.transition,
-			}, app),
-		});
-	}
-	// Anniversary widgets: one card per anniversaries[] entry, keyed
-	// anniversary-<id> (the countdown multi-instance pattern).
-	if (settings.anniversaryEnabled) {
-		for (const cfg of settings.anniversaries ?? []) {
-			const ref = cfg;
-			enabled.push({ key: `anniversary-${ref.id}`, render: (host) => renderSidebarAnniversaryWidget(host, ref, app, updated => {
-			const plugin = getWidgetPlugin(app);
-			if (!plugin) return;
-			plugin.settings = {
-				...plugin.settings,
-				anniversaries: (plugin.settings.anniversaries ?? []).map(a => a.id === updated.id ? updated : a),
-			};
-			void plugin.saveSettings();
-			plugin.refreshAllDashboards();
-		}) });
-		}
-	}
-	if (settings.widgetMusicEnabled && !Platform.isPhone) {
-		enabled.push({ key: 'music', render: (host) => renderSidebarMusicWidget(host, settings.musicBackground, app, bg => saveSingletonBackground(app, 'musicBackground', bg)) });
-	}
-	if (settings.countdownEnabled) {
-		for (const cd of settings.countdowns ?? []) {
-			const cdRef = cd;
-			enabled.push({ key: `countdown-${cd.id}`, render: (host) => renderSidebarCountdown(host, cdRef, app) });
-		}
-	}
-
-	const ordered = sortByOrder(enabled, order);
+	const ordered = sortWidgetEntries(
+		buildWidgetEntries(settings, app, { pomodoroService, readingService, holidayData, onOpenNote, renderQuickActions }),
+		settings,
+	);
 
 	// Stacked mode: quick actions is a regular card in the strip grid, always
 	// FIRST in the build order = leftmost column (it also exits the reorder
@@ -492,7 +439,6 @@ export function renderSidebarWidgets(
 	};
 
 	// Stacked-mode height ratios: rows of the 6-row widget grid per fraction.
-	const albumById = new Map((settings.albums ?? []).map(a => [String(a.id), a]));
 	// Adaptive column packing ("首选档 + 放不下自动换挡"): simulate the sparse
 	// column-first grid over the DOM order and resolve each TIERED card's
 	// span (habit / reading / album-*). Fixed cards keep their hardcoded
@@ -511,36 +457,11 @@ export function renderSidebarWidgets(
 		: null;
 
 	for (let i = 0; i < buildOrder.length; i++) {
-		const { key, render } = buildOrder[i]!;
-		const host = hostFor(key);
-		const childCount = host.children.length;
-		render(host);
-		const el = host.children[childCount] as HTMLElement | undefined;
-		if (el) {
-			el.dataset.widgetKey = key;
-			// The quick-actions section carries its own section classes; give it
-			// the widget class too so it joins the drag-to-reorder system.
-			if (key === 'quickActions') {
-				el.addClass('dashboard-sidebar-widget');
-				// Card background + config gear INSIDE the header's button group
-				// (left of palette/add) — a corner button would overlap them.
-				applyWidgetBackground(el, settings.quickActionsBackground, app, { skipFrame: true });
-				const btnGroup = el.querySelector<HTMLElement>('.dashboard-qa-btn-group');
-				if (btnGroup) {
-					const gear = appendInlineBackgroundButton(btnGroup, app, settings.quickActionsBackground,
-						bg => saveSingletonBackground(app, 'quickActionsBackground', bg));
-					btnGroup.insertBefore(gear, btnGroup.firstChild);
-				}
-			}
-			// Album cards carry their config id (the multi-instance refresh
-			// matches on it).
-			if (key.startsWith('album-')) {
-				const cfg = albumById.get(key.slice('album-'.length));
-				if (cfg) el.dataset.albumId = String(cfg.id);
-			}
-			if (spans && isTieredWidgetKey(key)) {
-				el.setCssProps({ '--db-widget-span': String(spans[i] ?? RATIO_SPAN.full) });
-			}
+		const entry = buildOrder[i]!;
+		const host = hostFor(entry.key);
+		const el = mountWidgetCard(entry, host, app, settings);
+		if (el && spans && isTieredWidgetKey(entry.key)) {
+			el.setCssProps({ '--db-widget-span': String(spans[i] ?? RATIO_SPAN.full) });
 		}
 	}
 
@@ -551,6 +472,153 @@ export function renderSidebarWidgets(
 }
 
 type WidgetEntry = { key: string; render: (host: HTMLElement) => void };
+
+/** Services/callbacks the widget card builders may need — injected so the
+ *  immersive grid can mount the same cards without a DashboardView. */
+export interface WidgetBuildDeps {
+	pomodoroService?: PomodoroService;
+	readingService?: ReadingService;
+	holidayData?: Record<string, HolidayInfo>;
+	onOpenNote?: (file: TFile, line?: number) => void;
+	renderQuickActions?: (container: HTMLElement) => void;
+}
+
+export const DEFAULT_WIDGET_ORDER: string[] = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'anniversary', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'];
+
+/** Build one entry per ENABLED widget card (enable order, not display order).
+ *  Shared by the side/stacked rail (renderSidebarWidgets) and the immersive
+ *  grid, so both layouts mount byte-identical cards.
+ *
+ *  `memberKeys` switches the membership SOURCE: side/stacked boards follow the
+ *  global settings toggles (undefined); immersive boards pass the keys listed
+ *  in that workspace's arrangement — widget membership there is per-board,
+ *  managed in the UI, independent of the global switches. */
+export function buildWidgetEntries(settings: DashboardSettings, app: App, deps: WidgetBuildDeps, memberKeys?: Set<string>): WidgetEntry[] {
+	const { pomodoroService, readingService, holidayData, onOpenNote, renderQuickActions } = deps;
+	// member?: undefined = global-toggle mode; boolean = membership mode.
+	const member = (key: string, globallyEnabled: boolean): boolean =>
+		memberKeys ? memberKeys.has(key) : globallyEnabled;
+	const enabled: WidgetEntry[] = [];
+	if (member('quickActions', settings.widgetQuickActionsEnabled) && renderQuickActions) {
+		const renderQuick = renderQuickActions;
+		enabled.push({ key: 'quickActions', render: (host) => { renderQuick(host); } });
+	}
+	if (member('lunar', settings.widgetLunarEnabled)) {
+		enabled.push({ key: 'lunar', render: (host) => renderSidebarLunarWidget(host, holidayData ?? {}, app) });
+	}
+	if (member('yearProgress', settings.widgetYearProgressEnabled)) {
+		enabled.push({ key: 'yearProgress', render: (host) => renderSidebarYearProgress(host, settings.yearProgressBackground, app, bg => saveSingletonBackground(app, 'yearProgressBackground', bg)) });
+	}
+	if (member('calendar', settings.widgetCalendarEnabled)) {
+		enabled.push({ key: 'calendar', render: (host) => renderSidebarCalendar(host, settings, app, onOpenNote) });
+	}
+	if (member('weather', settings.widgetWeatherEnabled)) {
+		enabled.push({ key: 'weather', render: (host) => renderSidebarWeather(host, settings, app) });
+	}
+	if (member('pomodoro', settings.pomodoroEnabled) && pomodoroService) {
+		enabled.push({ key: 'pomodoro', render: (host) => renderSidebarPomodoro(host, pomodoroService, settings, app, bg => saveSingletonBackground(app, 'pomodoroBackground', bg)) });
+	}
+	if (member('reading', settings.readingEnabled) && readingService) {
+		enabled.push({ key: 'reading', render: (host) => renderSidebarReading(host, readingService) });
+	}
+	if (member('habit', settings.widgetHabitEnabled)) {
+		enabled.push({ key: 'habit', render: (host) => renderSidebarHabitWidget(host, app, settings.habitBackground, bg => saveSingletonBackground(app, 'habitBackground', bg)) });
+	}
+	if (member('expense', settings.widgetExpenseEnabled)) {
+		enabled.push({ key: 'expense', render: (host) => renderSidebarExpenseWidget(host, app) });
+	}
+	// Multiple album widgets: one card per albums[] entry, keyed album-<id>.
+	// renderSidebarAlbumWidget reads the legacy flat fields, so each entry
+	// renders through a per-album settings shim (spread — never mutated).
+	for (const cfg of settings.albums ?? []) {
+		const ref = cfg;
+		if (memberKeys && !memberKeys.has(`album-${ref.id}`)) continue;
+		enabled.push({
+			key: `album-${ref.id}`,
+			render: (host) => renderSidebarAlbumWidget(host, {
+				...settings,
+				widgetAlbumFolder: ref.folder,
+				widgetAlbumIntervalSec: ref.intervalSec,
+				widgetAlbumRecursive: ref.recursive,
+				widgetAlbumRatio: ref.ratio,
+				widgetAlbumTransition: ref.transition,
+			}, app),
+		});
+	}
+	// Anniversary widgets: one card per anniversaries[] entry, keyed
+	// anniversary-<id> (the countdown multi-instance pattern). The master
+	// toggle only rules in global mode; membership mode decides per instance.
+	if (memberKeys || settings.anniversaryEnabled) {
+		for (const cfg of settings.anniversaries ?? []) {
+			const ref = cfg;
+			if (memberKeys && !memberKeys.has(`anniversary-${ref.id}`)) continue;
+			enabled.push({ key: `anniversary-${ref.id}`, render: (host) => renderSidebarAnniversaryWidget(host, ref, app, updated => {
+			const plugin = getWidgetPlugin(app);
+			if (!plugin) return;
+			plugin.settings = {
+				...plugin.settings,
+				anniversaries: (plugin.settings.anniversaries ?? []).map(a => a.id === updated.id ? updated : a),
+			};
+			void plugin.saveSettings();
+			plugin.refreshAllDashboards();
+		}) });
+		}
+	}
+	if (member('music', settings.widgetMusicEnabled) && !Platform.isPhone) {
+		enabled.push({ key: 'music', render: (host) => renderSidebarMusicWidget(host, settings.musicBackground, app, bg => saveSingletonBackground(app, 'musicBackground', bg)) });
+	}
+	// Countdown: same master-toggle vs per-instance-membership split.
+	if (memberKeys || settings.countdownEnabled) {
+		for (const cd of settings.countdowns ?? []) {
+			const cdRef = cd;
+			if (memberKeys && !memberKeys.has(`countdown-${cd.id}`)) continue;
+			enabled.push({ key: `countdown-${cd.id}`, render: (host) => renderSidebarCountdown(host, cdRef, app) });
+		}
+	}
+	return enabled;
+}
+
+/** Sort entries into display order. Legacy: an order saved before quick
+ *  buttons were a widget lacks the 'quickActions' key — it keeps its
+ *  historical first spot until the user drags it elsewhere. */
+export function sortWidgetEntries(entries: WidgetEntry[], settings: DashboardSettings): WidgetEntry[] {
+	const order = settings.widgetOrder?.length ? settings.widgetOrder : DEFAULT_WIDGET_ORDER;
+	return sortByOrder(entries, order);
+}
+
+/** Mount one widget card into `host` and stamp it (data-widget-key, the
+ *  quick-actions widget classes/background gear, the album instance id).
+ *  Returns the card element, or null when the builder attached nothing
+ *  (defensive — every builder appends exactly one child). */
+export function mountWidgetCard(entry: WidgetEntry, host: HTMLElement, app: App, settings: DashboardSettings): HTMLElement | null {
+	const childCount = host.children.length;
+	entry.render(host);
+	const el = host.children[childCount] as HTMLElement | undefined;
+	if (!el) return null;
+	const key = entry.key;
+	el.dataset.widgetKey = key;
+	// The quick-actions section carries its own section classes; give it
+	// the widget class too so it joins the drag-to-reorder system.
+	if (key === 'quickActions') {
+		el.addClass('dashboard-sidebar-widget');
+		// Card background + config gear INSIDE the header's button group
+		// (left of palette/add) — a corner button would overlap them.
+		applyWidgetBackground(el, settings.quickActionsBackground, app, { skipFrame: true });
+		const btnGroup = el.querySelector<HTMLElement>('.dashboard-qa-btn-group');
+		if (btnGroup) {
+			const gear = appendInlineBackgroundButton(btnGroup, app, settings.quickActionsBackground,
+				bg => saveSingletonBackground(app, 'quickActionsBackground', bg));
+			btnGroup.insertBefore(gear, btnGroup.firstChild);
+		}
+	}
+	// Album cards carry their config id (the multi-instance refresh
+	// matches on it).
+	if (key.startsWith('album-')) {
+		const cfg = (settings.albums ?? []).find(a => String(a.id) === key.slice('album-'.length));
+		if (cfg) el.dataset.albumId = String(cfg.id);
+	}
+	return el;
+}
 
 function sortByOrder(items: WidgetEntry[], order: string[]): WidgetEntry[] {
 	const orderMap = new Map(order.map((k, i) => [k, i]));
@@ -704,7 +772,15 @@ function renderSidebarWeather(container: HTMLElement, settings: import('./types'
 function renderSidebarWeatherInto(widget: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
 	const cityName = settings.widgetWeatherCity || '';
 
-	widget.createDiv({ cls: 'dashboard-sidebar-weather-loading', text: '...' });
+	// All weather content renders into a dedicated BODY div; async rebuilds
+	// empty the body, never the widget itself — the immersive board mounts
+	// its resize strips / delete button as siblings inside the card, and
+	// `widget.empty()` wiped them the moment data arrived (weather card was
+	// the one tile that "cannot be resized").
+	const bodyOf = (host: HTMLElement): HTMLElement =>
+		host.querySelector<HTMLElement>('.dashboard-sidebar-weather-body')
+		?? host.createDiv({ cls: 'dashboard-sidebar-weather-body' });
+	bodyOf(widget).createDiv({ cls: 'dashboard-sidebar-weather-loading', text: '...' });
 
 	const config = {
 		latitude: settings.widgetWeatherLat || 31.23,
@@ -714,17 +790,18 @@ function renderSidebarWeatherInto(widget: HTMLElement, settings: import('./types
 
 	const cached = getCachedWeather(config);
 	if (cached) {
-		widget.empty();
-		renderSidebarWeatherContent(widget, cached, config.cityName);
+		bodyOf(widget).empty();
+		renderSidebarWeatherContent(bodyOf(widget), cached, config.cityName);
 		return;
 	}
 
 	fetchWeather(config).then(data => {
-		widget.empty();
-		renderSidebarWeatherContent(widget, data, config.cityName);
+		bodyOf(widget).empty();
+		renderSidebarWeatherContent(bodyOf(widget), data, config.cityName);
 	}).catch(() => {
-		widget.empty();
-		widget.createDiv({ cls: 'dashboard-sidebar-weather-error', text: '--' });
+		const body = bodyOf(widget);
+		body.empty();
+		body.createDiv({ cls: 'dashboard-sidebar-weather-error', text: '--' });
 	});
 }
 
@@ -734,7 +811,8 @@ function renderSidebarWeatherInto(widget: HTMLElement, settings: import('./types
 export function refreshSidebarWeatherWidget(root: HTMLElement, settings: import('./types').DashboardSettings, app: App): void {
 	const el = root.querySelector<HTMLElement>('.dashboard-sidebar-weather');
 	if (!el) return;
-	el.empty();
+	const body = el.querySelector<HTMLElement>('.dashboard-sidebar-weather-body');
+	body?.empty();
 	renderSidebarWeatherInto(el, settings, app);
 }
 
@@ -1865,7 +1943,11 @@ export function renderDashboard(
 	}
 
 	const addColBtn = container.createDiv({ cls: 'dashboard-add-section' });
-	addColBtn.setText(t('renderer.addSection'));
+	// Immersive boards have no "sections" — every tile is a card, so the
+	// ghost tile speaks the card language too.
+	addColBtn.setText(settings && resolveEffectiveLayout(settings, data) === 'immersive'
+		? t('renderer.addCard')
+		: t('renderer.addSection'));
 	addColBtn.setAttribute('role', 'button');
 	addColBtn.addEventListener('click', () => {
 		callbacks.onRequestAddSection();
@@ -1948,8 +2030,11 @@ export function refreshScanningSections(
 		scanningSectionSignatures.set(key, signature);
 		const newEl = renderSection(column, callbacks, app, data, settings);
 		// Carry the old row's scroll positions over the swap (file lists,
-		// library kanban) so a vault-event refresh doesn't yank the viewport.
+		// library kanban) so a vault-event refresh doesn't yank the viewport;
+		// immersive boards additionally keep the tile's grid identity (see
+		// carryImmersivePlacement — auto placement would teleport the tile).
 		const scrollStates = captureScrollStates(oldEl);
+		carryImmersivePlacement(oldEl as HTMLElement, newEl);
 		oldEl.replaceWith(newEl);
 		restoreScrollStates(newEl, scrollStates);
 		refreshed++;
@@ -1982,6 +2067,7 @@ export function refreshMediaSections(
 		const scrollStates = captureScrollStates(matched);
 		destroyMediaSection(matched);
 		const newEl = renderSection(column, callbacks, app, data, settings);
+		carryImmersivePlacement(matched as HTMLElement, newEl);
 		matched.replaceWith(newEl);
 		restoreScrollStates(newEl, scrollStates);
 		refreshed++;
@@ -2007,10 +2093,10 @@ function saveCollapsedSections(app: App, collapsed: Set<string>): void {
 
 function attachSectionResizeHandle(el: HTMLElement, column: DashboardColumn, callbacks: RenderCallbacks): void {
 	if (Platform.isMobile) return;
-	// Memo and web sections are driven by a fixed CSS height, so the drag must
+	// Web sections are driven by a fixed CSS height, so the drag must
 	// write inline height as well; other types are content-sized rows where
 	// max-height can only clamp (shrink), never grow.
-	const isFixedHeight = getSectionType(column) === 'memo' || getSectionType(column) === 'web';
+	const isFixedHeight = getSectionType(column) === 'web';
 	const handle = el.createDiv({ cls: 'dashboard-section-resize-handle' });
 	handle.addEventListener('pointerdown', (e) => {
 		if (!el.parentElement) return;
@@ -2146,34 +2232,46 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	const sectionType = getSectionType(column);
 	el.dataset.sectionType = sectionType;
 
+	// Immersive boards have no collapsed sections: the toggle is hidden and
+	// every tile renders expanded (a saved collapsed state from another
+	// layout must not strand a tile).
+	const immersive = !!settings && resolveEffectiveLayout(settings, data) === 'immersive';
 	const collapsed = getCollapsedSections(app);
-	if (collapsed.has(column.name)) {
+	if (!immersive && collapsed.has(column.name)) {
 		el.addClass('dashboard-section-row--collapsed');
 	}
+
+	// The immersive grid owns all geometry: the tile's span sets width/height
+	// (CSS makes the row fill the tile and scroll inside), so the dragged
+	// height, the half-pairing and their handles are all suspended there.
+	// `half`/`width` stay untouched in the file and come back on layout
+	// switch-back.
+	// (immersive computed above, before the collapse check)
 
 	// Apply user-dragged height (desktop). Overrides the per-type max-height.
 	// Desktop-only: the resize handle that sets it never runs on mobile, and a px
 	// value tuned on a big screen would clamp phone rows far below the mobile
 	// CSS sizing (50vh-family), shrinking card bodies to a sliver.
-	if (!Platform.isMobile && typeof column.height === 'number' && column.height > 0) {
+	if (!immersive && !Platform.isMobile && typeof column.height === 'number' && column.height > 0) {
 		el.style.maxHeight = `${column.height}px`;
-		// Memo (aligned with Quick Links) and web (the frame fills the row)
-		// sections have a fixed CSS height, so max-height alone can only shrink
-		// them. Write the inline height too so the drag-resized value can also
-		// grow the section past the default.
-		if (sectionType === 'memo' || sectionType === 'web') {
+		// Web (the frame fills the row) sections have a fixed CSS height, so
+		// max-height alone can only shrink them. Write the inline height too so
+		// the drag-resized value can also grow the section past the default.
+		if (sectionType === 'web') {
 			el.style.height = `${column.height}px`;
 		}
 	}
 
 	// Side-by-side pairing (desktop only): mobile keeps full-width stacking —
 	// the class never renders there, so the mobile CSS sizing is untouched.
-	if (!Platform.isMobile && column.half) {
+	if (!immersive && !Platform.isMobile && column.half) {
 		el.addClass('dashboard-section-row--half');
 		applyPairWidth(el, column, data, callbacks);
 	}
 
-	attachSectionResizeHandle(el, column, callbacks);
+	if (!immersive) {
+		attachSectionResizeHandle(el, column, callbacks);
+	}
 
 	const header = el.createDiv({ cls: 'dashboard-section-header' });
 
@@ -2249,18 +2347,17 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
 
 	// Sticky ("便利贴") sections mix memo and todo cards: they get the one-click
-	// archive button like todo sections, but NOT the task-template button — cards
-	// are always created through the type chooser (onCardAdd -> StickyCardTypeModal).
-	if (sectionType === 'todo' || sectionType === 'sticky') {
+	// archive button and the task-template button (a template creates a todo
+	// card seeded with its tasks); plain cards come from the type chooser
+	// (onCardAdd -> StickyCardTypeModal).
+	if (sectionType === 'sticky') {
 		const archiveBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('renderer.archiveTasks') },
 		});
 		setIcon(archiveBtn, 'archive');
 		archiveBtn.addEventListener('click', () => callbacks.onArchiveTasks(column.name));
-	}
 
-	if (sectionType === 'todo') {
 		const templateBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn',
 			attr: { 'aria-label': t('template.addFromTemplate') },
@@ -2590,7 +2687,11 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	return el;
 }
 
-function renderCard(card: DashboardCard, columnName: string, sectionType: string, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings, sectionShowCover = true): HTMLElement {
+/** Render one dashboard card (memo note, todo list, project, ...). Used by
+ *  the section pipelines AND by the immersive board, which dissolves sticky
+ *  sections into standalone card tiles (a memo card / todo card are card
+ *  TYPES there — no section container). */
+export function renderCard(card: DashboardCard, columnName: string, sectionType: string, callbacks: RenderCallbacks, app: App, data?: DashboardData, settings?: DashboardSettings, sectionShowCover = true): HTMLElement {
 	const el = createDiv();
 	el.addClass('dashboard-card', `dashboard-card--${card.type}`);
 	el.dataset.cardId = card.id;
@@ -2604,7 +2705,7 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 	}
 
 	const isMemo = isMemoCard(sectionType, card);
-	const isTask = !isMemo && (card.type === 'task' || sectionType === 'todo');
+	const isTask = !isMemo && card.type === 'task';
 	const isWeather = card.type === 'weather';
 	const isTracker = card.type === 'tracker';
 	const isWidget = isWeather || isTracker;
@@ -2812,6 +2913,20 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 		});
 	}
 
+	// One-click pin-to-top: moves the card to the first slot of its section
+	// (sticky sections have no sort mode — array order is the display order).
+	if (sectionType === 'sticky') {
+		const pinBtn = actions.createEl('button', {
+			cls: 'dashboard-card-btn',
+			attr: { 'aria-label': t('renderer.pinToTop') },
+		});
+		setIcon(pinBtn, 'pin');
+		pinBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onCardPinTop(card.id, columnName);
+		});
+	}
+
 	const deleteBtn = actions.createEl('button', {
 		cls: 'dashboard-card-btn dashboard-card-btn--danger',
 		attr: { 'aria-label': t('renderer.deleteCard') },
@@ -2914,12 +3029,11 @@ function renderCard(card: DashboardCard, columnName: string, sectionType: string
 }
 
 /**
- * Whether a card renders as a memo card. In memo sections every card does;
- * in sticky ("便利贴") sections only the generic/note cards do — task cards
- * stay todo cards (checked before memo via `card.type === 'task'`).
+ * Whether a card renders as a memo card. In sticky ("便利贴") sections the
+ * generic/note cards do — task cards stay todo cards (checked before memo
+ * via `card.type === 'task'`).
  */
 function isMemoCard(sectionType: string, card: DashboardCard): boolean {
-	if (sectionType === 'memo') return true;
 	return sectionType === 'sticky' && (card.type === 'generic' || card.type === 'note');
 }
 
@@ -2935,7 +3049,7 @@ function renderCardBody(container: HTMLElement, card: DashboardCard, columnName:
 	}
 
 	const isMemo = isMemoCard(sectionType, card);
-	const isTaskCard = !isMemo && (card.type === 'task' || sectionType === 'todo');
+	const isTaskCard = !isMemo && card.type === 'task';
 
 	if (isTaskCard) {
 		renderTaskBody(container, card, callbacks, app);
@@ -3815,11 +3929,12 @@ function wireMemoMarkdownLinks(container: HTMLElement, app: App): void {
 	}
 
 function getSectionType(column: DashboardColumn): string {
+	// Retired memo/todo types normalize to sticky wherever they come from
+	// (parse migrates; this also covers hand-built legacy columns).
+	if (column.sectionType === 'memo' || column.sectionType === 'todo') return 'sticky';
 	if (column.sectionType) return column.sectionType;
 	const lower = column.name.toLowerCase();
-	if (lower === 'memo') return 'memo';
-	if (lower === 'todo') return 'todo';
-	if (lower === 'sticky') return 'sticky';
+	if (lower === 'memo' || lower === 'todo' || lower === 'sticky') return 'sticky';
 	if (lower === 'projects') return 'projects';
 	if (lower === 'dashboard') return 'dashboard';
 	if (lower === 'library') return 'library';
@@ -3836,10 +3951,12 @@ function getSectionType(column: DashboardColumn): string {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);
 		if ([...types].every(t => dashboardTypes.has(t)) && types.size > 0) return 'dashboard';
-		if (types.has('task') && types.size === 1) return 'todo';
-		if (types.has('task') && !types.has('project')) return 'todo';
+		// Mixed/standalone memo & todo card sets both map to sticky, matching
+		// the parse-time migration of the retired memo/todo section types.
+		if (types.has('task') && types.size === 1) return 'sticky';
+		if (types.has('task') && !types.has('project')) return 'sticky';
 		if (types.has('project') && types.size === 1) return 'projects';
-		if (types.has('generic') && !types.has('project') && !types.has('task')) return 'memo';
+		if (types.has('generic') && !types.has('project') && !types.has('task')) return 'sticky';
 	}
 	return 'projects';
 }
