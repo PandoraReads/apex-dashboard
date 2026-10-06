@@ -227,6 +227,15 @@ export interface DashboardSettings {
 	pinnedNotes: PinnedNote[];
 	/** Quick-command shortcuts rendered as one-click execute buttons. */
 	quickCommands: QuickCommand[];
+	/** User-configured skills sent to a supported chat agent. */
+	skillShortcuts: SkillShortcut[];
+	/** Skill names remembered from saved configs, per agent — feeds the
+	 *  skill-name picker dropdowns (see skill-registry). */
+	knownSkills?: Partial<Record<AgentTarget, string[]>>;
+	/** Desktop-only extra folders (CSV, "~" allowed) scanned for skill names
+	 *  shown in the pickers. Empty string disables the scan; nothing outside
+	 *  the vault is read unless the user lists a path here. */
+	skillSourceFolders?: string;
 	/** Show a "Today" button that creates/opens the core Daily Notes note. */
 	quickDailyEnabled: boolean;
 	/** Last plugin version that showed the Quick Notes first-run guide. Empty = never shown. */
@@ -361,6 +370,18 @@ export interface QuickCommand {
 	commandId: string;
 }
 
+/** A Common Actions button that dispatches a skill invocation to an agent. */
+export interface SkillShortcut {
+	id: string;
+	label: string;
+	icon: string;
+	target: AgentTarget;
+	skillName: string;
+	inputPlaceholder: string;
+	/** Supports {skill} and {input}. Empty uses the default template. */
+	promptTemplate: string;
+}
+
 export const DEFAULT_SETTINGS: DashboardSettings = {
 	dashboardFile: 'dashboard',
 	workspaceFiles: ['dashboard'],
@@ -439,6 +460,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickCapturePosition: 'start',
 	pinnedNotes: [] as PinnedNote[],
 	quickCommands: [] as QuickCommand[],
+	skillShortcuts: [] as SkillShortcut[],
 	quickDailyEnabled: false,
 	quickNoteGuideShownVersion: '',
 	dataviewGuideShownVersion: '',
@@ -964,6 +986,99 @@ export interface RssConfig {
 	pageSize?: number;
 }
 
+/** Agent targets a skill button can dispatch to. */
+export type AgentTarget = 'claudian' | 'copilot' | 'codex';
+
+/** One stage of a pipeline board. The stage's identity for grouping is the
+ * frontmatter value stored in the section's status field. */
+export interface PipelineStage {
+	/** Frontmatter value (English slug; compared case-insensitively, trimmed). */
+	value: string;
+	/** Display label shown as the column title. */
+	label: string;
+	/** Accent color (hex). */
+	color: string;
+	/** Optional archive subfolder under the section root: a card dropped into
+	 * this stage (by drag or by an agent skill) also moves the file here. */
+	folder?: string;
+	/** Manual column width in px (200–460, drag the column's right edge).
+	 *  Undefined = the CSS default width. */
+	width?: number;
+}
+
+/** A skill button on the pipeline board. It renders a prompt (template vars
+ * over the card/stage context) and hands it to the configured agent adapter.
+ * The Codex Desktop adapter opens a prefilled draft that the user submits. */
+export interface PipelineSkill {
+	id: string;
+	label: string;
+	/** Lucide icon name. */
+	icon: string;
+	/** Agent adapter that receives the prompt. */
+	agent: AgentTarget;
+	/** Stage the button belongs to (stage.value). */
+	stage: string;
+	/** 'stage' = column-header button (acts on the column, no card context);
+	 * 'card' = per-card button (the card's file provides context). */
+	scope: 'stage' | 'card';
+	/** Agent-side skill name. Empty = free-form prompt. */
+	skillName: string;
+	/** Prompt template. Supports {skill} {path} {title} {stage} {folder}
+	 * {input}. Empty uses the target agent's skill invocation plus input. */
+	promptTemplate: string;
+	/** Placeholder for the preview modal's supplemental input. */
+	inputPlaceholder?: string;
+}
+
+/** Pipeline section config (sectionType 'pipeline'): a kanban board whose
+ * columns are stages of a content workflow. Items are ordinary vault notes
+ * grouped by a frontmatter status field — agents and drag-drops advance items
+ * by writing that field, and the board reflects it on the next vault refresh. */
+export interface PipelineConfig {
+	/** Root folder scanned for items. Required: an unset root renders the
+	 *  unconfigured state instead of scanning the vault. */
+	rootFolder: string;
+	/** Frontmatter field holding the stage value (default '状态'). */
+	statusField: string;
+	stages: PipelineStage[];
+	skills: PipelineSkill[];
+	/** Folders (under or beside the root) whose notes never appear on the
+	 *  board — template stashes, archives. */
+	excludeFolders?: string[];
+	/** Frontmatter keys rendered as chips on cards. Empty = the default
+	 *  platform + tags chips. */
+	cardProperties?: string[];
+	/** Frontmatter keys the left filter rail offers as dimensions (tabs).
+	 *  Empty = the built-in 平台/platform + 项目/project pair. Names from the
+	 *  built-in families keep their alias merging (see pipeline-model). */
+	filterFields?: string[];
+	/** Left-rail value filter: dimension (one of the configured filterFields)
+	 *  + selected value. Absent value or absent filter = show everything.
+	 *  Persisted so the board reopens as it was left (and the scanning
+	 *  section signature sees filter changes). */
+	filter?: { dim: string; value?: string };
+	/** Within-stage card order: 'ctime' = newest-created first, 'platform' =
+	 *  grouped by the platform field then newest-touched; undefined = the
+	 *  default newest-touched (mtime) order. */
+	sortBy?: 'ctime' | 'platform';
+	/** Board skin. 'theme' (default) derives every surface from the plugin
+	 *  theme tokens; 'trello' (shown as 马卡龙) is the fixed pastel skin —
+	 *  stage-tinted columns, white cards, its own ink; 'solid' is the avocado duotone skin; 'blush' is the four-color rose set
+	 *  (columns #F7D6D0, cards #FFF5F5, gradients #E2B4BD→#4A4A4A) — both fixed — every column ONE color, cards a second color, buttons and
+	 *  property chips in a single gradient of the theme hue. Both fixed
+	 *  skins ignore the plugin theme (light/dark follows Obsidian only). */
+	boardStyle?: 'theme' | 'trello' | 'solid' | 'blush';
+	/** Vault folder the card-level archive button moves notes into (empty =
+	 *  the button prompts to configure). Archiving also stamps the status
+	 *  field with `archived`, which matches no stage — the note leaves the
+	 *  board wherever the folder sits. */
+	archiveFolder?: string;
+	/** Template note seeded on "new item" (vault path; empty = bare note). */
+	templatePath?: string;
+	/** Skip the preview modal and send prompts immediately. */
+	directSend?: boolean;
+}
+
 export interface DashboardColumn {
 	name: string;
 	color: string;
@@ -980,6 +1095,8 @@ export interface DashboardColumn {
 	webConfig?: WebEmbedConfig;
 	/** RSS section config (sectionType 'rss'). */
 	rssConfig?: RssConfig;
+	/** Pipeline section config (sectionType 'pipeline'). */
+	pipelineConfig?: PipelineConfig;
 	/** Notes (projects) sections: render the cover strip on cards. Default
 	 *  true; false reproduces the retired standalone 'notes' (无封面) section
 	 *  type, which migrates to projects + showCover:false at parse time.
@@ -1081,6 +1198,7 @@ export interface RenderCallbacks {
 	onQuickNoteCapture(text: string): void;
 	onOpenPinnedNote(note: PinnedNote): void;
 	onQuickCommand(cmd: QuickCommand): void;
+	onSkillShortcut(shortcut: SkillShortcut): void;
 	onQuickNoteDaily(): void;
 	onQuickNoteConfig(): void;
 }

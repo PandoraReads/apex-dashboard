@@ -1,6 +1,6 @@
 import { memoCardText } from './card-move';
 import { extractCardParts } from './parser';
-import { App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
+import { Menu, App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
@@ -12,6 +12,7 @@ import { renderTickTickSection } from './ticktick-section';
 import { renderDataviewSection, setDataviewApp } from './dataview-section';
 import { renderWebSection } from './web-section';
 import { renderRssSection } from './rss-section';
+import { renderPipelineSection } from './pipeline-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
@@ -1955,7 +1956,7 @@ export function renderDashboard(
 	});
 }
 
-const SCANNING_SECTION_TYPES = new Set(['library', 'folder']);
+const SCANNING_SECTION_TYPES = new Set(['library', 'folder', 'pipeline']);
 const MEDIA_SECTION_TYPES = new Set(['images', 'videos']);
 
 /** Render-input signatures per scanning section, keyed
@@ -1982,19 +1983,31 @@ function scanningSectionSignature(column: DashboardColumn, app: App): string {
 	const folders = (cfg?.folders ?? [])
 		.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
 		.filter(f => f.length > 0);
-	const excluded = normalizeExcludeFolders(cfg?.excludeFolders ?? []);
+	// Pipeline sections scope to their root folder (empty = whole vault) and
+	// skip their excluded folders in both the scan and this signature.
+	const pipeCfg = column.pipelineConfig ?? null;
+	const pipelineRoot = pipeCfg
+		? pipeCfg.rootFolder.trim().replace(/^\/+|\/+$/g, '').toLowerCase()
+		: null;
+	const excluded = normalizeExcludeFolders([
+		...(cfg?.excludeFolders ?? []),
+		...(pipeCfg?.excludeFolders ?? []),
+	]);
 	const parts: string[] = [];
 	for (const file of app.vault.getMarkdownFiles()) {
 		if (folders.length > 0) {
 			const lp = file.path.toLowerCase();
 			if (!folders.some(f => lp.startsWith(f.toLowerCase() + '/'))) continue;
 		}
+		if (pipelineRoot !== null && pipelineRoot.length > 0) {
+			if (!file.path.toLowerCase().startsWith(pipelineRoot + '/')) continue;
+		}
 		if (isUnderExcludedFolder(file.path, excluded)) continue;
 		parts.push(`${file.path}|${file.stat.mtime}|${file.stat.ctime}`);
 	}
 	// Vault iteration order is not contractual; sort for a stable signature.
 	parts.sort();
-	return JSON.stringify([column.name, cfg ?? null, parts]);
+	return JSON.stringify([column.name, cfg ?? null, column.pipelineConfig ?? null, parts]);
 }
 
 /**
@@ -2674,6 +2687,77 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		});
 
 		renderRssSection(el, column, app, (fn) => { reload = fn; });
+		return el;
+	}
+
+	// Pipeline section: agent-driven workflow board rendered by
+	// pipeline-section (stage columns, drag-to-advance, skill dispatch).
+	if (sectionType === 'pipeline') {
+		// Phones and tablets cannot host the agent skills this section
+		// dispatches — hide it entirely there (desktop only feature).
+		if (Platform.isMobile) {
+			el.addClass('dashboard-section-row--pipeline-off-mobile');
+			return el;
+		}
+		// Within-stage card order (native Menu; repo convention: pick →
+		// persist + in-place refresh through the board event).
+		const sortBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-pipeline-sort-btn',
+			attr: { 'aria-label': t('pipeline.sortBy') },
+		});
+		setIcon(sortBtn, 'arrow-down-up');
+		sortBtn.title = t('pipeline.sortBy');
+		// One fixed icon; the chosen mode appears as text beside it.
+		const sortMode = column.pipelineConfig?.sortBy ?? 'mtime';
+		if (sortMode !== 'mtime') {
+			const labelKey = sortMode === 'ctime' ? 'pipeline.sortCtime' : 'pipeline.sortPlatform';
+			sortBtn.createSpan({ cls: 'dashboard-pipeline-sort-label', text: t(labelKey) });
+		}
+		sortBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			const menu = new Menu();
+			const options: Array<{ value: 'mtime' | 'ctime' | 'platform'; label: string }> = [
+				{ value: 'mtime', label: t('pipeline.sortMtime') },
+				{ value: 'ctime', label: t('pipeline.sortCtime') },
+				{ value: 'platform', label: t('pipeline.sortPlatform') },
+			];
+			const current = column.pipelineConfig?.sortBy ?? 'mtime';
+			for (const opt of options) {
+				menu.addItem(item => {
+					item.setTitle(opt.label).onClick(() => {
+						if (opt.value === current) return;
+						sortBtn.dispatchEvent(new CustomEvent('dashboard-pipeline-sort', {
+							detail: { columnName: column.name, sortBy: opt.value === 'mtime' ? undefined : opt.value },
+							bubbles: true,
+						}));
+					});
+					if (opt.value === current) item.setIcon('check');
+				});
+			}
+			menu.showAtMouseEvent(e);
+		});
+
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('pipeline.cfgTitle') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
+		});
+
+		renderPipelineSection(el, column, app, callbacks, activeHoverParent);
 		return el;
 	}
 

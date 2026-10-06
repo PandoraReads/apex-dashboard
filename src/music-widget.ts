@@ -4,23 +4,42 @@ import { t } from './i18n';
 import { getMusicService, type MusicPlayerState } from './music-service';
 import { fetchLyric, isPlayableByFee, searchMusic, type LyricLine } from './netease-client';
 import type { MusicTrack } from './types';
+import { applyModalTheme } from './modal-theme';
 
 /**
  * Sidebar music player widget. Pure view: every mutation goes through
  * MusicService, whose subscribers drive refreshMusicWidget. The element refs
  * live in a WeakMap so a refresh only touches derived parts — the search box
  * keeps focus across the 250ms timeupdate repaints.
+ *
+ * Panels (search / playlist) are FLOATING: a body-level popover anchored
+ * under the widget card, styled as an extension of it. Never an in-card row —
+ * an immersive tile is a FIXED-height box with overflow hidden (a long list
+ * past the cap is simply clipped), and in the side rails a growing list
+ * stretches the whole rail. Floating, the list overlays neighbors and clamps
+ * to the viewport instead.
  */
 
 type PanelMode = 'none' | 'playlist' | 'search';
 
+/** Live floating panel (body-level popover) + its follow/dismiss wiring. */
+interface MusicPanel {
+	root: HTMLElement;
+	body: HTMLElement;
+	raf: number;
+	onKeydown: (e: KeyboardEvent) => void;
+}
+
 interface MusicWidgetRefs {
+	host: HTMLElement;
 	now: HTMLElement;
 	lyric: HTMLElement;
 	progress: HTMLElement;
 	controls: HTMLElement;
-	panel: HTMLElement;
+	panel: MusicPanel | null;
 	panelMode: PanelMode;
+	searchBtn: HTMLElement;
+	listBtn: HTMLElement;
 	importInput: HTMLInputElement | null;
 	importing: boolean;
 	searchResults: MusicTrack[];
@@ -61,12 +80,15 @@ export function renderSidebarMusicWidget(container: HTMLElement, bg?: import('./
 	});
 
 	const refs: MusicWidgetRefs = {
+		host: widget,
 		now: widget.createDiv({ cls: 'dashboard-sidebar-music-now' }),
 		lyric: widget.createDiv({ cls: 'dashboard-sidebar-music-lyric' }),
 		progress: widget.createDiv({ cls: 'dashboard-sidebar-music-progress' }),
 		controls: widget.createDiv({ cls: 'dashboard-sidebar-music-controls' }),
-		panel: widget.createDiv({ cls: 'dashboard-sidebar-music-panel' }),
+		panel: null,
 		panelMode: 'none',
+		searchBtn: widget.createDiv({ cls: 'dashboard-sidebar-music-icon-btn' }),
+		listBtn: widget.createDiv({ cls: 'dashboard-sidebar-music-icon-btn' }),
 		importInput: null,
 		importing: false,
 		searchResults: [],
@@ -173,7 +195,7 @@ function buildHeader(widget: HTMLElement, refs: MusicWidgetRefs): HTMLElement {
 	// there is no static "Music" label — the header stays quiet when idle.
 	top.appendChild(refs.lyric);
 
-	const searchBtn = top.createDiv({ cls: 'dashboard-sidebar-music-icon-btn' });
+	const searchBtn = refs.searchBtn;
 	searchBtn.setAttribute('aria-label', t('music.search'));
 	setIcon(searchBtn, 'search');
 	searchBtn.addEventListener('click', (e) => {
@@ -181,13 +203,15 @@ function buildHeader(widget: HTMLElement, refs: MusicWidgetRefs): HTMLElement {
 		togglePanel(refs, 'search');
 	});
 
-	const listBtn = top.createDiv({ cls: 'dashboard-sidebar-music-icon-btn' });
+	const listBtn = refs.listBtn;
 	listBtn.setAttribute('aria-label', t('music.playlist'));
 	setIcon(listBtn, 'list');
 	listBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
 		togglePanel(refs, 'playlist');
 	});
+	top.appendChild(searchBtn);
+	top.appendChild(listBtn);
 	return top;
 }
 
@@ -214,9 +238,138 @@ function togglePanel(refs: MusicWidgetRefs, mode: PanelMode): void {
 }
 
 function renderPanel(refs: MusicWidgetRefs): void {
-	refs.panel.empty();
-	if (refs.panelMode === 'playlist') renderPlaylistRows(refs, getMusicService()?.getState() ?? null);
-	else if (refs.panelMode === 'search') renderSearchPanel(refs);
+	closePanel(refs);
+	if (refs.panelMode === 'playlist') {
+		openPanel(refs);
+		renderPlaylistRows(refs, getMusicService()?.getState() ?? null);
+	} else if (refs.panelMode === 'search') {
+		openPanel(refs);
+		renderSearchPanel(refs);
+	}
+	syncPanelButtons(refs);
+}
+
+/** Reflect the open panel on the header buttons (active chip on the toggle). */
+function syncPanelButtons(refs: MusicWidgetRefs): void {
+	refs.searchBtn?.toggleClass('dashboard-sidebar-music-icon-btn--active', refs.panelMode === 'search');
+	refs.listBtn?.toggleClass('dashboard-sidebar-music-icon-btn--active', refs.panelMode === 'playlist');
+}
+
+// ===== Floating panel shell =====
+
+/** Seam between the card and its floating extension (px). */
+const PANEL_SEAM_PX = 6;
+/** Comfortable panel cap; the viewport clamp can only shrink it (px). */
+const PANEL_MAX_PX = 440;
+/** Below-space under which the panel flips above the card (px). */
+const PANEL_FLIP_BELOW_PX = 140;
+/** Smallest usable panel (input + import row + a peek of results). The
+ *  clamp may shrink to this even below it — staying on screen beats a
+ *  comfortable height. */
+const PANEL_MIN_PX = 64;
+
+/** Mount the floating panel under the card and start following it. The
+ *  popover lives on <body> (no ancestor overflow can clip it), mirrors the
+ *  active dashboard's --db-* tokens (it sits outside .apex-dashboard-root,
+ *  where the theme vars don't cascade), and re-anchors every frame so page
+ *  scroll, tile refits or drags keep it glued to the card. Closes itself
+ *  when the card leaves the DOM (a re-render replaced it).
+ *
+ *  Dismissal is PANEL-style, not popover-style: the toggle button, Escape,
+ *  the host leaving the DOM, or switching to the other panel. Clicking
+ *  elsewhere deliberately does NOT close — the dashboard is a busy surface
+ *  and the old in-card panel never vanished on outside clicks either; a
+ *  stray click mid-search (or on the board) eating the results read as
+ *  "search returns nothing". */
+function openPanel(refs: MusicWidgetRefs): void {
+	const root = activeDocument.body.createDiv({ cls: 'dashboard-sidebar-music-popover' });
+	applyModalTheme(root);
+	const body = root.createDiv({ cls: 'dashboard-sidebar-music-popover-body' });
+
+	const position = (): boolean => {
+		const panel = refs.panel;
+		if (!panel) return false;
+		if (!refs.host.isConnected) return false; // host swapped out → caller closes
+		const view = activeDocument.defaultView;
+		if (!view) return true; // no window (mini-dom): keep content, skip geometry
+		const rect = refs.host.getBoundingClientRect();
+		const vw = view.innerWidth;
+		const vh = view.innerHeight;
+		if (!vw || !vh) return true; // no layout engine (mini-dom): keep content, skip geometry
+		const width = `${Math.round(rect.width)}px`;
+		const left = `${Math.max(8, Math.min(rect.left, vw - rect.width - 8))}px`;
+		const below = vh - rect.bottom - PANEL_SEAM_PX - 8;
+		const above = rect.top - PANEL_SEAM_PX - 8;
+		// Prefer hanging BELOW (the "extension of the card" read); flip above
+		// only when below is starved and above clearly offers more room. The
+		// height clamp follows the actual space (never the cozy floors) so the
+		// panel cannot cross the viewport edge; the results list gives way
+		// (flex shrink) before the input and import row do.
+		const flip = below < PANEL_FLIP_BELOW_PX && above > below;
+		const avail = Math.max(PANEL_MIN_PX, Math.min(PANEL_MAX_PX, flip ? above : below));
+		const maxHeight = `${avail}px`;
+		if (flip) {
+			const bottom = `${Math.round(vh - rect.top + PANEL_SEAM_PX)}px`;
+			setStyles(root, { width, left, maxHeight, bottom, top: '' });
+		} else {
+			const top = `${Math.round(rect.bottom + PANEL_SEAM_PX)}px`;
+			setStyles(root, { width, left, maxHeight, top, bottom: '' });
+		}
+		return true;
+	};
+
+	const closeFromDoc = (): void => {
+		refs.panelMode = 'none';
+		closePanel(refs);
+		syncPanelButtons(refs);
+	};
+	const onKeydown = (e: KeyboardEvent): void => {
+		if (e.key === 'Escape') closeFromDoc();
+	};
+	activeDocument.addEventListener('keydown', onKeydown, true);
+
+	const panel: MusicPanel = { root, body, raf: 0, onKeydown };
+	refs.panel = panel;
+
+	// Per-frame anchor follow. The inTick guard breaks synchronous-rAF test
+	// stubs (a stub that invokes the callback immediately would otherwise
+	// recurse forever); real browsers schedule asynchronously.
+	let inTick = false;
+	const tick = (): void => {
+		if (inTick) return;
+		if (refs.panel !== panel) return;
+		inTick = true;
+		try {
+			if (!position()) {
+				closeFromDoc();
+				return;
+			}
+			panel.raf = window.requestAnimationFrame(tick);
+		} finally {
+			inTick = false;
+		}
+	};
+	tick();
+}
+
+function closePanel(refs: MusicWidgetRefs): void {
+	const panel = refs.panel;
+	if (!panel) return;
+	refs.panel = null;
+	window.cancelAnimationFrame?.(panel.raf);
+	activeDocument.removeEventListener('keydown', panel.onKeydown, true);
+	panel.root.remove();
+}
+
+/** Compare-before-write styles (observers see same-value writes). */
+function setStyles(el: HTMLElement, styles: Record<string, string>): void {
+	for (const [prop, value] of Object.entries(styles)) {
+		if (el.style.getPropertyValue(kebab(prop)) !== value) el.style.setProperty(kebab(prop), value);
+	}
+}
+
+function kebab(prop: string): string {
+	return prop.replace(/[A-Z]/g, ch => `-${ch.toLowerCase()}`);
 }
 
 // ===== Playlist panel =====
@@ -224,16 +377,17 @@ function renderPanel(refs: MusicWidgetRefs): void {
 function renderPlaylistRows(refs: MusicWidgetRefs, state: MusicPlayerState | null): void {
 	if (refs.panelMode !== 'playlist' || !state) return;
 	const service = getMusicService();
-	if (!service) return;
+	const host = refs.panel?.body;
+	if (!service || !host) return;
 	const sig = `${service.account.loggedIn}|${state.currentIndex}|${state.playlist.map(tr => tr.id).join(',')}`;
 	if (sig === refs.listSignature) return;
 	refs.listSignature = sig;
-	refs.panel.empty();
+	host.empty();
 	if (state.playlist.length === 0) {
-		refs.panel.createDiv({ cls: 'dashboard-sidebar-music-empty', text: t('music.emptyPlaylist') });
+		host.createDiv({ cls: 'dashboard-sidebar-music-empty', text: t('music.emptyPlaylist') });
 	}
 	state.playlist.forEach((track, i) => {
-		const row = refs.panel.createDiv({
+		const row = host.createDiv({
 			cls: 'dashboard-sidebar-music-row' + (i === state.currentIndex ? ' dashboard-sidebar-music-row--active' : '')
 				+ (isPlayableByFee(track.fee, service.account.loggedIn) ? '' : ' dashboard-sidebar-music-row--vip'),
 		});
@@ -255,7 +409,7 @@ function renderPlaylistRows(refs: MusicWidgetRefs, state: MusicPlayerState | nul
 		});
 		row.addEventListener('click', () => service.play(i));
 	});
-	const footRow = refs.panel.createDiv({ cls: 'dashboard-sidebar-music-panel-foot' });
+	const footRow = host.createDiv({ cls: 'dashboard-sidebar-music-panel-foot' });
 	const clearBtn = footRow.createDiv({ cls: 'dashboard-sidebar-music-text-btn', text: t('music.clear') });
 	clearBtn.addEventListener('click', (e) => { e.stopPropagation(); service.clearPlaylist(); });
 }
@@ -263,18 +417,33 @@ function renderPlaylistRows(refs: MusicWidgetRefs, state: MusicPlayerState | nul
 // ===== Search panel =====
 
 function renderSearchPanel(refs: MusicWidgetRefs): void {
-	const input = refs.panel.createEl('input', {
+	const host = refs.panel?.body;
+	if (!host) return;
+	const input = host.createEl('input', {
 		cls: 'dashboard-sidebar-music-search-input',
 		attr: { type: 'text', placeholder: t('music.searchPlaceholder') },
 	});
 	let debounce: number | null = null;
+	const searchNow = (): void => {
+		if (debounce !== null) window.clearTimeout(debounce);
+		debounce = null;
+		void runSearch(refs, input.value);
+	};
 	input.addEventListener('input', () => {
 		if (debounce !== null) window.clearTimeout(debounce);
-		debounce = window.setTimeout(() => { void runSearch(refs, input.value); }, 400);
+		debounce = window.setTimeout(searchNow, 400);
 	});
-	refs.panel.createDiv({ cls: 'dashboard-sidebar-music-results' });
+	// Enter submits immediately — an explicit "run it now" affordance next to
+	// the passive 400ms debounce (IME composition Enter is not a submit).
+	input.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && !e.isComposing) {
+			e.preventDefault();
+			searchNow();
+		}
+	});
+	host.createDiv({ cls: 'dashboard-sidebar-music-results' });
 
-	const importRow = refs.panel.createDiv({ cls: 'dashboard-sidebar-music-import-row' });
+	const importRow = host.createDiv({ cls: 'dashboard-sidebar-music-import-row' });
 	const importInput = importRow.createEl('input', {
 		cls: 'dashboard-sidebar-music-import-input',
 		attr: { type: 'text', placeholder: t('music.importPlaceholder') },
@@ -308,7 +477,7 @@ async function runSearch(refs: MusicWidgetRefs, query: string): Promise<void> {
 
 function renderSearchRows(refs: MusicWidgetRefs, state: MusicPlayerState | null): void {
 	if (refs.panelMode !== 'search') return;
-	const results = refs.panel.querySelector<HTMLElement>('.dashboard-sidebar-music-results');
+	const results = refs.panel?.body.querySelector<HTMLElement>('.dashboard-sidebar-music-results');
 	if (!results) return;
 	results.empty();
 	const playingId = state?.playlist[state.currentIndex]?.id ?? -1;

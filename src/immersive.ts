@@ -245,9 +245,17 @@ export function refitImmersiveGrid(grid: HTMLElement, items: readonly GridItem[]
 		// the "folder card keeps jittering" loop. Pinned, the box only moves
 		// when `rows` moves (gated above); content taller than the pin
 		// scrolls in the section's own internal scroller.
+		// height joins the pin (same value): min/max clamps do NOT make the
+		// box DEFINITE for percentage resolution, so internal height:100%
+		// chains (the library kanban view's board → column scrollers) fell
+		// back to auto, the board grew to its tallest column and the columns
+		// never scrolled — the wheel scrolled the page instead. An explicit
+		// height keeps those chains live while the box stays byte-identical
+		// (min=max=height is the same clamp triple the fit already wrote).
 		const fillPx = `${rowsToPx(rows)}px`;
 		if (el.style.minHeight !== fillPx) el.style.minHeight = fillPx;
 		if (el.style.maxHeight !== fillPx) el.style.maxHeight = fillPx;
+		if (el.style.height !== fillPx) el.style.height = fillPx;
 		effective.push({ id: cap.id, w: cap.w, h: rows, ...xyOf(cap) });
 	}
 	// Skip the layout write when nothing measured changed beyond the
@@ -510,7 +518,9 @@ export function immIdOf(el: Element | null): string {
  *  — the shared step of EVERY in-place section/widget swap. Without it the
  *  fresh element drops to auto placement and teleports to the end of the
  *  board until the next fit (the read: sections strobing on every scan
- *  refresh). Idempotent on non-immersive DOM (no immId → no-op). */
+ *  refresh). Idempotent on non-immersive DOM (no immId → no-op). The height
+ *  pins travel too: an unpinned replacement loses its DEFINITE height for a
+ *  frame, collapsing internal percentage chains (kanban columns) into auto. */
 export function carryImmersivePlacement(oldEl: HTMLElement, newEl: HTMLElement): void {
 	const immId = oldEl.dataset?.immId;
 	if (!immId) return;
@@ -518,6 +528,8 @@ export function carryImmersivePlacement(oldEl: HTMLElement, newEl: HTMLElement):
 	if (oldEl.style.gridColumn) newEl.style.gridColumn = oldEl.style.gridColumn;
 	if (oldEl.style.gridRow) newEl.style.gridRow = oldEl.style.gridRow;
 	if (oldEl.style.minHeight) newEl.style.minHeight = oldEl.style.minHeight;
+	if (oldEl.style.maxHeight) newEl.style.maxHeight = oldEl.style.maxHeight;
+	if (oldEl.style.height) newEl.style.height = oldEl.style.height;
 }
 
 // ===== Phase 3: tile interactions (reorder drag + corner resize) =====
@@ -929,13 +941,14 @@ export function attachImmersiveResizeHandle(
 				liveW = clampSpanW(spanFromPixels(wantW, colW, gap));
 				liveH = clampSpanH(pxToRows(wantH));
 				// In-place: same origin tracks, new spans; the box follows the
-				// tracks (pinned via min+max height), neighbors reflow around
+				// tracks (pinned via min+max+height), neighbors reflow around
 				// it live.
 				tile.style.gridColumn = `${colStart} / span ${liveW}`;
 				tile.style.gridRow = `${rowStart} / span ${liveH}`;
 				const fill = `${rowsToPx(liveH)}px`;
 				tile.style.minHeight = fill;
 				tile.style.maxHeight = fill;
+				tile.style.height = fill;
 			},
 			onUp: () => {
 				tile.removeClass('dashboard-imm-tile--resizing');

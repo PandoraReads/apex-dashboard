@@ -156,6 +156,7 @@
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #35e0e8; --db-sec-glow: rgba(53, 224, 232, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #7f8cff; --db-sec-glow: rgba(127, 140, 255, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #ffb454; --db-sec-glow: rgba(255, 180, 84, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #a3e635; --db-sec-glow: rgba(163, 230, 53, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #ff4d7e; --db-sec-glow: rgba(255, 77, 126, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #e879f9; --db-sec-glow: rgba(232, 121, 249, 0.16); }
 
@@ -171,6 +172,7 @@
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #0e7490; --db-sec-glow: rgba(14, 116, 144, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #4f46e5; --db-sec-glow: rgba(79, 70, 229, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #b45309; --db-sec-glow: rgba(180, 83, 9, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #4d7c0f; --db-sec-glow: rgba(77, 124, 15, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #e11d48; --db-sec-glow: rgba(225, 29, 72, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #c026d3; --db-sec-glow: rgba(192, 38, 211, 0.14); }
 
@@ -10047,6 +10049,9 @@
 .is-tablet button.dashboard-quicknote-cfg-del,
 .is-tablet button.dashboard-library-table-delete,
 .is-tablet button.dashboard-library-card-delete,
+.is-tablet button.dashboard-pipeline-skill-btn,
+.is-tablet button.dashboard-pipeline-col-add,
+.is-tablet button.dashboard-pipeline-cfg-icon-btn,
 .is-tablet button.dashboard-focal-picker-reset,
 .is-tablet button.dashboard-media-delete,
 .is-tablet button.dashboard-media-icon-btn,
@@ -10526,7 +10531,8 @@
 .dashboard-section-row[data-section-type="heatmap"],
 .dashboard-section-row[data-section-type="dataview"],
 .dashboard-section-row[data-section-type="web"],
-.dashboard-section-row[data-section-type="rss"] {
+.dashboard-section-row[data-section-type="rss"],
+.dashboard-section-row[data-section-type="pipeline"] {
 	max-height: 800px;
 }
 
@@ -20504,6 +20510,17 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 /* Quick Notes config modal */
 .dashboard-quicknote-config { max-width: 540px; }
+.dashboard-skill-input { min-height: 96px; resize: vertical; }
+.dashboard-skill-preview {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	max-height: 180px;
+	overflow: auto;
+	padding: 10px;
+	border: 1px solid var(--db-border-input, var(--background-modifier-border));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+}
 .dashboard-quicknote-cfg-section {
 	margin-bottom: 16px;
 	padding-bottom: 12px;
@@ -22332,8 +22349,48 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	accent-color: var(--db-accent);
 }
 
-.dashboard-sidebar-music-panel {
-	margin-top: 6px;
+/* Floating panel: a body-level popover anchored under the music card (see
+   music-widget.ts openPanel) — reads as an EXTENSION of the card: same width,
+   same material, a 6px seam. Body-level so no ancestor overflow (immersive
+   tiles are overflow:hidden fixed-height boxes) can clip the list; the
+   viewport clamp + internal results scroll keep it on screen when the card
+   sits near the bottom. --db-* tokens are mirrored inline by applyModalTheme
+   (the popover lives outside .apex-dashboard-root where they are declared). */
+.dashboard-sidebar-music-popover {
+	position: fixed;
+	z-index: 900; /* above tiles/chrome (<100), below overlays (1000+) */
+	display: flex;
+	flex-direction: column;
+	max-height: min(440px, 70vh);
+	background: var(--db-bg-modal, var(--db-bg-card));
+	border: 1px solid var(--db-border-card);
+	border-radius: var(--db-radius-md);
+	box-shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
+	backdrop-filter: var(--db-backdrop-blur);
+	-webkit-backdrop-filter: var(--db-backdrop-blur);
+	padding: 10px;
+	overflow: hidden;
+}
+.dashboard-sidebar-music-popover-body {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	flex: 1;
+}
+/* In the popover the list flexes within the clamped panel height (the fixed
+   200px cap was for the old in-card layout). min-height 0 lets the list give
+   way when the viewport clamp squeezes the panel — a floor here would defeat
+   the clamp and push the panel off screen. */
+.dashboard-sidebar-music-popover .dashboard-sidebar-music-results {
+	flex: 1;
+	min-height: 0;
+	max-height: none;
+}
+.dashboard-sidebar-music-icon-btn--active {
+	color: var(--db-accent);
+	background: color-mix(in srgb, var(--db-accent) 14%, transparent);
+	border-radius: var(--db-radius-sm, 6px);
+	opacity: 0.9;
 }
 
 .dashboard-sidebar-music-row {
@@ -22836,13 +22893,15 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   a stronger cast of the same translucent-white glass the inner surfaces
 	   use (--db-bg-card above), so the board reads as one material with a
 	   tile/content hierarchy.
-	   Sizing: tiles keep NATURAL boxes (height auto + the fit's inline
-	   min-height floor that fills the spanned tracks). Natural boxes are the
-	   observation contract: content growth changes the tile's box, which the
-	   per-tile ResizeObserver sees — a stretched box would be pinned to the
-	   tracks and hide growth (the deadlock behind both the missed re-fits and
-	   the observer churn). Box = max(content, tracks-10); content past the
-	   inline max-height cap scrolls INSIDE the tile. */
+	   Sizing: after each fit pass the tile carries an inline min-height /
+	   max-height / height triple pinned to its spanned fill (immersive.ts
+	   refitImmersiveGrid). The EXPLICIT height is load-bearing beyond the
+	   clamp: min/max alone do not make the box definite for percentage
+	   resolution, so internal height:100% chains — the library kanban view's
+	   board → column scrollers — collapsed to auto, the board grew to its
+	   tallest column and wheel-over-column scrolled the page instead of the
+	   list. Content past the pin scrolls INSIDE the section's own scrollers
+	   (the library files area, kanban columns). */
 	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] {
 		position: relative; /* containing block for the strips/delete chrome */
 		background: color-mix(in srgb, var(--db-bg-card) 35%, rgba(8, 10, 14, 0.74));
@@ -23828,3 +23887,1272 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	gap: 6px;
 	font-size: 10px;
 }
+
+/* ==========================================================================
+   Pipeline section — agent-driven workflow board (see src/pipeline-section)
+   ========================================================================== */
+
+/* The section body hosts one horizontally scrolling board. Base
+   .dashboard-section-cards already gives flex:1 + overflow:hidden; claim the
+   full row width (flex-wrap puts lone children on their own line anyway). */
+.dashboard-section-cards.dashboard-pipeline {
+	flex: 1 1 100%;
+	display: flex;
+	flex-wrap: nowrap;
+	overflow: hidden;
+}
+
+.dashboard-pipeline-board {
+	display: flex;
+	gap: 10px;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+/* Semi-hidden bottom scrollbar with an EXPLICIT 10px track: the exact height
+   is mirrored by the filter rail's margin-bottom, so rail and columns
+   bottom-align even though the strip exists. Transparent until hover,
+   accent-tinted when hovered (quick-note bar recipe). */
+.dashboard-pipeline-board::-webkit-scrollbar {
+	height: 10px;
+}
+
+.dashboard-pipeline-board::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.dashboard-pipeline-board::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 5px;
+}
+
+.dashboard-pipeline-board:hover::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 45%, transparent);
+}
+
+.dashboard-pipeline-col {
+	/* Trello geometry, lighter spirit: a translucent stage wash with a hair
+	   outline instead of an opaque slab — the section background breathes
+	   through, dark themes stop reading as heavy black panels. */
+	min-width: 272px;
+	width: 272px;
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	max-height: 100%;
+	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 5%, transparent);
+	border: 1px solid color-mix(in srgb, var(--db-pipe-accent, #6366f1) 13%, transparent);
+	border-radius: 12px;
+	padding: 8px;
+	transition: box-shadow 0.15s ease;
+}
+
+.dashboard-pipeline-col--drag-over {
+	/* Trello drop feedback: an accent ring, not a fill. */
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-pipe-accent, #6366f1) 70%, transparent);
+}
+
+.dashboard-pipeline-col-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 8px;
+	padding: 2px 4px;
+	flex-shrink: 0;
+}
+
+.dashboard-pipeline-col-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background: var(--db-pipe-accent, var(--db-accent, #6366f1));
+}
+
+.dashboard-pipeline-col-title {
+	/* Trello list header: small, bold, strong ink; no underline. The count
+	   badge sits right beside it — a spacer pushes actions to the edge. */
+	font-size: 0.78em;
+	font-weight: 700;
+	color: var(--db-text, var(--text-normal));
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+.dashboard-pipeline-col-spacer {
+	flex: 1;
+}
+
+.dashboard-pipeline-col-count {
+	font-size: 0.62em;
+	font-weight: 600;
+	color: var(--db-text-muted, var(--text-muted));
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 14%, transparent);
+	border-radius: 999px;
+	padding: 0 7px;
+	line-height: 16px;
+	font-variant-numeric: tabular-nums;
+	flex-shrink: 0;
+}
+
+.dashboard-pipeline-col-actions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+/* Compact icon button shared by stage skills, per-card skills and the column
+   "+" (keeps out of the card's text flow). */
+button.dashboard-pipeline-skill-btn,
+button.dashboard-pipeline-col-add {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	flex-shrink: 0;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+button.dashboard-pipeline-skill-btn:hover,
+button.dashboard-pipeline-col-add:hover {
+	background: color-mix(in srgb, var(--db-pipe-accent, var(--db-accent, #6366f1)) 18%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+button.dashboard-pipeline-skill-btn svg,
+button.dashboard-pipeline-col-add svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-pipeline-cards {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	overflow-y: auto;
+	min-height: 48px;
+	flex: 1;
+	/* Hide the per-column vertical scrollbar (wheel/trackpad still scroll) —
+	   the library kanban-column recipe: a row of several stages must not show
+	   a clutter of gutters. */
+	scrollbar-width: none;
+}
+
+.dashboard-pipeline-cards::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
+}
+
+
+.dashboard-pipeline-card {
+	position: relative;
+	/* Trello card, younger: the theme's opaque card base LIFTED toward white
+	   (dark themes get slate instead of near-black), shadows softened so a
+	   full board doesn't read heavy. Generous top padding: the chips row
+	   breathes below the card's top edge (Rae: "still not enough" at 8px). */
+	--pipe-card-lift: color-mix(in srgb, var(--db-bg-modal-raised, var(--db-bg-modal, var(--db-bg-card, #fff))) 88%, #ffffff);
+	background: var(--pipe-card-lift);
+	border: none;
+	border-radius: 8px;
+	padding: 8px 10px 8px;
+	cursor: pointer;
+	box-shadow: 0 1px 2px rgba(9, 30, 66, 0.13), 0 0 1px rgba(9, 30, 66, 0.1);
+	transition: box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.dashboard-pipeline-card:hover {
+	box-shadow: 0 3px 8px rgba(9, 30, 66, 0.18), 0 0 1px rgba(9, 30, 66, 0.12);
+}
+
+.dashboard-pipeline-card-label {
+	height: 6px;
+	border-radius: 3px;
+	margin: 8px 0 7px;
+	background: var(--db-pipe-accent, var(--db-accent, #6366f1));
+}
+
+.dashboard-pipeline-card--dragging {
+	opacity: 0.45;
+}
+
+.dashboard-pipeline-card-title {
+	font-size: 0.78em;
+	font-weight: 500;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding-right: 14px;
+}
+
+.dashboard-pipeline-card-chips {
+	/* Chips are the card's FIRST flow row: they sit at the same 8px top
+	   padding a chip-less card's title does, so the top gap is identical
+	   with or without property labels; the gap to the title lives below. */
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 0 0 7px 0;
+}
+
+.dashboard-pipeline-chip {
+	/* Trello badge: small squared chip, not a pill. */
+	font-size: 0.625em;
+	line-height: 18px;
+	padding: 0 5px;
+	border-radius: 4px;
+	color: var(--db-text-muted, var(--text-muted));
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 14%, transparent);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
+}
+
+.dashboard-pipeline-chip--prop {
+	/* Colored value chips: background arrives inline (stable per value),
+	   text always white. */
+	color: #ffffff;
+	font-weight: 600;
+	background: var(--db-accent, #6366f1);
+}
+
+.dashboard-pipeline-card-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+	margin-top: 6px;
+}
+
+/* Unconfigured state */
+.dashboard-pipeline-empty {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 28px 12px;
+}
+
+.dashboard-pipeline-empty-title {
+	font-size: 0.85em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-pipeline-empty-hint {
+	font-size: 0.72em;
+	color: var(--db-text-muted, var(--text-muted));
+	text-align: center;
+	max-width: 320px;
+}
+
+/* --- Config modal rows --- */
+
+.dashboard-pipeline-cfg-stages,
+.dashboard-pipeline-cfg-skills {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.dashboard-pipeline-cfg-stage-row,
+.dashboard-pipeline-cfg-skill-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.dashboard-pipeline-cfg-skill {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	border-radius: var(--db-radius-sm, 6px);
+}
+
+.dashboard-pipeline-cfg-input {
+	flex: 1;
+	min-width: 90px;
+}
+
+.dashboard-pipeline-cfg-input--slug {
+	flex: 0 1 120px;
+	min-width: 80px;
+}
+
+.dashboard-pipeline-cfg-select {
+	min-width: 84px;
+	flex: 0 0 auto;
+}
+
+.dashboard-pipeline-cfg-textarea {
+	width: 100%;
+	resize: vertical;
+}
+
+.dashboard-pipeline-cfg-color {
+	width: 32px;
+	height: 26px;
+	padding: 0;
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.10));
+	border-radius: 4px;
+	background: transparent;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+button.dashboard-pipeline-cfg-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	flex-shrink: 0;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+button.dashboard-pipeline-cfg-icon-btn:hover {
+	background: color-mix(in srgb, var(--db-accent, #6366f1) 18%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+button.dashboard-pipeline-cfg-icon-btn--danger:hover {
+	background: color-mix(in srgb, var(--db-danger, #ef4444) 20%, transparent);
+	color: var(--db-danger, #ef4444);
+}
+
+button.dashboard-pipeline-cfg-icon-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-pipeline-cfg-hint {
+	font-size: 0.68em;
+	color: var(--db-text-muted, var(--text-muted));
+	flex: 1 1 100%;
+}
+
+.dashboard-pipeline-cfg-toggle {
+	width: 16px;
+	height: 16px;
+	accent-color: var(--db-accent, var(--interactive-accent));
+	flex-shrink: 0;
+}
+
+/* --- Phones: narrower columns, chip trim --- */
+@media (max-width: 641px) {
+	.dashboard-pipeline-col {
+		min-width: 150px;
+		width: 150px;
+		padding: 6px;
+	}
+
+	.dashboard-pipeline-card-chips {
+		display: none;
+	}
+
+	.dashboard-pipeline-cfg-stage-row,
+	.dashboard-pipeline-cfg-skill-row {
+		gap: 4px;
+	}
+}
+
+/* Skill-name input + picker button row (pipeline config; quick-note reuses
+   its own path-row class for the same shape). */
+.dashboard-pipeline-cfg-name-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	min-width: 180px;
+}
+
+/* Stage editor column headers (Label / Value / Folder) aligned with the
+   stage row inputs below them. */
+.dashboard-pipeline-cfg-stage-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.68em;
+	color: var(--db-text-muted, var(--text-muted));
+	padding-right: 116px; /* color + reorder/delete button cluster width */
+}
+
+.dashboard-pipeline-cfg-head-cell {
+	flex: 1;
+	min-width: 90px;
+}
+
+.dashboard-pipeline-cfg-head-cell--slug {
+	flex: 0 1 120px;
+	min-width: 80px;
+}
+
+/* ── 2026-10-06 adjustments: right-aligned actions, column resize,
+      scope checklist (transparency layers superseded by the Trello look) ── */
+
+/* Skill buttons sit at the card's bottom-right. */
+.dashboard-pipeline-card-actions {
+	justify-content: flex-end;
+}
+
+/* Column width drag handle: a quiet edge strip on the column's right side. */
+.dashboard-pipeline-col {
+	position: relative;
+}
+
+.dashboard-pipeline-col-resize {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 6px;
+	height: 100%;
+	cursor: col-resize;
+	border-radius: 0 var(--db-radius-md, 10px) var(--db-radius-md, 10px) 0;
+	touch-action: none;
+}
+
+.dashboard-pipeline-col-resize:hover,
+.dashboard-pipeline-col-resize:active {
+	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 30%, transparent);
+}
+
+/* Stage-scope item checklist in the prompt modal. */
+.dashboard-skill-scope {
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
+	border-radius: var(--db-radius-sm, 6px);
+	padding: 8px 10px;
+	margin-bottom: 10px;
+}
+
+.dashboard-skill-scope-head {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-bottom: 6px;
+}
+
+.dashboard-skill-scope-title {
+	font-size: 0.75em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-skill-scope-hint {
+	font-size: 0.68em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-skill-scope-list {
+	display: flex;
+	flex-direction: column;
+	max-height: 160px;
+	overflow-y: auto;
+	gap: 2px;
+}
+
+.dashboard-skill-scope-item {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 2px 4px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.72em;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-skill-scope-item:hover {
+	background: color-mix(in srgb, var(--db-accent, #6366f1) 10%, transparent);
+}
+
+.dashboard-skill-scope-check {
+	width: 13px;
+	height: 13px;
+	flex-shrink: 0;
+	accent-color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-skill-scope-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRELLO skin (pipelineConfig.boardStyle: 'trello')
+   A deliberately foreign, fixed-palette skin: soft pastel stage-tinted
+   columns, clean white cards, Trello's own ink — it ignores the plugin
+   theme's surface tokens on purpose; only Obsidian's light/dark mode flips
+   the palette. The youthfulness lives in the COLORS (latte stage tints over
+   white), not in translucency — everything is opaque, Trello-textured.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dashboard-pipeline--trello {
+	--tl-col-base: #ffffff;
+	--tl-card: #fbf8f1;
+	--tl-ink: #172b4d;
+	--tl-muted: #626f86;
+	--tl-shadow: 9, 30, 66;
+	--tl-chip-bg: rgba(9, 30, 66, 0.08);
+}
+
+.theme-dark .dashboard-pipeline--trello {
+	--tl-col-base: #1f222b;
+	--tl-card: #2b2f38;
+	--tl-ink: #e6e9ef;
+	--tl-muted: #9aa4b5;
+	--tl-shadow: 0, 0, 0;
+	--tl-chip-bg: rgba(230, 233, 239, 0.1);
+}
+
+/* Columns: opaque, borderless, a SOFT pastel wash of the stage color over
+   the base — 选题 reads apricot-cream, 草稿 powder blue, and so on. */
+.dashboard-pipeline--trello .dashboard-pipeline-col {
+	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 10%, var(--tl-col-base));
+	border: none;
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-col--drag-over {
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-pipe-accent, #6366f1) 75%, transparent);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-col-title {
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-col-count {
+	color: var(--tl-muted);
+	background: var(--tl-chip-bg);
+}
+
+/* Cards: clean opaque surface + Trello's signature soft shadow. */
+.dashboard-pipeline--trello .dashboard-pipeline-card {
+	background: var(--tl-card);
+	box-shadow: 0 1px 2px rgba(var(--tl-shadow), 0.18), 0 0 1px rgba(var(--tl-shadow), 0.14);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-card:hover {
+	background: var(--tl-card);
+	box-shadow: 0 4px 9px rgba(var(--tl-shadow), 0.24), 0 0 1px rgba(var(--tl-shadow), 0.16);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-card-title {
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-chip {
+	color: var(--tl-muted);
+	background: var(--tl-chip-bg);
+}
+
+/* Trello skin: value chips keep their per-value colors (inline wins). */
+.dashboard-pipeline--trello .dashboard-pipeline-chip--prop {
+	color: #ffffff;
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-skill-btn,
+.dashboard-pipeline--trello button.dashboard-pipeline-col-add {
+	color: var(--tl-muted);
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-skill-btn:hover,
+.dashboard-pipeline--trello button.dashboard-pipeline-col-add:hover {
+	background: rgba(var(--tl-shadow), 0.08);
+	color: var(--tl-ink);
+}
+
+/* ── Card footer: due + checklist at the left, skills at the right ── */
+.dashboard-pipeline-card-foot {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 7px;
+	flex-wrap: wrap;
+}
+
+.dashboard-pipeline-foot-spacer {
+	flex: 1;
+}
+
+button.dashboard-pipeline-foot-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 20px;
+	padding: 0;
+	/* Flat icon + text: no chrome of any kind, even against Obsidian's
+	   global button styles (quicknote-chip !important convention). */
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+	outline: none;
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.62em;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: color 0.15s ease;
+}
+
+button.dashboard-pipeline-foot-btn svg {
+	width: 12px;
+	height: 12px;
+	flex-shrink: 0;
+}
+
+button.dashboard-pipeline-foot-btn:hover {
+	/* Flat by design: hover brightens the text only. */
+	background: transparent !important;
+	color: var(--db-text, var(--text-normal));
+}
+
+/* A set due reads stronger than the unset affordance. */
+button.dashboard-pipeline-foot-btn.is-set {
+	color: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 55%, var(--db-text, var(--text-normal)));
+}
+
+/* ── Expanded checklist body ── */
+.dashboard-pipeline-tasks {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	margin-top: 7px;
+	padding: 7px 8px;
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--db-text-muted, #888) 8%, transparent);
+	max-height: 180px;
+	overflow-y: auto;
+}
+
+.dashboard-pipeline-task {
+	display: flex;
+	align-items: baseline;
+	gap: 7px;
+	font-size: 0.68em;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-pipeline-task.is-done .dashboard-pipeline-task-text {
+	text-decoration: line-through;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-pipeline-task-check {
+	width: 12px;
+	height: 12px;
+	flex-shrink: 0;
+	translate: 0 1px;
+	accent-color: var(--db-pipe-accent, var(--db-accent, #6366f1));
+	margin: 0;
+}
+
+.dashboard-pipeline-task-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pipeline-task-due {
+	flex-shrink: 0;
+	font-size: 0.9em;
+	color: var(--db-text-muted, var(--text-muted));
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-pipeline-tasks-empty {
+	font-size: 0.66em;
+	color: var(--db-text-muted, var(--text-muted));
+	line-height: 1.5;
+}
+
+/* Trello skin: fixed-palette coverage for the new footer pieces. */
+.dashboard-pipeline--trello button.dashboard-pipeline-foot-btn {
+	color: var(--tl-muted);
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-foot-btn:hover {
+	background: transparent !important;
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-foot-btn.is-set {
+	color: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 55%, var(--tl-ink));
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-task {
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-tasks {
+	background: rgba(var(--tl-shadow), 0.05);
+}
+
+/* Tablet reset: the new compact icon-ish buttons join the padding reset. */
+.is-tablet button.dashboard-pipeline-foot-btn {
+	padding: 0 6px;
+}
+
+/* Inline card-title rename (section-title input pattern, title-scale). */
+.dashboard-pipeline-card-title-input {
+	width: 100%;
+	background: var(--db-bg-input, transparent);
+	border: 1px solid var(--db-border-input-focus, var(--db-accent, #6366f1));
+	border-radius: 5px;
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.95em;
+	font-weight: 500;
+	padding: 1px 5px;
+	outline: none;
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-card-title-input {
+	color: var(--tl-ink);
+	border-color: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 60%, transparent);
+}
+
+/* ── Left value-filter rail (platform / project) ── */
+.dashboard-pipeline-wrap {
+	flex: 1 1 100%;
+	display: flex;
+	gap: 10px;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.dashboard-pipeline-wrap .dashboard-pipeline-board {
+	flex: 1;
+	min-width: 0;
+}
+
+.dashboard-pipeline-rail {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	flex: 0 0 128px;
+	width: 128px;
+	/* Mirror of the board scrollbar's 10px strip: the painted box ends where
+	   the columns end; the strip below belongs to the whole section. */
+	margin-bottom: 10px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 6px;
+	border-radius: 10px;
+	/* Neutral light-gray container (Rae): a muted-token wash keeps it gray in
+	   both theme polarities; the accent tint is gone. */
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 10%, transparent);
+	border: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 16%, transparent);
+}
+
+.dashboard-pipeline-rail-dims {
+	display: flex;
+	gap: 3px;
+	margin-bottom: 4px;
+	flex-shrink: 0;
+}
+
+button.dashboard-pipeline-rail-dim {
+	flex: 1;
+	height: 22px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.64em;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+button.dashboard-pipeline-rail-dim.is-active {
+	/* Neutral gray family (the rail sits outside the columns, so the stage
+	   accent variable is unset here — its fallback read as purple). */
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 18%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+button.dashboard-pipeline-rail-item {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 24px;
+	padding: 2px 7px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.66em;
+	cursor: pointer;
+	text-align: left;
+	transition: background 0.15s ease;
+}
+
+button.dashboard-pipeline-rail-item .dashboard-pipeline-rail-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pipeline-rail-count {
+	flex-shrink: 0;
+	color: var(--db-text-muted, var(--text-muted));
+	font-variant-numeric: tabular-nums;
+	font-size: 0.9em;
+}
+
+button.dashboard-pipeline-rail-item:hover {
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 14%, transparent);
+}
+
+button.dashboard-pipeline-rail-item.is-active {
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 16%, transparent);
+}
+
+button.dashboard-pipeline-rail-item.is-all {
+	color: var(--db-text-muted, var(--text-muted));
+	font-weight: 600;
+	margin-bottom: 2px;
+}
+
+button.dashboard-pipeline-rail-item.is-all.is-active {
+	color: var(--db-text, var(--text-normal));
+	box-shadow: none;
+}
+
+/* Trello skin rail coverage */
+.dashboard-pipeline--trello .dashboard-pipeline-rail {
+	/* Trello's own list gray — the skin ignores theme tokens on purpose. */
+	background: #f1f2f4;
+	border: none;
+}
+
+.theme-dark .dashboard-pipeline--trello .dashboard-pipeline-rail {
+	background: #22272e;
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-rail-item {
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-rail-count,
+.dashboard-pipeline--trello button.dashboard-pipeline-rail-dim,
+.dashboard-pipeline--trello button.dashboard-pipeline-rail-item.is-all {
+	color: var(--tl-muted);
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-rail-item.is-all.is-active {
+	color: var(--tl-ink);
+}
+
+/* Phones: the rail becomes a horizontal chip strip above the board. */
+@media (max-width: 641px) {
+	.dashboard-pipeline-wrap {
+		flex-direction: column;
+		overflow: visible;
+	}
+
+	.dashboard-pipeline-rail {
+		flex: 0 0 auto;
+		width: 100%;
+		flex-direction: row;
+		align-items: center;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		overflow-y: hidden;
+		padding: 5px;
+	}
+
+	.dashboard-pipeline-rail-dims {
+		margin-bottom: 0;
+		margin-right: 3px;
+		flex-shrink: 0;
+	}
+
+	button.dashboard-pipeline-rail-dim,
+	button.dashboard-pipeline-rail-item {
+		flex: 0 0 auto;
+		white-space: nowrap;
+	}
+
+	button.dashboard-pipeline-rail-item.is-active {
+		box-shadow: inset 0 -2px 0 var(--db-pipe-accent, var(--db-accent, #6366f1));
+	}
+}
+
+/* ── 2026-10-07 refinements ── */
+
+/* Sort button: fixed icon; the chosen mode renders as text beside it. */
+button.dashboard-pipeline-sort-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.dashboard-pipeline-sort-label {
+	font-size: 0.68em;
+	font-weight: 600;
+	color: var(--db-text-muted, var(--text-muted));
+	white-space: nowrap;
+}
+
+button.dashboard-pipeline-sort-btn svg {
+	flex-shrink: 0;
+}
+
+/* Empty filter dimension: a quiet hint so the rail never strands the user. */
+.dashboard-pipeline-rail-empty {
+	font-size: 0.62em;
+	color: var(--db-text-muted, var(--text-muted));
+	padding: 6px 7px;
+	line-height: 1.5;
+}
+
+/* Archive affordance: hover-revealed beside the delete button (top-right),
+   ghost-styled instead of the delete button's dark dot. */
+.dashboard-pipeline-card .dashboard-pipeline-archive-btn {
+	right: 28px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	border-radius: 5px;
+}
+
+.dashboard-pipeline-card .dashboard-pipeline-archive-btn:hover {
+	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 16%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-archive-btn {
+	color: var(--tl-muted);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-archive-btn:hover {
+	background: rgba(var(--tl-shadow), 0.08);
+	color: var(--tl-ink);
+}
+
+/* Immersive layout: THEME-skin cards turn translucent so tiles don't read
+   as opaque slabs against the poster background. The Trello skin keeps its
+   fully opaque cards everywhere — its look is the point. */
+.dashboard-imm .dashboard-pipeline:not(.dashboard-pipeline--trello):not(.dashboard-pipeline--solid):not(.dashboard-pipeline--blush) .dashboard-pipeline-card {
+	background: color-mix(in srgb, var(--db-bg-modal-raised, var(--db-bg-modal, var(--db-bg-card))) 78%, transparent);
+}
+
+.dashboard-imm .dashboard-pipeline:not(.dashboard-pipeline--trello):not(.dashboard-pipeline--solid):not(.dashboard-pipeline--blush) .dashboard-pipeline-card:hover {
+	background: color-mix(in srgb, var(--db-bg-modal-raised, var(--db-bg-modal, var(--db-bg-card))) 86%, transparent);
+}
+
+/* Workflow sections are desktop-only (agent dispatch needs the desktop
+   agents); the renderer hides the row on phones/tablets via this class. */
+.dashboard-section-row--pipeline-off-mobile {
+	display: none;
+}
+
+/* Pipeline cards' hover-reveal tools (delete + archive share the library
+   delete button's base, which hides via opacity/pointer-events — the reveal
+   must match THIS container class or the buttons stay unreachable). */
+.dashboard-pipeline-card:hover .dashboard-library-card-delete,
+.dashboard-pipeline-card .dashboard-library-card-delete:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Rail VALUE items ride the latte monochrome ramp (inline background +
+   --rail-ink inline): ink flips white/slate with the surface depth. */
+button.dashboard-pipeline-rail-value {
+	color: var(--rail-ink, #ffffff);
+	font-weight: 600;
+	border-radius: 7px;
+}
+
+.dashboard-pipeline-rail-value .dashboard-pipeline-rail-count {
+	color: color-mix(in srgb, var(--rail-ink, #ffffff) 75%, transparent);
+}
+
+button.dashboard-pipeline-rail-value:hover {
+	background: inherit;
+	filter: brightness(1.06);
+}
+
+button.dashboard-pipeline-rail-value.is-active {
+	box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rail-ink, #ffffff) 70%, transparent);
+}
+
+/* Skill buttons: one stable color per skill (the property-chip palette),
+   white glyph — inline background wins over the ghost base. */
+button.dashboard-pipeline-skill-btn.dashboard-pipeline-skill-btn--colored {
+	/* Pastel button + deep ink glyph: pastels cannot carry white icons. */
+	color: #4a4f5e;
+	border-radius: 6px;
+}
+
+button.dashboard-pipeline-skill-btn--colored:hover {
+	background: inherit;
+	color: #374050;
+	filter: brightness(1.05) saturate(1.08);
+}
+
+/* Trello skin: neutral gray for the rail tabs too (accent fallback = purple). */
+.dashboard-pipeline--trello button.dashboard-pipeline-rail-dim.is-active {
+	background: rgba(var(--tl-shadow), 0.1);
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-rail-item:hover {
+	background: rgba(var(--tl-shadow), 0.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SOLID duotone skin (pipelineConfig.boardStyle: 'solid')
+   Two colors, period: every column ONE flat color (the teal theme hue),
+   note cards a second flat color (warm cream / charcoal), and ALL buttons,
+   property chips and rail values wear ONE gradient of the theme hue's depth
+   variants. Ignores plugin theme tokens; follows Obsidian light/dark only.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dashboard-pipeline--solid {
+	/* Color A: avocado green (columns + gradients). Color B: milky cards. */
+	--sd-col: #dfe9cb;
+	--sd-card: #fbf8f1;
+	--sd-ink: #2f3a26;
+	--sd-muted: #6c7a5e;
+	/* Flat accent carriers (Rae: no gradients) — light avocado + dark ink. */
+	--sd-accent: #a9c88a;
+	--sd-accent-ink: #2f3a26;
+	--sd-shadow: 9, 30, 66;
+	/* Card tokens are mode-invariant: color B is milky always, its ink dark. */
+	--sd-card: #fbf8f1;
+	--sd-card-ink: #2f3a26;
+	--sd-card-muted: #6c7a5e;
+}
+
+.theme-dark .dashboard-pipeline--solid {
+	--sd-col: #2a3323;
+	--sd-ink: #e7ecdc;
+	--sd-muted: #9aa88c;
+	--sd-accent: #557838;
+	--sd-accent-ink: #ffffff;
+	--sd-shadow: 0, 0, 0;
+}
+
+/* Columns: one flat color, borderless. */
+.dashboard-pipeline--solid .dashboard-pipeline-col {
+	background: var(--sd-col);
+	border: none;
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-col--drag-over {
+	box-shadow: 0 0 0 2px #6e9a50;
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-col-title {
+	color: var(--sd-ink);
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-col-count {
+	color: var(--sd-muted);
+	background: rgba(var(--sd-shadow), 0.1);
+}
+
+/* Cards: the second flat color + the shared soft shadow. */
+.dashboard-pipeline--solid .dashboard-pipeline-card {
+	background: var(--sd-card);
+	box-shadow: 0 1px 2px rgba(var(--sd-shadow), 0.18), 0 0 1px rgba(var(--sd-shadow), 0.14);
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-card:hover {
+	box-shadow: 0 4px 9px rgba(var(--sd-shadow), 0.24), 0 0 1px rgba(var(--sd-shadow), 0.16);
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-card-title {
+	color: var(--sd-card-ink);
+}
+
+/* Property chips, skill buttons and rail VALUE items: ONE shared gradient
+   (!important beats the inline per-value colors these carry in other skins). */
+.dashboard-pipeline--solid .dashboard-pipeline-chip--prop {
+	background: var(--sd-grad) !important;
+	color: #ffffff;
+}
+
+.dashboard-pipeline--solid button.dashboard-pipeline-skill-btn--colored {
+	background: var(--sd-grad) !important;
+	color: #ffffff;
+}
+
+.dashboard-pipeline--solid button.dashboard-pipeline-rail-value {
+	background: var(--sd-grad) !important;
+	color: #ffffff;
+}
+
+.dashboard-pipeline--solid button.dashboard-pipeline-rail-value .dashboard-pipeline-rail-count {
+	color: rgba(255, 255, 255, 0.78);
+}
+
+/* Quiet chrome: footer buttons, archive ghost, checklist, rail shell. */
+.dashboard-pipeline--solid .dashboard-pipeline-card button.dashboard-pipeline-foot-btn,
+.dashboard-pipeline--solid .dashboard-pipeline-card button.dashboard-pipeline-skill-btn:not(.dashboard-pipeline-skill-btn--colored),
+.dashboard-pipeline--solid .dashboard-pipeline-card .dashboard-pipeline-archive-btn {
+	color: var(--sd-card-muted);
+}
+
+.dashboard-pipeline--solid button.dashboard-pipeline-col-add,
+.dashboard-pipeline--solid button.dashboard-pipeline-rail-dim,
+.dashboard-pipeline--solid button.dashboard-pipeline-rail-item.is-all {
+	color: var(--sd-muted);
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-chip {
+	color: var(--sd-card-muted);
+	background: rgba(var(--sd-shadow), 0.08);
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-tasks {
+	background: rgba(var(--sd-shadow), 0.05);
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-task {
+	color: var(--sd-card-ink);
+}
+
+/* The rail shell is a "big card" too: color A. */
+.dashboard-pipeline--solid .dashboard-pipeline-rail {
+	background: var(--sd-col);
+	border: none;
+}
+
+.dashboard-pipeline--solid button.dashboard-pipeline-rail-dim.is-active {
+	background: rgba(var(--sd-shadow), 0.12);
+	color: var(--sd-ink);
+}
+
+.dashboard-pipeline--solid button.dashboard-pipeline-rail-item:hover {
+	background: rgba(var(--sd-shadow), 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLUSH rose skin (pipelineConfig.boardStyle: 'blush') — Rae's four colors:
+   columns #F7D6D0 · cards #FFF5F5 · gradient #E2B4BD→#4A4A4A · ink #4A4A4A.
+   Fixed palette in BOTH modes (a printed rose card, even on dark Obsidian).
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dashboard-pipeline--blush {
+	--bl-col: #f7d6d0;
+	--bl-card: #fff5f5;
+	--bl-ink: #4a4a4a;
+	--bl-muted: color-mix(in srgb, #4a4a4a 68%, #fff5f5);
+	--bl-accent: #e2b4bd;
+	--bl-accent-ink: #4a4a4a;
+	--bl-shadow: 74, 74, 74;
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-col {
+	background: var(--bl-col);
+	border: none;
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-col--drag-over {
+	box-shadow: 0 0 0 2px rgba(74, 74, 74, 0.55);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-col-title {
+	color: var(--bl-ink);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-col-count {
+	color: var(--bl-muted);
+	background: color-mix(in srgb, #4a4a4a 10%, transparent);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-card {
+	background: var(--bl-card);
+	box-shadow: 0 1px 2px rgba(var(--bl-shadow), 0.18), 0 0 1px rgba(var(--bl-shadow), 0.14);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-card:hover {
+	box-shadow: 0 4px 9px rgba(var(--bl-shadow), 0.24), 0 0 1px rgba(var(--bl-shadow), 0.16);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-card-title {
+	color: var(--bl-ink);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-chip {
+	color: var(--bl-muted);
+	background: color-mix(in srgb, #4a4a4a 8%, transparent);
+}
+
+/* Gradient carriers beat their inline per-value colors. */
+.dashboard-pipeline--blush .dashboard-pipeline-chip--prop,
+.dashboard-pipeline--blush button.dashboard-pipeline-skill-btn--colored,
+.dashboard-pipeline--blush button.dashboard-pipeline-rail-value {
+	background: var(--bl-accent) !important;
+	color: var(--bl-accent-ink);
+}
+
+.dashboard-pipeline--blush button.dashboard-pipeline-rail-value .dashboard-pipeline-rail-count {
+	color: color-mix(in srgb, #4a4a4a 75%, transparent);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-card button.dashboard-pipeline-foot-btn,
+.dashboard-pipeline--blush .dashboard-pipeline-card button.dashboard-pipeline-skill-btn:not(.dashboard-pipeline-skill-btn--colored),
+.dashboard-pipeline--blush .dashboard-pipeline-card .dashboard-pipeline-archive-btn,
+.dashboard-pipeline--blush button.dashboard-pipeline-col-add,
+.dashboard-pipeline--blush button.dashboard-pipeline-rail-dim,
+.dashboard-pipeline--blush button.dashboard-pipeline-rail-item.is-all {
+	color: var(--bl-muted);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-tasks {
+	background: color-mix(in srgb, #4a4a4a 5%, transparent);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-task {
+	color: var(--bl-ink);
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-rail {
+	background: var(--bl-col);
+	border: none;
+}
+
+.dashboard-pipeline--blush button.dashboard-pipeline-rail-dim.is-active {
+	background: color-mix(in srgb, #4a4a4a 12%, transparent);
+	color: var(--bl-ink);
+}
+
+.dashboard-pipeline--blush button.dashboard-pipeline-rail-item:hover {
+	background: color-mix(in srgb, #4a4a4a 10%, transparent);
+}
+
+
+
+

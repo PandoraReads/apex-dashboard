@@ -158,6 +158,10 @@ export class El {
 	removeChild(child: El): El {
 		const i = this.children.indexOf(child);
 		if (i >= 0) this.children.splice(i, 1);
+		// Real-DOM parity: a removed node's parentNode is null. Without this,
+		// isConnected (and contains) keep walking a stale parent chain and a
+		// detached element still reads as connected.
+		if (child.parent === this) child.parent = null;
 		return child;
 	}
 
@@ -295,6 +299,14 @@ export class El {
 
 	createSpan(o?: { cls?: string; text?: string }): El {
 		return this.createEl('span', o);
+	}
+
+	/** Real-DOM parity: detach `node` and place it as the FIRST child. */
+	prepend(node: El): El {
+		if (node.parent) node.parent.removeChild(node);
+		this.children.unshift(node);
+		node.parent = this;
+		return this;
 	}
 
 	empty(): El {

@@ -23,6 +23,10 @@ import type {
 	WebEmbedConfig,
 	RssConfig,
 	RssFeedSource,
+	PipelineConfig,
+	PipelineStage,
+	PipelineSkill,
+	AgentTarget,
 	ImmersiveItem,
 } from './types';
 import { parse as parseYaml } from 'yaml';
@@ -36,7 +40,7 @@ const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
 // sticky), so they never survive a load.
-const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web', 'rss']);
+const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web', 'rss', 'pipeline']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
 // does not register them as tags. Restore the '#' here; legacy '#xxxxxx' values
@@ -475,6 +479,74 @@ export function serialize(data: DashboardData): string {
 				lines.push(`      downloadFolder: ${JSON.stringify(rc.downloadFolder)}`);
 			}
 		}
+		if (col.pipelineConfig) {
+			const pc = col.pipelineConfig;
+			lines.push('    pipeline:');
+			lines.push(`      rootFolder: ${JSON.stringify(pc.rootFolder ?? '')}`);
+			// '状态' is the default status field — omit it so files stay clean.
+			if (pc.statusField && pc.statusField !== '状态') {
+				lines.push(`      statusField: ${JSON.stringify(pc.statusField)}`);
+			}
+			if (pc.stages.length > 0) {
+				lines.push('      stages:');
+				for (const stage of pc.stages) {
+					lines.push(`        - label: ${JSON.stringify(stage.label)}`);
+					lines.push(`          value: ${JSON.stringify(stage.value)}`);
+					lines.push(`          color: ${JSON.stringify(stage.color)}`);
+					if (stage.folder) lines.push(`          folder: ${JSON.stringify(stage.folder)}`);
+					if (typeof stage.width === 'number') lines.push(`          width: ${Math.round(stage.width)}`);
+				}
+			}
+			if (pc.skills.length > 0) {
+				lines.push('      skills:');
+				for (const skill of pc.skills) {
+					lines.push(`        - label: ${JSON.stringify(skill.label)}`);
+					lines.push(`          icon: ${JSON.stringify(skill.icon)}`);
+					lines.push(`          agent: ${skill.agent}`);
+					lines.push(`          stage: ${JSON.stringify(skill.stage)}`);
+					lines.push(`          scope: ${skill.scope}`);
+					lines.push(`          skillName: ${JSON.stringify(skill.skillName)}`);
+					if (skill.inputPlaceholder) lines.push(`          inputPlaceholder: ${JSON.stringify(skill.inputPlaceholder)}`);
+					lines.push(`          promptTemplate: ${JSON.stringify(skill.promptTemplate)}`);
+				}
+			}
+			if (pc.templatePath) {
+				lines.push(`      templatePath: ${JSON.stringify(pc.templatePath)}`);
+			}
+			if (pc.archiveFolder) {
+				lines.push(`      archiveFolder: ${JSON.stringify(pc.archiveFolder)}`);
+			}
+			if (pc.boardStyle && pc.boardStyle !== 'theme') {
+				lines.push(`      boardStyle: ${pc.boardStyle}`);
+			}
+			if (pc.sortBy) {
+				lines.push(`      sortBy: ${pc.sortBy}`);
+			}
+			if (pc.filterFields && pc.filterFields.length > 0) {
+				lines.push('      filterFields:');
+				for (const f of pc.filterFields) lines.push(`        - ${JSON.stringify(f)}`);
+			}
+			if (pc.filter) {
+				lines.push(`      filter:`);
+				lines.push(`        dim: ${JSON.stringify(pc.filter.dim)}`);
+				if (pc.filter.value) lines.push(`        value: ${JSON.stringify(pc.filter.value)}`);
+			}
+			if (pc.excludeFolders && pc.excludeFolders.length > 0) {
+				lines.push('      excludeFolders:');
+				for (const folder of pc.excludeFolders) {
+					lines.push(`        - ${JSON.stringify(folder)}`);
+				}
+			}
+			if (pc.cardProperties && pc.cardProperties.length > 0) {
+				lines.push('      cardProperties:');
+				for (const prop of pc.cardProperties) {
+					lines.push(`        - ${JSON.stringify(prop)}`);
+				}
+			}
+			if (pc.directSend) {
+				lines.push('      directSend: true');
+			}
+		}
 	}
 
 	lines.push('---');
@@ -484,7 +556,7 @@ export function serialize(data: DashboardData): string {
 		lines.push(`## ${column.name}`);
 		lines.push('');
 
-		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview' || column.sectionType === 'web' || column.sectionType === 'rss') continue;
+		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview' || column.sectionType === 'web' || column.sectionType === 'rss' || column.sectionType === 'pipeline') continue;
 
 		for (const card of column.cards) {
 			lines.push(`### ${card.title}`);
@@ -1108,7 +1180,7 @@ function parseImmersiveItems(fm: Record<string, unknown>): ImmersiveItem[] | und
 	return items.length > 0 ? items : undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; pipelineConfig?: PipelineConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -1122,6 +1194,7 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 			dataviewConfig: item.dataview ? parseDataviewConfig(item.dataview as Record<string, unknown>) : undefined,
 			webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
 			rssConfig: item.rss ? parseRssConfig(item.rss as Record<string, unknown>) : undefined,
+			pipelineConfig: item.pipeline ? parsePipelineConfig(item.pipeline as Record<string, unknown>) : undefined,
 			showCover: item.showCover === false ? false : undefined,
 			height: typeof item.height === 'number' ? item.height : undefined,
 			half: item.half === true ? true : undefined,
@@ -1129,7 +1202,7 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; pipelineConfig?: PipelineConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -1165,6 +1238,7 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			dataviewConfig: def?.dataviewConfig,
 			webConfig: def?.webConfig,
 			rssConfig: def?.rssConfig,
+			pipelineConfig: def?.pipelineConfig,
 			height: def?.height,
 			half: def?.half,
 			width: def?.half ? def?.width : undefined,
@@ -1398,6 +1472,91 @@ function parseRssConfig(raw: Record<string, unknown>): RssConfig {
 		...(groups.length > 0 ? { groups } : {}),
 		...(groupBy ? { groupBy } : {}),
 		...(pageSize ? { pageSize } : {}),
+	};
+}
+
+function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
+	const stages: PipelineStage[] = [];
+	if (Array.isArray(raw.stages)) {
+		for (const entry of raw.stages) {
+			if (typeof entry !== 'object' || entry === null) continue;
+			const rec = entry as Record<string, unknown>;
+			const label = str(rec.label ?? '').trim();
+			const value = str(rec.value ?? '').trim();
+			if (!value) continue;
+			const color = str(rec.color ?? '').trim();
+			const folder = str(rec.folder ?? '').trim().replace(/^\/+|\/+$/g, '');
+			const widthRaw = typeof rec.width === 'number' ? rec.width : undefined;
+			const width = widthRaw != null && widthRaw >= 200 && widthRaw <= 460 ? Math.round(widthRaw) : undefined;
+			stages.push({
+				label: label || value,
+				value,
+				...(color ? { color } : { color: '#a9a69c' }),
+				...(folder ? { folder } : {}),
+				...(width ? { width } : {}),
+			});
+		}
+	}
+	const skills: PipelineSkill[] = [];
+	if (Array.isArray(raw.skills)) {
+		for (const entry of raw.skills) {
+			if (typeof entry !== 'object' || entry === null) continue;
+			const rec = entry as Record<string, unknown>;
+			const label = str(rec.label ?? '').trim();
+			const stage = str(rec.stage ?? '').trim();
+			if (!label || !stage) continue;
+			// Unknown agent targets fall back to Claudian for older or hand-edited files.
+			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' ? rec.agent : 'claudian';
+			const scope = rec.scope === 'stage' ? 'stage' : 'card';
+			const inputPlaceholder = str(rec.inputPlaceholder ?? '').trim();
+			skills.push({
+				id: str(rec.id ?? '').trim() || `sk_${skills.length + 1}_${Math.random().toString(36).slice(2, 8)}`,
+				label,
+				icon: str(rec.icon ?? '').trim() || 'sparkles',
+				agent,
+				stage,
+				scope,
+				skillName: str(rec.skillName ?? '').trim(),
+				...(inputPlaceholder ? { inputPlaceholder } : {}),
+				promptTemplate: str(rec.promptTemplate ?? ''),
+			});
+		}
+	}
+	const templatePath = str(raw.templatePath ?? '').trim();
+	const archiveFolder = str(raw.archiveFolder ?? '').trim().replace(/^\/+|\/+$/g, '');
+	const boardStyleRaw = str(raw.boardStyle ?? '').trim();
+	const boardStyle = boardStyleRaw === 'trello' || boardStyleRaw === 'solid' || boardStyleRaw === 'blush' ? boardStyleRaw : undefined;
+	const filterFields = [...new Set((Array.isArray(raw.filterFields) ? raw.filterFields : [])
+		.map((f: unknown) => str(f).trim())
+		.filter((f: string) => f.length > 0))];
+	const filterDimRaw = str((raw.filter as Record<string, unknown> | undefined)?.dim ?? '').trim();
+	const filterDim = filterDimRaw || undefined;
+	const filterValue = str((raw.filter as Record<string, unknown> | undefined)?.value ?? '').trim();
+	const sortByRaw = str(raw.sortBy ?? '').trim();
+	const sortBy = sortByRaw === 'ctime' || sortByRaw === 'platform' ? sortByRaw as 'ctime' | 'platform' : undefined;
+	const excludeFolders = (Array.isArray(raw.excludeFolders) ? raw.excludeFolders : [])
+		.map((f: unknown) => str(f).trim().replace(/^\/+|\/+$/g, ''))
+		.filter((f: string) => f.length > 0);
+	const cardProperties = (Array.isArray(raw.cardProperties) ? raw.cardProperties : [])
+		.map((p: unknown) => str(p).trim())
+		.filter((p: string) => p.length > 0);
+	// '状态' is the default status field (matches Obsidian zh property naming);
+	// the serializer omits it so files stay clean.
+	const statusField = str(raw.statusField ?? '').trim() || '状态';
+	return {
+		rootFolder: str(raw.rootFolder ?? '').trim().replace(/^\/+|\/+$/g, ''),
+		statusField,
+		stages,
+		skills,
+		...(boardStyle ? { boardStyle } : {}),
+		...(sortBy ? { sortBy } : {}),
+		...(filterFields.length > 0 ? { filterFields } : {}),
+		...(filterDim ? { filter: { dim: filterDim, ...(filterValue ? { value: filterValue } : {}) } } : {}),
+		...(templatePath ? { templatePath } : {}),
+		...(archiveFolder ? { archiveFolder } : {}),
+		...(excludeFolders.length > 0 ? { excludeFolders } : {}),
+		...(cardProperties.length > 0 ? { cardProperties } : {}),
+		...(raw.directSend === true ? { directSend: true } : {}),
 	};
 }
 

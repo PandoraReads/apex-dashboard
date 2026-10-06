@@ -14,6 +14,7 @@ interface GuideFeature {
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
 	{ icon: 'gallery-vertical', textKey: 'announce.featureImmersive' },
 	{ icon: 'rss', textKey: 'announce.featureRss' },
+	{ icon: 'workflow', textKey: 'announce.featurePipeline' },
 ];
 
 /**

@@ -21,9 +21,10 @@ export function renderQuickNoteRegion(
 	const presets = settings.quickNotePresets ?? [];
 	const pinned = settings.pinnedNotes ?? [];
 	const commands = settings.quickCommands ?? [];
+	const skills = settings.skillShortcuts ?? [];
 	const captureOn = !!settings.quickCaptureEnabled;
 	const dailyOn = !!settings.quickDailyEnabled;
-	const hasChips = presets.length > 0 || pinned.length > 0 || commands.length > 0 || dailyOn;
+	const hasChips = presets.length > 0 || pinned.length > 0 || commands.length > 0 || skills.length > 0 || dailyOn;
 
 	// Scrollable nav of chips — sits on the left.
 	const nav = region.createDiv({ cls: 'dashboard-quicknote-nav' });
@@ -33,18 +34,22 @@ export function renderQuickNoteRegion(
 		const cfg = empty.createEl('button', { cls: 'dashboard-quicknote-empty-btn', text: t('quickNote.configure') });
 		cfg.addEventListener('click', () => callbacks.onQuickNoteConfig());
 	} else {
-		// "Today" leads the strip (leftmost) when enabled; presets and pinned follow.
+		// "Today" leads the strip (leftmost) when enabled; commands, pinned,
+		// template-create presets and skills follow (same order as the config modal).
 		if (dailyOn) {
 			chip(nav, 'dashboard-quicknote-chip dashboard-quicknote-today', 'sun', t('quickNote.today'), () => callbacks.onQuickNoteDaily());
 		}
-		for (const preset of presets) {
-			chip(nav, 'dashboard-quicknote-chip', preset.icon || 'file-plus', preset.label, () => callbacks.onQuickNoteCreate(preset));
+		for (const cmd of commands) {
+			chip(nav, 'dashboard-quicknote-chip', cmd.icon || 'terminal', cmd.label, () => callbacks.onQuickCommand(cmd));
 		}
 		for (const note of pinned) {
 			chip(nav, 'dashboard-quicknote-chip dashboard-quicknote-pin', note.icon || 'pin', note.label, () => callbacks.onOpenPinnedNote(note));
 		}
-		for (const cmd of commands) {
-			chip(nav, 'dashboard-quicknote-chip', cmd.icon || 'terminal', cmd.label, () => callbacks.onQuickCommand(cmd));
+		for (const preset of presets) {
+			chip(nav, 'dashboard-quicknote-chip', preset.icon || 'file-plus', preset.label, () => callbacks.onQuickNoteCreate(preset));
+		}
+		for (const skill of skills) {
+			chip(nav, 'dashboard-quicknote-chip', skill.icon || 'sparkles', skill.label, () => callbacks.onSkillShortcut(skill));
 		}
 	}
 

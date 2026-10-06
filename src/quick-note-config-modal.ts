@@ -1,11 +1,13 @@
-import { App, Modal, setIcon } from 'obsidian';
+import { App, Modal, Notice, setIcon } from 'obsidian';
 import type DashboardPlugin from './main';
-import type { PinnedNote, QuickCommand, QuickNotePreset } from './types';
+import type { PinnedNote, QuickCommand, QuickNotePreset, SkillShortcut } from './types';
 import { IconPickerModal } from './icon-picker-modal';
 import type { AppWithCommands } from './obsidian-internal';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { attachPathPicker, type PathPickerMode } from './path-picker-modal';
+import { agentTargets, getAgentAdapter } from './agent-dispatch';
+import { attachSkillPicker, clearRememberedSkills, rememberSkillNames } from './skill-registry';
 
 /**
  * Configuration modal for the Quick Notes region: CRUD for create-presets,
@@ -18,15 +20,18 @@ export class QuickNoteConfigModal extends Modal {
 	private presets: QuickNotePreset[];
 	private pinned: PinnedNote[];
 	private commands: QuickCommand[];
+	private skills: SkillShortcut[];
 	private captureEnabled: boolean;
 	private captureTarget: string;
 	private captureFolder: string;
 	private captureTemplate: string;
 	private capturePosition: 'start' | 'end';
 	private dailyEnabled: boolean;
+	/** Desktop skill-name discovery folders (CSV); '' disables the scan. */
+	private skillSourceFolders: string;
 	/** Index + list of the row currently being dragged (null when idle). */
 	private dragIndex: number | null = null;
-	private dragKind: 'preset' | 'pinned' | 'command' | null = null;
+	private dragKind: 'preset' | 'pinned' | 'command' | 'skill' | null = null;
 
 	constructor(app: App, plugin: DashboardPlugin) {
 		super(app);
@@ -35,12 +40,14 @@ export class QuickNoteConfigModal extends Modal {
 		this.presets = s.quickNotePresets.map(p => ({ ...p }));
 		this.pinned = s.pinnedNotes.map(p => ({ ...p }));
 		this.commands = (s.quickCommands ?? []).map(c => ({ ...c }));
+		this.skills = (s.skillShortcuts ?? []).map(skill => ({ ...skill }));
 		this.captureEnabled = s.quickCaptureEnabled;
 		this.captureTarget = s.quickCaptureTarget;
 		this.captureFolder = s.quickCaptureFolder;
 		this.captureTemplate = s.quickCaptureTemplate;
 		this.capturePosition = s.quickCapturePosition === 'end' ? 'end' : 'start';
 		this.dailyEnabled = s.quickDailyEnabled;
+		this.skillSourceFolders = s.skillSourceFolders ?? '';
 	}
 
 	onOpen(): void {
@@ -67,9 +74,13 @@ export class QuickNoteConfigModal extends Modal {
 		header.createDiv({ cls: 'dashboard-modal-title', text: t('quickNote.configTitle') });
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 		const form = body.createDiv({ cls: 'dashboard-modal-form' });
-		this.renderPresets(form);
-		this.renderPinned(form);
+		// Section order mirrors the workspace strip (after the leading "today"
+		// chip): commands, pinned, template-create presets, skills; capture and
+		// daily toggles trail.
 		this.renderCommands(form);
+		this.renderPinned(form);
+		this.renderPresets(form);
+		this.renderSkills(form);
 		this.renderCapture(form);
 		this.renderDaily(form);
 		this.renderActions(container);
@@ -201,6 +212,68 @@ export class QuickNoteConfigModal extends Modal {
 		this.commands = this.commands.map((c, idx) => idx === i ? { ...c, ...patch } : c);
 	}
 
+	private renderSkills(form: HTMLElement): void {
+		const section = this.section(form, t('quickNote.skills'), t('quickNote.skillsDesc'));
+		const list = section.createDiv({ cls: 'dashboard-quicknote-cfg-list' });
+		this.skills.forEach((skill, i) => {
+			const card = list.createDiv({ cls: 'dashboard-quicknote-cfg-item' });
+			const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
+			this.wireDrag(top, card, i, 'skill', (from, to) => {
+				this.skills = this.reorderArray(this.skills, from, to);
+				this.renderBody();
+			});
+			this.iconPickBtn(top, skill.icon || 'sparkles', icon => this.updateSkill(i, { icon }));
+			this.textInput(top, skill.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, label => this.updateSkill(i, { label }));
+			this.delBtn(top, () => { this.skills = this.skills.filter((_, idx) => idx !== i); this.renderBody(); });
+			card.createDiv({ cls: 'dashboard-quicknote-cfg-cmd-id', text: t('quickNote.skillTarget') });
+			const target = card.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
+			for (const agent of agentTargets()) {
+				target.createEl('option', { text: getAgentAdapter(agent).label, attr: { value: agent } });
+			}
+			target.value = skill.target ?? 'claudian';
+			target.addEventListener('change', () => this.updateSkill(i, { target: target.value as SkillShortcut['target'] }));
+			// Skill name: free text plus a picker over remembered/discovered
+			// names for the row's current agent (see skill-registry).
+			const nameRow = card.createDiv({ cls: 'dashboard-quicknote-cfg-path-row' });
+			const nameInput = this.textInput(nameRow, skill.skillName, '', { placeholder: t('quickNote.skillName') }, skillName => this.updateSkill(i, { skillName }));
+			attachSkillPicker(nameRow, nameInput, this.app, {
+				plugin: this.plugin,
+				getAgent: () => this.skills[i]?.target ?? 'claudian',
+			}, name => this.updateSkill(i, { skillName: name }));
+			this.textInput(card, skill.inputPlaceholder, '', { placeholder: t('quickNote.skillInputHint') }, inputPlaceholder => this.updateSkill(i, { inputPlaceholder }));
+			this.textInput(card, skill.promptTemplate, '', { placeholder: t('quickNote.skillTemplate') }, promptTemplate => this.updateSkill(i, { promptTemplate }));
+		});
+		this.addBtn(section, t('quickNote.addSkill'), () => {
+			this.skills = [...this.skills, {
+				id: uid(), label: '', icon: 'sparkles', target: 'claudian',
+				skillName: '', inputPlaceholder: '', promptTemplate: '',
+			}];
+			this.renderBody();
+		});
+		// Discovery source + registry maintenance for the pickers above.
+		const folderRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-path-row' });
+		this.textInput(folderRow, this.skillSourceFolders, '', { placeholder: t('skillPicker.foldersPh') }, v => { this.skillSourceFolders = v.trim(); });
+		section.createDiv({ cls: 'dashboard-quicknote-cfg-desc', text: t('skillPicker.foldersHint') });
+		const clearBtn = section.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: t('skillPicker.clearRemembered'),
+			attr: { type: 'button' },
+		});
+		clearBtn.addEventListener('click', () => {
+			void (async () => {
+				await clearRememberedSkills(this.plugin, 'claudian');
+				await clearRememberedSkills(this.plugin, 'copilot');
+				await clearRememberedSkills(this.plugin, 'codex');
+				new Notice(t('skillPicker.cleared'));
+				this.renderBody();
+			})();
+		});
+	}
+
+	private updateSkill(i: number, patch: Partial<SkillShortcut>): void {
+		this.skills = this.skills.map((skill, idx) => idx === i ? { ...skill, ...patch } : skill);
+	}
+
 	// ── Capture ────────────────────────────────────────────────────────────
 
 	private renderCapture(form: HTMLElement): void {
@@ -263,11 +336,18 @@ export class QuickNoteConfigModal extends Modal {
 	}
 
 	private async save(): Promise<void> {
+		if (this.skills.some(skill => skill.label.trim() && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(skill.skillName.trim()))) {
+			new Notice(t('quickNote.skillInvalid'));
+			return;
+		}
+		const savedSkills = this.skills.filter(skill => skill.label.trim() && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(skill.skillName.trim())).map(skill => ({ ...skill, skillName: skill.skillName.trim() }));
 		this.plugin.settings = {
 			...this.plugin.settings,
 			quickNotePresets: this.presets.filter(p => p.label.trim()),
 			pinnedNotes: this.pinned.filter(p => p.label.trim() && p.path.trim()),
 			quickCommands: this.commands.filter(c => c.commandId.trim() && c.label.trim()),
+			skillShortcuts: savedSkills,
+			skillSourceFolders: this.skillSourceFolders,
 			quickCaptureEnabled: this.captureEnabled,
 			quickCaptureTarget: this.captureTarget.trim(),
 			quickCaptureFolder: this.captureFolder.trim(),
@@ -276,6 +356,10 @@ export class QuickNoteConfigModal extends Modal {
 			quickDailyEnabled: this.dailyEnabled,
 		};
 		await this.plugin.saveSettings();
+		// Remember valid names per agent so the pickers offer them next time.
+		for (const agent of new Set(savedSkills.map(skill => skill.target))) {
+			await rememberSkillNames(this.plugin, agent, savedSkills.filter(skill => skill.target === agent && skill.skillName).map(skill => skill.skillName));
+		}
 		this.plugin.refreshAllDashboards();
 		this.close();
 	}
@@ -363,7 +447,7 @@ export class QuickNoteConfigModal extends Modal {
 		topBar: HTMLElement,
 		card: HTMLElement,
 		index: number,
-		kind: 'preset' | 'pinned' | 'command',
+		kind: 'preset' | 'pinned' | 'command' | 'skill',
 		onReorder: (from: number, to: number) => void,
 	): void {
 		card.draggable = false;

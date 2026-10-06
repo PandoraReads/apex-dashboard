@@ -2,7 +2,7 @@ import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Plat
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, DataviewConfig, ImmersiveItem } from './types';
+import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
 import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu } from './immersive';
@@ -26,6 +26,9 @@ import { createNoteFromPreset, captureThought, openPinnedNote, openTodayNote, re
 import { QuickNoteConfigModal } from './quick-note-config-modal';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
+import { AgentPromptModal } from './agent-prompt-modal';
+import { rememberSkillNames } from './skill-registry';
+import { PipelineConfigModal } from './pipeline-config-modal';
 import { setupDragAndDrop } from './dnd';
 import { startGuardedDrag } from './drag-guard';
 import { clampSidebarWidth, clampWidgetUnitHeight } from './widget-span';
@@ -58,6 +61,7 @@ import { createPomodoroMiniPanel, type PomodoroMiniPanel } from './pomodoro-mini
 import { createReadingMiniTimer, type ReadingMiniTimer } from './reading-mini-timer';
 import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
+import { parseNoteDue } from './pipeline-model';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
 import { getOrCreateDailyNote, ensureFolder } from './daily-notes';
@@ -116,6 +120,15 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  One shared trailing debounce fans them out — see scheduleVaultRefresh. */
 	private vaultChangePaths = new Set<string>();
 	private vaultChangeBroad = false;
+	/** Newly created .md paths whose first metadataCache index hasn't landed
+	 *  yet (see registerVaultListeners). */
+	private pendingMdIndexPaths = new Set<string>();
+	/** Md paths from the last flushed refresh batch: a metadataCache 'changed'
+	 *  arriving for one of these means the cache was NOT ready when the
+	 *  rebuild ran (frontmatter writes — pin/due/checklist — can index slower
+	 *  than the 500ms vault debounce), so that rebuild read stale data and a
+	 *  corrective pass is needed (see registerVaultListeners). */
+	private mdCacheLagPaths = new Set<string>();
 	private vaultRefreshTimer: number | null = null;
 	private readonly VAULT_REFRESH_DEBOUNCE = 500;
 	private readonly BANNER_STATS_DEBOUNCE = 800;
@@ -689,6 +702,8 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openWebConfigModal(columnName);
 			} else if (col?.sectionType === 'rss') {
 				this.openRssConfigModal(columnName);
+			} else if (col?.sectionType === 'pipeline') {
+				this.openPipelineConfigModal(columnName);
 			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
 				this.openMediaConfigModal(columnName);
 			} else if (col?.sectionType === 'projects') {
@@ -708,6 +723,42 @@ export class DashboardView extends ItemView implements HoverParent {
 					this.refreshSectionInPlace(columnName);
 				});
 			}
+		}) as EventListener);
+
+		// Pipeline value-filter rail pick — persists into the section config
+		// and refreshes in place (the config change also busts the signature).
+		board.addEventListener('dashboard-pipeline-filter', ((e: CustomEvent) => {
+			const { columnName, filter } = e.detail as { columnName: string; filter?: { dim: string; value?: string } };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col?.pipelineConfig) return;
+			const next = { ...col.pipelineConfig, filter };
+			void this.sync.updatePipelineConfig(columnName, next).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		}) as EventListener);
+
+		// Pipeline card sort — native-menu pick persists and refreshes in place.
+		board.addEventListener('dashboard-pipeline-sort', ((e: CustomEvent) => {
+			const { columnName, sortBy } = e.detail as { columnName: string; sortBy?: 'ctime' | 'platform' };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col?.pipelineConfig) return;
+			const next = { ...col.pipelineConfig, sortBy };
+			void this.sync.updatePipelineConfig(columnName, next).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		}) as EventListener);
+
+		// Pipeline column width — dragged column edge persists per stage.
+		board.addEventListener('dashboard-pipeline-col-width', ((e: CustomEvent) => {
+			const { columnName, stageValue, width } = e.detail as { columnName: string; stageValue: string; width: number };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			const config = col?.pipelineConfig;
+			if (!config || typeof width !== 'number') return;
+			const next = {
+				...config,
+				stages: config.stages.map(stage => stage.value === stageValue ? { ...stage, width } : stage),
+			};
+			void this.sync.updatePipelineConfig(columnName, next);
 		}) as EventListener);
 
 		// Library/folder "new note" button — dispatched from the section toolbar.
@@ -1409,6 +1460,12 @@ export class DashboardView extends ItemView implements HoverParent {
 				}
 				commands.executeCommandById(cmd.commandId);
 			},
+			onSkillShortcut: (shortcut: SkillShortcut) => new AgentPromptModal(this.app, {
+				label: shortcut.label,
+				skillName: shortcut.skillName,
+				promptTemplate: shortcut.promptTemplate,
+				inputPlaceholder: shortcut.inputPlaceholder,
+			}, shortcut.target, {}).open(),
 			onQuickNoteDaily: () => void openTodayNote(this.app),
 			onQuickNoteConfig: () => new QuickNoteConfigModal(this.app, this.plugin).open(),
 			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.handleMoveCard(cardId, targetCol, targetIdx),
@@ -1658,6 +1715,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.openWebConfigModal(name);
 		} else if (sectionType === 'rss') {
 			this.openRssConfigModal(name);
+		} else if (sectionType === 'pipeline') {
+			this.openPipelineConfigModal(name);
 		}
 	}
 
@@ -1860,6 +1919,28 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existing,
 			(config) => { void this.sync.updateRssConfig(colName, config); },
+		);
+		modal.open();
+	}
+
+	/** Pipeline sections: stages, skill buttons and the status field. The modal
+	 *  seeds sensible defaults when the section was just created. */
+	private openPipelineConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const modal = new PipelineConfigModal(
+			this.app,
+			column?.pipelineConfig,
+			(config) => {
+				void (async () => {
+					await this.sync.updatePipelineConfig(colName, config);
+					// Remember valid skill names per agent so the pickers
+					// offer them next time (see skill-registry).
+					for (const agent of new Set(config.skills.map(skill => skill.agent))) {
+						await rememberSkillNames(this.plugin, agent, config.skills.filter(skill => skill.agent === agent && skill.skillName).map(skill => skill.skillName));
+					}
+				})();
+			},
+			this.plugin,
 		);
 		modal.open();
 	}
@@ -2356,7 +2437,17 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.scheduleVaultRefresh();
 		};
 
-		const createRef = events.on('create', (file: TAbstractFile) => record(file));
+		const createRef = events.on('create', (file: TAbstractFile) => {
+			// A brand-new note's frontmatter is indexed asynchronously: the
+			// create-debounce may render before the cache has the properties
+			// (a pipeline board's strict status filter would hide the card).
+			// Track it so its FIRST metadataCache 'changed' (index complete)
+			// forces one more refresh pass.
+			if (file instanceof TFile && file.extension === 'md') {
+				this.pendingMdIndexPaths.add(file.path);
+			}
+			record(file);
+		});
 		const modifyRef = events.on('modify', (file: TAbstractFile) => {
 			// Plain content edits only matter to the note-derived views; an
 			// image overwrite with the same path renders identically.
@@ -2364,14 +2455,40 @@ export class DashboardView extends ItemView implements HoverParent {
 				record(file);
 			}
 		});
-		const deleteRef = events.on('delete', (file: TAbstractFile) => record(file));
-		const renameRef = events.on('rename', (file: TAbstractFile, oldPath: string) => record(file, oldPath));
+		const deleteRef = events.on('delete', (file: TAbstractFile) => {
+			if (file instanceof TFile) this.pendingMdIndexPaths.delete(file.path);
+			record(file);
+		});
+		const renameRef = events.on('rename', (file: TAbstractFile, oldPath: string) => {
+			if (file instanceof TFile) {
+				if (this.pendingMdIndexPaths.delete(oldPath)) this.pendingMdIndexPaths.add(file.path);
+			}
+			record(file, oldPath);
+		});
+		// First cache index of a newly created note: the path/mtime/ctime
+		// signature cannot see a cache-only change, so drop the signature
+		// cache for this one pass. Gated to pending creations — firing on
+		// every edit would nullify the signature short-circuit entirely.
+		const metadata = this.app.metadataCache;
+		const metaChangedRef = metadata.on('changed', (file: TFile) => {
+			if (file.extension !== 'md') return;
+			const isCreation = this.pendingMdIndexPaths.delete(file.path);
+			// Cache landed after the last refresh pass already used this file —
+			// that pass rendered stale frontmatter (e.g. a pin that "bounced
+			// back"); drop the signatures and run one corrective pass.
+			const isLagged = this.mdCacheLagPaths.has(file.path);
+			if (!isCreation && !isLagged) return;
+			if (isLagged) this.mdCacheLagPaths.delete(file.path);
+			invalidateScanningSectionSignatures();
+			record(file);
+		});
 
 		this.vaultEventRefs = [
 			{ evt: events, ref: createRef },
 			{ evt: events, ref: modifyRef },
 			{ evt: events, ref: deleteRef },
 			{ evt: events, ref: renameRef },
+			{ evt: metadata, ref: metaChangedRef },
 		];
 	}
 
@@ -2386,6 +2503,8 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 		this.vaultChangePaths = new Set();
 		this.vaultChangeBroad = false;
+		this.pendingMdIndexPaths = new Set();
+		this.mdCacheLagPaths = new Set();
 		if (this.bannerStatsTimer) {
 			window.clearTimeout(this.bannerStatsTimer);
 			this.bannerStatsTimer = null;
@@ -2430,6 +2549,21 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.refreshAlbumWidgetsNow();
 		}
 		this.refreshSectionsFor(lowerPaths, broad, changedMd, changedMedia);
+		// Arm the lag guard: any of these whose cache lands LATER must force
+		// one corrective refresh (the pass above may have read stale cache).
+		// UNION, never replace — a replace wipes slow-index entries before
+		// their 'changed' arrives, and the corrective pass never fires.
+		for (const p of paths) this.mdCacheLagPaths.add(p);
+		// Bound the set so a 'changed'-less path cannot accumulate forever.
+		if (this.mdCacheLagPaths.size > 200) {
+			const excess = this.mdCacheLagPaths.size - 200;
+			let dropped = 0;
+			for (const p of this.mdCacheLagPaths) {
+				if (dropped >= excess) break;
+				this.mdCacheLagPaths.delete(p);
+				dropped += 1;
+			}
+		}
 	}
 
 	/** Re-scan the sidebar task calendar in place (task dots). The widget DOM
@@ -2470,7 +2604,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const sectionType = (col: { sectionType?: string }) => col.sectionType;
 		const hasScanning = !immersive && data.columns.some(col => {
 			const st = sectionType(col);
-			return st === 'library' || st === 'calendar' || st === 'folder';
+			return st === 'library' || st === 'calendar' || st === 'folder' || st === 'pipeline';
 		});
 		const hasMedia = !immersive && data.columns.some(col => {
 			const st = sectionType(col);
@@ -2483,6 +2617,32 @@ export class DashboardView extends ItemView implements HoverParent {
 				const root = this.containerEl.children[1] as HTMLElement | undefined;
 				const kanban0 = root?.querySelector('.dashboard-kanban');
 				if (kanban0) refreshCalendarSections(kanban0 as HTMLElement);
+			}
+			// Immersive scanning tiles still live-refresh — SCOPED. Pin
+			// toggles, due dates, checklist checks, agent writes and note
+			// edits land as in-scope .md changes; refreshSectionInPlace is
+			// the immersive-safe path (carries tile placement + scroll +
+			// re-wires DnD). Sections with a configured scope (pipeline root,
+			// library/folder folders) refresh only when the edit hits that
+			// scope; whole-vault scans stay on full-render refresh —
+			// rebuilding those on every distant edit was the original
+			// strobing this layout's refresh freeze exists to prevent.
+			if (immersive && changedMd) {
+				for (const col of data.columns) {
+					const st = col.sectionType;
+					if (st === 'pipeline') {
+						const rootFolder = (col.pipelineConfig?.rootFolder ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+						const hit = rootFolder.length === 0 || lowerPaths.some(p => p.startsWith(rootFolder + '/'));
+						if (hit) this.refreshSectionInPlace(col.name);
+					} else if (st === 'library' || st === 'folder') {
+						const folders = (col.libraryConfig?.folders ?? [])
+							.map(f => f.trim().replace(/^\/+|\/+$/g, '').toLowerCase())
+							.filter(f => f.length > 0);
+						if (folders.length === 0) continue; // whole-vault scan: keep the freeze
+						const hit = lowerPaths.some(p => folders.some(f => p.startsWith(f + '/')));
+						if (hit) this.refreshSectionInPlace(col.name);
+					}
+				}
 			}
 			return;
 		}
@@ -2499,6 +2659,15 @@ export class DashboardView extends ItemView implements HoverParent {
 			const folders = (col.libraryConfig?.folders ?? [])
 				.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
 				.filter(f => f.length > 0);
+			// Pipeline sections scope to their root folder (empty = whole vault).
+			if (folders.length === 0 && col.sectionType === 'pipeline') {
+				const root = (col.pipelineConfig?.rootFolder ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+				if (root.length > 0) {
+					if (broad || lowerPaths.length === 0) return true;
+					return lowerPaths.some(p => p.startsWith(root + '/'));
+				}
+				return true;
+			}
 			// No configured folders: the section scans the whole vault.
 			if (folders.length === 0) return true;
 			if (broad || lowerPaths.length === 0) return true;
@@ -2884,7 +3053,48 @@ export class DashboardView extends ItemView implements HoverParent {
 				}
 			}
 
-			// Countdown reminders (one per configured countdown)
+			// Workflow (pipeline) notes: a note-level `due` + `remind: true`
+		// frontmatter pair raises the same reminder modal. Dismiss clears the
+		// alarm; snooze pushes the due value an hour out (written back to the
+		// note). The scan rides the metadata cache — no file reads.
+		for (const col of this.data.columns) {
+			if (col.sectionType !== 'pipeline' || !col.pipelineConfig) continue;
+			const cfg = col.pipelineConfig;
+			for (const file of this.app.vault.getMarkdownFiles()) {
+				if (!file.path.toLowerCase().startsWith(cfg.rootFolder.toLowerCase() + '/')) continue;
+				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+				if (!fm || fm['remind'] !== true) continue;
+				const due = parseNoteDue(fm);
+				if (!due) continue;
+				const key = `pipe:${file.path}`;
+				if (this.firedReminders.has(key)) continue;
+				const [y, mo, d] = due.date.split('-').map(Number);
+				if (!y || !mo || !d) continue;
+				const [h, mi] = (due.time ?? '09:00').split(':').map(Number);
+				const when = new Date(y, mo - 1, d, h ?? 9, mi ?? 0);
+				if (now < when) continue;
+				this.firedReminders.add(key);
+				const modal = new ReminderNoticeModal(
+					this.app,
+					file.basename,
+					() => {
+						// Dismiss: drop the alarm flag, keep the due value.
+						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { delete f['remind']; });
+					},
+					() => {
+						// Snooze one hour, re-arm.
+						const snoozed = new Date(Date.now() + 60 * 60 * 1000);
+						const pad = (n: number) => String(n).padStart(2, '0');
+						const value = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
+						this.firedReminders.delete(key);
+						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { f['due'] = value; f['remind'] = true; });
+					},
+				);
+				modal.open();
+			}
+		}
+
+		// Countdown reminders (one per configured countdown)
 			if (this.plugin.settings.countdownEnabled) {
 				for (const cd of this.plugin.settings.countdowns ?? []) {
 					if (!cd.targetDate || cd.reminderDays <= 0) continue;

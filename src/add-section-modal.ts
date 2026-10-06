@@ -24,6 +24,7 @@ export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
 	{ value: 'calendar', icon: 'calendar-days', labelKey: 'renderer.typeCalendar' },
 	{ value: 'web', icon: 'globe', labelKey: 'renderer.typeWeb' },
 	{ value: 'rss', icon: 'rss', labelKey: 'renderer.typeRss' },
+	{ value: 'pipeline', icon: 'workflow', labelKey: 'renderer.typePipeline' },
 	{ value: 'weread', icon: 'book-open', labelKey: 'renderer.typeWeread' },
 	{ value: 'ticktick', icon: 'check-circle', labelKey: 'renderer.typeTickTick' },
 ];
