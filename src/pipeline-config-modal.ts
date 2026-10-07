@@ -53,18 +53,18 @@ export class PipelineConfigModal extends Modal {
 		this.plugin = plugin ?? null;
 		const cfg = config ?? {
 			rootFolder: '',
-			statusField: '状态',
+			statusField: 'status',
 			stages: defaultPipelineStages({
 				idea: t('pipeline.stageIdea'),
 				draft: t('pipeline.stageDraft'),
 				review: t('pipeline.stageReview'),
-				published: t('pipeline.stagePublished'),
-				done: t('pipeline.stageDone'),
+				pending: t('pipeline.stagePending'),
+				retro: t('pipeline.stageRetro'),
 			}),
 			skills: [],
 		};
 		this.rootFolder = cfg.rootFolder ?? '';
-		this.statusField = cfg.statusField || '状态';
+		this.statusField = cfg.statusField || 'status';
 		this.stages = (cfg.stages ?? []).map(stage => ({ ...stage }));
 		this.skills = (cfg.skills ?? []).map(skill => ({ ...skill }));
 		this.templatePath = cfg.templatePath ?? '';
@@ -72,7 +72,7 @@ export class PipelineConfigModal extends Modal {
 		this.directSend = cfg.directSend === true;
 		this.excludeFolders = [...(cfg.excludeFolders ?? [])];
 		this.cardProperties = [...(cfg.cardProperties ?? [])];
-		this.boardStyle = cfg.boardStyle === 'trello' || cfg.boardStyle === 'solid' || cfg.boardStyle === 'blush' ? cfg.boardStyle : 'theme';
+		this.boardStyle = cfg.boardStyle === 'theme' ? 'theme' : (cfg.boardStyle ?? 'trello');
 		this.filterFields = [...(cfg.filterFields ?? [])];
 	}
 
@@ -107,11 +107,11 @@ export class PipelineConfigModal extends Modal {
 		fieldRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pipeline.cfgStatusField') });
 		const fieldInput = fieldRow.createEl('input', {
 			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: '状态' },
+			attr: { type: 'text', placeholder: 'status' },
 		});
 		fieldInput.value = this.statusField;
 		fieldInput.addEventListener('change', () => {
-			this.statusField = fieldInput.value.trim() || '状态';
+			this.statusField = fieldInput.value.trim() || 'status';
 			fieldInput.value = this.statusField;
 		});
 		source.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgStatusFieldHint') });
@@ -453,7 +453,7 @@ export class PipelineConfigModal extends Modal {
 		}
 		const config: PipelineConfig = {
 			rootFolder: normalizeFolderPath(this.rootFolder),
-			statusField: this.statusField.trim() || '状态',
+			statusField: this.statusField.trim() || 'status',
 			stages,
 			// Rows the user started but left unlabeled are dropped, not saved
 			// as dead buttons.

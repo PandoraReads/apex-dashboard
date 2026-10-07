@@ -1012,6 +1012,7 @@ const WIDGET_META: Record<string, { labelKey: string; icon: string }> = {
 	reading: { labelKey: 'settings.readingEnabled', icon: 'book-open' },
 	habit: { labelKey: 'settings.widgetHabitEnabled', icon: 'flame' },
 	expense: { labelKey: 'settings.widgetExpenseEnabled', icon: 'coins' },
+	skills: { labelKey: 'skillsWidget.title', icon: 'wand-sparkles' },
 	music: { labelKey: 'settings.widgetMusic', icon: 'music' },
 };
 

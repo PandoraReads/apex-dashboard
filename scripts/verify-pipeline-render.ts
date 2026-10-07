@@ -154,6 +154,9 @@ async function main(): Promise<void> {
 	const customItems = findByClass(customRail[0]!, 'dashboard-pipeline-rail-item');
 	assert.ok(customItems.length >= 2, 'All + the 栏目 value listed');
 
+	// Default skin is 马卡龙 (trello) even without an explicit boardStyle.
+	assert.equal(findByClass(host, 'dashboard-pipeline--trello').length, 1, 'default config renders the trello skin');
+
 	// Trello skin: config boardStyle wraps the board with the modifier class.
 	const hostTrello = new El('div');
 	renderPipelineSection(hostTrello as unknown as HTMLElement, pipelineColumn({ ...config, boardStyle: 'trello' }), app, callbacks, null);

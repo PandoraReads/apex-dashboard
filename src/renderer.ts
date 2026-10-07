@@ -40,6 +40,7 @@ import { renderSidebarYearProgress } from './year-progress-widget';
 import { renderSidebarCalendar } from './calendar-widget';
 import { renderCalendarSection } from './calendar-section';
 import { renderSidebarHabitWidget } from './habit-widget';
+import { renderSidebarSkillWidget, skillWidgetSig } from './skill-widget';
 import { renderSidebarExpenseWidget } from './expense-widget';
 import { renderSidebarAlbumWidget } from './album-widget';
 import { renderSidebarAnniversaryWidget } from './anniversary-widget';
@@ -318,6 +319,8 @@ export function sidebarWidgetSignature(
 		weatherCity: settings.widgetWeatherCity,
 		weatherLat: settings.widgetWeatherLat,
 		weatherLon: settings.widgetWeatherLon,
+		skillsWidgetEnabled: settings.widgetSkillsEnabled,
+		skillsWidgetSig: skillWidgetSig(settings.skillWidgetButtons ?? []),
 		pomodoroEnabled: settings.pomodoroEnabled,
 		pomodoroLongBreakInterval: settings.pomodoroLongBreakInterval,
 		lunarEnabled: settings.widgetLunarEnabled,
@@ -485,7 +488,7 @@ export interface WidgetBuildDeps {
 	renderQuickActions?: (container: HTMLElement) => void;
 }
 
-export const DEFAULT_WIDGET_ORDER: string[] = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'anniversary', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'];
+export const DEFAULT_WIDGET_ORDER: string[] = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'anniversary', 'yearProgress', 'calendar', 'habit', 'expense', 'skills', 'album', 'music'];
 
 /** Build one entry per ENABLED widget card (enable order, not display order).
  *  Shared by the side/stacked rail (renderSidebarWidgets) and the immersive
@@ -528,6 +531,9 @@ export function buildWidgetEntries(settings: DashboardSettings, app: App, deps: 
 	}
 	if (member('expense', settings.widgetExpenseEnabled)) {
 		enabled.push({ key: 'expense', render: (host) => renderSidebarExpenseWidget(host, app) });
+	}
+	if (member('skills', settings.widgetSkillsEnabled)) {
+		enabled.push({ key: 'skills', render: (host) => renderSidebarSkillWidget(host, app, settings) });
 	}
 	// Multiple album widgets: one card per albums[] entry, keyed album-<id>.
 	// renderSidebarAlbumWidget reads the legacy flat fields, so each entry

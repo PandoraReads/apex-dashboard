@@ -14,6 +14,7 @@ import { TickTickLoginModal } from './ticktick-login-modal';
 import { ThemeStudioModal } from './theme-studio-modal';
 import { customThemeSettingsSlice } from './appearance';
 import { QuickNoteConfigModal } from './quick-note-config-modal';
+import { SkillWidgetConfigModal } from './skill-widget-config-modal';
 import { showConfirmDialog } from './confirm-dialog';
 import { showPromptDialog } from './prompt-dialog';
 import { getMusicService } from './music-service';
@@ -187,6 +188,17 @@ export class DashboardSettingTab extends PluginSettingTab {
 						},
 					},
 					{
+						// Skill-buttons widget, last on the widgets page.
+						name: t('settings.widgetSkillsEnabled'),
+						desc: t('settings.widgetSkillsEnabledDesc'),
+						aliases: [t('skillsWidget.cfgTitle')],
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderSkillWidgetCard(setting.settingEl);
+						},
+					},
+					{
 						name: t('settings.tabAbout'),
 						searchable: false, // pure content, not a setting
 						render: (setting) => {
@@ -266,6 +278,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 			this.renderYearProgressSettings(host);
 			this.renderAlbumSettings(host);
 			this.renderAnniversarySettings(host);
+			this.renderSkillWidgetCard(host);
 		} else {
 			this.renderCoffeeSettings(host);
 		}
@@ -321,7 +334,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 						nordic: t('settings.styleNordic'),
 						aurora: t('settings.styleAurora'),
 						blossom: t('settings.styleBlossom'),
-						lilac: t('settings.styleLilac'),
+						aqua: t('settings.styleAqua'),
 						island: t('settings.styleIsland'),
 						tundra: t('settings.styleTundra'),
 						matcha: t('settings.styleMatcha'),
@@ -804,12 +817,6 @@ export class DashboardSettingTab extends PluginSettingTab {
 	 *  Countdown renders after the expense card (the tab order is weather →
 	 *  calendar → these five, with countdown last). */
 	private renderWidgetSettings(containerEl: HTMLElement): void {
-		// Scope note first: these toggles rule the side/stacked rails only —
-		// immersive boards manage their widget cards in-board.
-		new Setting(containerEl)
-			.setName(t('settings.widgetTogglesScope'))
-			.setDesc(t('settings.widgetTogglesScopeDesc'));
-
 		// --- Pomodoro card ---
 		const pomodoroCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
 		new Setting(pomodoroCard)
@@ -1102,6 +1109,33 @@ export class DashboardSettingTab extends PluginSettingTab {
 		if (this.plugin.settings.countdownEnabled) {
 			this.renderCountdownList(countdownCard);
 		}
+	}
+
+	/** Skill-buttons widget card — rendered LAST on the widgets page (it
+	 *  hosts user-added launcher buttons, not a data widget). Kept as its own
+	 *  method so both page assemblies (declarative list + pre-1.13 fallback)
+	 *  can append it after the final data-widget section. */
+	private renderSkillWidgetCard(containerEl: HTMLElement): void {
+		const skillCard = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(skillCard)
+			.setName(t('settings.widgetSkillsEnabled'))
+			.setDesc(t('settings.widgetSkillsEnabledDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetSkillsEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetSkillsEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
+		new Setting(skillCard)
+			.setName(t('skillsWidget.cfgTitle'))
+			.addButton(btn => btn
+				.setButtonText(t('common.edit'))
+				.onClick(() => new SkillWidgetConfigModal(this.app, this.plugin).open()));
 	}
 
 	/** About Author page (the former Buy Me a Coffee): centered bio, projects,

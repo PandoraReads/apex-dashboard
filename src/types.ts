@@ -232,6 +232,11 @@ export interface DashboardSettings {
 	/** Skill names remembered from saved configs, per agent — feeds the
 	 *  skill-name picker dropdowns (see skill-registry). */
 	knownSkills?: Partial<Record<AgentTarget, string[]>>;
+	/** Standalone skill-buttons sidebar widget: enabled flag + its own button
+	 *  list (same shape as the quick-note chips; edited in the widget's own
+	 *  modal). Meant for vault-organization skills. */
+	widgetSkillsEnabled: boolean;
+	skillWidgetButtons: SkillShortcut[];
 	/** Desktop-only extra folders (CSV, "~" allowed) scanned for skill names
 	 *  shown in the pickers. Empty string disables the scan; nothing outside
 	 *  the vault is read unless the user lists a path here. */
@@ -380,6 +385,8 @@ export interface SkillShortcut {
 	inputPlaceholder: string;
 	/** Supports {skill} and {input}. Empty uses the default template. */
 	promptTemplate: string;
+	/** Skip the confirm dialog and send immediately (no supplemental input). */
+	directSend?: boolean;
 }
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
@@ -417,6 +424,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	calendarTaskInsertPosition: 'start',
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
+	widgetSkillsEnabled: false,
+	skillWidgetButtons: [],
 	expenseCurrency: '¥',
 	widgetAlbumEnabled: false,
 	widgetAlbumFolder: '',
@@ -1038,7 +1047,7 @@ export interface PipelineConfig {
 	/** Root folder scanned for items. Required: an unset root renders the
 	 *  unconfigured state instead of scanning the vault. */
 	rootFolder: string;
-	/** Frontmatter field holding the stage value (default '状态'). */
+	/** Frontmatter field holding the stage value (default 'status'). */
 	statusField: string;
 	stages: PipelineStage[];
 	skills: PipelineSkill[];

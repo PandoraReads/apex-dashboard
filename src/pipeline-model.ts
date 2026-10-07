@@ -222,6 +222,13 @@ export function skillColorFor(name: string): string {
 	return SKILL_PALETTE[hash % SKILL_PALETTE.length]!;
 }
 
+/** Keycap palette for the skill WIDGET's strip — the aqua-theme design's
+ *  light keycap set (/tmp/aqua-theme-design.html), in the design's own keycap
+ *  row order: pink, purple, gold, mint, green, peach. POSITION-indexed (not
+ *  name-hashed) so the first four keys always read as four DISTINCT hues —
+ *  the hash slotter could land two buttons on the same (purple) slot. */
+export const SKILL_KEY_PALETTE: readonly string[] = ['#f4b8c8', '#c9b6e4', '#f2d591', '#8ed6cf', '#b9dfc3', '#f5c3a8'];
+
 /** Mid-depth palette for property chips: saturated enough for white text,
  *  soft enough to sit beside the latte stage tints. */
 const PROPERTY_PALETTE = ['#5b8def', '#e07b9a', '#57a773', '#b583d6', '#e0954f', '#4fb3c9', '#8b7ec8', '#d97b6c'];
@@ -283,13 +290,16 @@ export function stageSkillVars(stage: PipelineStage, config: PipelineConfig): Re
  *  the colors are the 奶泡/Latte low-saturation set (Rae-approved 2026-10-06,
  *  see /tmp/workflow-board-design.html — do not swap back to saturated
  *  Tailwind hues). */
-export function defaultPipelineStages(labels: { idea: string; draft: string; review: string; published: string; done: string }): PipelineStage[] {
+export function defaultPipelineStages(labels: { idea: string; draft: string; review: string; pending: string; retro: string }): PipelineStage[] {
+	/* Rae's live stage set (assets/60 工作台/00 主页-3.md, 2026-10-07): the
+	   DONE value marks 待发布 and PUBLISHED marks 待复盘 — his ordering, kept
+	   verbatim, folders and dragged widths included. */
 	return [
-		{ value: 'idea', label: labels.idea, color: '#d9a88f', folder: '01-选题' },
-		{ value: 'draft', label: labels.draft, color: '#92aec9', folder: '02-草稿' },
-		{ value: 'review', label: labels.review, color: '#b5a3d1', folder: '03-待审核' },
-		{ value: 'published', label: labels.published, color: '#9dc3a4', folder: '04-已发布' },
-		{ value: 'done', label: labels.done, color: '#a9a69c', folder: '05-已复盘' },
+		{ value: 'idea', label: labels.idea, color: '#f59e0b', folder: '00-选题库', width: 272 },
+		{ value: 'draft', label: labels.draft, color: '#3b82f6', folder: '01-草稿', width: 239 },
+		{ value: 'review', label: labels.review, color: '#8b5cf6', folder: '02-待发布内容', width: 206 },
+		{ value: 'done', label: labels.pending, color: '#10b981', folder: '02-待发布内容', width: 200 },
+		{ value: 'published', label: labels.retro, color: '#64748b', folder: '03-已发布', width: 224 },
 	];
 }
 

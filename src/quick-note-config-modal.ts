@@ -242,6 +242,12 @@ export class QuickNoteConfigModal extends Modal {
 			}, name => this.updateSkill(i, { skillName: name }));
 			this.textInput(card, skill.inputPlaceholder, '', { placeholder: t('quickNote.skillInputHint') }, inputPlaceholder => this.updateSkill(i, { inputPlaceholder }));
 			this.textInput(card, skill.promptTemplate, '', { placeholder: t('quickNote.skillTemplate') }, promptTemplate => this.updateSkill(i, { promptTemplate }));
+			// Direct send: skip the confirm dialog entirely.
+			const directRow = card.createDiv({ cls: 'dashboard-quicknote-cfg-toggle' });
+			directRow.createSpan({ cls: 'dashboard-quicknote-cfg-cmd-id', text: t('agent.directSend') });
+			const direct = directRow.createEl('input', { attr: { type: 'checkbox' } }) as HTMLInputElement;
+			direct.checked = skill.directSend === true;
+			direct.addEventListener('change', () => this.updateSkill(i, { directSend: direct.checked }));
 		});
 		this.addBtn(section, t('quickNote.addSkill'), () => {
 			this.skills = [...this.skills, {

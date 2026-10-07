@@ -61,7 +61,9 @@ export function renderPipelineSection(
 	hoverParent: HoverParent | null,
 ): void {
 	const cfg = column.pipelineConfig;
-	const body = el.createDiv({ cls: `dashboard-section-cards dashboard-pipeline${cfg?.boardStyle && cfg.boardStyle !== 'theme' ? ` dashboard-pipeline--${cfg.boardStyle}` : ''}` });
+	// Default skin: 马卡龙 (trello) unless the section explicitly picks 'theme'.
+	const skin = cfg?.boardStyle && cfg.boardStyle !== 'theme' ? cfg.boardStyle : 'trello';
+	const body = el.createDiv({ cls: `dashboard-section-cards dashboard-pipeline dashboard-pipeline--${skin}` });
 
 	// STRICT scope: a content folder must be configured before anything is
 	// scanned — an unset root would otherwise surface the whole vault.
@@ -233,9 +235,12 @@ function renderStageColumn(
 	// user narrow a skill run to selected items.
 	const stageActions = head.createDiv({ cls: 'dashboard-pipeline-col-actions' });
 	for (const skill of skillsForStage(cfg, stage.value, 'stage')) {
+		// No `title` attr: the click opens AgentPromptModal headed by the
+		// skill's label, and a native tooltip firing on the stationary cursor
+		// after that click read as a SECOND, differently-styled name popup.
 		const btn = stageActions.createEl('button', {
 			cls: 'dashboard-pipeline-skill-btn',
-			attr: { type: 'button', 'aria-label': skill.label, title: skill.label },
+			attr: { type: 'button', 'aria-label': skill.label },
 		});
 		setIcon(btn, skill.icon || 'sparkles');
 		paintSkillButton(btn, skill);
@@ -248,7 +253,7 @@ function renderStageColumn(
 	}
 	const addBtn = stageActions.createEl('button', {
 		cls: 'dashboard-pipeline-col-add',
-		attr: { type: 'button', 'aria-label': t('pipeline.addItem', { stage: stage.label }), title: t('pipeline.addItem', { stage: stage.label }) },
+		attr: { type: 'button', 'aria-label': t('pipeline.addItem', { stage: stage.label }) },
 	});
 	setIcon(addBtn, 'plus');
 	addBtn.addEventListener('click', (e) => {
@@ -507,9 +512,10 @@ function renderPipelineCard(
 	// Card-scope skills carry this file's context to the agent.
 	const cardSkills = skillsForStage(cfg, stage.value, 'card');
 	for (const skill of cardSkills) {
+		// No `title` (same double-popup reason as the stage-scope buttons).
 		const btn = foot.createEl('button', {
 			cls: 'dashboard-pipeline-skill-btn',
-			attr: { type: 'button', 'aria-label': skill.label, title: skill.label },
+			attr: { type: 'button', 'aria-label': skill.label },
 		});
 		setIcon(btn, skill.icon || 'sparkles');
 		paintSkillButton(btn, skill);

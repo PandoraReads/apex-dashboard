@@ -99,6 +99,17 @@ export function buildAgentPrompt(spec: AgentPromptSpec, vars: Record<string, str
 	return body;
 }
 
+/** A guarded deliver: resolves 'sent', 'timeout' (bridge never settled) or
+ *  `{ error }` — never hangs the caller (the stranded-modal lesson). */
+export type AgentSendOutcome = 'sent' | 'timeout' | { error: unknown };
+
+export async function sendPromptWithTimeout(app: unknown, agent: AgentTarget, prompt: string, timeoutMs = 10_000): Promise<AgentSendOutcome> {
+	return Promise.race([
+		getAgentAdapter(agent).send(app, prompt).then(() => 'sent' as const, (error: unknown): AgentSendOutcome => ({ error })),
+		new Promise<'timeout'>(resolve => setTimeout(() => resolve('timeout'), timeoutMs)),
+	]);
+}
+
 /** How an agent is reached. In-app agents take the prompt through a plugin
  * bridge inside Obsidian; terminal agents compose a shell command an external
  * console runs (desktop only). */

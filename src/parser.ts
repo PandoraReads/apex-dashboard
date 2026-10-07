@@ -483,8 +483,8 @@ export function serialize(data: DashboardData): string {
 			const pc = col.pipelineConfig;
 			lines.push('    pipeline:');
 			lines.push(`      rootFolder: ${JSON.stringify(pc.rootFolder ?? '')}`);
-			// '状态' is the default status field — omit it so files stay clean.
-			if (pc.statusField && pc.statusField !== '状态') {
+			// 'status' is the default status field (Rae's vault) — omit it so files stay clean.
+			if (pc.statusField && pc.statusField !== 'status') {
 				lines.push(`      statusField: ${JSON.stringify(pc.statusField)}`);
 			}
 			if (pc.stages.length > 0) {
@@ -1540,9 +1540,9 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 	const cardProperties = (Array.isArray(raw.cardProperties) ? raw.cardProperties : [])
 		.map((p: unknown) => str(p).trim())
 		.filter((p: string) => p.length > 0);
-	// '状态' is the default status field (matches Obsidian zh property naming);
-	// the serializer omits it so files stay clean.
-	const statusField = str(raw.statusField ?? '').trim() || '状态';
+	// 'status' is the default status field (Rae's vault); the serializer omits
+	// it so files stay clean.
+	const statusField = str(raw.statusField ?? '').trim() || 'status';
 	return {
 		rootFolder: str(raw.rootFolder ?? '').trim().replace(/^\/+|\/+$/g, ''),
 		statusField,

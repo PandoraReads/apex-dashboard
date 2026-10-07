@@ -31,13 +31,14 @@ import {
 } from './workspace-registry';
 
 /** All valid style preset keys — single source of truth for migration. */
-const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'blossom', 'lilac', 'island', 'tundra', 'matcha', 'mono', 'neon', 'volt', 'magma', 'onyx'] as const;
+const VALID_STYLE_PRESETS = ['earth', 'nordic', 'aurora', 'blossom', 'aqua', 'island', 'tundra', 'matcha', 'mono', 'neon', 'volt', 'magma', 'onyx'] as const;
 
 /** Removed or renamed presets mapped to a sensible replacement. */
 const DEPRECATED_STYLE_PRESETS: Readonly<Record<string, string>> = {
 	// Removed in favor of similar themes:
 	prism: 'blossom',   // rose glass -> Blossom (rose glass)
-	dusk: 'lilac',      // purple twilight -> Lilac (Morandi purple)
+	dusk: 'aqua',       // purple twilight -> Capsule (lilac's successor)
+	lilac: 'aqua',     // removed: lilac -> Capsule (took its slot)
 	sakura: 'blossom',  // cherry blossom pink -> Blossom
 	moonlight: 'nordic',// silver blue -> Nordic (blue minimal)
 	ember: 'magma',      // warm smoke -> Magma (dark + warm orange)
@@ -184,7 +185,7 @@ export default class DashboardPlugin extends Plugin {
 			id: 'cycle-theme',
 			name: t('main.cycleTheme'),
 			callback: async () => {
-				const themes = ['earth', 'nordic', 'aurora', 'blossom', 'lilac', 'island', 'tundra', 'matcha', 'mono', 'neon', 'volt', 'magma', 'onyx'];
+				const themes = ['earth', 'nordic', 'aurora', 'blossom', 'aqua', 'island', 'tundra', 'matcha', 'mono', 'neon', 'volt', 'magma', 'onyx'];
 				const idx = themes.indexOf(this.settings.stylePreset);
 				const next = themes[(idx + 1) % themes.length] ?? 'earth';
 				this.settings = { ...this.settings, stylePreset: next, activeCustomThemeId: '' };

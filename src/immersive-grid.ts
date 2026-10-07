@@ -81,6 +81,7 @@ const WIDGET_DEFAULTS: Record<string, { w: number; h: number }> = {
 	music: { w: 3, h: 15 },
 	lunar: { w: 3, h: 10 },
 	yearProgress: { w: 3, h: 10 },
+	skills: { w: 2, h: 6 },
 };
 
 /** Saved h values from the pre-content-fit build were coarse 92px rows

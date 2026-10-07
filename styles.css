@@ -434,7 +434,7 @@
 }
 
 
-/* Earth + Nordic: drifting wash backgrounds (same mechanism as lilac) */
+/* Earth + Nordic: drifting wash backgrounds */
 .apex-dashboard-root[data-theme="earth"],
 .apex-dashboard-root[data-theme="nordic"] {
 	background: var(--db-aurora-bg);
@@ -775,41 +775,24 @@
 	will-change: background-position;
 }
 
-/* ===== Shared: transparent sections for tundra, blossom, matcha, lilac ===== */
+/* ===== Shared: transparent sections for tundra, blossom, matcha ===== */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section-row,
-.apex-dashboard-root[data-theme="lilac"] .dashboard-section-row {
-	background: transparent;
-	border: none;
-	backdrop-filter: none;
-	-webkit-backdrop-filter: none;
-	padding: 6px;
-}
 
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section,
-.apex-dashboard-root[data-theme="lilac"] .dashboard-section {
-	background: transparent;
-	border: none;
-	backdrop-filter: none;
-	-webkit-backdrop-filter: none;
-}
 
 /* Tighter kanban gap for transparent-section themes */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-kanban,
-.apex-dashboard-root[data-theme="lilac"] .dashboard-kanban {
-	--db-kanban-gap: 8px;
-}
 
 /* Allow card hover translate without clipping top border */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-cards,
-.apex-dashboard-root[data-theme="matcha"] .dashboard-section-cards,
-.apex-dashboard-root[data-theme="lilac"] .dashboard-section-cards,
+.apex-dashboard-root[data-theme="matcha"] .dashboard-section-cards
 .apex-dashboard-root[data-theme="neon"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="volt"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="magma"] .dashboard-section-cards,
@@ -957,146 +940,7 @@
 }
 
 
-/* ----- 14. LILAC (丁香) — impressionist garden, ivory blooms ----- */
-/* The washes drift slowly (28s) behind solid ivory cards: a living lilac bed
-   instead of the old flat Morandi slab. Motion guards live with the aurora
-   ones (reduced-motion + mobile pin). */
-.apex-dashboard-root[data-theme="lilac"] {
-	--db-bg: #9b87b4;
-	--db-bg-section: transparent;
-	--db-bg-card: rgba(248, 243, 251, 0.75);
-	--db-bg-card-hover: rgba(252, 248, 254, 0.86);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(122, 88, 168, 0.08);
-	--db-bg-btn: rgba(157, 78, 221, 0.08);
-	--db-bg-btn-hover: rgba(157, 78, 221, 0.14);
-	--db-bg-banner: rgba(255, 143, 171, 0.10);
-	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
-	--db-bg-hover: rgba(122, 88, 168, 0.08);
-	--db-bg-hover-strong: rgba(122, 88, 168, 0.14);
-	--db-bg-add-section: rgba(255, 255, 255, 0.10);
-	--db-bg-drop-indicator: rgba(157, 78, 221, 0.15);
-
-	--db-border: rgba(58, 44, 74, 0.10);
-	--db-border-card: rgba(122, 88, 168, 0.16);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(122, 88, 168, 0.20);
-	--db-border-input-focus: #9d4edd;
-	--db-border-btn: rgba(58, 44, 74, 0.10);
-	--db-border-add-section: rgba(243, 237, 248, 0.45);
-
-	--db-text: #3a2c4a;
-	--db-text-muted: #6d5880;
-	--db-text-faint: #9d8ca8;
-	--db-text-inverse: rgba(255, 255, 255, 0.95);
-	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
-
-	/* Wisteria violet — clearly distinct from the lavender bed */
-	--db-accent: #9d4edd;
-	--db-accent-light: #c77dff;
-	--db-danger: #c9184a;
-
-	--db-shadow-card: 0 2px 10px rgba(94, 61, 122, 0.16);
-	--db-shadow-card-hover: 0 8px 28px rgba(94, 61, 122, 0.24), 0 2px 10px rgba(230, 73, 128, 0.10);
-	--db-backdrop-blur: none;
-
-	--db-radius-sm: 10px;
-	--db-radius-md: 16px;
-	--db-radius-lg: 20px;
-
-	--db-font: 'Nunito', 'LXGW WenKai', var(--font-interface);
-	/* Candy gradient: pale wisteria into rose */
-	--db-progress-from: #c77dff;
-	--db-progress-to: #ff8fab;
-	--db-checkbox: #9d4edd;
-	--db-quote-border: #e64980;
-	--db-link: #9d4edd;
-
-	/* Opaque modal surfaces matching the ivory cards */
-	--db-bg-modal: #f3edf8;
-	--db-bg-modal-raised: rgba(157, 78, 221, 0.06);
-
-	/* Garden washes: dusty rose, wisteria, ivory glow, deep violet */
-	--db-aurora-bg: linear-gradient(135deg,
-		#9b87b4 0%,
-		rgba(205, 141, 161, 0.30) 16%,
-		rgba(157, 123, 216, 0.28) 33%,
-		rgba(255, 240, 245, 0.18) 50%,
-		rgba(122, 88, 168, 0.30) 66%,
-		rgba(255, 143, 171, 0.22) 82%,
-		#9b87b4 100%);
-	--db-aurora-size: 260% 260%;
-	--db-aurora-speed: 28s;
-}
-
-/* Morning lilac — watercolor paper with blush and periwinkle washes */
-.theme-light .apex-dashboard-root[data-theme="lilac"] {
-	--db-bg: #f7f2fb;
-	--db-bg-section: transparent;
-	--db-bg-card: rgba(255, 255, 255, 0.72);
-	--db-bg-card-hover: rgba(255, 255, 255, 0.86);
-	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(125, 44, 191, 0.06);
-	--db-bg-btn: rgba(123, 44, 191, 0.08);
-	--db-bg-btn-hover: rgba(123, 44, 191, 0.14);
-	--db-bg-banner: rgba(125, 44, 191, 0.05);
-	--db-bg-overlay: linear-gradient(135deg, rgba(40,20,40,0.4) 0%, rgba(40,20,40,0.15) 100%);
-	--db-bg-hover: rgba(125, 44, 191, 0.06);
-	--db-bg-hover-strong: rgba(125, 44, 191, 0.10);
-	--db-bg-add-section: rgba(255, 255, 255, 0.50);
-	--db-bg-drop-indicator: rgba(125, 44, 191, 0.12);
-
-	--db-border: rgba(61, 42, 94, 0.10);
-	--db-border-card: rgba(61, 42, 94, 0.12);
-	--db-border-section: transparent;
-	--db-border-sidebar: transparent;
-	--db-border-input: rgba(61, 42, 94, 0.16);
-	--db-border-input-focus: #7b2cbf;
-	--db-border-btn: rgba(61, 42, 94, 0.10);
-	--db-border-add-section: rgba(61, 42, 94, 0.20);
-
-	--db-text: #241b33;
-	--db-text-muted: #5d4a72;
-	--db-text-faint: #9488a3;
-
-	--db-accent: #7b2cbf;
-	--db-accent-light: #9d4edd;
-	--db-danger: #d6336c;
-
-	--db-shadow-card: 0 2px 10px rgba(157, 123, 216, 0.10);
-	--db-shadow-card-hover: 0 8px 28px rgba(157, 123, 216, 0.16), 0 2px 10px rgba(230, 73, 128, 0.08);
-
-	--db-progress-from: #9d4edd;
-	--db-progress-to: #e64980;
-	--db-checkbox: #7b2cbf;
-	--db-quote-border: #d6336c;
-	--db-link: #7b2cbf;
-
-	--db-bg-modal: #ffffff;
-	--db-bg-modal-raised: rgba(125, 44, 191, 0.05);
-
-	--db-aurora-bg: linear-gradient(135deg,
-		#f7f2fb 0%,
-		rgba(157, 123, 216, 0.18) 18%,
-		rgba(255, 143, 171, 0.16) 38%,
-		rgba(122, 162, 247, 0.14) 58%,
-		rgba(205, 180, 239, 0.16) 78%,
-		#f7f2fb 100%);
-}
-
-/* Lilac: slow garden wash drifting behind the ivory cards */
-.apex-dashboard-root[data-theme="lilac"] {
-	background: var(--db-aurora-bg);
-	background-size: var(--db-aurora-size);
-	animation: db-aurora-shift var(--db-aurora-speed) ease-in-out infinite;
-	transition: color 0.3s ease;
-	will-change: background-position;
-	backface-visibility: hidden;
-}
-
-
-/* ----- 15. NEON (霓虹) — Near-black + neon magenta, identical in light & dark ----- */
+/* ----- 14. NEON (霓虹) — Near-black + neon magenta, identical in light & dark ----- */
 	.apex-dashboard-root[data-theme="neon"] {
 		--db-bg: #0a0a0c;
 		/* Opaque modal-layer surface: dialogs render outside this root where the
@@ -1531,6 +1375,11 @@
 	overflow: hidden;
 	position: relative;
 	isolation: isolate;
+	/* contain:paint makes this box the containing block for FIXED descendants
+	   (the immersive poster layer). Without it the fixed poster anchored to
+	   the VIEWPORT and, whenever the left sidebar collapsed, washed over the
+	   nav strip — "the navigation took our background color". */
+	contain: paint;
 	background: var(--db-bg);
 	color: var(--db-text);
 	font-family: var(--db-font);
@@ -2015,7 +1864,6 @@
 @media (prefers-reduced-motion: reduce) {
 	.apex-dashboard-root[data-theme="aurora"],
 	.apex-dashboard-root[data-theme="tundra"],
-	.apex-dashboard-root[data-theme="lilac"],
 	.apex-dashboard-root[data-theme="earth"],
 	.apex-dashboard-root[data-theme="nordic"],
 	.apex-dashboard-root[data-theme="matcha"],
@@ -2036,7 +1884,6 @@
 @media (max-width: 640px) {
 	.apex-dashboard-root[data-theme="aurora"],
 	.apex-dashboard-root[data-theme="tundra"],
-	.apex-dashboard-root[data-theme="lilac"],
 	.apex-dashboard-root[data-theme="earth"],
 	.apex-dashboard-root[data-theme="nordic"],
 	.apex-dashboard-root[data-theme="matcha"],
@@ -13220,30 +13067,6 @@
 /* Matcha: modal — soft green glass */
 
 /* -- Lilac: wisteria + rose garden glow -- */
-.apex-dashboard-root[data-theme="lilac"] .dashboard-card:hover {
-	box-shadow: 0 6px 24px rgba(94, 61, 122, 0.20), 0 0 16px rgba(230, 73, 128, 0.10);
-	border-color: rgba(157, 78, 221, 0.35);
-}
-.apex-dashboard-root[data-theme="lilac"] .dashboard-memo-textarea:focus {
-	border-color: rgba(157, 78, 221, 0.45);
-	box-shadow: 0 0 16px rgba(157, 78, 221, 0.10);
-}
-.apex-dashboard-root[data-theme="lilac"] .dashboard-modal-input:focus {
-	border-color: var(--db-border-input-focus);
-	box-shadow: 0 0 16px color-mix(in srgb, var(--db-accent) 18%, transparent);
-}
-.apex-dashboard-root[data-theme="lilac"] .dashboard-section-row--drag-over {
-	border-color: var(--db-border-input-focus);
-	box-shadow: 0 0 20px color-mix(in srgb, var(--db-accent) 14%, transparent);
-}
-.apex-dashboard-root[data-theme="lilac"] .dashboard-add-section {
-	border-radius: var(--db-radius-lg, 14px);
-	border-color: var(--db-border-add-section);
-}
-.apex-dashboard-root[data-theme="lilac"] .dashboard-add-section:hover {
-	border-color: var(--db-border-input-focus);
-	box-shadow: 0 0 12px color-mix(in srgb, var(--db-accent) 16%, transparent);
-}
 
 /* Lilac: modal — soft purple glass */
 
@@ -22748,6 +22571,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		border-radius: 0;
 		padding: 0;
 		box-sizing: border-box;
+		/* Theme tray shadows (e.g. Capsule's sunken quick bar) must NOT paint
+		   here: this container spans the FULL board width with zero radius —
+		   an inset shadow reads as one huge rectangle around the input area. */
+		box-shadow: none !important;
 	}
 	/* Capture field row first: the pill stretches the full bar width. */
 	/* The input row keeps the compact 440px measure, centered; the chips
@@ -22755,7 +22582,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-actions {
 		order: 0;
 		justify-content: center;
-		gap: 8px;
+		gap: 5px;
 		width: 100%;
 		max-width: 440px;
 		margin: 0 auto;
@@ -22820,7 +22647,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		border-color: rgba(255, 255, 255, 0.3) !important;
 	}
 	/* ...chips below: ghost pills — text on the poster, faint hover fill,
-	   no chip backgrounds, no separators. */
+	   no chip backgrounds, no separators. The pills are invisible at rest,
+	   so the PERCEIVED button spacing is gap + both neighbors' horizontal
+	   padding; both stay tight here (3px gap, 6px pill padding ≈ 17px of
+	   air between labels) — the side/stacked bar keeps its roomier recipe. */
 	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-nav {
 		order: 1;
 		flex: 0 1 auto;
@@ -22828,7 +22658,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		justify-content: center;
 		flex-wrap: wrap;
 		overflow-x: visible;
-		gap: 6px;
+		gap: 3px;
 		padding: 0 4px;
 	}
 	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip {
@@ -22836,7 +22666,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		border: 1px solid transparent;
 		color: rgba(255, 255, 255, 0.72);
 		border-radius: 999px;
-		padding: 4px 10px;
+		padding: 3px 6px;
 	}
 	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip::before {
 		display: none;
@@ -23905,32 +23735,8 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-pipeline-board {
 	display: flex;
 	gap: 10px;
-	flex: 1;
 	min-height: 0;
-	min-width: 0;
-	overflow-x: auto;
-	overflow-y: hidden;
-}
-
-/* Semi-hidden bottom scrollbar with an EXPLICIT 10px track: the exact height
-   is mirrored by the filter rail's margin-bottom, so rail and columns
-   bottom-align even though the strip exists. Transparent until hover,
-   accent-tinted when hovered (quick-note bar recipe). */
-.dashboard-pipeline-board::-webkit-scrollbar {
-	height: 10px;
-}
-
-.dashboard-pipeline-board::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-.dashboard-pipeline-board::-webkit-scrollbar-thumb {
-	background: transparent;
-	border-radius: 5px;
-}
-
-.dashboard-pipeline-board:hover::-webkit-scrollbar-thumb {
-	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 45%, transparent);
+	overflow: visible;
 }
 
 .dashboard-pipeline-col {
@@ -24640,16 +24446,39 @@ button.dashboard-pipeline-foot-btn.is-set {
 
 /* ── Left value-filter rail (platform / project) ── */
 .dashboard-pipeline-wrap {
+	/* THE single horizontal scroller: rail + columns are one row inside it,
+	   so they always share the same height and ONE bottom scrollbar spans
+	   the whole section. The rail travels with the columns when scrolled. */
 	flex: 1 1 100%;
 	display: flex;
 	gap: 10px;
 	min-width: 0;
 	min-height: 0;
-	overflow: hidden;
+	overflow-x: scroll;
+	overflow-y: hidden;
+}
+
+.dashboard-pipeline-wrap::-webkit-scrollbar {
+	height: 10px;
+}
+
+.dashboard-pipeline-wrap::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.dashboard-pipeline-wrap::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 5px;
+}
+
+.dashboard-pipeline-wrap:hover::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 45%, transparent);
 }
 
 .dashboard-pipeline-wrap .dashboard-pipeline-board {
-	flex: 1;
+	/* Grow to fill when columns fit; never shrink below the columns' natural
+	   width, so overflow goes to the wrap's scrollbar. */
+	flex: 1 0 auto;
 	min-width: 0;
 }
 
@@ -24659,17 +24488,24 @@ button.dashboard-pipeline-foot-btn.is-set {
 	gap: 3px;
 	flex: 0 0 128px;
 	width: 128px;
-	/* Mirror of the board scrollbar's 10px strip: the painted box ends where
-	   the columns end; the strip below belongs to the whole section. */
-	margin-bottom: 10px;
+	/* Sibling of the columns inside the shared scroller — same height by
+	   flex stretch, no strip mirroring needed. Own scrollbar hidden (wheel
+	   still scrolls). */
 	overflow-y: auto;
 	overflow-x: hidden;
+	scrollbar-width: none;
 	padding: 6px;
 	border-radius: 10px;
 	/* Neutral light-gray container (Rae): a muted-token wash keeps it gray in
 	   both theme polarities; the accent tint is gone. */
 	background: color-mix(in srgb, var(--db-text-muted, #888888) 10%, transparent);
 	border: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 16%, transparent);
+}
+
+.dashboard-pipeline-rail::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
 }
 
 .dashboard-pipeline-rail-dims {
@@ -24780,6 +24616,11 @@ button.dashboard-pipeline-rail-item.is-all.is-active {
 	.dashboard-pipeline-wrap {
 		flex-direction: column;
 		overflow: visible;
+	}
+
+	.dashboard-pipeline-wrap .dashboard-pipeline-board {
+		flex: 1 1 auto;
+		overflow-x: auto;
 	}
 
 	.dashboard-pipeline-rail {
@@ -25156,3 +24997,319 @@ button.dashboard-pipeline-skill-btn--colored:hover {
 
 
 
+
+/* Tablet reset for the compact icon-ish buttons */
+
+
+
+
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Skill widget — a tactile KEY STRIP (Rae): one slim pill bar, round keys
+   with real-button texture (top bevel light, bottom shade, press travel),
+   per-skill macaron color via the inline --orb custom property; the gear key
+   anchors the far right; empty = the bar is just the gear key.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dashboard-sidebar-skills {
+	display: flex;
+	align-items: center;
+	/* space-between right-anchors the gear when few keys are configured;
+	   with the full set the flex keys eat all free space and the row sits
+	   edge to edge (the spacer div is gone — a grow-item spacer would eat a
+	   share and break the exact fill). */
+	justify-content: space-between;
+	gap: 8px;
+	min-height: 48px;
+	height: 48px;
+	padding: 0 8px;
+	border-radius: 999px;
+	overflow: hidden; /* degenerate overloads (many keys) clip, never spill */
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 9%, transparent);
+	border: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 14%, transparent);
+	box-sizing: border-box;
+}
+
+button.dashboard-skills-orb {
+	--orb: #d8dce2;
+	/* Flex-SIZED circles: equal shares of the bar width (capped at the
+	   classic 34px) keep their 1:1 shape via aspect-ratio. At the common
+	   sidebar width four skill keys + the gear fill the pill exactly; a
+	   narrower bar shrinks the circles, a wider one (stacked/immersive tile)
+	   spreads them via space-between. */
+	flex: 1 1 0;
+	min-width: 20px;
+	max-width: 34px;
+	aspect-ratio: 1 / 1;
+	height: auto;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	cursor: pointer;
+	color: #3d434e;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* Real-button texture: light top bevel, darker bottom edge, soft drop —
+	   the classic physical key. */
+	background:
+		radial-gradient(120% 90% at 30% 22%, color-mix(in srgb, var(--orb) 55%, #ffffff), transparent 55%),
+		linear-gradient(180deg, color-mix(in srgb, var(--orb) 88%, #ffffff) 8%, var(--orb) 52%, color-mix(in srgb, var(--orb) 86%, #000000));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.6),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.16),
+		0 2px 3px rgba(0, 0, 0, 0.18);
+	transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
+}
+
+button.dashboard-skills-orb svg {
+	/* Icon scales with the key (46% ≈ the old 15px at the 34px cap). */
+	width: 46%;
+	height: 46%;
+	filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.35));
+}
+
+button.dashboard-skills-orb:hover {
+	filter: brightness(1.06);
+}
+
+button.dashboard-skills-orb:active,
+button.dashboard-skills-orb.is-pressed {
+	/* Press travel: the key sinks; the bevel flips inward. */
+	transform: translateY(1px);
+	box-shadow:
+		inset 0 2px 4px rgba(0, 0, 0, 0.24),
+		inset 0 -1px 0 rgba(255, 255, 255, 0.25),
+		0 1px 1px rgba(0, 0, 0, 0.12);
+}
+
+button.dashboard-skills-orb--cog {
+	color: #555b66;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AQUA 水感 — tactile keycap theme (design: /tmp/aqua-theme-design.html).
+   Skeleton: RAISED keys (cards, chips, buttons, checkboxes) sitting in
+   SUNKEN trays (sections, quick bar, inputs); macaron color only on
+   pressables, quiet milky/deep-slate ground. Tokens first, then the
+   dimensional treatments, all scoped to [data-theme="aqua"].
+   ═══════════════════════════════════════════════════════════════════════════ */
+.apex-dashboard-root[data-theme="aqua"] {
+	--db-bg: #eef2f3;
+	--db-bg-section: #e3e9ea;
+	--db-bg-card: #fbfdfe;
+	--db-bg-card-hover: #f2f6f7;
+	--db-bg-sidebar: transparent;
+	--db-bg-input: #e6ecee;
+	--db-bg-btn: rgba(58, 157, 144, 0.10);
+	--db-bg-btn-hover: rgba(58, 157, 144, 0.16);
+	--db-bg-banner: #eaeff0;
+	--db-bg-overlay: linear-gradient(135deg, rgba(23, 31, 35, 0.5) 0%, rgba(23, 31, 35, 0.22) 100%);
+	--db-bg-hover: #e7edee;
+	--db-bg-hover-strong: #dde4e6;
+	--db-bg-add-section: #e6ecee;
+	--db-bg-drop-indicator: rgba(58, 157, 144, 0.10);
+
+	--db-border: #d7dee0;
+	--db-border-card: rgba(47, 60, 66, 0.10);
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: #d7dee0;
+	--db-border-input-focus: #3a9d90;
+	--db-border-btn: rgba(58, 157, 144, 0.22);
+	--db-border-add-section: #cfd8da;
+
+	--db-text: #2d3640;
+	--db-text-muted: #67737c;
+	--db-text-faint: #9aa6ad;
+	--db-text-inverse: #ffffff;
+	--db-text-inverse-muted: rgba(255, 255, 255, 0.6);
+
+	/* Tiffany, one step deep — white text safe */
+	--db-accent: #3a9d90;
+	--db-accent-light: #57b8aa;
+	--db-danger: #e0564f;
+
+	--db-shadow-card: 0 2px 4px rgba(23, 31, 35, 0.12);
+	--db-shadow-card-hover: 0 4px 10px rgba(23, 31, 35, 0.16);
+	--db-backdrop-blur: none;
+
+	--db-radius-sm: 8px;
+	--db-radius-md: 14px;
+	--db-radius-lg: 20px;
+
+	--db-font: 'Inter', 'DM Sans', 'Noto Sans SC', var(--font-interface);
+	--db-progress-from: #3a9d90;
+	--db-progress-to: #8ed6cf;
+	--db-checkbox: #3a9d90;
+	--db-quote-border: #2d3640;
+	--db-link: #3a9d90;
+
+	--db-bg-modal: #fbfdfe;
+	--db-bg-modal-raised: #f0f4f5;
+
+	--db-aurora-bg: linear-gradient(135deg,
+		#eef2f3 0%,
+		rgba(142, 214, 207, 0.10) 30%,
+		rgba(231, 233, 236, 0.4) 60%,
+		#eef2f3 100%);
+	--db-aurora-size: 220% 220%;
+	--db-aurora-speed: 36s;
+}
+.theme-dark .apex-dashboard-root[data-theme="aqua"] {
+	--db-bg: #171d21;
+	--db-bg-section: #12181c;
+	--db-bg-card: #232b30;
+	--db-bg-card-hover: #2a3439;
+	--db-bg-sidebar: transparent;
+	--db-bg-input: #1a2126;
+	--db-bg-btn: rgba(84, 200, 186, 0.10);
+	--db-bg-btn-hover: rgba(84, 200, 186, 0.16);
+	--db-bg-banner: #1a2125;
+	--db-bg-overlay: linear-gradient(135deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.34) 100%);
+	--db-bg-hover: #1e262b;
+	--db-bg-hover-strong: #262f35;
+	--db-bg-add-section: #1a2126;
+	--db-bg-drop-indicator: rgba(84, 200, 186, 0.10);
+
+	--db-border: #27303a;
+	--db-border-card: rgba(232, 236, 239, 0.09);
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: #27303a;
+	--db-border-input-focus: #54c8ba;
+	--db-border-btn: rgba(84, 200, 186, 0.24);
+
+	--db-text: #e8ecef;
+	--db-text-muted: #97a3ab;
+	--db-text-faint: #626d75;
+	--db-text-inverse: #ffffff;
+	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
+
+	--db-accent: #54c8ba;
+	--db-accent-light: #7adfd2;
+	--db-danger: #ef5a52;
+
+	--db-shadow-card: 0 2px 5px rgba(0, 0, 0, 0.34);
+	--db-shadow-card-hover: 0 5px 12px rgba(0, 0, 0, 0.42);
+
+	--db-progress-from: #54c8ba;
+	--db-progress-to: #3a6f68;
+	--db-checkbox: #54c8ba;
+	--db-quote-border: #e8ecef;
+	--db-link: #54c8ba;
+
+	--db-bg-modal: #232b30;
+	--db-bg-modal-raised: #2b343a;
+
+	--db-aurora-bg: linear-gradient(135deg,
+		#171d21 0%,
+		rgba(84, 200, 186, 0.05) 30%,
+		rgba(84, 124, 132, 0.04) 60%,
+		#171d21 100%);
+}
+
+/* ── Dimensional treatments ─────────────────────────────────────────────── */
+
+/* Sections become SUNKEN trays. */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row {
+	box-shadow: inset 0 2px 5px rgba(23, 31, 35, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+	border: none;
+}
+.theme-dark .apex-dashboard-root[data-theme="aqua"] .dashboard-section-row {
+	box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.32), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Cards become RAISED keys (memo/todo/project dashboard cards). */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-card {
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.8),
+		inset 0 -2px 3px rgba(23, 31, 35, 0.05),
+		0 2px 4px rgba(23, 31, 35, 0.13);
+}
+.theme-dark .apex-dashboard-root[data-theme="aqua"] .dashboard-card {
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.10),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.26),
+		0 2px 4px rgba(0, 0, 0, 0.32);
+}
+
+/* Library & note cards share the keycap raise. */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-library-card,
+.apex-dashboard-root[data-theme="aqua"] .dashboard-pipeline:not(.dashboard-pipeline--trello):not(.dashboard-pipeline--solid):not(.dashboard-pipeline--blush) .dashboard-pipeline-card {
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.75),
+		inset 0 -2px 3px rgba(23, 31, 35, 0.05),
+		0 2px 4px rgba(23, 31, 35, 0.13);
+}
+.theme-dark .apex-dashboard-root[data-theme="aqua"] .dashboard-library-card,
+.theme-dark .apex-dashboard-root[data-theme="aqua"] .dashboard-pipeline:not(.dashboard-pipeline--trello):not(.dashboard-pipeline--solid):not(.dashboard-pipeline--blush) .dashboard-pipeline-card {
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.09),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.26),
+		0 2px 4px rgba(0, 0, 0, 0.32);
+}
+
+/* Quick bar: the sunken pill. */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-quicknote {
+	box-shadow: inset 0 2px 4px rgba(23, 31, 35, 0.09), inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+}
+.theme-dark .apex-dashboard-root[data-theme="aqua"] .dashboard-quicknote {
+	box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+
+
+/* Section header buttons: small keycaps. */
+.apex-dashboard-root[data-theme="aqua"] button.dashboard-section-add-btn {
+	border-radius: 9px;
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.55),
+		inset 0 -1px 2px rgba(23, 31, 35, 0.10),
+		0 1px 2px rgba(23, 31, 35, 0.12);
+}
+.theme-dark .apex-dashboard-root[data-theme="aqua"] button.dashboard-section-add-btn {
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.10),
+		inset 0 -1px 2px rgba(0, 0, 0, 0.26),
+		0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Modal confirm buttons: raised keys in accent. */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-modal-btn--confirm {
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.35),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.14),
+		0 2px 3px rgba(23, 31, 35, 0.18);
+}
+.apex-dashboard-root[data-theme="aqua"] .dashboard-modal-btn--confirm:active {
+	transform: translateY(1px);
+	box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(23, 31, 35, 0.10);
+}
+
+/* Todo checkboxes: glossy keys. */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-todo-item input[type="checkbox"],
+.apex-dashboard-root[data-theme="aqua"] .card input[type="checkbox"] {
+	border-radius: 6px;
+	box-shadow: inset 0 1px 2px rgba(23, 31, 35, 0.18), 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Banner: a quiet sunken strip. */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-banner {
+	box-shadow: inset 0 1px 3px rgba(23, 31, 35, 0.06);
+}
+
+/* Aqua per-section hues: soft desaturated tints, one per section family. */
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #d9a88f; --db-sec-glow: rgba(217, 168, 143, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #92aec9; --db-sec-glow: rgba(146, 174, 201, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #b5a3d1; --db-sec-glow: rgba(181, 163, 209, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="folder"] { --db-sec-hue: #b9c4a8; --db-sec-glow: rgba(185, 196, 168, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #a8cbc0; --db-sec-glow: rgba(168, 203, 192, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="ticktick"] { --db-sec-hue: #9dc3a4; --db-sec-glow: rgba(157, 195, 164, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="calendar"] { --db-sec-hue: #e0b1a2; --db-sec-glow: rgba(224, 177, 162, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="heatmap"] { --db-sec-hue: #e0a8b8; --db-sec-glow: rgba(224, 168, 184, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #a9c8c8; --db-sec-glow: rgba(169, 200, 200, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #aeb8d8; --db-sec-glow: rgba(174, 184, 216, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #e3c491; --db-sec-glow: rgba(227, 196, 145, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #dca8b8; --db-sec-glow: rgba(220, 168, 184, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #c8b3d8; --db-sec-glow: rgba(200, 179, 216, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #8ed6cf; --db-sec-glow: rgba(142, 214, 207, 0.12); }

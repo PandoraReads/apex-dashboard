@@ -4,6 +4,7 @@ import {
 	buildAgentPrompt,
 	ClaudianBridgeError,
 	getAgentAdapter,
+	sendPromptWithTimeout,
 	type AgentPromptSpec,
 } from './agent-dispatch';
 import { t } from './i18n';
@@ -122,19 +123,25 @@ export class AgentPromptModal extends Modal {
 			}
 			send.disabled = true;
 			void (async () => {
-				try {
-					await adapter.send(this.app, prompt);
+				// The modal ALWAYS closes once the user has committed — an
+				// adapter bridge that never settles must not strand it (the
+				// "send clicked, modal stuck" bug). A 10s timeout guards hung
+				// bridges; outcomes report through Notices either way.
+				const outcome = await sendPromptWithTimeout(this.app, this.agent, prompt);
+				if (outcome === 'sent') {
 					if (prefillOnly) new Notice(t('agent.openedPrefill'));
-					this.close();
-				} catch (error) {
-					send.disabled = false;
+				} else if (outcome === 'timeout') {
+					new Notice(t('agent.sendTimeout', { agent: adapter.label }));
+				} else {
+					const error = outcome.error;
 					if (error instanceof ClaudianBridgeError) {
-						new Notice(t(`agent.error.${error.code}`, { agent: getAgentAdapter(this.agent).label }));
+						new Notice(t(`agent.error.${error.code}`, { agent: adapter.label }));
 					} else {
 						const message = error instanceof Error ? error.message : String(error);
-						new Notice(t('agent.sendFailed', { agent: getAgentAdapter(this.agent).label, message }));
+						new Notice(t('agent.sendFailed', { agent: adapter.label, message }));
 					}
 				}
+				this.close();
 			})();
 		});
 		window.setTimeout(() => input.focus(), 0);

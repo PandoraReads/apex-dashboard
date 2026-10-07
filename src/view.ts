@@ -28,6 +28,8 @@ import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
 import { AgentPromptModal } from './agent-prompt-modal';
 import { rememberSkillNames } from './skill-registry';
+import { fireSkillDirect } from './skill-widget';
+import { SkillWidgetConfigModal } from './skill-widget-config-modal';
 import { PipelineConfigModal } from './pipeline-config-modal';
 import { setupDragAndDrop } from './dnd';
 import { startGuardedDrag } from './drag-guard';
@@ -284,6 +286,12 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.pomodoroUnsubscribe = this.pomodoroService.subscribe(() => this.onPomodoroDataChanged());
 		this.readingUnsubscribe = this.readingService.subscribe(() => this.onReadingDataChanged());
 		this.registerVaultListeners();
+		// Sidebar-widget events bubble to the view root, not the kanban host
+		// (widgets render beside it): the skill widget's gear is heard here.
+		this.containerEl.addEventListener('dashboard-skillwidget-config', ((e: CustomEvent) => {
+			e.stopPropagation();
+			new SkillWidgetConfigModal(this.app, this.plugin).open();
+		}) as EventListener);
 		this.startReminderChecker();
 		this.startWeatherRefresh();
 		this.startDayRolloverChecker();
@@ -1460,12 +1468,18 @@ export class DashboardView extends ItemView implements HoverParent {
 				}
 				commands.executeCommandById(cmd.commandId);
 			},
-			onSkillShortcut: (shortcut: SkillShortcut) => new AgentPromptModal(this.app, {
-				label: shortcut.label,
-				skillName: shortcut.skillName,
-				promptTemplate: shortcut.promptTemplate,
-				inputPlaceholder: shortcut.inputPlaceholder,
-			}, shortcut.target, {}).open(),
+			onSkillShortcut: (shortcut: SkillShortcut) => {
+				if (shortcut.directSend) {
+					void fireSkillDirect(this.app, shortcut, shortcut.target);
+					return;
+				}
+				new AgentPromptModal(this.app, {
+					label: shortcut.label,
+					skillName: shortcut.skillName,
+					promptTemplate: shortcut.promptTemplate,
+					inputPlaceholder: shortcut.inputPlaceholder,
+				}, shortcut.target, {}).open();
+			},
 			onQuickNoteDaily: () => void openTodayNote(this.app),
 			onQuickNoteConfig: () => new QuickNoteConfigModal(this.app, this.plugin).open(),
 			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.handleMoveCard(cardId, targetCol, targetIdx),
@@ -1782,15 +1796,22 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  trigger), which mounts the new card through the normal pipeline. */
 	private async addImmersiveWidget(key: string): Promise<void> {
 		if (!this.data) return;
-		const next = [...this.immItems, {
-			id: widgetItemId(key),
-			...defaultWidgetSize(key, {
-				habit: this.plugin.settings.habitHeightRatio,
-				reading: this.plugin.settings.readingHeightRatio,
-				albums: this.plugin.settings.albums,
-			}),
-		}];
-		await this.sync.updateImmersive(next);
+		try {
+			const next = [...this.immItems, {
+				id: widgetItemId(key),
+				...defaultWidgetSize(key, {
+					habit: this.plugin.settings.habitHeightRatio,
+					reading: this.plugin.settings.readingHeightRatio,
+					albums: this.plugin.settings.albums,
+				}),
+			}];
+			await this.sync.updateImmersive(next);
+		} catch (error) {
+			// Surface the exact break: the add path was failing silently for
+			// the skills widget (nothing written, no feedback).
+			console.error('[Dashboard] addImmersiveWidget failed:', key, error);
+			new Notice(t('immersive.addWidgetFailed', { message: error instanceof Error ? error.message : String(error) }));
+		}
 	}
 
 	/** Remove a tile from this board's arrangement (widget membership is the

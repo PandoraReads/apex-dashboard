@@ -59,9 +59,9 @@ const config: PipelineConfig = {
 	skills: [],
 };
 
-/** Same as `config` but with the zh-default status field. */
+/** Same as `config` but with the serializer-default status field. */
 function config2(): PipelineConfig {
-	return { ...config, statusField: '状态' };
+	return { ...config, statusField: 'status' };
 }
 
 function main(): void {
@@ -253,7 +253,8 @@ function main(): void {
 	assert.equal(filterByField(grouped, 'platform', null).byStage.get('idea')!.length, 2, 'null = unfiltered');
 
 	// --- Default stages: 5 slugs, stable order. ---
-	assert.deepEqual(defaultPipelineStages({ idea: 'a', draft: 'b', review: 'c', published: 'd', done: 'e' }).map(s => s.value), ['idea', 'draft', 'review', 'published', 'done']);
+	assert.deepEqual(defaultPipelineStages({ idea: 'a', draft: 'b', review: 'c', pending: 'd', retro: 'e' }).map(s => s.value), ['idea', 'draft', 'review', 'done', 'published'], 'Rae live order: done=待发布, published=待复盘');
+	assert.equal(defaultPipelineStages({ idea: 'a', draft: 'b', review: 'c', pending: 'd', retro: 'e' })[0]!.folder, '00-选题库');
 
 	// --- Parser round-trip: pipeline config survives serialize -> parse. ---
 	const data = {
@@ -318,10 +319,11 @@ function main(): void {
 	assert.deepEqual(col.pipelineConfig?.filterFields, ['平台', '栏目']);
 	// Idempotent: re-serializing the parsed data is byte-identical.
 	assert.equal(serialize(parsed as unknown as DashboardData), md);
-	// The zh default '状态' is omitted on write and restored on read.
+	// The 'status' default is omitted on write and restored on read.
 	const defaultFieldMd = serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2() } }] } as unknown as DashboardData);
 	assert.ok(!defaultFieldMd.includes('statusField'), 'default field not serialized');
-	assert.equal(parse(defaultFieldMd).columns[0]!.pipelineConfig?.statusField, '状态');
+	assert.equal(parse(defaultFieldMd).columns[0]!.pipelineConfig?.statusField, 'status');
+	assert.ok(serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2(), statusField: '状态' } }] } as unknown as DashboardData).includes('statusField: "状态"'), 'non-default field persists');
 }
 
 main();

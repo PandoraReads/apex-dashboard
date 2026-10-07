@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "3.7.2",
+	"version": "3.7.3",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -66,7 +66,8 @@
 		"test:folder-property-filter": "esbuild scripts/verify-folder-property-filter.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-folder-property-filter.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-folder-property-filter.cjs",
 		"test:notes-cover": "esbuild scripts/verify-notes-cover.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-notes-cover.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-notes-cover.cjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"lint": "eslint ."
+		"lint": "eslint .",
+		"test:skill-widget": "esbuild scripts/verify-skill-widget.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-skill-widget.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-skill-widget.cjs"
 	},
 	"keywords": [],
 	"license": "0-BSD",
