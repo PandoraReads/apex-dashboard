@@ -2,7 +2,9 @@ import { strict as assert } from 'node:assert';
 import { AgentBridgeError, agentTargets, buildAgentPrompt, codexConversationUrl, getAgentAdapter } from '../src/agent-dispatch';
 
 async function main(): Promise<void> {
-	assert.deepEqual(agentTargets(), ['claudian', 'copilot', 'codex']);
+	assert.deepEqual(agentTargets(), ['claudian', 'copilot', 'codex', 'zcode']);
+	// zcode pastes into its own agent GUI: token style follows Claudian's $name.
+	assert.equal(buildAgentPrompt({ skillName: 's', promptTemplate: '{skill}' }, { input: '' }, 'zcode'), '$s');
 	const spec = { skillName: 'start-my-day', promptTemplate: '{skill}\n\n{input}' };
 	assert.equal(buildAgentPrompt(spec, { input: 'Focus on writing' }, 'claudian'), '$start-my-day\n\nFocus on writing');
 	assert.equal(buildAgentPrompt(spec, { input: 'Focus on writing' }, 'copilot'), '/start-my-day\n\nFocus on writing');

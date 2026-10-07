@@ -110,6 +110,9 @@ const VAULT_SKILL_DIRS: Record<AgentTarget, string[]> = {
 	claudian: ['.claude/skills'],
 	copilot: ['.copilot/prompts', 'copilot-commands'],
 	codex: ['.agents/skills', '.codex/skills'],
+	// ZCode drives the bundled Claude Code / Codex CLIs, so its discoverable
+	// skills live in the same in-vault convention folders.
+	zcode: ['.claude/skills', '.codex/skills'],
 };
 
 /** In-vault discovery via the public DataAdapter (works on mobile too). */

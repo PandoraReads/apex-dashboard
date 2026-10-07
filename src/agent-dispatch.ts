@@ -84,8 +84,14 @@ export function buildAgentPrompt(spec: AgentPromptSpec, vars: Record<string, str
 	if (skillName && !SKILL_NAME_RE.test(skillName)) {
 		throw new Error('Invalid skill name');
 	}
-	const skillToken = skillName ? (target === 'copilot' ? `/${skillName}` : `$${skillName}`) : '';
-	const alternateSkillToken = skillName ? (target === 'copilot' ? `$${skillName}` : `/${skillName}`) : '';
+	const tokens: Record<AgentTarget, string> = {
+		claudian: '$', copilot: '/', codex: '$', zcode: '$',
+	};
+	const alt: Record<AgentTarget, string> = {
+		claudian: '/', copilot: '$', codex: '/', zcode: '/',
+	};
+	const skillToken = skillName ? `${tokens[target] ?? '$'}${skillName}` : '';
+	const alternateSkillToken = skillName ? `${alt[target] ?? '/'}${skillName}` : '';
 	let body = spec.promptTemplate.trim() || (skillToken ? skillToken + '\n\n{input}' : '{input}');
 	const replacements: Record<string, string> = { ...vars, skill: skillToken };
 	// Longest keys first so {inputPlaceholder} never half-replaces {input}.
@@ -113,7 +119,7 @@ export async function sendPromptWithTimeout(app: unknown, agent: AgentTarget, pr
 /** How an agent is reached. In-app agents take the prompt through a plugin
  * bridge inside Obsidian; terminal agents compose a shell command an external
  * console runs (desktop only). */
-export type AgentKind = 'in-app' | 'terminal' | 'deep-link';
+export type AgentKind = 'in-app' | 'terminal' | 'deep-link' | 'clipboard-app';
 
 export interface AgentAdapter {
 	id: AgentTarget;
@@ -231,11 +237,59 @@ const codexAdapter: AgentAdapter = {
 	},
 };
 
+type MacOpen = (args: string[]) => { unref?: () => void };
+
+function macSpawnOpen(appName: string): boolean {
+	try {
+		const req = (globalThis as { require?: (m: string) => { spawn?: (cmd: string, args: string[], opts?: unknown) => { unref?: () => void } } }).require
+			?? (window as unknown as { require?: (m: string) => { spawn?: (cmd: string, args: string[], opts?: unknown) => { unref?: () => void } } }).require;
+		const spawn = req?.('child_process')?.spawn;
+		if (typeof spawn !== 'function') return false;
+		spawn('open', ['-a', appName], { detached: true, stdio: 'ignore' }).unref?.();
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function macAppInstalled(name: string): boolean {
+	try {
+		const req = (globalThis as { require?: (m: string) => { existsSync?: (p: string) => boolean } }).require
+			?? (window as unknown as { require?: (m: string) => { existsSync?: (p: string) => boolean } }).require;
+		return req?.('fs')?.existsSync?.(`/Applications/${name}.app`) === true;
+	} catch {
+		return false;
+	}
+}
+
+/** ZCode (z.ai ADE) has no CLI and no documented URL scheme: the honest
+ *  bridge copies the prompt and launches the app, where the user pastes it
+ *  as a new task. */
+const zcodeAdapter: AgentAdapter = {
+	id: 'zcode',
+	label: 'ZCode (copy + open)',
+	kind: 'clipboard-app',
+	isAvailable(): boolean {
+		return typeof navigator !== 'undefined' && !!navigator.clipboard && macAppInstalled('ZCode');
+	},
+	async send(_app: unknown, prompt: string): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(prompt);
+		} catch {
+			throw new AgentBridgeError('unsupported', 'Clipboard is unavailable');
+		}
+		if (!macSpawnOpen('ZCode')) {
+			throw new AgentBridgeError('missing', 'Could not launch ZCode — paste the copied prompt manually');
+		}
+	},
+};
+
 /** Registry keyed by AgentTarget. */
 const ADAPTERS: Record<AgentTarget, AgentAdapter> = {
 	claudian: claudianAdapter,
 	copilot: copilotAdapter,
 	codex: codexAdapter,
+	zcode: zcodeAdapter,
 };
 
 export function getAgentAdapter(id: AgentTarget): AgentAdapter {

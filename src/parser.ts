@@ -1506,7 +1506,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 			const stage = str(rec.stage ?? '').trim();
 			if (!label || !stage) continue;
 			// Unknown agent targets fall back to Claudian for older or hand-edited files.
-			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' ? rec.agent : 'claudian';
+			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' || rec.agent === 'zcode' ? rec.agent : 'claudian';
 			const scope = rec.scope === 'stage' ? 'stage' : 'card';
 			const inputPlaceholder = str(rec.inputPlaceholder ?? '').trim();
 			skills.push({

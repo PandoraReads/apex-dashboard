@@ -51,7 +51,7 @@ export class AgentPromptModal extends Modal {
 		const body = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 		body.createEl('h2', { text: this.spec.label });
 		const adapter = getAgentAdapter(this.agent);
-		const prefillOnly = adapter.kind === 'deep-link';
+		const prefillOnly = adapter.kind === 'deep-link' || adapter.kind === 'clipboard-app';
 		body.createEl('p', { text: t(prefillOnly ? 'agent.targetPrefill' : 'agent.target', { agent: adapter.label }) });
 
 		// Scope list for stage-scope skills: pick the items this run touches.
