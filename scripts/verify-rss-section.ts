@@ -38,15 +38,25 @@ const noticeMessages = (): string[] => (Notice as unknown as { messages: string[
 /** Stub Modal records the last-opened instance the same way. */
 const lastModal = (): (Modal & { onOpen(): void }) | null =>
 	(Modal as unknown as { last: Modal | null }).last as (Modal & { onOpen(): void }) | null;
-/** Open the section's filter dropdown and pick the menu item titled `label`. */
+/** Open the section's filter dropdown and pick the menu item titled `label`
+ *  (matching either the bare title or its count-suffixed "label (n)" form). */
 const pickFilter = (host: El, label: string): void => {
 	findByClass(host, 'dashboard-toolbar-dropdown')[0]!.click();
 	type StubMenu = { items: Array<{ title: string; click(): void }> };
 	const menu = (Menu as unknown as { last: Menu | null }).last as unknown as StubMenu | null;
 	assert.ok(menu, 'filter menu opened');
-	const item = menu!.items.find(i => i.title === label);
+	const item = menu!.items.find(i => i.title === label || i.title.startsWith(`${label} (`));
 	assert.ok(item, `filter menu has a "${label}" item`);
 	item!.click();
+};
+
+/** Menu titles of the filter dropdown, in order (for count assertions). */
+const filterMenuTitles = (host: El): string[] => {
+	findByClass(host, 'dashboard-toolbar-dropdown')[0]!.click();
+	type StubMenu = { items: Array<{ title: string }> };
+	const menu = (Menu as unknown as { last: Menu | null }).last as unknown as StubMenu | null;
+	assert.ok(menu, 'filter menu opened');
+	return menu!.items.map(i => i.title);
 };
 
 const DATA_PATH = '.obsidian/plugins/apex-dashboard/rss.json';
@@ -338,6 +348,11 @@ async function main(): Promise<void> {
 	await flush();
 	// Ungrouped default: both feeds' rows visible.
 	assert.equal(findByClass(sec5b.host, 'dashboard-rss-item').length, 2, '5b: all rows by default');
+	// Bucket lines carry their item counts: 全部 (2) / 未读 (2) / 资讯组 (1).
+	const titles5bMenu = filterMenuTitles(sec5b.host);
+	assert.ok(titles5bMenu.some(title => title.startsWith('全部 (')), `5b: all bucket shows total (${titles5bMenu.join(', ')})`);
+	assert.ok(titles5bMenu.includes('未读 (2)'), '5b: unread bucket shows its count');
+	assert.ok(titles5bMenu.includes('资讯组 (1)'), '5b: group bucket shows its article count');
 	// Pick the group bucket: only that group's feed shows.
 	pickFilter(sec5b.host, '资讯组');
 	await flush();
@@ -365,6 +380,8 @@ async function main(): Promise<void> {
 	const sec5c = render(h5c, col5c);
 	await flush();
 	await flush();
+	// feed buckets carry per-source counts too.
+	assert.ok(filterMenuTitles(sec5c.host).includes('源甲 (1)'), '5c: feed bucket shows its article count');
 	// feed buckets: one per source regardless of their shared group
 	pickFilter(sec5c.host, '源甲');
 	await flush();
@@ -378,7 +395,7 @@ async function main(): Promise<void> {
 	await flush();
 	findByClass(sec5d.host, 'dashboard-toolbar-dropdown')[0]!.click();
 	const menu5d = (Menu as unknown as { last: Menu | null }).last as unknown as { items: Array<{ title: string }> };
-	assert.deepEqual(menu5d.items.map(i => i.title), ['全部', '未读'], '5c: groupBy none -> no buckets');
+	assert.deepEqual(menu5d.items.map(i => i.title), ['全部 (1)', '未读 (1)'], '5c: groupBy none -> no buckets beyond all/unread');
 
 	/* ---------------- 6. reader modal ---------------- */
 	const h6 = makeApp({

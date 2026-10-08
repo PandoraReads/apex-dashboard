@@ -53,6 +53,10 @@ const dragState: PipelineDragState = { file: null, cardEl: null };
  *  idiom). */
 const movesInFlight = new Set<TFile>();
 
+/** How long a title single click waits before opening the note, giving a
+ *  double click time to claim the gesture for rename instead. */
+const TITLE_OPEN_DELAY_MS = 300;
+
 export function renderPipelineSection(
 	el: HTMLElement,
 	column: DashboardColumn,
@@ -404,10 +408,10 @@ function renderPipelineCard(
 ): HTMLElement {
 	const card = createDiv({ cls: 'dashboard-pipeline-card' });
 	card.dataset.path = item.file.path;
-	card.setAttribute('role', 'button');
-	card.setAttribute('aria-label', item.file.basename);
 
-	card.addEventListener('click', () => callbacks.onOpenNoteInPopover(item.file));
+	// The card body itself never opens the note: stray clicks on blank card
+	// areas used to fire popovers by accident. Opening lives on the TITLE
+	// (single click) alongside the rename gesture (double click).
 	if (!Platform.isMobile && hoverParent) attachNoteHover(app, card, item.file, hoverParent);
 
 	// Hover-reveal delete (library card's class + CSS): to trash, recoverable.
@@ -445,8 +449,6 @@ function renderPipelineCard(
 		}
 	}
 
-	// Title = the edit zone: single click does nothing (the rest of the card
-	// opens the note), double click renames the file in place.
 	// Semi-hidden archive affordance at the top-right, beside the delete
 	// button: revealed on hover like its neighbor (always visible on phones).
 	const archiveBtn = card.createEl('button', {
@@ -461,12 +463,26 @@ function renderPipelineCard(
 		void archivePipelineItem(app, item, cfg);
 	});
 
+	// Title carries BOTH gestures: single click opens the note, double click
+	// renames in place. The open runs on a short timer so the first click of
+	// a double click can be claimed by the rename instead (a slow popover
+	// flashing open mid-rename is the failure this avoids).
 	const titleEl = card.createDiv({ cls: 'dashboard-pipeline-card-title', text: item.file.basename });
+	titleEl.setAttribute('role', 'button');
+	titleEl.setAttribute('aria-label', item.file.basename);
 	titleEl.title = t('pipeline.renameHint');
-	titleEl.addEventListener('click', (e) => e.stopPropagation());
+	let openTimer = 0;
+	titleEl.addEventListener('click', (e) => {
+		e.stopPropagation();
+		// detail>1 = a later click of the same burst; the dblclick handler
+		// takes over and cancels the pending open.
+		if (e.detail > 1) return;
+		openTimer = window.setTimeout(() => callbacks.onOpenNoteInPopover(item.file), TITLE_OPEN_DELAY_MS);
+	});
 	titleEl.addEventListener('dblclick', (e) => {
 		e.stopPropagation();
 		e.preventDefault();
+		window.clearTimeout(openTimer);
 		beginCardTitleEdit(titleEl, item.file, app);
 	});
 
@@ -726,7 +742,8 @@ function dispatchSkill(
 	// from: keep the modal even under directSend (an empty column has nothing
 	// to pick, so it may send directly).
 	const forceModal = !!options?.selectableFiles && options.selectableFiles.length > 0;
-	if (cfg.directSend && !forceModal) {
+	// Per-skill toggle, with the legacy section-wide flag as the fallback.
+	if ((skill.directSend ?? cfg.directSend) && !forceModal) {
 		void (async () => {
 			try {
 				const prompt = buildAgentPrompt(spec, { ...vars, input: '' }, skill.agent);

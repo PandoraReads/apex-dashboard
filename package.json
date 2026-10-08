@@ -67,7 +67,8 @@
 		"test:notes-cover": "esbuild scripts/verify-notes-cover.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-notes-cover.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-notes-cover.cjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint .",
-		"test:skill-widget": "esbuild scripts/verify-skill-widget.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-skill-widget.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-skill-widget.cjs"
+		"test:skill-widget": "esbuild scripts/verify-skill-widget.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-skill-widget.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-skill-widget.cjs",
+		"test:icon-picker": "esbuild scripts/verify-icon-picker.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-icon-picker.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-icon-picker.cjs"
 	},
 	"keywords": [],
 	"license": "0-BSD",

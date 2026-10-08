@@ -1037,6 +1037,10 @@ export interface PipelineSkill {
 	promptTemplate: string;
 	/** Placeholder for the preview modal's supplemental input. */
 	inputPlaceholder?: string;
+	/** Skip the preview modal and send this button's prompt immediately (no
+	 *  supplemental input). Falls back to the legacy section-wide
+	 *  PipelineConfig.directSend when unset. */
+	directSend?: boolean;
 }
 
 /** Pipeline section config (sectionType 'pipeline'): a kanban board whose
@@ -1084,7 +1088,10 @@ export interface PipelineConfig {
 	archiveFolder?: string;
 	/** Template note seeded on "new item" (vault path; empty = bare note). */
 	templatePath?: string;
-	/** Skip the preview modal and send prompts immediately. */
+	/** LEGACY section-wide toggle: skip the preview modal and send prompts
+	 *  immediately. Superseded by per-skill PipelineSkill.directSend (the
+	 *  config UI no longer writes this); kept as the fallback default for
+	 *  skills and configs saved before the split. */
 	directSend?: boolean;
 }
 

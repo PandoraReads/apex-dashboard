@@ -101,18 +101,28 @@ export const MarkdownRenderer = {
 	},
 };
 
-// FuzzySuggestModal base for modules that import it: the verify scripts never
-// open one (the studio's image browser only mounts on a browse click), so a
-// bare class with the Modal surface is enough for the bundle to resolve.
+// FuzzySuggestModal base for modules that import it: enough surface for the
+// icon-picker checks (getItems/getSuggestions/onChooseItem round trip).
+export interface FuzzyMatch<T> {
+	item: T;
+}
 export class FuzzySuggestModal<T> {
 	app: unknown;
+	emptyStateText = '';
 	constructor(app: unknown) { this.app = app; }
 	open(): void {}
 	close(): void {}
+	setPlaceholder(_text: string): void {}
 	// Narrow the unused-generic warning; the stand-in never items items.
 	getItems(): T[] { return []; }
 	getItemText(_item: T): string { return ''; }
 	onChooseItem(_item: T): void {}
+	getSuggestions(query: string): FuzzyMatch<T>[] {
+		const q = query.toLowerCase();
+		return this.getItems()
+			.filter(item => this.getItemText(item).toLowerCase().includes(q))
+			.map(item => ({ item }));
+	}
 }
 
 // Minimal moment() for date-only code paths (daily-notes computes note paths

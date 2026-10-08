@@ -10,6 +10,9 @@ export interface ToolbarDropdownItem {
 	/** Short text shown on the collapsed button when the item has no icon
 	 *  (e.g. the S/M/L size letters). */
 	short?: string;
+	/** Item count appended in the menu as "label (n)" — e.g. an RSS bucket's
+	 *  article tally. */
+	count?: number;
 }
 
 /**
@@ -40,8 +43,9 @@ export function createToolbarDropdown(
 		e.stopPropagation();
 		const menu = new Menu();
 		for (const item of items) {
+			const menuTitle = item.count !== undefined ? `${item.label} (${item.count})` : item.label;
 			menu.addItem(mi => mi
-				.setTitle(item.label)
+				.setTitle(menuTitle)
 				.setIcon(item.icon ?? '')
 				.setChecked(item.key === currentKey)
 				.onClick(() => { if (item.key !== currentKey) onPick(item.key); }));

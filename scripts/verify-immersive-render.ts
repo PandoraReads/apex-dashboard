@@ -18,9 +18,9 @@
  * Run: `npm run test:immersive-render`
  */
 import { strict as assert } from 'node:assert';
-import type { App } from 'obsidian';
+import { Menu, type App } from 'obsidian';
 import { El } from './mini-dom';
-import { renderImmersiveRoot, layoutImmersiveGrid, setupImmersiveDnD } from '../src/immersive';
+import { renderImmersiveRoot, layoutImmersiveGrid, setupImmersiveDnD, immersiveWidgetCatalog, openImmersiveAddMenu } from '../src/immersive';
 import { packImmersive, type ImmersiveItem as GridItem } from '../src/immersive-grid';
 import { registerHabitService } from '../src/habit-service';
 import type { DashboardColumn, DashboardData, DashboardSettings, RenderCallbacks } from '../src/types';
@@ -391,6 +391,70 @@ const run = (): void => {
 		assert.ok(!memo.hasClass('dashboard-imm-tile--dragging'), 'release clears the section paint');
 
 		for (const fn of dndCleanups) fn();
+	}
+
+	// 7. Add-menu catalog: EVERY widget type stays reachable regardless of
+	//    the settings toggles, and an EMPTY instance family (album /
+	//    countdown / anniversary with nothing configured) still shows a
+	//    "new…" placeholder that routes to the creation modal instead of
+	//    silently omitting the type.
+	{
+		const settings = {
+			widgetQuickActionsEnabled: false,
+			widgetLunarEnabled: false,
+			widgetYearProgressEnabled: false,
+			widgetCalendarEnabled: false,
+			widgetWeatherEnabled: false,
+			pomodoroEnabled: false,
+			readingEnabled: false,
+			widgetHabitEnabled: false,
+			widgetExpenseEnabled: false,
+			widgetSkillsEnabled: false,
+			widgetMusicEnabled: false,
+		} as unknown as DashboardSettings;
+		const deps = {
+			pomodoroService: {} as never,
+			readingService: {} as never,
+			renderQuickActions: () => {},
+		};
+
+		const empty = immersiveWidgetCatalog(settings, deps);
+		const keys = empty.map(o => o.key);
+		for (const fixed of ['quickActions', 'lunar', 'yearProgress', 'calendar', 'weather', 'pomodoro', 'reading', 'habit', 'expense', 'skills', 'music']) {
+			assert.ok(keys.includes(fixed), `7: ${fixed} listed with its toggle off`);
+		}
+		assert.deepEqual(
+			empty.filter(o => o.createKind).map(o => [o.key, o.createKind]),
+			[['album:new', 'album'], ['countdown:new', 'countdown'], ['anniversary:new', 'anniversary']],
+			'7: empty families carry create placeholders',
+		);
+
+		const withOne = immersiveWidgetCatalog({
+			...settings,
+			countdowns: [{ id: 'cd1', label: '发布日', targetDate: '2026-11-01', displayMode: 'days', reminderDays: 0 }],
+		} as unknown as DashboardSettings, deps);
+		const withKeys = withOne.map(o => o.key);
+		assert.ok(withKeys.includes('countdown-cd1'), '7: configured instance listed');
+		assert.ok(!withKeys.includes('countdown:new'), '7: placeholder retires once an instance exists');
+
+		const created: string[] = [];
+		const added: string[] = [];
+		openImmersiveAddMenu({
+			settings,
+			services: deps,
+			boardKeys: new Set(),
+			anchor: new El('div') as unknown as HTMLElement,
+			onAddSection: () => {},
+			onAddNoteCard: () => {},
+			onAddWidget: key => added.push(key),
+			onCreateInstance: kind => created.push(kind),
+		});
+		const menu = (Menu as unknown as { last: Menu | null }).last as unknown as { items: Array<{ title: string; click(): void }> };
+		const createItem = menu.items.find(i => i.title.includes('新建'));
+		assert.ok(createItem, '7: create entry visible in the menu');
+		createItem!.click();
+		assert.equal(created.length, 1, '7: placeholder fires onCreateInstance');
+		assert.equal(added.length, 0, '7: placeholder never fires onAddWidget');
 	}
 
 	for (const fn of cleanups.splice(0)) fn();

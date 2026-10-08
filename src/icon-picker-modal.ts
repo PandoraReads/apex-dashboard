@@ -1,11 +1,15 @@
 import { App, FuzzyMatch, FuzzySuggestModal, setIcon } from 'obsidian';
 import { t } from './i18n';
+import { BUNDLED_ICON_NAMES } from './icon-names';
 
 /**
- * Curated set of Lucide icon names offered in the picker. All are valid for
- * Obsidian's `setIcon`. Grouped roughly by theme so related icons sit together.
+ * Curated head of the picker: the hand-picked set the picker opened on for
+ * years, kept first so the unfiltered view starts on familiar ground. All
+ * names validated against the app's bundled dictionary (see
+ * scripts/extract-icon-names.py); 'checkbox' was retired from Lucide and is
+ * replaced by its current name 'square-check-big'. Grouped roughly by theme.
  */
-const ICONS: readonly string[] = [
+const CURATED_ICONS: readonly string[] = [
 	// Notes & files
 	'file-plus', 'file-text', 'notebook', 'notebook-pen', 'sticky-note', 'folder', 'folder-plus', 'bookmark', 'pin', 'tag', 'hash',
 	// Time & dates
@@ -15,7 +19,7 @@ const ICONS: readonly string[] = [
 	// Reading & media
 	'book-open', 'book-plus', 'camera', 'image', 'mic', 'music', 'film', 'link',
 	// Tasks & goals
-	'list', 'list-checks', 'check-square', 'checkbox', 'target', 'flag', 'flame', 'award', 'trophy', 'star', 'heart',
+	'list', 'list-checks', 'check-square', 'square-check-big', 'target', 'flag', 'flame', 'award', 'trophy', 'star', 'heart',
 	// Life & misc
 	'coffee', 'utensils', 'dumbbell', 'briefcase', 'shopping-cart', 'map-pin', 'compass', 'plane', 'gift', 'leaf', 'droplet', 'palette',
 	// People & comms
@@ -24,9 +28,23 @@ const ICONS: readonly string[] = [
 	'home', 'search', 'plus', 'plus-circle', 'settings', 'settings-2',
 ];
 
+/** Everything the picker offers: the curated picks first, then the rest of
+ *  the app's bundled dictionary in sorted order — typing reaches any icon
+ *  the running Obsidian can actually render. */
+const ICONS: readonly string[] = [
+	...CURATED_ICONS,
+	...BUNDLED_ICON_NAMES.filter(name => !CURATED_ICONS.includes(name)),
+];
+
+/** FuzzySuggestModal builds one DOM row (with an inline SVG) per suggestion:
+ *  at ~1900 bundled names an empty query would mount a huge list for no
+ *  benefit. Cap the visible rows; any typed query narrows past the cap. */
+const MAX_SUGGESTIONS = 400;
+
 /**
- * Fuzzy-searchable Lucide icon picker. Each suggestion renders the icon glyph
- * alongside its name; choosing one invokes `onPick` with the icon name.
+ * Fuzzy-searchable Lucide icon picker over the FULL set the app bundles.
+ * Each suggestion renders the icon glyph alongside its name; choosing one
+ * invokes `onPick` with the icon name.
  */
 export class IconPickerModal extends FuzzySuggestModal<string> {
 	private readonly onPick: (icon: string) => void;
@@ -44,6 +62,10 @@ export class IconPickerModal extends FuzzySuggestModal<string> {
 
 	getItemText(item: string): string {
 		return item;
+	}
+
+	getSuggestions(query: string): FuzzyMatch<string>[] {
+		return super.getSuggestions(query).slice(0, MAX_SUGGESTIONS);
 	}
 
 	renderSuggestion(result: FuzzyMatch<string>, el: HTMLElement): void {

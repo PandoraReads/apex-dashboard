@@ -121,12 +121,12 @@ export class AgentPromptModal extends Modal {
 				new Notice(t('agent.invalidSkill'));
 				return;
 			}
-			send.disabled = true;
+			// The modal closes the MOMENT the user commits — composing is its
+			// whole job, and a slow or hung adapter bridge must never leave it
+			// stranded on screen. The dispatch continues in the background;
+			// outcomes report through Notices.
+			this.close();
 			void (async () => {
-				// The modal ALWAYS closes once the user has committed — an
-				// adapter bridge that never settles must not strand it (the
-				// "send clicked, modal stuck" bug). A 10s timeout guards hung
-				// bridges; outcomes report through Notices either way.
 				const outcome = await sendPromptWithTimeout(this.app, this.agent, prompt);
 				if (outcome === 'sent') {
 					if (prefillOnly) new Notice(t('agent.openedPrefill'));
@@ -141,7 +141,6 @@ export class AgentPromptModal extends Modal {
 						new Notice(t('agent.sendFailed', { agent: adapter.label, message }));
 					}
 				}
-				this.close();
 			})();
 		});
 		window.setTimeout(() => input.focus(), 0);

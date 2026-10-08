@@ -31,6 +31,10 @@ import { rememberSkillNames } from './skill-registry';
 import { fireSkillDirect } from './skill-widget';
 import { SkillWidgetConfigModal } from './skill-widget-config-modal';
 import { PipelineConfigModal } from './pipeline-config-modal';
+import { CountdownSettingsModal } from './countdown-modal';
+import { AlbumSettingsModal } from './album-settings-modal';
+import { AnniversarySettingsModal } from './anniversary-settings-modal';
+import type { CountdownConfig, AlbumConfig, AnniversaryConfig, DashboardSettings } from './types';
 import { setupDragAndDrop } from './dnd';
 import { startGuardedDrag } from './drag-guard';
 import { clampSidebarWidth, clampWidgetUnitHeight } from './widget-span';
@@ -1761,6 +1765,7 @@ export class DashboardView extends ItemView implements HoverParent {
 					onAddSection: () => this.openAddSectionModalInner(),
 					onAddNoteCard: kind => void this.addImmersiveNoteCard(kind),
 					onAddWidget: key => void this.addImmersiveWidget(key),
+					onCreateInstance: kind => this.createImmersiveWidgetInstance(kind),
 				});
 				return;
 			}
@@ -1821,6 +1826,71 @@ export class DashboardView extends ItemView implements HoverParent {
 		const next = this.immItems.filter(item => item.id !== itemId);
 		if (next.length === this.immItems.length) return;
 		await this.sync.updateImmersive(next);
+	}
+
+	/** Create the FIRST instance of an album/countdown/anniversary straight
+	 *  from the board's add menu: the family's settings modal opens on a blank
+	 *  baseline (the settings tab's add-button pattern), and saving persists
+	 *  the instance AND places its card on this board — no settings detour
+	 *  needed for the type to become reachable. */
+	private createImmersiveWidgetInstance(kind: 'album' | 'countdown' | 'anniversary'): void {
+		if (kind === 'countdown') {
+			const baseline: CountdownConfig = {
+				id: `cd-${Date.now()}`,
+				label: '',
+				targetDate: '',
+				displayMode: 'days',
+				reminderDays: 0,
+			};
+			new CountdownSettingsModal(this.app, baseline, updated => {
+				void this.persistWidgetInstance(
+					{ ...this.plugin.settings, countdowns: [...(this.plugin.settings.countdowns ?? []), updated] },
+					`countdown-${updated.id}`,
+				);
+			}).open();
+			return;
+		}
+		if (kind === 'album') {
+			const baseline: AlbumConfig = {
+				id: Date.now(),
+				folder: '',
+				intervalSec: 8,
+				recursive: true,
+				ratio: '1:1',
+				transition: 'fade',
+				heightRatio: 'full',
+			};
+			new AlbumSettingsModal(this.app, baseline, updated => {
+				void this.persistWidgetInstance(
+					{ ...this.plugin.settings, albums: [...(this.plugin.settings.albums ?? []), updated] },
+					`album-${updated.id}`,
+				);
+			}).open();
+			return;
+		}
+		const baseline: AnniversaryConfig = {
+			id: `av-${Date.now()}`,
+			label: '',
+			startDate: '',
+			calendar: 'solar',
+			precision: 'ymd',
+			annualReminder: false,
+		};
+		new AnniversarySettingsModal(this.app, baseline, updated => {
+			void this.persistWidgetInstance(
+				{ ...this.plugin.settings, anniversaries: [...(this.plugin.settings.anniversaries ?? []), updated] },
+				`anniversary-${updated.id}`,
+			);
+		}).open();
+	}
+
+	/** Commit a freshly configured instance to settings (the settings tab's
+	 *  applyUpdate pattern) and place its card on this board. */
+	private async persistWidgetInstance(nextSettings: DashboardSettings, widgetKey: string): Promise<void> {
+		this.plugin.settings = nextSettings;
+		await this.plugin.saveSettings();
+		this.plugin.refreshAllDashboards();
+		void this.addImmersiveWidget(widgetKey);
 	}
 
 	private openWidgetTypeModal(colName: string): void {

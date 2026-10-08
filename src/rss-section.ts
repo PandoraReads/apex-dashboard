@@ -109,20 +109,27 @@ export function renderRssSection(
 	/** Buckets beyond all/unread, per the config's groupBy: managed groups
 	 *  (default), one bucket per feed source, or nothing. Feed buckets come
 	 *  from the CONFIG (not cached rows) so they exist before the first
-	 *  fetch lands. */
-	function bucketItems(): ToolbarDropdownItem[] {
+	 *  fetch lands; their counts come from the rows collected for this
+	 *  render (0 until the first fetch stores items). */
+	function bucketItems(rows: readonly RssRow[]): ToolbarDropdownItem[] {
 		if (config.groupBy === 'none') return [];
 		if (config.groupBy === 'feed') {
 			return config.feeds.map((source): ToolbarDropdownItem => {
 				const key = feedKey(source.url);
 				const label = source.name?.trim() || store.feedEntry(key)?.title || source.url;
-				return { key: `${FEED_KEY}${key}`, label, icon: 'rss' };
+				return {
+					key: `${FEED_KEY}${key}`,
+					label,
+					icon: 'rss',
+					count: rows.filter(row => row.feedUrl === key).length,
+				};
 			});
 		}
 		return rssGroupNames(config).map((group): ToolbarDropdownItem => ({
 			key: `${GROUP_KEY}${group}`,
 			label: group,
 			icon: 'folder',
+			count: rows.filter(row => row.feedGroup === group).length,
 		}));
 	}
 
@@ -152,11 +159,14 @@ export function renderRssSection(
 
 		const toolbar = content.createDiv({ cls: 'dashboard-rss-toolbar' });
 		// One dropdown covers the filter dimensions: everything, unread only,
-		// and one bucket per configured group / feed source (groupBy).
+		// and one bucket per configured group / feed source (groupBy). Every
+		// line carries its item count (all/unread included).
+		const allRows = collectRows();
+		const unreadCount = allRows.filter(row => !store.isRead(row.item.guid)).length;
 		const filterItems: ToolbarDropdownItem[] = [
-			{ key: 'all', label: t('rss.all'), icon: 'inbox' },
-			{ key: 'unread', label: t('rss.unreadOnly'), icon: 'mail' },
-			...bucketItems(),
+			{ key: 'all', label: t('rss.all'), icon: 'inbox', count: allRows.length },
+			{ key: 'unread', label: t('rss.unreadOnly'), icon: 'mail', count: unreadCount },
+			...bucketItems(allRows),
 		];
 		const currentFilterKey = filterItems.some(item => item.key === filterKey) ? filterKey : 'all';
 		createToolbarDropdown(toolbar, currentFilterKey, filterItems, key => {
@@ -165,7 +175,6 @@ export function renderRssSection(
 			renderList();
 		});
 
-		const unreadCount = collectRows().filter(row => !store.isRead(row.item.guid)).length;
 		if (unreadCount > 0 && currentFilterKey !== 'unread') {
 			toolbar.createSpan({ cls: 'dashboard-rss-count', text: t('rss.unreadCount', { count: String(unreadCount) }) });
 		}
@@ -204,7 +213,6 @@ export function renderRssSection(
 		});
 
 		const list = content.createDiv({ cls: 'dashboard-rss-list' });
-		const allRows = collectRows();
 		const filteredRows = allRows.filter(rowMatches);
 		const effectivePageSize = config.pageSize ?? RSS_DEFAULT_PAGE_SIZE;
 		const totalPages = Math.max(1, Math.ceil(filteredRows.length / effectivePageSize));

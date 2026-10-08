@@ -32,7 +32,6 @@ export class PipelineConfigModal extends Modal {
 	private skills: PipelineSkill[];
 	private templatePath: string;
 	private archiveFolder: string;
-	private directSend: boolean;
 	private excludeFolders: string[];
 	private cardProperties: string[];
 	private boardStyle: 'theme' | 'trello' | 'solid' | 'blush';
@@ -66,10 +65,13 @@ export class PipelineConfigModal extends Modal {
 		this.rootFolder = cfg.rootFolder ?? '';
 		this.statusField = cfg.statusField || 'status';
 		this.stages = (cfg.stages ?? []).map(stage => ({ ...stage }));
-		this.skills = (cfg.skills ?? []).map(skill => ({ ...skill }));
+		// Resolve each skill's direct-send once from the legacy section-wide
+		// flag (configs saved before the per-skill split), so the per-skill
+		// checkboxes show the effective state and saving persists it per
+		// skill — the section flag itself stops being written.
+		this.skills = (cfg.skills ?? []).map(skill => ({ ...skill, directSend: skill.directSend ?? cfg.directSend === true }));
 		this.templatePath = cfg.templatePath ?? '';
 		this.archiveFolder = cfg.archiveFolder ?? '';
-		this.directSend = cfg.directSend === true;
 		this.excludeFolders = [...(cfg.excludeFolders ?? [])];
 		this.cardProperties = [...(cfg.cardProperties ?? [])];
 		this.boardStyle = cfg.boardStyle === 'theme' ? 'theme' : (cfg.boardStyle ?? 'trello');
@@ -163,6 +165,7 @@ export class PipelineConfigModal extends Modal {
 				scope: 'card',
 				skillName: '',
 				promptTemplate: '',
+				directSend: false,
 			}];
 			this.renderSkills();
 		});
@@ -192,7 +195,8 @@ export class PipelineConfigModal extends Modal {
 		this.filterEditor = new VisiblePropertiesEditor(this.app, filterHost, this.filterFields);
 		filterHost.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgFilterFieldsHint') });
 
-		// New-item template + direct send.
+		// New-item template (direct send is a per-skill toggle in each skill
+		// card, not a section-wide switch).
 		const misc = body.createDiv({ cls: 'dashboard-library-config-section' });
 		misc.createDiv({ cls: 'dashboard-library-config-section-title', text: t('pipeline.cfgNewNote') });
 		const archiveRow = misc.createDiv({ cls: 'dashboard-library-config-inline-row' });
@@ -214,16 +218,6 @@ export class PipelineConfigModal extends Modal {
 		tplInput.value = this.templatePath;
 		attachPathPicker(tplRow, tplInput, this.app, 'file', (path) => { this.templatePath = path; });
 		tplInput.addEventListener('change', () => { this.templatePath = tplInput.value.trim(); });
-
-		const sendRow = misc.createDiv({ cls: 'dashboard-library-config-inline-row' });
-		sendRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pipeline.cfgDirectSend') });
-		const toggle = sendRow.createEl('input', {
-			cls: 'dashboard-pipeline-cfg-toggle',
-			attr: { type: 'checkbox' },
-		}) as HTMLInputElement;
-		toggle.checked = this.directSend;
-		toggle.addEventListener('change', () => { this.directSend = toggle.checked; });
-		sendRow.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgDirectSendHint') });
 
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
@@ -393,6 +387,18 @@ export class PipelineConfigModal extends Modal {
 			tpl.value = skill.promptTemplate;
 			tpl.addEventListener('input', () => { this.patchSkill(index, { promptTemplate: tpl.value }); });
 			bottom.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgSkillTemplateHint') });
+
+			// Per-skill direct send (replaces the old section-wide toggle):
+			// checked = fire immediately on click, no preview dialog.
+			const sendRow = card.createDiv({ cls: 'dashboard-library-config-inline-row' });
+			sendRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pipeline.cfgSkillDirectSend') });
+			const sendToggle = sendRow.createEl('input', {
+				cls: 'dashboard-pipeline-cfg-toggle',
+				attr: { type: 'checkbox' },
+			}) as HTMLInputElement;
+			sendToggle.checked = skill.directSend === true;
+			sendToggle.addEventListener('change', () => { this.patchSkill(index, { directSend: sendToggle.checked }); });
+			sendRow.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgSkillDirectSendHint') });
 		});
 	}
 
@@ -475,7 +481,6 @@ export class PipelineConfigModal extends Modal {
 				const cardProperties = (this.propertiesEditor?.value ?? this.cardProperties).map(p => p.trim()).filter(p => p.length > 0);
 				return cardProperties.length > 0 ? { cardProperties } : {};
 			})(),
-			...(this.directSend ? { directSend: true } : {}),
 		};
 		this.onSave(config);
 		this.close();

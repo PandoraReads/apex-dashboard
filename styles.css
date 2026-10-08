@@ -3479,6 +3479,22 @@
 	font-family: var(--db-font) !important;
 }
 
+/* ── Obsidian core form-field paint, re-anchored ─────────────────────────
+   Obsidian's core sheet paints every input[type='text']/[search]/… at rest
+   and every textarea/input :hover with var(--background-modifier-form-field
+   [-hover]) — a variable OWNED BY THE OBSIDIAN APPEARANCE (pure white under
+   Minimal light). Those selectors out-specify the plugin's single-class
+   field rules (the same class of loss the immersive color defense
+   documents), so a board field flips white the moment the cursor hovers it
+   while typing. Re-anchoring both variables on the dashboard root makes ANY
+   winning rule paint the dashboard's own input token instead — hover can
+   never change a field's base. The hijack shield below is untouched: its
+   backgrounds already use --db-bg-input with this variable as fallback. */
+.apex-dashboard-root {
+	--background-modifier-form-field: var(--db-bg-input);
+	--background-modifier-form-field-hover: var(--db-bg-input);
+}
+
 /* ── Foreign global-input-hijack shield, consolidated ─────────────────────
    Some plugins ship GLOBAL `body.their-theme input[type="text"] { ... !important }`
    rules (language-made-easy's mindful-oasis does — static styles.css plus a
@@ -22496,6 +22512,23 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
+	}
+
+	/* --- Scrollbars: fully invisible on the immersive page ----------------
+	   The board reads as a fixed poster composition; any scrollbar tint —
+	   even macOS overlay thumbs — reads as a color defect at the right edge.
+	   Kill BOTH scrollbar renderings (standard scrollbar-width, Chromium
+	   121+, and the classic ::-webkit-scrollbar path) on the root and every
+	   descendant. Wheel, trackpad and keyboard scrolling are untouched. This
+	   chapter sits after every other ::-webkit-scrollbar rule in the file, so
+	   it also wins any specificity tie against them. */
+	[data-layout="immersive"],
+	[data-layout="immersive"] * {
+		scrollbar-width: none;
+	}
+	[data-layout="immersive"]::-webkit-scrollbar,
+	[data-layout="immersive"] *::-webkit-scrollbar {
+		display: none;
 	}
 
 	/* The poster layer: banner image, full-bleed and fixed. The banner

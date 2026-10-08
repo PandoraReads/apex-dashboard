@@ -1000,6 +1000,11 @@ export interface ImmersiveWidgetOption {
 	key: string;
 	label: string;
 	icon: string;
+	/** Set on placeholder entries for EMPTY instance families (album /
+	 *  countdown / anniversary with nothing configured yet): picking the entry
+	 *  opens that family's creation modal instead of adding a card, so the
+	 *  type is reachable from the board without a settings detour. */
+	createKind?: 'album' | 'countdown' | 'anniversary';
 }
 
 const WIDGET_META: Record<string, { labelKey: string; icon: string }> = {
@@ -1016,9 +1021,13 @@ const WIDGET_META: Record<string, { labelKey: string; icon: string }> = {
 	music: { labelKey: 'settings.widgetMusic', icon: 'music' },
 };
 
-/** Every widget card that COULD join the board right now (service deps
- *  present, configured instances exist) — the add menu's catalog. Mirrors
- *  buildWidgetEntries' availability rules without the membership filter. */
+/** Every widget card that COULD join the board right now — the add menu's
+ *  catalog, independent of the settings toggles (membership mode rules the
+ *  board). Mirrors buildWidgetEntries' availability rules without the
+ *  membership filter. An EMPTY instance family (album / countdown /
+ *  anniversary with nothing configured) still gets one placeholder entry that
+ *  opens the family's creation modal — otherwise those types would be
+ *  unreachable from the board until a settings detour configured one. */
 export function immersiveWidgetCatalog(settings: DashboardSettings, deps: WidgetBuildDeps): ImmersiveWidgetOption[] {
 	const out: ImmersiveWidgetOption[] = [];
 	for (const [key, meta] of Object.entries(WIDGET_META)) {
@@ -1027,14 +1036,26 @@ export function immersiveWidgetCatalog(settings: DashboardSettings, deps: Widget
 		if (key === 'reading' && !deps.readingService) continue;
 		out.push({ key, label: t(meta.labelKey), icon: meta.icon });
 	}
-	for (const cfg of settings.albums ?? []) {
+	const albums = settings.albums ?? [];
+	for (const cfg of albums) {
 		out.push({ key: `album-${cfg.id}`, label: `${t('settings.widgetAlbum')} · ${cfg.folder || cfg.id}`, icon: 'image' });
 	}
-	for (const cfg of settings.countdowns ?? []) {
+	if (albums.length === 0) {
+		out.push({ key: 'album:new', label: `${t('settings.widgetAlbum')} · ${t('immersive.createInstance')}`, icon: 'image', createKind: 'album' });
+	}
+	const countdowns = settings.countdowns ?? [];
+	for (const cfg of countdowns) {
 		out.push({ key: `countdown-${cfg.id}`, label: `${t('settings.countdownEnabled')} · ${cfg.label}`, icon: 'alarm-clock' });
 	}
-	for (const cfg of settings.anniversaries ?? []) {
+	if (countdowns.length === 0) {
+		out.push({ key: 'countdown:new', label: `${t('settings.countdownEnabled')} · ${t('immersive.createInstance')}`, icon: 'alarm-clock', createKind: 'countdown' });
+	}
+	const anniversaries = settings.anniversaries ?? [];
+	for (const cfg of anniversaries) {
 		out.push({ key: `anniversary-${cfg.id}`, label: `${t('settings.widgetAnniversary')} · ${cfg.label}`, icon: 'heart' });
+	}
+	if (anniversaries.length === 0) {
+		out.push({ key: 'anniversary:new', label: `${t('settings.widgetAnniversary')} · ${t('immersive.createInstance')}`, icon: 'heart', createKind: 'anniversary' });
 	}
 	return out;
 }
@@ -1051,6 +1072,9 @@ export function openImmersiveAddMenu(opts: {
 	onAddSection: () => void;
 	onAddNoteCard: (kind: 'memo' | 'todo') => void;
 	onAddWidget: (key: string) => void;
+	/** Create the first instance of an EMPTY family (album / countdown /
+	 *  anniversary) — opens the family's settings modal from the board. */
+	onCreateInstance: (kind: 'album' | 'countdown' | 'anniversary') => void;
 }): void {
 	const menu = new Menu();
 	menu.addItem(item => item
@@ -1071,7 +1095,10 @@ export function openImmersiveAddMenu(opts: {
 			.setTitle(option.label)
 			.setIcon(option.icon)
 			.setDisabled(opts.boardKeys.has(option.key))
-			.onClick(() => opts.onAddWidget(option.key)));
+			.onClick(() => {
+				if (option.createKind) opts.onCreateInstance(option.createKind);
+				else opts.onAddWidget(option.key);
+			}));
 	}
 	const rect = opts.anchor.getBoundingClientRect();
 	menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });

@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { Modal } from 'obsidian';
 import { El, findByClass, findTag } from './mini-dom';
 import type { App, TFile } from 'obsidian';
 import type { DashboardColumn, PipelineConfig, RenderCallbacks } from '../src/types';
@@ -15,6 +16,8 @@ import { renderPipelineSection } from '../src/pipeline-section';
 	if (o?.text !== undefined) el.textContent = o.text;
 	return el;
 };
+// pipeline-section paces title clicks through window.setTimeout.
+(globalThis as { window?: unknown }).window = globalThis;
 
 function fakeFile(path: string, mtime: number): TFile {
 	return { path, basename: path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, ''), stat: { mtime } } as unknown as TFile;
@@ -119,6 +122,30 @@ async function main(): Promise<void> {
 	const skillBtns = findByClass(host, 'dashboard-pipeline-skill-btn');
 	assert.equal(skillBtns.length, 2);
 
+	// Card-scope direct send (per-skill flag): fires without the preview
+	// modal; the legacy section-wide flag only fills in for unset skills.
+	{
+		const spyModal = (Modal as unknown as { last: unknown });
+		const wait = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+		const hostA = new El('div');
+		renderPipelineSection(hostA as unknown as HTMLElement, pipelineColumn({ ...config, skills: config.skills.map(s => s.id === 's2' ? { ...s, directSend: true } : s) }), app, callbacks, null);
+		spyModal.last = null;
+		// The card-scope button lives inside the draft card's foot.
+		const draftCard = findByClass(hostA, 'dashboard-pipeline-card').find(c => (c.textContent ?? '').includes('流量密码'))!;
+		const cardBtn = findByClass(draftCard, 'dashboard-pipeline-skill-btn')[0]!;
+		cardBtn.click();
+		await wait(30);
+		assert.ok(!spyModal.last, 'per-skill directSend fires without the preview modal');
+
+		const hostB = new El('div');
+		renderPipelineSection(hostB as unknown as HTMLElement, pipelineColumn({ ...config, directSend: true, skills: config.skills.map(s => s.id === 's2' ? { ...s, directSend: false } : s) }), app, callbacks, null);
+		spyModal.last = null;
+		const draftCardB = findByClass(hostB, 'dashboard-pipeline-card').find(c => (c.textContent ?? '').includes('流量密码'))!;
+		findByClass(draftCardB, 'dashboard-pipeline-skill-btn')[0]!.click();
+		await wait(30);
+		assert.ok(spyModal.last, 'explicit per-skill false beats the legacy section-wide flag');
+	}
+
 	// Both stages have items here; Trello empty lists show no placeholder.
 
 	// --- Unconfigured column: empty state + configure entry point. Both a
@@ -143,6 +170,37 @@ async function main(): Promise<void> {
 	assert.deepEqual((app as unknown as { __renames: Array<{ from: string; to: string }> }).__renames, [
 		{ from: '内容创作/01-选题/对标拆解.md', to: '内容创作/01-选题/对标拆解·升级版.md' },
 	], 'Enter commits the file rename');
+
+	// --- Title gestures (fresh board, recording open callback): single click
+	//     opens the note after the disambiguation delay, double click claims
+	//     the burst for rename, and blank card areas never open anything. ---
+	const opened: string[] = [];
+	const recording = { onOpenNoteInPopover: (f: TFile) => { opened.push(f.path); } } as unknown as RenderCallbacks;
+	const hostG = new El('div');
+	renderPipelineSection(hostG as unknown as HTMLElement, pipelineColumn(config), app, recording, null);
+	const gCard = findByClass(hostG, 'dashboard-pipeline-card')[0]!;
+	const gTitle = findByClass(hostG, 'dashboard-pipeline-card-title')[0]!;
+	const settle = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+
+	// Blank card click: the old accidental-open path is gone.
+	gCard.dispatchEvent({ type: 'click', target: gCard });
+	await settle(360);
+	assert.equal(opened.length, 0, 'blank card click never opens the note');
+
+	// Double click on the title: rename claims the gesture, no open fires.
+	gTitle.dispatchEvent({ type: 'click', target: gTitle, detail: 1 });
+	gTitle.dispatchEvent({ type: 'dblclick', target: gTitle });
+	const gEdit = findTag(gTitle, 'input')[0] as (El & { value: string }) | undefined;
+	assert.ok(gEdit, 'double click still starts the inline rename');
+	gEdit!.dispatchEvent({ type: 'keydown', key: 'Escape', target: gEdit! });
+	await settle(360);
+	assert.equal(opened.length, 0, 'double click renames instead of opening');
+
+	// Single click on the title: opens once the delay grants the gesture.
+	gTitle.dispatchEvent({ type: 'click', target: gTitle, detail: 1 });
+	assert.equal(opened.length, 0, 'single click does not open synchronously');
+	await settle(360);
+	assert.deepEqual(opened, ['内容创作/01-选题/对标拆解.md'], 'single click opens the note after the delay');
 
 	// Custom filter dimensions: config picks 栏目 → the rail lists its values
 	// and shows the property's own name as the (single) dimension.

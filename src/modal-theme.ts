@@ -32,6 +32,11 @@ const MODAL_THEME_VARS: readonly string[] = [
 	'--db-shadow-card', '--db-shadow-card-hover',
 	'--db-link', '--db-checkbox', '--db-quote-border',
 	'--db-progress-from', '--db-progress-to',
+	// Obsidian core field paint, re-anchored on the root (styles.css): mirror
+	// it too so core input[type]/:hover rules inside body-level dialogs paint
+	// the dashboard's input token instead of the Obsidian appearance's form-
+	// field color (white under Minimal light).
+	'--background-modifier-form-field', '--background-modifier-form-field-hover',
 ];
 
 /**
