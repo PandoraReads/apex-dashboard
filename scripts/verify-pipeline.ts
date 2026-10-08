@@ -280,7 +280,7 @@ function main(): void {
 					skills: [{
 						id: 'sk_1', label: '写草稿', icon: 'pencil', agent: 'codex' as const,
 						stage: 'draft', scope: 'card' as const, skillName: 'write-draft',
-						inputPlaceholder: '侧重？', promptTemplate: '$write-draft\n\n文件: {path}\n{input}',
+						promptTemplate: '$write-draft\n\n文件: {path}\n{input}',
 					}],
 					templatePath: 'Templates/item.md',
 					directSend: true,
@@ -301,7 +301,6 @@ function main(): void {
 	assert.equal(skill.label, '写草稿');
 	assert.equal(skill.agent, 'codex', 'Codex target survives pipeline serialization');
 	assert.equal(skill.scope, 'card');
-	assert.equal(skill.inputPlaceholder, '侧重？');
 	assert.equal(skill.promptTemplate, '$write-draft\n\n文件: {path}\n{input}');
 	assert.equal(col.pipelineConfig?.templatePath, 'Templates/item.md');
 	assert.equal(col.pipelineConfig?.directSend, true);

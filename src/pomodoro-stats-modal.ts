@@ -4,7 +4,6 @@ import {
 	PomodoroService,
 	activityColor,
 } from './pomodoro-service';
-import { openPomodoroTagManager } from './pomodoro-tag-manager';
 
 export type PomodoroRangeKey = 'day' | 'week' | 'month' | 'year' | 'all';
 
@@ -52,7 +51,7 @@ function mountOverlay(doc: Document): HTMLElement {
  * Landscape (≈1040×680) focus-statistics overlay.
  *
  * Layout:
- *  header — title + one-line insight + range toggle + tag-manage + close
+ *  header — title + one-line insight + range toggle + close
  *  left   — KPI column grouped "today state" (large) / "history" (compact)
  *  mid    — goal gauge (single activity) or activity donut + adaptive trend
  *           chart with daily-goal baseline + hour-of-day distribution strip
@@ -92,12 +91,8 @@ export function showPomodoroStats(doc: Document, service: PomodoroService): void
 		text: t(r.labelKey),
 	}));
 
-	const manageBtn = headerRight.createDiv({ cls: 'dashboard-pomodoro-stats-icon-btn' });
-	manageBtn.setAttribute('aria-label', t('pomodoro.tagManage'));
-	setIcon(manageBtn, 'settings-2');
-	manageBtn.addEventListener('click', () => {
-		openPomodoroTagManager(doc, service, () => renderAll());
-	});
+	// (Tag management used to live here as a header settings button; it moved
+	// into the widget gear's PomodoroSettingsModal.)
 
 	// Close sits directly on the header (not inside headerRight) so the
 	// mobile layout can keep it on the title line while the range toggle

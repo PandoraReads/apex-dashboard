@@ -73,6 +73,21 @@ export function appendInlineBackgroundButton(
 	return btn;
 }
 
+/** Inline gear variant whose click opens whatever the call site wires (the
+ *  pomodoro card's full settings modal) instead of the background editor. */
+export function appendInlineConfigButton(parent: HTMLElement, label: string, onOpen: () => void): HTMLElement {
+	const btn = parent.createDiv({
+		cls: 'dashboard-widget-inline-cfg-btn',
+		attr: { role: 'button', tabindex: '0', 'aria-label': label },
+	});
+	setIcon(btn, 'settings');
+	btn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		onOpen();
+	});
+	return btn;
+}
+
 /** Map a foreground setting to a concrete color. null = follow theme. */
 export function resolveWidgetForeground(foreground: string | undefined): string | null {
 	if (!foreground) return null;

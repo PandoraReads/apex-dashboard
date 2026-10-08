@@ -93,6 +93,11 @@ export interface DashboardSettings {
 	pomodoroShortBreakMinutes: number;
 	pomodoroLongBreakMinutes: number;
 	pomodoroLongBreakInterval: number;
+	/** Timer flavor: classic countdown phases, or an open-ended stopwatch
+	 *  (counts up; stopping it records one pomodoro of the actual minutes). */
+	pomodoroMode: 'timer' | 'stopwatch';
+	/** Stopwatch reminder cadence in minutes (0 = never remind; it just runs). */
+	pomodoroStopwatchReminderMinutes: number;
 	/** Daily pomodoro completion goal (count), shown as "1/8" in KPIs/gauge. */
 	pomodoroDailyGoal: number;
 	pomodoroAutoStartBreak: boolean;
@@ -163,6 +168,10 @@ export interface DashboardSettings {
 	musicCurrentIndex: number;
 	/** Quick-buttons ("快捷按钮") rendered as a draggable sidebar widget. */
 	widgetQuickActionsEnabled: boolean;
+	/** Quick-capture sidebar widget: text field + confirm key (one thought). */
+	widgetQuickCaptureEnabled: boolean;
+	/** File-search sidebar widget: text field + confirm key (vault search). */
+	widgetFileSearchEnabled: boolean;
 	/** Optional custom background color for the quick-buttons widget (user
 	 *  picked via the palette button; undefined = theme default). */
 	quickButtonsBgColor?: string;
@@ -215,6 +224,10 @@ export interface DashboardSettings {
 	quickNotePresets: QuickNotePreset[];
 	/** Inline capture box shown in the Quick Notes region. */
 	quickCaptureEnabled: boolean;
+	/** What the inline box does: collect fleeting thoughts ('capture') or
+	 *  search vault files ('search' — the box becomes a search field with a
+	 *  results dropdown). Binary by design: one box, one job. */
+	quickCaptureMode: 'capture' | 'search';
 	/** Note path to append captures to. Empty = create a new fleeting note. */
 	quickCaptureTarget: string;
 	/** Folder for new fleeting notes when no capture target is set. */
@@ -382,7 +395,6 @@ export interface SkillShortcut {
 	icon: string;
 	target: AgentTarget;
 	skillName: string;
-	inputPlaceholder: string;
 	/** Supports {skill} and {input}. Empty uses the default template. */
 	promptTemplate: string;
 	/** Skip the confirm dialog and send immediately (no supplemental input). */
@@ -412,6 +424,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	pomodoroShortBreakMinutes: 5,
 	pomodoroLongBreakMinutes: 15,
 	pomodoroLongBreakInterval: 4,
+	pomodoroMode: 'timer',
+	pomodoroStopwatchReminderMinutes: 0,
 	pomodoroDailyGoal: 8,
 	pomodoroAutoStartBreak: true,
 	pomodoroSoundEnabled: true,
@@ -442,6 +456,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	musicPlaylist: [] as MusicTrack[],
 	musicCurrentIndex: -1,
 	widgetQuickActionsEnabled: true,
+	widgetQuickCaptureEnabled: false,
+	widgetFileSearchEnabled: false,
 	widgetOrder: ['quickActions', 'weather', 'lunar', 'pomodoro', 'reading', 'countdown', 'yearProgress', 'calendar', 'habit', 'expense', 'album', 'music'],
 	wereadApiKey: '',
 	wereadImportPath: 'Weread/划线',
@@ -463,6 +479,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickNotesEnabled: false,
 	quickNotePresets: [] as QuickNotePreset[],
 	quickCaptureEnabled: false,
+	quickCaptureMode: 'capture',
 	quickCaptureTarget: '',
 	quickCaptureFolder: '',
 	quickCaptureTemplate: '',
@@ -996,7 +1013,7 @@ export interface RssConfig {
 }
 
 /** Agent targets a skill button can dispatch to. */
-export type AgentTarget = 'claudian' | 'copilot' | 'codex' | 'zcode';
+export type AgentTarget = 'claudian' | 'copilot' | 'codex' | 'zcode' | 'workbuddy';
 
 /** One stage of a pipeline board. The stage's identity for grouping is the
  * frontmatter value stored in the section's status field. */
@@ -1035,8 +1052,6 @@ export interface PipelineSkill {
 	/** Prompt template. Supports {skill} {path} {title} {stage} {folder}
 	 * {input}. Empty uses the target agent's skill invocation plus input. */
 	promptTemplate: string;
-	/** Placeholder for the preview modal's supplemental input. */
-	inputPlaceholder?: string;
 	/** Skip the preview modal and send this button's prompt immediately (no
 	 *  supplemental input). Falls back to the legacy section-wide
 	 *  PipelineConfig.directSend when unset. */
@@ -1212,6 +1227,8 @@ export interface RenderCallbacks {
 	onDataviewConfigChange(columnName: string, config: DataviewConfig): void;
 	onQuickNoteCreate(preset: QuickNotePreset): void;
 	onQuickNoteCapture(text: string): void;
+	/** Search mode of the quick-note box: open the picked vault file. */
+	onQuickSearchOpen(file: TFile): void;
 	onOpenPinnedNote(note: PinnedNote): void;
 	onQuickCommand(cmd: QuickCommand): void;
 	onSkillShortcut(shortcut: SkillShortcut): void;

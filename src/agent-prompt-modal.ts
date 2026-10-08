@@ -34,7 +34,7 @@ export class AgentPromptModal extends Modal {
 
 	constructor(
 		app: import('obsidian').App,
-		private readonly spec: AgentPromptSpec & { label: string; inputPlaceholder?: string },
+		private readonly spec: AgentPromptSpec & { label: string },
 		private readonly agent: AgentTarget,
 		private readonly vars: Record<string, string>,
 		private readonly selectableFiles?: SelectableFile[],
@@ -51,8 +51,12 @@ export class AgentPromptModal extends Modal {
 		const body = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 		body.createEl('h2', { text: this.spec.label });
 		const adapter = getAgentAdapter(this.agent);
-		const prefillOnly = adapter.kind === 'deep-link' || adapter.kind === 'clipboard-app';
-		body.createEl('p', { text: t(prefillOnly ? 'agent.targetPrefill' : 'agent.target', { agent: adapter.label }) });
+		// Delivery flavor wording: clipboard bridges (ZCode) copy the prompt for
+		// a manual paste; deep links (Codex / WorkBuddy) prefill a new
+		// conversation; in-app agents get a plain send.
+		const clipboardApp = adapter.kind === 'clipboard-app';
+		const prefillOnly = clipboardApp || adapter.kind === 'deep-link';
+		body.createEl('p', { text: t(clipboardApp ? 'agent.targetClipboard' : prefillOnly ? 'agent.targetPrefill' : 'agent.target', { agent: adapter.label }) });
 
 		// Scope list for stage-scope skills: pick the items this run touches.
 		if (this.selectableFiles && this.selectableFiles.length > 0) {
@@ -82,9 +86,9 @@ export class AgentPromptModal extends Modal {
 
 		const input = body.createEl('textarea', {
 			cls: 'dashboard-modal-input dashboard-skill-input',
-			attr: { rows: '4', placeholder: this.spec.inputPlaceholder || t('agent.inputHint') },
+			attr: { rows: '4', placeholder: t('agent.inputHint') },
 		});
-		body.createEl('p', { text: t(prefillOnly ? 'agent.previewPrefill' : 'agent.preview') });
+		body.createEl('p', { text: t(clipboardApp ? 'agent.previewClipboard' : prefillOnly ? 'agent.previewPrefill' : 'agent.preview') });
 		const preview = body.createEl('pre', { cls: 'dashboard-skill-preview' });
 
 		const buildPrompt = (): string => {
@@ -110,7 +114,7 @@ export class AgentPromptModal extends Modal {
 		const actions = body.createDiv({ cls: 'dashboard-modal-footer' });
 		actions.createEl('button', { text: t('common.cancel') }).addEventListener('click', () => this.close());
 		const send = actions.createEl('button', {
-			text: t(prefillOnly ? 'agent.openPrefill' : 'agent.send', { agent: adapter.label }),
+			text: t(clipboardApp ? 'agent.openClipboard' : prefillOnly ? 'agent.openPrefill' : 'agent.send', { agent: adapter.label }),
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 		});
 		send.addEventListener('click', () => {
@@ -129,7 +133,7 @@ export class AgentPromptModal extends Modal {
 			void (async () => {
 				const outcome = await sendPromptWithTimeout(this.app, this.agent, prompt);
 				if (outcome === 'sent') {
-					if (prefillOnly) new Notice(t('agent.openedPrefill'));
+					if (prefillOnly) new Notice(t(clipboardApp ? 'agent.openedClipboard' : 'agent.openedPrefill', { agent: adapter.label }));
 				} else if (outcome === 'timeout') {
 					new Notice(t('agent.sendTimeout', { agent: adapter.label }));
 				} else {

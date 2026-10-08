@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "3.7.4",
+	"version": "3.7.6",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -40,6 +40,9 @@
 		"test:rss-parse": "esbuild scripts/verify-rss-parse.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-rss-parse.cjs --log-level=warning && node node_modules/.tmp/verify-rss-parse.cjs",
 		"test:agent-dispatch": "esbuild scripts/verify-agent-dispatch.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-agent-dispatch.cjs --log-level=warning && node node_modules/.tmp/verify-agent-dispatch.cjs",
 		"test:skill-registry": "esbuild scripts/verify-skill-registry.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-skill-registry.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-skill-registry.cjs",
+		"test:quick-input": "esbuild scripts/verify-quick-input.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-quick-input.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-quick-input.cjs",
+		"test:pomodoro-stopwatch": "esbuild scripts/verify-pomodoro-stopwatch.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pomodoro-stopwatch.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pomodoro-stopwatch.cjs",
+		"test:pomodoro-settings": "esbuild scripts/verify-pomodoro-settings.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pomodoro-settings.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pomodoro-settings.cjs",
 		"test:pipeline": "esbuild scripts/verify-pipeline.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pipeline.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pipeline.cjs",
 		"test:pipeline-render": "esbuild scripts/verify-pipeline-render.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pipeline-render.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pipeline-render.cjs",
 		"test:pipeline-config": "esbuild scripts/verify-pipeline-config.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pipeline-config.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pipeline-config.cjs",

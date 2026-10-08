@@ -775,24 +775,42 @@
 	will-change: background-position;
 }
 
-/* ===== Shared: transparent sections for tundra, blossom, matcha ===== */
+/* ===== Shared: transparent sections for tundra, blossom, matcha =====
+   NOTE: each group MUST keep its own block. A 3.7.3 lilac-removal edit left
+   the section-row/section/kanban selector lists blockless, so they merged
+   into the trailing `overflow: visible` rule — which flipped the kanban to
+   overflow-y:visible on these themes and froze the board's vertical scroll
+   (3.7.4 regression: "right side cannot scroll, sidebar still can"). */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row,
-.apex-dashboard-root[data-theme="matcha"] .dashboard-section-row,
+.apex-dashboard-root[data-theme="matcha"] .dashboard-section-row {
+	background: transparent;
+	border: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	padding: 6px;
+}
 
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section,
-.apex-dashboard-root[data-theme="matcha"] .dashboard-section,
+.apex-dashboard-root[data-theme="matcha"] .dashboard-section {
+	background: transparent;
+	border: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+}
 
 /* Tighter kanban gap for transparent-section themes */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-kanban,
-.apex-dashboard-root[data-theme="matcha"] .dashboard-kanban,
+.apex-dashboard-root[data-theme="matcha"] .dashboard-kanban {
+	--db-kanban-gap: 8px;
+}
 
 /* Allow card hover translate without clipping top border */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-cards,
-.apex-dashboard-root[data-theme="matcha"] .dashboard-section-cards
+.apex-dashboard-root[data-theme="matcha"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="neon"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="volt"] .dashboard-section-cards,
 .apex-dashboard-root[data-theme="magma"] .dashboard-section-cards,
@@ -2926,7 +2944,9 @@
 	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="lunar"],
 	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key^="countdown-"],
 	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="yearProgress"],
-	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key^="anniversary-"] {
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key^="anniversary-"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="quickCapture"],
+	[data-layout="stacked"] .dashboard-sidebar-widgets-row > [data-widget-key="fileSearch"] {
 		grid-row: span 2;
 	}
 
@@ -4428,9 +4448,20 @@
 	position: relative;
 }
 
+/* Three-zone top row (today-hint is absolute, outside the flow): equal-basis
+   side zones flank the activity selector so it centers on the card whatever
+   the button cluster's width; the zones collapse first (min-width 0). */
 .dashboard-sidebar-pomodoro-top-spacer {
-	width: 20px;
-	flex-shrink: 0;
+	flex: 1 1 0;
+	width: auto;
+	min-width: 0;
+}
+
+.dashboard-sidebar-pomodoro-top-right {
+	flex: 1 1 0;
+	min-width: 0;
+	display: flex;
+	justify-content: flex-end;
 }
 
 .dashboard-sidebar-pomodoro-title {
@@ -4463,7 +4494,8 @@
 /* ===== Activity Selector (Pomodoro Widget) ===== */
 .dashboard-pomodoro-activity-selector {
 	position: relative;
-	flex: 1;
+	flex: 0 1 auto;
+	min-width: 0;
 	display: flex;
 	justify-content: center;
 }
@@ -4634,6 +4666,11 @@
 	bottom: 12px;
 	left: 50%;
 	transform: translateX(-50%);
+}
+
+/* Stopwatch mode: the interval dots narrate countdown cycles, so they hide. */
+.dashboard-sidebar-pomodoro-dots.is-hidden {
+	display: none;
 }
 
 .dashboard-sidebar-pomodoro-dot {
@@ -4959,22 +4996,6 @@
 	   out of this group so mobile can drop it below the title — see the
 	   container/media collapse blocks). */
 	margin-left: auto;
-}
-
-.dashboard-pomodoro-stats-icon-btn {
-	cursor: pointer;
-	color: var(--db-text-muted);
-	width: 26px;
-	height: 26px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 6px;
-	transition: background 0.15s, color 0.15s;
-}
-.dashboard-pomodoro-stats-icon-btn:hover {
-	background: var(--db-bg-hover);
-	color: var(--db-text);
 }
 
 .dashboard-pomodoro-stats-body {
@@ -5656,6 +5677,66 @@
 .dashboard-pomodoro-tagmanager-prompt-cancel:hover,
 .dashboard-pomodoro-tagmanager-prompt-ok:hover {
 	opacity: 0.85;
+}
+
+/* ===== Pomodoro settings modal (the card gear) ===== */
+/* Wider than the compact default so tag chips and the reminder row breathe;
+   the body scrolls when the tag list grows (chips keep their own inner
+   scroll from the tagmanager block above). */
+.dashboard-pomodoro-settings {
+	width: 520px;
+	max-width: 92vw;
+}
+
+.dashboard-pomodoro-settings .dashboard-modal-body {
+	max-height: 68vh;
+	overflow-y: auto;
+}
+
+.dashboard-pomodoro-settings-section {
+	margin-bottom: 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--db-border, var(--background-modifier-border));
+}
+
+.dashboard-pomodoro-settings-section:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+	padding-bottom: 0;
+}
+
+.dashboard-pomodoro-settings-section h3 {
+	margin: 0 0 4px;
+	font-size: 1em;
+}
+
+.dashboard-pomodoro-settings-desc {
+	margin: 0 0 10px;
+	font-size: 0.8em;
+	color: var(--db-text-muted);
+	opacity: 0.85;
+}
+
+/* Reminder minutes: a short numeric field, not a full-width input. */
+.dashboard-pomodoro-settings-reminder {
+	width: 90px;
+}
+
+/* Background row: current image path grows, edit button pins right. */
+.dashboard-pomodoro-settings-bg-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.dashboard-pomodoro-settings-bg-desc {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.75em;
+	color: var(--db-text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* ===== Insight v2 additions ===== */
@@ -11784,6 +11865,47 @@
    inside an oversized white margin. */
 .dashboard-modal.dashboard-modal--compact {
 	padding: 18px 20px 16px;
+}
+
+/* ── Modal-layer input legibility (the dialog twin of the in-board fix) ──
+   Dialogs mirror the opening board's tokens (applyModalTheme), so an
+   immersive-opened dialog carries dark-glass surfaces and a LIGHT --db-text
+   — but Obsidian's own field rules (`input[type='text'] { color:
+   var(--text-normal) }`) out-specify the plugin's per-input colors and paint
+   black text on that dark glass (the widget-background URL field, every
+   workflow-config input). Force the MIRRORED token on every themed surface:
+   light boards mirror dark text (no visual change), immersive mirrors
+   light. The marker class rides applyModalTheme, so body-level popovers and
+   floating panels (music search, confirm dialogs) are covered too. */
+.dashboard-themed-surface input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+.dashboard-themed-surface textarea,
+.dashboard-themed-surface select {
+	color: var(--db-text, var(--text-normal)) !important;
+}
+
+.dashboard-themed-surface input::placeholder,
+.dashboard-themed-surface textarea::placeholder {
+	color: var(--db-text-muted, var(--text-faint)) !important;
+	opacity: 1;
+}
+
+/* Native <select> dropdown lists render with the APP's own chrome (a white
+   popup in a light session) — pin the options there so the mirrored light
+   color never lands on it; only the closed box follows the dialog surface. */
+.dashboard-themed-surface select option {
+	color: var(--text-normal);
+	background: var(--background-primary);
+}
+
+/* Obsidian Setting rows inside dialogs: their name/description tokens
+   (--text-normal/--text-muted) also out-specify the mirrored surface on a
+   dark-glass dialog — re-anchor them to the dialog's own text pair. */
+.dashboard-themed-surface .setting-item-name {
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-themed-surface .setting-item-description {
+	color: var(--db-text-muted, var(--text-muted));
 }
 
 .dashboard-modal.modal,
@@ -20304,6 +20426,50 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-text-muted) !important;
 	opacity: 1;
 }
+
+/* ── Search mode: results dropdown under the pill ───────────────────────
+   Anchored to the pill's right edge (the bar hugs the page's right side, so
+   left-anchoring could push it off-viewport); reuses the docsearch row
+   classes for the items themselves. Hidden unless .is-open (results exist
+   AND focus inside). */
+.dashboard-quicknote-capture--search {
+	position: relative;
+}
+.dashboard-quicknote-search-pop {
+	display: none;
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	z-index: 40;
+	width: min(320px, 78vw);
+	max-height: 300px;
+	overflow-y: auto;
+	flex-direction: column;
+	gap: 2px;
+	padding: 4px;
+	border: 1px solid var(--db-border);
+	border-radius: var(--db-radius-md);
+	/* Layered SOLID surface: the card tint painted over the opaque modal
+	   base. Glass themes' translucent card color alone let board text bleed
+	   through the results ("文字看不清楚") — the opaque under-layer fixes it
+	   while keeping the theme's tint. */
+	background:
+		linear-gradient(var(--db-bg-card, rgba(255, 255, 255, 0.06)), var(--db-bg-card, rgba(255, 255, 255, 0.06))),
+		var(--db-bg-modal, var(--db-bg, #14161a));
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+.dashboard-quicknote-search-pop.is-open {
+	display: flex;
+}
+.dashboard-quicknote-search-pop .dashboard-docsearch-item {
+	border-radius: var(--db-radius-sm);
+}
+.dashboard-quicknote-search-pop .dashboard-docsearch-item.is-active,
+.dashboard-quicknote-search-pop .dashboard-docsearch-item:hover {
+	background: color-mix(in srgb, var(--db-accent) 12%, transparent);
+}
 .dashboard-quicknote-cog {
 	flex-shrink: 0;
 	display: inline-flex;
@@ -25049,28 +25215,45 @@ button.dashboard-pipeline-skill-btn--colored:hover {
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Skill widget — a tactile KEY STRIP (Rae): one slim pill bar, round keys
+   Skill widget — a tactile KEY STRIP (Rae): slim pill bar of round keys
    with real-button texture (top bevel light, bottom shade, press travel),
-   per-skill macaron color via the inline --orb custom property; the gear key
-   anchors the far right; empty = the bar is just the gear key.
+   per-skill macaron color via the inline --orb custom property. Keys sit
+   in STRUCTURAL rows (JS-chunked, gear included) of at most five: four
+   skills + the gear fill the classic single row edge to edge; more keys
+   wrap onto second/third rows instead of shrinking into one long line.
    ═══════════════════════════════════════════════════════════════════════════ */
 .dashboard-sidebar-skills {
 	display: flex;
-	align-items: center;
-	/* space-between right-anchors the gear when few keys are configured;
-	   with the full set the flex keys eat all free space and the row sits
-	   edge to edge (the spacer div is gone — a grow-item spacer would eat a
-	   share and break the exact fill). */
-	justify-content: space-between;
-	gap: 8px;
+	flex-direction: column;
+	justify-content: center;
+	gap: 7px;
 	min-height: 48px;
-	height: 48px;
-	padding: 0 8px;
+	height: auto;
+	padding: 7px 8px;
 	border-radius: 999px;
 	overflow: hidden; /* degenerate overloads (many keys) clip, never spill */
 	background: color-mix(in srgb, var(--db-text-muted, #888888) 9%, transparent);
 	border: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 14%, transparent);
 	box-sizing: border-box;
+}
+
+/* Multi-row strips drop the pill radius: a 999px cap on a two-row deck
+   amputates the corners into horseshoe arcs. A card-scale radius (lg) reads
+   as a rounded tray instead; the single-row pill keeps the capsule look.
+   Toggled by the renderer from the actual row count. */
+.dashboard-sidebar-skills--multi {
+	border-radius: var(--db-radius-lg, 18px);
+}
+
+.dashboard-skills-row {
+	/* space-between right-anchors the gear (last row) when few keys are
+	   configured; with a full set the flex keys eat all free space and the
+	   row sits edge to edge. */
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-height: 34px;
 }
 
 button.dashboard-skills-orb {
@@ -25128,6 +25311,189 @@ button.dashboard-skills-orb.is-pressed {
 
 button.dashboard-skills-orb--cog {
 	color: #555b66;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Quick-input widgets (quick capture / file search) — Rae's reference search
+   bar (截屏 2026-10-09): ONE bright rounded bar with a light border and an
+   elevated surface, holding a leading glyph (➕ opens recent files on the
+   search bar; a pencil marks the capture bar), a borderless field, and one
+   round confirm key. The widget card's chrome is stripped so the BAR is the
+   only frame.
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* Strip the card chrome (both layouts; the stacked descendant rule is
+   re-overridden below) — the bar paints its own frame. */
+.dashboard-sidebar-widget.dashboard-sidebar-capturebar {
+	background: transparent;
+	border: none;
+	padding: 0;
+	border-radius: 0;
+	box-shadow: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+}
+
+[data-layout="stacked"] .dashboard-sidebar-widgets-row .dashboard-sidebar-widget.dashboard-sidebar-capturebar {
+	padding: 0;
+}
+
+.dashboard-capturebar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	box-sizing: border-box;
+	padding: 5px 5px 5px 6px;
+	/* Near-capsule like the reference (radius ≈ half the 40px bar). */
+	border-radius: 20px;
+	/* Elevated SOLID surface: the card tint layered over the opaque base —
+	   brighter than the page in light themes, raised in dark ones, and never
+	   translucent enough to bleed the board through. */
+	background:
+		linear-gradient(var(--db-bg-card, rgba(255, 255, 255, 0.06)), var(--db-bg-card, rgba(255, 255, 255, 0.06))),
+		var(--db-bg, #14161a);
+	border: 1px solid var(--db-border-input, var(--db-border-card, rgba(128, 128, 128, 0.25)));
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Focus lives on the BAR (the field itself is chromeless): the border
+   brightens toward the accent — the reference field's quiet focus cue. */
+.dashboard-capturebar:focus-within {
+	border-color: color-mix(in srgb, var(--db-accent) 55%, var(--db-border-input, var(--db-border-card)));
+	box-shadow: 0 1px 6px color-mix(in srgb, var(--db-accent) 18%, rgba(0, 0, 0, 0.06));
+}
+
+/* Leading glyph: the reference's bold ➕ / pencil, in the primary text tone.
+   The !important resets beat Obsidian's `.app-container button` chrome —
+   without them the glyph grows a border/background box in real vaults
+   (the quicknote-cog lesson; the harness's bare CSS hides it). */
+.dashboard-capturebar-glyph {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	border-radius: 50%;
+	color: var(--db-text);
+	cursor: pointer;
+	transition: background 0.12s ease;
+}
+
+button.dashboard-capturebar-glyph:hover {
+	background: color-mix(in srgb, var(--db-text) 9%, transparent) !important;
+}
+
+.dashboard-capturebar-glyph--static {
+	cursor: default;
+	color: var(--db-text-muted);
+}
+
+.dashboard-capturebar-glyph svg {
+	width: 18px;
+	height: 18px;
+	/* The reference plus is BOLD; lucide's default 2 stroke reads thin. */
+	stroke-width: 2.5;
+}
+
+.dashboard-capturebar-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	height: 28px;
+	line-height: 28px;
+	padding: 0 4px !important;
+	box-sizing: border-box;
+	/* Chromeless field: same !important reset reasoning as the glyph —
+	   Obsidian's input[type=text] border/background must never reappear
+	   inside the bar. */
+	border: none !important;
+	border-radius: var(--db-radius-sm);
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text) !important;
+	font-size: 0.85em;
+	font-family: var(--db-font, var(--font-interface));
+}
+
+.dashboard-capturebar-input:focus {
+	outline: none;
+}
+
+.dashboard-capturebar-input::placeholder {
+	color: var(--db-text-muted) !important;
+	opacity: 1;
+}
+
+/* The confirm key: a smaller 28px key (Rae) — fixed size (the orb's own
+   flex share is a strip-of-keys rule that does not apply to a single key
+   beside a field). */
+.dashboard-capturebar .dashboard-skills-orb {
+	flex: 0 0 28px;
+	max-width: 28px;
+}
+
+/* File-search results / recent-files popover: BODY-LEVEL and fixed (the
+   music-popover pattern) — rails/stacked cells are scroll containers that
+   would clip an in-card list, and the results belong floating UNDER the box.
+   The stacked card's overflow rule clips only its own subtree, so mounting
+   on body sidesteps it entirely. Background is layered solid: the card tint
+   over the opaque modal surface, so glass themes cannot bleed board text
+   through the results. */
+.dashboard-filesearch-pop {
+	position: fixed;
+	z-index: 900; /* above tiles/chrome (<100), below overlays (1000+) */
+	display: none;
+	flex-direction: column;
+	gap: 2px;
+	width: min(340px, 86vw);
+	max-height: min(280px, 60vh);
+	overflow-y: auto;
+	padding: 4px;
+	border: 1px solid var(--db-border-card);
+	border-radius: var(--db-radius-md);
+	background:
+		linear-gradient(var(--db-bg-card, rgba(255, 255, 255, 0.06)), var(--db-bg-card, rgba(255, 255, 255, 0.06))),
+		var(--db-bg-modal, var(--db-bg, #14161a));
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.30);
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-filesearch-pop.is-open {
+	display: flex;
+}
+
+.dashboard-filesearch-pop .dashboard-docsearch-item {
+	border-radius: var(--db-radius-sm);
+}
+
+/* Right-aligned muted extra on a popover row (recent files' relative time). */
+.dashboard-filesearch-meta {
+	flex-shrink: 0;
+	align-self: center;
+	font-size: 0.72em;
+	color: var(--db-text-faint, var(--db-text-muted));
+	white-space: nowrap;
+	padding-left: 6px;
+}
+
+/* Immersive boards: every [data-imm-id] tile carries the dark-glass slab
+   chrome (rectangular, 1px white-22% border, sharp corners) — right for
+   content widgets, wrong around these slim bars (a hard white rectangle
+   around a rounded capsule, Rae). The bar IS the frame: strip the tile
+   chrome for the two quick-input tiles so nothing doubles it. */
+.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id][data-widget-key="quickCapture"],
+.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id][data-widget-key="fileSearch"] {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	overflow: visible;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

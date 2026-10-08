@@ -137,6 +137,7 @@ const run = (): void => {
 		assert.deepEqual(STACKED_FIXED_SPANS, {
 			quickActions: 6, calendar: 6, weather: 4,
 			pomodoro: 3, expense: 3, music: 3,
+			quickCapture: 2, fileSearch: 2,
 			lunar: 2, yearProgress: 2,
 		}, 'STACKED_FIXED_SPANS unchanged (update styles.css together)');
 		assert.deepEqual(RATIO_SPAN, { full: 6, twoThirds: 4, half: 3, third: 2 });

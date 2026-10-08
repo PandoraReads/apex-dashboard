@@ -188,6 +188,18 @@ export class DashboardSettingTab extends PluginSettingTab {
 						},
 					},
 					{
+						// Quick-input widgets (capture / file search) before the
+						// skills card.
+						name: t('captureWidget.title'),
+						desc: t('captureWidget.desc'),
+						aliases: [t('fileSearchWidget.title')],
+						render: (setting) => {
+							asBlock(setting);
+							onPage('widgets')(setting);
+							this.renderQuickInputWidgetCard(setting.settingEl);
+						},
+					},
+					{
 						// Skill-buttons widget, last on the widgets page.
 						name: t('settings.widgetSkillsEnabled'),
 						desc: t('settings.widgetSkillsEnabledDesc'),
@@ -278,6 +290,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 			this.renderYearProgressSettings(host);
 			this.renderAlbumSettings(host);
 			this.renderAnniversarySettings(host);
+			this.renderQuickInputWidgetCard(host);
 			this.renderSkillWidgetCard(host);
 		} else {
 			this.renderCoffeeSettings(host);
@@ -907,6 +920,40 @@ export class DashboardSettingTab extends PluginSettingTab {
 					}));
 
 			new Setting(pomodoroCard)
+				.setName(t('settings.pomodoroMode'))
+				.setDesc(t('settings.pomodoroModeDesc'))
+				.addDropdown(dropdown => dropdown
+					.addOption('timer', t('settings.pomodoroModeTimer'))
+					.addOption('stopwatch', t('settings.pomodoroModeStopwatch'))
+					.setValue(this.plugin.settings.pomodoroMode)
+					.onChange(async (value) => {
+						this.plugin.settings = {
+							...this.plugin.settings,
+							pomodoroMode: value as DashboardSettings['pomodoroMode'],
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					}));
+
+			new Setting(pomodoroCard)
+				.setName(t('settings.pomodoroStopwatchReminder'))
+				.setDesc(t('settings.pomodoroStopwatchReminderDesc'))
+				.addText(text => text
+					.setPlaceholder('0')
+					.setValue(this.plugin.settings.pomodoroStopwatchReminderMinutes > 0
+						? String(this.plugin.settings.pomodoroStopwatchReminderMinutes)
+						: '')
+					.onChange(async (value) => {
+						const parsed = Math.min(240, Math.max(0, parseInt(value, 10) || 0));
+						this.plugin.settings = {
+							...this.plugin.settings,
+							pomodoroStopwatchReminderMinutes: parsed,
+						};
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllDashboards();
+					}));
+
+			new Setting(pomodoroCard)
 				.setName(t('settings.pomodoroAutoStart'))
 				.setDesc(t('settings.pomodoroAutoStartDesc'))
 				.addToggle(toggle => toggle
@@ -1109,6 +1156,41 @@ export class DashboardSettingTab extends PluginSettingTab {
 		if (this.plugin.settings.countdownEnabled) {
 			this.renderCountdownList(countdownCard);
 		}
+	}
+
+	/** Quick-input widget card (quick capture / file search): two slim pill
+	 *  widgets sharing the skill-strip look. Rendered just before the skills
+	 *  card (also a "user launcher" style widget, not a data widget). */
+	private renderQuickInputWidgetCard(containerEl: HTMLElement): void {
+		const card = containerEl.createDiv({ cls: 'dashboard-widget-settings-card' });
+		new Setting(card)
+			.setName(t('captureWidget.title'))
+			.setDesc(t('captureWidget.desc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetQuickCaptureEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetQuickCaptureEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
+		new Setting(card)
+			.setName(t('fileSearchWidget.title'))
+			.setDesc(t('fileSearchWidget.desc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.widgetFileSearchEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						widgetFileSearchEnabled: value,
+					};
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllDashboards();
+					this.refresh();
+				}));
 	}
 
 	/** Skill-buttons widget card — rendered LAST on the widgets page (it

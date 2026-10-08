@@ -17,8 +17,8 @@ import { AgentPromptModal } from '../src/agent-prompt-modal';
 (globalThis as { window?: unknown }).window = globalThis;
 
 const buttons: SkillShortcut[] = [
-	{ id: 'a', label: '整理收件箱', icon: 'inbox', target: 'claudian', skillName: 'tidy-inbox', inputPlaceholder: '', promptTemplate: '$tidy-inbox\n\n{input}' },
-	{ id: 'b', label: '归档摘录', icon: 'archive', target: 'claudian', skillName: '', inputPlaceholder: '', promptTemplate: '{input}', directSend: true },
+	{ id: 'a', label: '整理收件箱', icon: 'inbox', target: 'claudian', skillName: 'tidy-inbox', promptTemplate: '$tidy-inbox\n\n{input}' },
+	{ id: 'b', label: '归档摘录', icon: 'archive', target: 'claudian', skillName: '', promptTemplate: '{input}', directSend: true },
 ];
 
 function settings(overrides?: Partial<DashboardSettings>): DashboardSettings {

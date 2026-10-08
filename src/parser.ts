@@ -506,7 +506,6 @@ export function serialize(data: DashboardData): string {
 					lines.push(`          stage: ${JSON.stringify(skill.stage)}`);
 					lines.push(`          scope: ${skill.scope}`);
 					lines.push(`          skillName: ${JSON.stringify(skill.skillName)}`);
-					if (skill.inputPlaceholder) lines.push(`          inputPlaceholder: ${JSON.stringify(skill.inputPlaceholder)}`);
 					lines.push(`          promptTemplate: ${JSON.stringify(skill.promptTemplate)}`);
 				}
 			}
@@ -1506,9 +1505,8 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 			const stage = str(rec.stage ?? '').trim();
 			if (!label || !stage) continue;
 			// Unknown agent targets fall back to Claudian for older or hand-edited files.
-			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' || rec.agent === 'zcode' ? rec.agent : 'claudian';
+			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' || rec.agent === 'zcode' || rec.agent === 'workbuddy' ? rec.agent : 'claudian';
 			const scope = rec.scope === 'stage' ? 'stage' : 'card';
-			const inputPlaceholder = str(rec.inputPlaceholder ?? '').trim();
 			skills.push({
 				id: str(rec.id ?? '').trim() || `sk_${skills.length + 1}_${Math.random().toString(36).slice(2, 8)}`,
 				label,
@@ -1517,7 +1515,6 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 				stage,
 				scope,
 				skillName: str(rec.skillName ?? '').trim(),
-				...(inputPlaceholder ? { inputPlaceholder } : {}),
 				promptTemplate: str(rec.promptTemplate ?? ''),
 			});
 		}

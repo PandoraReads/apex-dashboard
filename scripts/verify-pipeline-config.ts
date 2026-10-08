@@ -41,27 +41,35 @@ function main(): void {
 	const root = modal.contentEl as unknown as El;
 	assert.ok(root, 'modal rendered');
 
-	// ── Skill row: add, type label, then skill name, then placeholder ──
+	// ── Skill row: add, type label, then skill name ──
 	buttonByText(root, '添加技能').click();
 	const cards = findByClass(root, 'dashboard-pipeline-cfg-skill');
 	assert.equal(cards.length, 1, 'one skill card after add');
 	const inputs = findTag(cards[0]!, 'input') as Array<El & { value: string; checked?: boolean }>;
-	// DOM order: [label (top row), skillName (mid), inputPlaceholder (mid),
-	// directSend checkbox (send row)]
-	assert.equal(inputs.length, 4, 'label / skillName / placeholder / directSend inputs');
+	// DOM order: [label (top row), skillName (mid), directSend checkbox
+	// (send row)] — no per-skill placeholder field anymore.
+	assert.equal(inputs.length, 3, 'label / skillName / directSend inputs');
 	const label = inputs[0]!;
 	const name = inputs[1]!;
-	const placeholder = inputs[2]!;
-	const directToggle = inputs[3]!;
+	const directToggle = inputs[2]!;
 	assert.equal(directToggle.getAttribute('type'), 'checkbox', 'per-skill direct-send toggle rendered');
 	assert.equal(directToggle.checked, false, 'new skills default to the preview dialog');
+
+	// The agent select greys ZCode out (no conversation deep link yet) while
+	// every other target stays selectable.
+	const agentSel = findTag(cards[0]!, 'select')
+		.find(sel => sel.children.some(o => o.getAttribute('value') === 'zcode'))!;
+	assert.ok(agentSel, 'agent select rendered');
+	const zcodeOpt = agentSel.children.find(o => o.getAttribute('value') === 'zcode')!;
+	assert.equal(zcodeOpt.disabled, true, 'ZCode option disabled in the picker');
+	assert.equal(zcodeOpt.textContent, 'ZCode（即将上线）');
+	const wbOpt = agentSel.children.find(o => o.getAttribute('value') === 'workbuddy')!;
+	assert.equal(wbOpt.disabled, false, 'other targets stay selectable');
 
 	label.value = '写草稿';
 	label.dispatchEvent({ type: 'input' });
 	name.value = 'write-draft';
 	name.dispatchEvent({ type: 'input' });
-	placeholder.value = '侧重涨粉';
-	placeholder.dispatchEvent({ type: 'input' });
 
 	buttonByText(root, '保存').click();
 	assert.equal(saved.length, 1, 'save accepted (no validation block)');
@@ -70,7 +78,6 @@ function main(): void {
 	// The exact regression: earlier edits must not be reverted by later ones.
 	assert.equal(skill.label, '写草稿', 'label kept after editing skill name');
 	assert.equal(skill.skillName, 'write-draft', 'skill name kept');
-	assert.equal(skill.inputPlaceholder, '侧重涨粉', 'placeholder kept');
 	assert.equal(skill.stage, 'idea', 'default stage binding');
 	assert.equal(skill.scope, 'card', 'default scope');
 	assert.equal(skill.directSend, false, 'preview default persisted per skill');

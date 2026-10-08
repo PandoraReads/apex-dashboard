@@ -736,7 +736,6 @@ function dispatchSkill(
 		label: skill.label,
 		skillName: skill.skillName,
 		promptTemplate: skill.promptTemplate,
-		inputPlaceholder: skill.inputPlaceholder,
 	};
 	// A non-empty selectable list marks a stage-scope run with items to pick
 	// from: keep the modal even under directSend (an empty column has nothing

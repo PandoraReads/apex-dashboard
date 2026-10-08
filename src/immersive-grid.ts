@@ -72,6 +72,8 @@ const TIER_H: Record<WidgetHeightRatio, number> = { full: 28, twoThirds: 19, hal
  *  prefix-matched. Unknown keys fall back to the small card. */
 const WIDGET_DEFAULTS: Record<string, { w: number; h: number }> = {
 	quickActions: { w: 4, h: 28 },
+	quickCapture: { w: 2, h: 6 },
+	fileSearch: { w: 2, h: 8 },
 	calendar: { w: 4, h: 28 },
 	weather: { w: 3, h: 19 },
 	pomodoro: { w: 3, h: 15 },

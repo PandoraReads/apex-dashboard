@@ -4,6 +4,8 @@ import { MomentLike, nowMoment } from './datetime';
 import { ensureFolder, getOrCreateDailyNote, substituteTemplateVars } from './daily-notes';
 import { showPromptDialog } from './prompt-dialog';
 import { t } from './i18n';
+import { searchVaultFiles } from './vault-search';
+import { iconForExtension } from './file-types';
 
 /**
  * Render the Quick Notes region — a non-reorderable, non-deletable strip pinned
@@ -15,6 +17,7 @@ export function renderQuickNoteRegion(
 	container: HTMLElement,
 	settings: DashboardSettings,
 	callbacks: RenderCallbacks,
+	app: App,
 ): void {
 	const region = container.createDiv({ cls: 'dashboard-quicknote' });
 
@@ -58,55 +61,18 @@ export function renderQuickNoteRegion(
 	const actions = region.createDiv({ cls: 'dashboard-quicknote-actions' });
 
 	if (captureOn) {
-		const capture = actions.createDiv({ cls: 'dashboard-quicknote-capture' });
-		setIcon(capture.createSpan({ cls: 'dashboard-quicknote-capture-icon' }), 'pencil');
-		// Auto-growing capture field: empty it looks exactly like the old
-		// one-line pill; once the text wraps, the box grows smoothly (CSS height
-		// transition) to fit every line so long thoughts stay fully readable.
-		// Enter still captures instantly - Shift+Enter breaks the line instead -
-		// and IME composition Enter (confirming a Chinese candidate) is ignored,
-		// keeping the "type anywhere, hit Enter, done" flow intact.
-		const input = capture.createEl('textarea', {
-			cls: 'dashboard-quicknote-capture-input',
-			attr: {
-				rows: '1',
-				spellcheck: 'false',
-				placeholder: t('quickNote.capturePlaceholder'),
-				'aria-label': t('quickNote.capture'),
-			},
+		// The box has one job at a time (quickCaptureMode): collect fleeting
+		// thoughts, or search vault files. Same pill, same muscle memory.
+		const searchMode = settings.quickCaptureMode === 'search';
+		const capture = actions.createDiv({
+			cls: 'dashboard-quicknote-capture' + (searchMode ? ' dashboard-quicknote-capture--search' : ''),
 		});
-		// Cap the growth so a runaway thought scrolls inside the box instead of
-		// stretching the whole quick-note bar off-screen.
-		const MAX_CAPTURE_HEIGHT = 160;
-		const resize = () => {
-			input.setCssStyles({ height: 'auto' });
-			const target = Math.max(26, Math.min(input.scrollHeight, MAX_CAPTURE_HEIGHT));
-			// Assigning 'auto' and the target height in the same frame keeps the
-			// CSS transition running from the previous height to the new one
-			// instead of snapping through the intermediate auto layout.
-			input.setCssStyles({ height: `${target}px` });
-			const expanded = target > 30;
-			capture.toggleClass('dashboard-quicknote-capture--expanded', expanded);
-			// Mirror on the bar: at rest it vertically centers its single-line
-			// content; once the field grows past one line it re-anchors to the
-			// top so the box extends downward and the chips row stays put.
-			region.toggleClass('dashboard-quicknote--capture-expanded', expanded);
-		};
-		input.addEventListener('input', resize);
-		const submit = () => {
-			const text = input.value.trim();
-			if (text) {
-				callbacks.onQuickNoteCapture(text);
-				input.value = '';
-			}
-			resize();
-		};
-		input.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-				e.preventDefault();
-				submit();
-			}
-		});
+		setIcon(capture.createSpan({ cls: 'dashboard-quicknote-capture-icon' }), searchMode ? 'search' : 'pencil');
+		if (searchMode) {
+			renderCaptureSearchBox(capture, app, callbacks);
+		} else {
+			renderCaptureBox(capture, callbacks);
+		}
 	}
 
 	// Config cog — the persistent operation icon at the far right.
@@ -124,6 +90,135 @@ function chip(parent: HTMLElement, cls: string, icon: string, label: string, onC
 	btn.appendText(label);
 	btn.addEventListener('click', onClick);
 	return btn;
+}
+
+/** Capture pill body: the auto-growing thought box (flash-capture mode). */
+function renderCaptureBox(capture: HTMLElement, callbacks: RenderCallbacks): void {
+	// Auto-growing capture field: empty it looks exactly like the old
+	// one-line pill; once the text wraps, the box grows smoothly (CSS height
+	// transition) to fit every line so long thoughts stay fully readable.
+	// Enter still captures instantly - Shift+Enter breaks the line instead -
+	// and IME composition Enter (confirming a Chinese candidate) is ignored,
+	// keeping the "type anywhere, hit Enter, done" flow intact.
+	const input = capture.createEl('textarea', {
+		cls: 'dashboard-quicknote-capture-input',
+		attr: {
+			rows: '1',
+			spellcheck: 'false',
+			placeholder: t('quickNote.capturePlaceholder'),
+			'aria-label': t('quickNote.capture'),
+		},
+	});
+	// Cap the growth so a runaway thought scrolls inside the box instead of
+	// stretching the whole quick-note bar off-screen.
+	const MAX_CAPTURE_HEIGHT = 160;
+	const resize = () => {
+		input.setCssStyles({ height: 'auto' });
+		const target = Math.max(26, Math.min(input.scrollHeight, MAX_CAPTURE_HEIGHT));
+		// Assigning 'auto' and the target height in the same frame keeps the
+		// CSS transition running from the previous height to the new one
+		// instead of snapping through the intermediate auto layout.
+		input.setCssStyles({ height: `${target}px` });
+		const expanded = target > 30;
+		capture.toggleClass('dashboard-quicknote-capture--expanded', expanded);
+		// Mirror on the bar: at rest it vertically centers its single-line
+		// content; once the field grows past one line it re-anchors to the
+		// top so the box extends downward and the chips row stays put.
+		capture.closest('.dashboard-quicknote')?.toggleClass('dashboard-quicknote--capture-expanded', expanded);
+	};
+	input.addEventListener('input', resize);
+	const submit = () => {
+		const text = input.value.trim();
+		if (text) {
+			callbacks.onQuickNoteCapture(text);
+			input.value = '';
+		}
+		resize();
+	};
+	input.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+			e.preventDefault();
+			submit();
+		}
+	});
+}
+
+/** Capture pill body, search mode: one-line search field + results dropdown.
+ *  Enter opens the active hit (top one by default), arrows move the active
+ *  row, Escape just folds the list. mousedown-preventDefault on rows keeps
+ *  the input's focus (and its dropdown) alive until the click lands. */
+function renderCaptureSearchBox(capture: HTMLElement, app: App, callbacks: RenderCallbacks): void {
+	const input = capture.createEl('input', {
+		cls: 'dashboard-quicknote-capture-input dashboard-quicknote-search-input',
+		attr: {
+			type: 'text',
+			spellcheck: 'false',
+			placeholder: t('quickNote.searchPlaceholder'),
+			'aria-label': t('quickNote.searchLabel'),
+		},
+	});
+	const pop = capture.createDiv({ cls: 'dashboard-quicknote-search-pop' });
+	let files: TFile[] = [];
+	let activeIdx = 0;
+
+	const open = (file: TFile): void => {
+		callbacks.onQuickSearchOpen(file);
+		input.value = '';
+		input.focus();
+		renderResults('');
+	};
+
+	const setActive = (idx: number): void => {
+		activeIdx = idx;
+		const rows = pop.querySelectorAll('.dashboard-docsearch-item');
+		rows.forEach((row, i) => row.toggleClass('is-active', i === idx));
+		const active = rows[idx];
+		if (active) active.scrollIntoView({ block: 'nearest' });
+	};
+
+	const renderResults = (query: string): void => {
+		pop.empty();
+		files = searchVaultFiles(app, query);
+		activeIdx = 0;
+		pop.toggleClass('is-open', files.length > 0);
+		files.forEach((file, i) => {
+			const item = pop.createDiv({
+				cls: 'dashboard-docsearch-item' + (i === 0 ? ' is-active' : ''),
+				attr: { role: 'option', 'aria-selected': i === 0 ? 'true' : 'false' },
+			});
+			setIcon(item.createSpan({ cls: 'dashboard-docsearch-icon' }), iconForExtension(file.extension));
+			const info = item.createDiv({ cls: 'dashboard-docsearch-info' });
+			info.createDiv({ cls: 'dashboard-docsearch-name', text: file.basename });
+			info.createDiv({ cls: 'dashboard-docsearch-path', text: file.path });
+			// mousedown (before the input loses focus) so the dropdown survives
+			// to deliver the click; the click itself does the opening.
+			item.addEventListener('mousedown', (e) => e.preventDefault());
+			item.addEventListener('click', () => open(file));
+		});
+	};
+
+	input.addEventListener('input', () => renderResults(input.value));
+	input.addEventListener('focus', () => renderResults(input.value));
+	input.addEventListener('blur', () => pop.removeClass('is-open'));
+	input.addEventListener('keydown', (e) => {
+		if (e.isComposing) return;
+		if (e.key === 'Escape') {
+			pop.removeClass('is-open');
+			return;
+		}
+		if (files.length === 0) return;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			setActive((activeIdx + 1) % files.length);
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			setActive((activeIdx - 1 + files.length) % files.length);
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			const file = files[activeIdx];
+			if (file) open(file);
+		}
+	});
 }
 
 // ── Behaviors (called from view.ts callbacks) ──────────────────────────────

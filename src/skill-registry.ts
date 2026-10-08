@@ -113,6 +113,9 @@ const VAULT_SKILL_DIRS: Record<AgentTarget, string[]> = {
 	// ZCode drives the bundled Claude Code / Codex CLIs, so its discoverable
 	// skills live in the same in-vault convention folders.
 	zcode: ['.claude/skills', '.codex/skills'],
+	// WorkBuddy keeps its user skills OUTSIDE the vault (~/.workbuddy/skills,
+	// scanned by the picker below), so it has no in-vault convention folders.
+	workbuddy: [],
 };
 
 /** In-vault discovery via the public DataAdapter (works on mobile too). */
@@ -205,9 +208,16 @@ export interface SkillPickerContext {
  *  and fires onPick. */
 export async function openSkillPicker(app: App, ctx: SkillPickerContext, input: HTMLInputElement, onPick?: (name: string) => void): Promise<void> {
 	const agent = ctx.getAgent();
+	// WorkBuddy's own skill store (~/.workbuddy/skills) is its documented user
+	// dir, so its picker always scans it — same trust level as the ZCode app
+	// presence probe, and the user's skillSourceFolders still append to it.
+	const userFolders = ctx.plugin.settings.skillSourceFolders ?? '';
+	const foldersCsv = agent === 'workbuddy'
+		? `~/.workbuddy/skills${userFolders.trim() ? `,${userFolders}` : ''}`
+		: userFolders;
 	const [vault, folder] = await Promise.all([
 		discoverVaultSkills(app, agent),
-		discoverFolderSkills(ctx.plugin.settings.skillSourceFolders ?? ''),
+		discoverFolderSkills(foldersCsv),
 	]);
 	const skills = mergeKnownSkills(rememberedSkills(ctx.plugin.settings, agent), vault, folder);
 	const menu = new Menu();

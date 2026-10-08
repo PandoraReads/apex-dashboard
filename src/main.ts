@@ -367,6 +367,9 @@ export default class DashboardPlugin extends Plugin {
 			this.settings = {
 				...this.settings,
 				quickNotesEnabled: true,
+				// The bar ships with its capture pill ready to type into (the
+				// master toggle above only shows the bar itself).
+				quickCaptureEnabled: true,
 				widgetHabitEnabled: true,
 				quickActionsBackground: {
 					image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg',

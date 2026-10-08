@@ -3,45 +3,17 @@ import { t } from './i18n';
 import type { PomodoroService, PomodoroTag } from './pomodoro-service';
 import { activityColor } from './pomodoro-service';
 
-/** Mount inside the themed dashboard root so --db-* variables resolve. */
-function mountOverlay(doc: Document): HTMLElement {
-	const root = doc.querySelector('.apex-dashboard-root');
-	return (root ?? doc.body).createDiv({ cls: 'dashboard-pomodoro-stats-overlay' });
-}
-
 /**
- * Tag management overlay. Tags render as color-dot bubble chips; each chip
- * expands inline to labeled action buttons (Pin/Unpin, Rename, Merge, Delete)
- * so every action's purpose is self-evident. Mutations go through
- * PomodoroService (which rewrites pomodoro.json history in place) and the
- * caller's onChange re-renders the stats.
+ * Tag management list, embedded as a section of the pomodoro settings modal
+ * (it used to live in its own overlay opened from the stats panel's header).
+ * Tags render as color-dot bubble chips; each chip expands inline to labeled
+ * action buttons (Pin/Unpin, Rename, Merge, Delete) so every action's purpose
+ * is self-evident. Mutations go through PomodoroService (which rewrites
+ * pomodoro.json history in place); onChange lets the host refresh whatever
+ * other surfaces display tag names.
  */
-export function openPomodoroTagManager(doc: Document, service: PomodoroService, onChange: () => void): void {
-	const overlay = mountOverlay(doc);
-	const modal = overlay.createDiv({ cls: 'dashboard-pomodoro-stats-modal dashboard-pomodoro-tagmanager' });
-
-	function close() {
-		doc.removeEventListener('keydown', onKey);
-		overlay.remove();
-	}
-	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') close();
-	}
-	doc.addEventListener('keydown', onKey);
-
-	const header = modal.createDiv({ cls: 'dashboard-pomodoro-stats-header' });
-	header.createDiv({ cls: 'dashboard-pomodoro-stats-header-title', text: t('pomodoro.tagTitle') });
-	const closeBtn = header.createDiv({ cls: 'dashboard-pomodoro-stats-close' });
-	setIcon(closeBtn, 'x');
-	closeBtn.addEventListener('click', () => close());
-	overlay.addEventListener('click', (e) => {
-		if (e.target === overlay) close();
-	});
-
-	// Usage hint under the header
-	modal.createDiv({ cls: 'dashboard-pomodoro-tagmanager-hint', text: t('pomodoro.tagHint') });
-
-	const list = modal.createDiv({ cls: 'dashboard-pomodoro-tagmanager-list' });
+export function renderPomodoroTagList(host: HTMLElement, service: PomodoroService, onChange?: () => void): void {
+	const list = host.createDiv({ cls: 'dashboard-pomodoro-tagmanager-list' });
 
 	/** All tag names present anywhere (managed tags plus names seen in history),
 	 *  so records recorded before the tags array existed are manageable too. */
@@ -96,7 +68,7 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 			// Inline action bar (revealed when the row is open)
 			const actions = row.createDiv({ cls: 'dashboard-pomodoro-tagmanager-actions' });
 			actionBtn(actions, tag.pinned ? 'pin-off' : 'pin', tag.pinned ? t('pomodoro.tagUnpin') : t('pomodoro.tagPin'), () => {
-				void service.setTagPinned(name, !tag.pinned).then(() => { render(); onChange(); });
+				void service.setTagPinned(name, !tag.pinned).then(() => { render(); onChange?.(); });
 			}, t('pomodoro.tagPinHint'));
 			actionBtn(actions, 'pencil', t('pomodoro.tagRename'), () => promptRename(name));
 			actionBtn(actions, 'git-merge', t('pomodoro.tagMerge'), () => promptMerge(name), t('pomodoro.tagMergeHint'));
@@ -139,7 +111,7 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 		onConfirm: (value: string) => Promise<void> | void,
 	): void {
 		closePrompt();
-		promptRow = modal.createDiv({ cls: 'dashboard-pomodoro-tagmanager-prompt' });
+		promptRow = host.createDiv({ cls: 'dashboard-pomodoro-tagmanager-prompt' });
 		promptRow.createDiv({ cls: 'dashboard-pomodoro-tagmanager-prompt-label', text: labelText });
 
 		let input: HTMLInputElement | HTMLSelectElement;
@@ -172,7 +144,7 @@ export function openPomodoroTagManager(doc: Document, service: PomodoroService, 
 					await onConfirm(input.value.trim());
 					closePrompt();
 					render();
-					onChange();
+					onChange?.();
 				} catch (msg) {
 					err.textContent = msg instanceof Error ? msg.message : String(msg);
 				}

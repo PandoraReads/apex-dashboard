@@ -4,7 +4,7 @@ import type { AgentTarget, SkillShortcut } from './types';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { IconPickerModal } from './icon-picker-modal';
-import { agentTargets, getAgentAdapter } from './agent-dispatch';
+import { agentTargets, agentPickerOption } from './agent-dispatch';
 import { attachSkillPicker, rememberSkillNames } from './skill-registry';
 
 /**
@@ -48,7 +48,7 @@ export class SkillWidgetConfigModal extends Modal {
 			this.buttons = [...this.buttons, {
 				id: `sw_${Date.now().toString(36)}`,
 				label: '', icon: 'sparkles', target: 'claudian',
-				skillName: '', inputPlaceholder: '', promptTemplate: '',
+				skillName: '', promptTemplate: '',
 			}];
 			this.renderRows();
 		});
@@ -98,7 +98,9 @@ export class SkillWidgetConfigModal extends Modal {
 
 			const agentSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const target of agentTargets()) {
-				const opt = agentSel.createEl('option', { text: getAgentAdapter(target).label, attr: { value: target } }) as HTMLOptionElement;
+				const pick = agentPickerOption(target);
+				const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } }) as HTMLOptionElement;
+				opt.disabled = pick.disabled;
 				opt.selected = target === skill.target;
 			}
 			agentSel.addEventListener('change', () => this.patchRow(index, { target: agentSel.value as AgentTarget }));

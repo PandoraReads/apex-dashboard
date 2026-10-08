@@ -1,6 +1,6 @@
 import { memoCardText } from './card-move';
 import { extractCardParts } from './parser';
-import { Menu, App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
+import { Menu, App, Component, MarkdownRenderer, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage } from './i18n';
@@ -41,10 +41,12 @@ import { renderSidebarCalendar } from './calendar-widget';
 import { renderCalendarSection } from './calendar-section';
 import { renderSidebarHabitWidget } from './habit-widget';
 import { renderSidebarSkillWidget, skillWidgetSig } from './skill-widget';
+import { renderSidebarQuickCaptureWidget, renderSidebarFileSearchWidget } from './capture-search-widgets';
 import { renderSidebarExpenseWidget } from './expense-widget';
 import { renderSidebarAlbumWidget } from './album-widget';
 import { renderSidebarAnniversaryWidget } from './anniversary-widget';
-import { applyWidgetBackground, appendInlineBackgroundButton, getWidgetPlugin } from './widget-background';
+import { applyWidgetBackground, appendInlineBackgroundButton, appendInlineConfigButton, getWidgetPlugin } from './widget-background';
+import { PomodoroSettingsModal } from './pomodoro-settings-modal';
 import { startGuardedDrag } from './drag-guard';
 import { renderSidebarMusicWidget } from './music-widget';
 import { SUPPORTED_FILE_EXTS, iconForExtension } from './file-types';
@@ -323,6 +325,10 @@ export function sidebarWidgetSignature(
 		skillsWidgetSig: skillWidgetSig(settings.skillWidgetButtons ?? []),
 		pomodoroEnabled: settings.pomodoroEnabled,
 		pomodoroLongBreakInterval: settings.pomodoroLongBreakInterval,
+		// Stopwatch mode changes the widget's chrome (bell key, dots, labels)
+		// and the reminder setting the bell's icon/title — both must rebuild.
+		pomodoroMode: settings.pomodoroMode,
+		pomodoroStopwatchReminderMinutes: settings.pomodoroStopwatchReminderMinutes,
 		lunarEnabled: settings.widgetLunarEnabled,
 		yearProgressEnabled: settings.widgetYearProgressEnabled,
 		calendarEnabled: settings.widgetCalendarEnabled,
@@ -354,6 +360,8 @@ export function sidebarWidgetSignature(
 		countdowns: settings.countdowns,
 		readingEnabled: settings.readingEnabled,
 		quickActionsEnabled: settings.widgetQuickActionsEnabled,
+		quickCaptureWidgetEnabled: settings.widgetQuickCaptureEnabled,
+		fileSearchWidgetEnabled: settings.widgetFileSearchEnabled,
 		// Quick buttons live inside the widget area now; their content (actions,
 		// order, hidden presets) must break the reuse signature so add/remove/edit
 		// rebuilds the area instead of re-attaching a stale quick-actions DOM.
@@ -402,7 +410,7 @@ export function renderSidebarWidgets(
 	renderQuickActions?: (container: HTMLElement) => void,
 	data?: import('./types').DashboardData | null,
 ): HTMLElement | null {
-	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || (settings.albums?.length ?? 0) > 0 || (settings.anniversaryEnabled && (settings.anniversaries?.length ?? 0) > 0) || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || (settings.widgetMusicEnabled && !Platform.isPhone);
+	const anyEnabled = settings.widgetWeatherEnabled || settings.pomodoroEnabled || settings.widgetLunarEnabled || settings.widgetYearProgressEnabled || settings.widgetCalendarEnabled || settings.widgetHabitEnabled || settings.widgetExpenseEnabled || (settings.albums?.length ?? 0) > 0 || (settings.anniversaryEnabled && (settings.anniversaries?.length ?? 0) > 0) || (settings.countdownEnabled && (settings.countdowns?.length ?? 0) > 0) || settings.readingEnabled || (settings.widgetQuickActionsEnabled && !!renderQuickActions) || settings.widgetQuickCaptureEnabled || settings.widgetFileSearchEnabled || (settings.widgetMusicEnabled && !Platform.isPhone);
 	if (!anyEnabled) return null;
 
 	const stacked = isStackedLayout(settings, data);
@@ -488,7 +496,7 @@ export interface WidgetBuildDeps {
 	renderQuickActions?: (container: HTMLElement) => void;
 }
 
-export const DEFAULT_WIDGET_ORDER: string[] = ['quickActions', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'anniversary', 'yearProgress', 'calendar', 'habit', 'expense', 'skills', 'album', 'music'];
+export const DEFAULT_WIDGET_ORDER: string[] = ['quickActions', 'quickCapture', 'fileSearch', 'lunar', 'weather', 'pomodoro', 'reading', 'countdown', 'anniversary', 'yearProgress', 'calendar', 'habit', 'expense', 'skills', 'album', 'music'];
 
 /** Build one entry per ENABLED widget card (enable order, not display order).
  *  Shared by the side/stacked rail (renderSidebarWidgets) and the immersive
@@ -507,6 +515,14 @@ export function buildWidgetEntries(settings: DashboardSettings, app: App, deps: 
 	if (member('quickActions', settings.widgetQuickActionsEnabled) && renderQuickActions) {
 		const renderQuick = renderQuickActions;
 		enabled.push({ key: 'quickActions', render: (host) => { renderQuick(host); } });
+	}
+	// Quick-input widgets (the quick-note bar's box is capture-OR-search; one
+	// card each covers users who want both at once).
+	if (member('quickCapture', settings.widgetQuickCaptureEnabled)) {
+		enabled.push({ key: 'quickCapture', render: (host) => renderSidebarQuickCaptureWidget(host, app, settings) });
+	}
+	if (member('fileSearch', settings.widgetFileSearchEnabled)) {
+		enabled.push({ key: 'fileSearch', render: (host) => renderSidebarFileSearchWidget(host, app) });
 	}
 	if (member('lunar', settings.widgetLunarEnabled)) {
 		enabled.push({ key: 'lunar', render: (host) => renderSidebarLunarWidget(host, holidayData ?? {}, app) });
@@ -867,7 +883,7 @@ export function renderSidebarPomodoro(
 	if (app) applyWidgetBackground(widget, settings.pomodoroBackground, app);
 
 	const state = service.getState();
-	const isRunning = state.status === 'running';
+	const stopwatch = state.mode === 'stopwatch';
 
 	// Top row: today count left + activity selector centered + stats button right
 	const topRow = widget.createDiv({ cls: 'dashboard-sidebar-pomodoro-top' });
@@ -884,15 +900,20 @@ export function renderSidebarPomodoro(
 	const currentActivity = service.getActivity();
 	createActivitySelector(topRow, service, currentActivity);
 
-	const statsBtn = topRow.createDiv({ cls: 'dashboard-sidebar-pomodoro-stats-btn' });
-	setIcon(statsBtn, 'bar-chart-2');
-
-	// Background gear rides the top row's right cluster (before stats), the
-	// inline pattern shared with habit/music/quick-actions.
+	// Top-right cluster: settings gear + stats key. The countdown/stopwatch
+	// toggle used to be a third key here; it lives in the gear's settings
+	// modal now, so the activity selector can center on the row (three-zone
+	// layout; the today-hint pins absolutely at the left, outside the flow).
+	const rightCluster = topRow.createDiv({ cls: 'dashboard-sidebar-pomodoro-top-right' });
 	if (app && onBgChange) {
-		const gear = appendInlineBackgroundButton(topRow, app, settings.pomodoroBackground, onBgChange);
-		topRow.insertBefore(gear, statsBtn);
+		appendInlineConfigButton(rightCluster, t('pomodoro.settingsTitle'), () => {
+			const plugin = getWidgetPlugin(app);
+			if (!plugin) return;
+			new PomodoroSettingsModal(app, service, plugin, settings.pomodoroBackground, onBgChange).open();
+		});
 	}
+	const statsBtn = rightCluster.createDiv({ cls: 'dashboard-sidebar-pomodoro-stats-btn' });
+	setIcon(statsBtn, 'bar-chart-2');
 
 	// Ring
 	const ringWrap = widget.createDiv({ cls: 'dashboard-sidebar-pomodoro-ring-wrap' });
@@ -930,24 +951,13 @@ export function renderSidebarPomodoro(
 			cls: 'dashboard-sidebar-pomodoro-dot' + (i < state.completedWorkSessions ? ' dashboard-sidebar-pomodoro-dot--filled' : ''),
 		});
 	}
+	// The interval dots narrate countdown cycles; a stopwatch run has none.
+	dotsWrap.toggleClass('is-hidden', stopwatch);
 
-	// Start/stop button. When AutoStartBreak is off and a phase completed, the
-	// service parks in paused-ready — label the button with the next action
-	// instead of a generic start.
-	const state2 = service.getState();
-	const isStandby = state2.status === 'paused' && state2.remainingSeconds === state2.totalSeconds;
-	const mainLabel = isRunning
-		? t('pomodoro.stop')
-		: isStandby
-			? (state2.phase === 'work' ? t('pomodoro.resumeFocus') : t('pomodoro.startBreak'))
-			: t('pomodoro.startFocus');
 	const mainBtn = widget.createEl('button', {
 		cls: 'dashboard-sidebar-pomodoro-main-btn',
-		text: mainLabel,
+		text: t('pomodoro.startFocus'),
 	});
-	if (isRunning) {
-		mainBtn.addClass('dashboard-sidebar-pomodoro-main-btn--running');
-	}
 
 	// --- Helpers ---
 	function updateRing(remaining: number, total: number): void {
@@ -957,8 +967,22 @@ export function renderSidebarPomodoro(
 	}
 	updateRing(state.remainingSeconds, state.totalSeconds);
 
-	function updateUI(): void {
+	/** One state-driven repaint for both modes: ring, time, main-button label,
+	 *  dots. Called on mount, every tick, and after every button action. */
+	function applyState(): void {
 		const s = service.getState();
+		if (s.mode === 'stopwatch') {
+			// remainingSeconds carries the ELAPSED count here; the ring fills
+			// toward the reminder (or work-length) reference and clamps full.
+			timeText.textContent = formatTime(s.remainingSeconds);
+			const progress = s.totalSeconds > 0 ? Math.min(1, s.remainingSeconds / s.totalSeconds) : 0;
+			progressCircle.setAttribute('stroke-dashoffset', String(circumference * (1 - progress)));
+			mainBtn.textContent = s.status === 'running'
+				? t('pomodoro.stop')
+				: s.status === 'paused' ? t('pomodoro.resumeFocus') : t('pomodoro.startFocus');
+			mainBtn.toggleClass('dashboard-sidebar-pomodoro-main-btn--running', s.status === 'running');
+			return;
+		}
 		updateRing(s.remainingSeconds, s.totalSeconds);
 		const running = s.status === 'running';
 		const standby = s.status === 'paused' && s.remainingSeconds === s.totalSeconds;
@@ -974,26 +998,32 @@ export function renderSidebarPomodoro(
 		statsHint.textContent = t('pomodoro.today') + ' ' + tc;
 	}
 
-	service.setOnTick(() => {
-		const s = service.getState();
-		updateRing(s.remainingSeconds, s.totalSeconds);
-	});
+	service.setOnTick(() => applyState());
 
-	service.setOnComplete(() => updateUI());
+	service.setOnComplete(() => applyState());
 
 	mainBtn.addEventListener('click', () => {
-		if (service.getState().status === 'running') {
+		const s = service.getState();
+		if (s.mode === 'stopwatch') {
+			// Stopping a count-up ENDS the run and records its actual minutes
+			// (that is the whole point of the stopwatch counting pomodoros).
+			if (s.status === 'running') service.stopStopwatch();
+			else service.start();
+		} else if (s.status === 'running') {
 			service.reset();
-			updateUI();
 		} else {
 			service.start();
-			updateUI();
 		}
+		applyState();
 	});
 
 	statsBtn.addEventListener('click', () => {
 		showPomodoroStats(widget.ownerDocument, service);
 	});
+
+	// Initial paint through the same mode-aware path the ticks use (covers
+	// the paused-ready standby labels a fresh mount would otherwise miss).
+	applyState();
 }
 
 function createActivitySelector(
@@ -1942,7 +1972,7 @@ export function renderDashboard(
 	// above the widget strip instead (skipQuickNotes), because the kanban sits
 	// below the strip there and the bar must stay directly under the banner.
 	if (settings?.quickNotesEnabled && !opts?.skipQuickNotes) {
-		renderQuickNoteRegion(container, settings, callbacks);
+		renderQuickNoteRegion(container, settings, callbacks, app);
 	}
 
 	for (const column of data.columns) {

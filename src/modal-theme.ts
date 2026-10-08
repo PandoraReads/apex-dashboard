@@ -48,6 +48,11 @@ const MODAL_THEME_VARS: readonly string[] = [
 export function applyModalTheme(target: HTMLElement): void {
 	const root = activeDocument.querySelector<HTMLElement>('.apex-dashboard-root');
 	if (!root) return;
+	// Marker for the modal-layer input-legibility rules (styles.css): every
+	// mirrored surface — modals, body-level popovers, floating panels — gets
+	// one hook so field text can follow the mirrored --db-text regardless of
+	// which board (light or immersive dark-glass) opened it.
+	target.addClass('dashboard-themed-surface');
 	const computed = getComputedStyle(root);
 	for (const name of MODAL_THEME_VARS) {
 		const value = computed.getPropertyValue(name).trim();

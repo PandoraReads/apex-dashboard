@@ -10,6 +10,7 @@
  */
 
 import type { AgentTarget } from './types';
+import { t } from './i18n';
 
 type ClaudianTab = {
 	state?: { isStreaming?: boolean };
@@ -85,16 +86,16 @@ export function buildAgentPrompt(spec: AgentPromptSpec, vars: Record<string, str
 		throw new Error('Invalid skill name');
 	}
 	const tokens: Record<AgentTarget, string> = {
-		claudian: '$', copilot: '/', codex: '$', zcode: '$',
+		claudian: '$', copilot: '/', codex: '$', zcode: '$', workbuddy: '$',
 	};
 	const alt: Record<AgentTarget, string> = {
-		claudian: '/', copilot: '$', codex: '/', zcode: '/',
+		claudian: '/', copilot: '$', codex: '/', zcode: '/', workbuddy: '/',
 	};
 	const skillToken = skillName ? `${tokens[target] ?? '$'}${skillName}` : '';
 	const alternateSkillToken = skillName ? `${alt[target] ?? '/'}${skillName}` : '';
 	let body = spec.promptTemplate.trim() || (skillToken ? skillToken + '\n\n{input}' : '{input}');
 	const replacements: Record<string, string> = { ...vars, skill: skillToken };
-	// Longest keys first so {inputPlaceholder} never half-replaces {input}.
+	// Longest keys first so {paths} never half-replaces {path}.
 	for (const key of Object.keys(replacements).sort((a, b) => b.length - a.length)) {
 		const value = replacements[key] ?? '';
 		body = body.replaceAll(`{${key}}`, key === 'input' ? value.trim() : value);
@@ -130,6 +131,27 @@ export interface AgentAdapter {
 	isAvailable(app: unknown): boolean;
 	/** Deliver a rendered prompt. Throws (typed where possible) on failure. */
 	send(app: unknown, prompt: string): Promise<void>;
+	/** Announced but not yet reachable: pickers render the option greyed out
+	 *  with an "即将上线" suffix and refuse new selections. Already-configured
+	 *  skills keep working through the adapter's current bridge. */
+	comingSoon?: boolean;
+}
+
+/** One picker entry: what the config dropdowns show for a target. */
+export interface AgentPickerOption {
+	label: string;
+	disabled: boolean;
+}
+
+/** The dropdown descriptor for a target — the single source config modals
+ *  use, so a coming-soon agent greys out everywhere at once. */
+export function agentPickerOption(target: AgentTarget): AgentPickerOption {
+	const adapter = getAgentAdapter(target);
+	const coming = adapter.comingSoon === true;
+	return {
+		label: coming ? `${adapter.label}（${t('agent.comingSoon')}）` : adapter.label,
+		disabled: coming,
+	};
 }
 
 const claudianAdapter: AgentAdapter = {
@@ -262,13 +284,17 @@ function macAppInstalled(name: string): boolean {
 	}
 }
 
-/** ZCode (z.ai ADE) has no CLI and no documented URL scheme: the honest
- *  bridge copies the prompt and launches the app, where the user pastes it
- *  as a new task. */
+/** ZCode (z.ai ADE) exposes no conversation deep link (verified in its
+ *  app.asar: only workspace/oauth/payment/share routes) — the honest bridge
+ *  copies the prompt and launches the app, where the user pastes it as a new
+ *  task. Marked coming-soon: pickers grey it out until ZCode ships a
+ *  `zcode://chat/new?prompt=`-style entry; already-configured skills keep
+ *  the clipboard bridge. */
 const zcodeAdapter: AgentAdapter = {
 	id: 'zcode',
-	label: 'ZCode (copy + open)',
+	label: 'ZCode',
 	kind: 'clipboard-app',
+	comingSoon: true,
 	isAvailable(): boolean {
 		return typeof navigator !== 'undefined' && !!navigator.clipboard && macAppInstalled('ZCode');
 	},
@@ -284,12 +310,91 @@ const zcodeAdapter: AgentAdapter = {
 	},
 };
 
+/** WorkBuddy (Tencent) documents a task deep link:
+ *  `workbuddy://task?action=start&prompt=…&skills=…&cwd=…` — the parser also
+ *  accepts `promptContentBlocks` (JSON content blocks, the same shape a
+ *  mention chip serializes to). The skills param is deliberately NOT used:
+ *  WorkBuddy's coordinator resolves skills asynchronously and re-emits its
+ *  single-value prefill intent as a skills-only payload, which replaces the
+ *  prompt intent before the composer subscribes on cold start — the typed
+ *  supplemental input silently vanished (Rae's diary-skill report). Riding
+ *  the skill as a phrase block inside promptContentBlocks keeps chip + text
+ *  in ONE emission, applied atomically. Trade-off: no ecosystem auto-install
+ *  for uninstalled skills (the picker lists ~/.workbuddy/skills anyway). */
+const WORKBUDDY_MAX_PROMPT = 8_000;
+
+/** Serialize one skill-invocation chip exactly like WorkBuddy's own
+ *  buildSkillChipBlock (createPhraseBlock shape, verified in app.asar). */
+function workbuddySkillChipBlock(name: string): Record<string, unknown> {
+	return {
+		type: 'resource_link',
+		name,
+		uri: `skill://${name}`,
+		title: `Use skill ${name}. `,
+		_meta: {
+			displayAsContext: false,
+			displayAsPhrase: true,
+			icon: 'skill',
+			description: '',
+			type: 'skill',
+			mentionType: 'skill',
+			displayText: name,
+		},
+	};
+}
+
+export function workbuddyTaskUrl(prompt: string, workspacePath?: string): string {
+	const url = new URL('workbuddy://task');
+	url.searchParams.set('action', 'start');
+	// Leading invocation line "$<skill>" becomes a chip block; the rest rides
+	// as the prompt text (blocks apply first, text appended after — mirroring
+	// the "$skill\n\n{input}" layout).
+	const trimmed = prompt.trim();
+	const invocation = /^(\$[A-Za-z0-9][A-Za-z0-9_-]{0,63})(?:\s*\n+([\s\S]*))?$/.exec(trimmed);
+	let body = trimmed;
+	const blocks: Array<Record<string, unknown>> = [];
+	if (invocation?.[1]) {
+		blocks.push(workbuddySkillChipBlock(invocation[1].slice(1)));
+		body = (invocation[2] ?? '').trim();
+	}
+	if (body) {
+		url.searchParams.set('prompt', body.length > WORKBUDDY_MAX_PROMPT ? body.slice(0, WORKBUDDY_MAX_PROMPT) : body);
+	}
+	// The parser requires one of prompt/payloadId/promptContentBlocks; a
+	// skill-only send satisfies it with the chip block alone.
+	if (blocks.length > 0) url.searchParams.set('promptContentBlocks', JSON.stringify(blocks));
+	if (workspacePath?.trim()) url.searchParams.set('cwd', workspacePath.trim());
+	return url.toString();
+}
+
+const workbuddyAdapter: AgentAdapter = {
+	id: 'workbuddy',
+	label: 'WorkBuddy (new task)',
+	kind: 'deep-link',
+	isAvailable(): boolean {
+		// Desktop deep link; the app check is mac-only (where this plugin's
+		// terminal bridges already live) — other platforms report unavailable
+		// rather than firing a scheme the OS cannot resolve.
+		return typeof electronShell()?.openExternal === 'function' && macAppInstalled('WorkBuddy');
+	},
+	async send(app: unknown, prompt: string): Promise<void> {
+		const shell = electronShell();
+		if (typeof shell?.openExternal !== 'function') {
+			throw new AgentBridgeError('missing', 'WorkBuddy deep links are only available in Obsidian Desktop');
+		}
+		const vault = (app as { vault?: { adapter?: { getBasePath?: () => string } } })?.vault;
+		const workspacePath = vault?.adapter?.getBasePath?.();
+		await shell.openExternal(workbuddyTaskUrl(prompt, workspacePath));
+	},
+};
+
 /** Registry keyed by AgentTarget. */
 const ADAPTERS: Record<AgentTarget, AgentAdapter> = {
 	claudian: claudianAdapter,
 	copilot: copilotAdapter,
 	codex: codexAdapter,
 	zcode: zcodeAdapter,
+	workbuddy: workbuddyAdapter,
 };
 
 export function getAgentAdapter(id: AgentTarget): AgentAdapter {

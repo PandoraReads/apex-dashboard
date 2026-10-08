@@ -47,6 +47,8 @@ export const STACKED_FIXED_SPANS: Record<string, number> = {
 	pomodoro: 3,
 	expense: 3,
 	music: 3,
+	quickCapture: 2,
+	fileSearch: 2,
 	lunar: 2,
 	yearProgress: 2,
 };

@@ -6,7 +6,7 @@ import type { AppWithCommands } from './obsidian-internal';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { attachPathPicker, type PathPickerMode } from './path-picker-modal';
-import { agentTargets, getAgentAdapter } from './agent-dispatch';
+import { agentTargets, agentPickerOption } from './agent-dispatch';
 import { attachSkillPicker, clearRememberedSkills, rememberSkillNames } from './skill-registry';
 
 /**
@@ -22,6 +22,7 @@ export class QuickNoteConfigModal extends Modal {
 	private commands: QuickCommand[];
 	private skills: SkillShortcut[];
 	private captureEnabled: boolean;
+	private captureMode: 'capture' | 'search';
 	private captureTarget: string;
 	private captureFolder: string;
 	private captureTemplate: string;
@@ -42,6 +43,7 @@ export class QuickNoteConfigModal extends Modal {
 		this.commands = (s.quickCommands ?? []).map(c => ({ ...c }));
 		this.skills = (s.skillShortcuts ?? []).map(skill => ({ ...skill }));
 		this.captureEnabled = s.quickCaptureEnabled;
+		this.captureMode = s.quickCaptureMode === 'search' ? 'search' : 'capture';
 		this.captureTarget = s.quickCaptureTarget;
 		this.captureFolder = s.quickCaptureFolder;
 		this.captureTemplate = s.quickCaptureTemplate;
@@ -228,7 +230,9 @@ export class QuickNoteConfigModal extends Modal {
 			card.createDiv({ cls: 'dashboard-quicknote-cfg-cmd-id', text: t('quickNote.skillTarget') });
 			const target = card.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const agent of agentTargets()) {
-				target.createEl('option', { text: getAgentAdapter(agent).label, attr: { value: agent } });
+				const pick = agentPickerOption(agent);
+				const opt = target.createEl('option', { text: pick.label, attr: { value: agent } }) as HTMLOptionElement;
+				opt.disabled = pick.disabled;
 			}
 			target.value = skill.target ?? 'claudian';
 			target.addEventListener('change', () => this.updateSkill(i, { target: target.value as SkillShortcut['target'] }));
@@ -240,7 +244,8 @@ export class QuickNoteConfigModal extends Modal {
 				plugin: this.plugin,
 				getAgent: () => this.skills[i]?.target ?? 'claudian',
 			}, name => this.updateSkill(i, { skillName: name }));
-			this.textInput(card, skill.inputPlaceholder, '', { placeholder: t('quickNote.skillInputHint') }, inputPlaceholder => this.updateSkill(i, { inputPlaceholder }));
+			// Supplemental input needs no per-skill config: the confirm dialog
+			// always carries its own input box (default hint).
 			this.textInput(card, skill.promptTemplate, '', { placeholder: t('quickNote.skillTemplate') }, promptTemplate => this.updateSkill(i, { promptTemplate }));
 			// Direct send: skip the confirm dialog entirely.
 			const directRow = card.createDiv({ cls: 'dashboard-quicknote-cfg-toggle' });
@@ -252,7 +257,7 @@ export class QuickNoteConfigModal extends Modal {
 		this.addBtn(section, t('quickNote.addSkill'), () => {
 			this.skills = [...this.skills, {
 				id: uid(), label: '', icon: 'sparkles', target: 'claudian',
-				skillName: '', inputPlaceholder: '', promptTemplate: '',
+				skillName: '', promptTemplate: '',
 			}];
 			this.renderBody();
 		});
@@ -289,6 +294,27 @@ export class QuickNoteConfigModal extends Modal {
 		cb.checked = this.captureEnabled;
 		cb.addEventListener('change', () => { this.captureEnabled = cb.checked; });
 		toggleRow.createEl('label', { attr: { for: 'qn-capture' }, text: t('quickNote.captureEnable') });
+
+		// The box's single job: collect thoughts or search files — a binary
+		// pick (same mutually-exclusive check-row idiom as the position rows
+		// below; the active one refuses to be unticked).
+		section.createDiv({ cls: 'dashboard-quicknote-cfg-pos-head', text: t('quickNote.captureMode') });
+		const captureRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-toggle dashboard-quicknote-cfg-toggle--sub' });
+		const captureCb = captureRow.createEl('input', { attr: { type: 'checkbox', id: 'qn-capture-mode-capture' } });
+		captureRow.createEl('label', { attr: { for: 'qn-capture-mode-capture' }, text: t('quickNote.captureModeCapture') });
+		const searchRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-toggle dashboard-quicknote-cfg-toggle--sub' });
+		const searchCb = searchRow.createEl('input', { attr: { type: 'checkbox', id: 'qn-capture-mode-search' } });
+		searchRow.createEl('label', { attr: { for: 'qn-capture-mode-search' }, text: t('quickNote.captureModeSearch') });
+		captureCb.checked = this.captureMode === 'capture';
+		searchCb.checked = this.captureMode === 'search';
+		captureCb.addEventListener('change', () => {
+			if (captureCb.checked) { this.captureMode = 'capture'; searchCb.checked = false; }
+			else captureCb.checked = true;
+		});
+		searchCb.addEventListener('change', () => {
+			if (searchCb.checked) { this.captureMode = 'search'; captureCb.checked = false; }
+			else searchCb.checked = true;
+		});
 
 		this.pathTextInput(section, this.captureTarget, { placeholder: t('quickNote.fieldCaptureTargetPh'), mode: 'file' }, (v) => { this.captureTarget = v; });
 		this.pathTextInput(section, this.captureFolder, { placeholder: t('quickNote.fieldCaptureFolderPh'), mode: 'folder' }, (v) => { this.captureFolder = v; });
@@ -355,6 +381,7 @@ export class QuickNoteConfigModal extends Modal {
 			skillShortcuts: savedSkills,
 			skillSourceFolders: this.skillSourceFolders,
 			quickCaptureEnabled: this.captureEnabled,
+			quickCaptureMode: this.captureMode,
 			quickCaptureTarget: this.captureTarget.trim(),
 			quickCaptureFolder: this.captureFolder.trim(),
 			quickCaptureTemplate: this.captureTemplate.trim(),

@@ -392,7 +392,7 @@ export function renderImmersiveRoot(opts: {
 	const clockTimer = window.setInterval(tickClock, 1000);
 	opts.registerCleanup(() => window.clearInterval(clockTimer));
 	if (settings.quickNotesEnabled) {
-		renderQuickNoteRegion(top, settings, callbacks);
+		renderQuickNoteRegion(top, settings, callbacks, app);
 	}
 
 	// --- Grid: sections (renderDashboard) + widget tiles ----------------------
@@ -1009,6 +1009,8 @@ export interface ImmersiveWidgetOption {
 
 const WIDGET_META: Record<string, { labelKey: string; icon: string }> = {
 	quickActions: { labelKey: 'settings.widgetQuickActionsEnabled', icon: 'zap' },
+	quickCapture: { labelKey: 'captureWidget.title', icon: 'pencil' },
+	fileSearch: { labelKey: 'fileSearchWidget.title', icon: 'search' },
 	lunar: { labelKey: 'settings.widgetLunar', icon: 'sparkles' },
 	yearProgress: { labelKey: 'settings.widgetYearProgress', icon: 'trending-up' },
 	calendar: { labelKey: 'settings.widgetCalendar', icon: 'calendar' },

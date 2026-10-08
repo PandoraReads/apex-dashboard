@@ -100,6 +100,14 @@ export class RssArticleModal extends Modal {
 		openBtn.addEventListener('click', () => {
 			if (this.item.link) window.open(this.item.link, '_blank');
 		});
+		// Close: the native corner close was dropped so the actions row sits
+		// flush right — this key closes from the same row (Esc still works).
+		const closeBtn = actions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-rss-reader-btn',
+			attr: { type: 'button', 'aria-label': t('common.close') },
+		});
+		setIcon(closeBtn, 'x');
+		closeBtn.addEventListener('click', () => this.close());
 
 		const body = wrap.createDiv({ cls: 'dashboard-rss-reader-body' });
 		const loading = body.createDiv({ cls: 'dashboard-rss-reader-loading', text: t('rss.fetchingArticle') });

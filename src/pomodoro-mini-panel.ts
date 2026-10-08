@@ -141,14 +141,16 @@ export function createPomodoroMiniPanel(
 		refs.timeText.textContent = formatMiniTime(state.remainingSeconds);
 		refs.phaseText.textContent = phaseLabel(state.phase, paused);
 		if (!widthFrozen) freezeInfoWidth();
-		const progress = state.totalSeconds > 0 ? state.remainingSeconds / state.totalSeconds : 1;
+		// Stopwatch mode carries the ELAPSED count in remainingSeconds, so the
+		// fill ratio can exceed 1 past the reminder/work reference — clamp full.
+		const progress = state.totalSeconds > 0 ? Math.min(1, state.remainingSeconds / state.totalSeconds) : 1;
 		const circumference = 2 * Math.PI * refs.ringRadius;
 		refs.progressCircle.setAttribute(
 			'stroke-dashoffset',
 			String(circumference * (1 - progress)),
 		);
 		refs.panel.toggleClass('dashboard-pomodoro-mini--paused', paused);
-		refs.panel.toggleClass('dashboard-pomodoro-mini--break', state.phase !== 'work');
+		refs.panel.toggleClass('dashboard-pomodoro-mini--break', state.mode === 'timer' && state.phase !== 'work');
 
 		setIcon(refs.toggleBtn, state.status === 'running' ? 'pause' : 'play');
 		refs.toggleBtn.setAttribute(

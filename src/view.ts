@@ -581,7 +581,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			// old split (rail scrolls alone, board scrolls alone).
 			const stacked = isStackedLayout(this.plugin.settings, this.data);
 			if (stacked && this.plugin.settings.quickNotesEnabled) {
-				renderQuickNoteRegion(mainLayout, this.plugin.settings, this.createCallbacks());
+				renderQuickNoteRegion(mainLayout, this.plugin.settings, this.createCallbacks(), this.app);
 			}
 			const contentHost = stacked
 				? mainLayout.createDiv({ cls: 'dashboard-scroll-region' })
@@ -905,6 +905,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Tab row: hidden by default, revealed by tapping strip
 		const tabs = bar.createDiv({ cls: 'dashboard-mobile-widget-tabs' });
 
+		// Rae: the phone carries NO quick-input tabs — mobile follows the
+		// quick-note bar's capture/search mode setting alone; the standalone
+		// widgets are a desktop-rail affordance.
 		const widgets: Array<{ key: 'pomodoro' | 'reading' | 'lunar' | 'calendar' | 'habit' | 'expense'; label: string; icon: string }> = [
 			{ key: 'lunar', label: t('mobile.lunar'), icon: 'moon' },
 			...(this.plugin.settings.widgetCalendarEnabled
@@ -974,7 +977,11 @@ export class DashboardView extends ItemView implements HoverParent {
 		panel.addClass('dashboard-mobile-widget-panel--open');
 
 		if (this.mobileWidgetExpanded === 'pomodoro' && this.pomodoroService) {
-			renderSidebarPomodoro(panel, this.pomodoroService, this.plugin.settings, this.app);
+			renderSidebarPomodoro(panel, this.pomodoroService, this.plugin.settings, this.app, bg => {
+				this.plugin.settings = { ...this.plugin.settings, pomodoroBackground: bg };
+				void this.plugin.saveSettings();
+				this.plugin.refreshAllDashboards();
+			});
 		} else if (this.mobileWidgetExpanded === 'reading' && this.readingService) {
 			renderSidebarReading(panel, this.readingService);
 		} else if (this.mobileWidgetExpanded === 'lunar') {
@@ -1462,6 +1469,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			},
 			onQuickNoteCreate: (preset: QuickNotePreset) => void createNoteFromPreset(this.app, preset),
 			onQuickNoteCapture: (text: string) => void captureThought(this.app, this.plugin.settings, text),
+			onQuickSearchOpen: (file: TFile) => { void this.app.workspace.getLeaf('tab').openFile(file); },
 			onOpenPinnedNote: (note: PinnedNote) => openPinnedNote(this.app, note),
 			onQuickCommand: (cmd: QuickCommand) => {
 				const commands = (this.app as AppWithCommands).commands;
@@ -1481,7 +1489,6 @@ export class DashboardView extends ItemView implements HoverParent {
 					label: shortcut.label,
 					skillName: shortcut.skillName,
 					promptTemplate: shortcut.promptTemplate,
-					inputPlaceholder: shortcut.inputPlaceholder,
 				}, shortcut.target, {}).open();
 			},
 			onQuickNoteDaily: () => void openTodayNote(this.app),

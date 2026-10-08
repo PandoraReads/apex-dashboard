@@ -46,6 +46,9 @@ export class El {
 	/** No-op: no real focus in the stand-in. */
 	focus(): void {}
 
+	/** No-op: no scroll container in the stand-in (search dropdown arrows). */
+	scrollIntoView(_opts?: { block?: string }): void {}
+
 	/** No-op: HTMLInputElement.select parity (prompt dialogs defer-select). */
 	select(): void {}
 
@@ -55,6 +58,20 @@ export class El {
 
 	get parentElement(): El | null {
 		return this.parent;
+	}
+
+	/** Document stand-in whose body is the tree root (body-level popovers:
+	 *  `el.ownerDocument.body.createDiv(...)`). Events are no-ops — test code
+	 *  drives listeners directly. */
+	get ownerDocument(): { body: El; addEventListener(): void; removeEventListener(): void } {
+		let root: El = this;
+		while (root.parent) root = root.parent;
+		const body = root.tagName === 'BODY' ? root : root;
+		return {
+			body,
+			addEventListener() { /* noop */ },
+			removeEventListener() { /* noop */ },
+		};
 	}
 
 	/** True when `node` is this element or a descendant (real-DOM parity). */

@@ -5,7 +5,7 @@ import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { attachPathPicker } from './path-picker-modal';
 import { IconPickerModal } from './icon-picker-modal';
-import { agentTargets, getAgentAdapter, isValidSkillName } from './agent-dispatch';
+import { agentTargets, agentPickerOption, isValidSkillName } from './agent-dispatch';
 import { attachSkillPicker } from './skill-registry';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 import { normalizeExcludeFolders } from './exclude-folders';
@@ -340,10 +340,12 @@ export class PipelineConfigModal extends Modal {
 
 			const agentSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const target of agentTargets()) {
+				const pick = agentPickerOption(target);
 				const opt = agentSel.createEl('option', {
-					text: getAgentAdapter(target).label,
+					text: pick.label,
 					attr: { value: target },
 				}) as HTMLOptionElement;
+				opt.disabled = pick.disabled;
 				opt.selected = target === skill.agent;
 			}
 			agentSel.addEventListener('change', () => {
@@ -370,14 +372,8 @@ export class PipelineConfigModal extends Modal {
 				}, name => { this.patchSkill(index, { skillName: name }); });
 			}
 			mid.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgSkillNameHint') });
-			const phInput = mid.createEl('input', {
-				cls: 'dashboard-pipeline-cfg-input',
-				attr: { type: 'text', placeholder: t('pipeline.cfgSkillPhLabel') },
-			});
-			phInput.value = skill.inputPlaceholder ?? '';
-			phInput.addEventListener('input', () => {
-				this.patchSkill(index, { inputPlaceholder: phInput.value.trim() || undefined });
-			});
+			// Supplemental input needs no per-skill config: the preview modal
+			// always carries its own input box (default hint).
 
 			const bottom = card.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
 			const tpl = bottom.createEl('textarea', {
