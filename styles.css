@@ -22530,6 +22530,16 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	[data-layout="immersive"] *::-webkit-scrollbar {
 		display: none;
 	}
+	/* Exception: the workflow board's horizontal scrollbar is functional
+	   signage — columns overflow to the right and the bar is how you tell.
+	   Restore it with the wrap's own hover-reveal recipe (transparent until
+	   hover, accent thumb), the same rhythm it uses in the normal layout. */
+	[data-layout="immersive"] .dashboard-pipeline-wrap {
+		scrollbar-width: auto;
+	}
+	[data-layout="immersive"] .dashboard-pipeline-wrap::-webkit-scrollbar {
+		display: block;
+	}
 
 	/* The poster layer: banner image, full-bleed and fixed. The banner
 	   rotator (startBannerImageRotation) drives it, including the shared
