@@ -70,7 +70,7 @@ export async function archivePmProject(app: App, projectFile: TFile, cfg: PmConf
 		new Notice(t('pm.archiveNoFolder'));
 		return false;
 	}
-	await app.fileManager.processFrontMatter(projectFile, fm => { fm['archived'] = true; });
+	await app.fileManager.processFrontMatter(projectFile, fm => { (fm as Record<string, unknown>)['archived'] = true; });
 	await ensureFolder(app, target);
 	try {
 		await app.fileManager.renameFile(projectFile, `${target}/${projectFile.name}`);
@@ -294,12 +294,19 @@ export class PmBoardModal extends Modal {
 	 *  deletes the key; an emptied map drops the block entirely). */
 	private async writeCustomField(key: string, value: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(this.projectFile, fm => {
+			// processFrontMatter's callback param is `any` in the API — rebind
+			// to a typed record so every access is checked.
+			const f = fm as Record<string, unknown>;
+			const holder = (f['custom'] && typeof f['custom'] === 'object')
+				? f['custom'] as Record<string, unknown>
+				: undefined;
 			if (value) {
-				if (!fm['custom'] || typeof fm['custom'] !== 'object') fm['custom'] = {};
-				(fm['custom'] as Record<string, unknown>)[key] = value;
-			} else if (fm['custom'] && typeof fm['custom'] === 'object') {
-				delete (fm['custom'] as Record<string, unknown>)[key];
-				if (Object.keys(fm['custom'] as Record<string, unknown>).length === 0) delete fm['custom'];
+				const target = holder ?? {};
+				target[key] = value;
+				f['custom'] = target;
+			} else if (holder) {
+				delete holder[key];
+				if (Object.keys(holder).length === 0) delete f['custom'];
 			}
 		});
 		notifyPmChanged();
@@ -333,8 +340,7 @@ export class PmBoardModal extends Modal {
 
 		// Custom-field adder: an inline name+value row revealed by the header
 		// button (commit writes frontmatter.custom[key], stays in edit mode).
-		const addRow = sec.createDiv({ cls: 'dashboard-pmsec-add-row dashboard-pmsec-custom-add' });
-		addRow.style.display = 'none';
+		const addRow = sec.createDiv({ cls: 'dashboard-pmsec-add-row dashboard-pmsec-custom-add is-hidden' });
 		const keyInput = addRow.createEl('input', { cls: 'dashboard-modal-input', attr: { type: 'text', placeholder: t('pm.addFieldKey') } });
 		const valueInput = addRow.createEl('input', { cls: 'dashboard-modal-input', attr: { type: 'text', placeholder: t('pm.addFieldValue') } });
 		const confirmAdd = addRow.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.confirm') });
@@ -347,7 +353,7 @@ export class PmBoardModal extends Modal {
 			}
 			keyInput.value = '';
 			valueInput.value = '';
-			addRow.style.display = 'none';
+			addRow.addClass('is-hidden');
 			void this.writeCustomField(key, value);
 		};
 		confirmAdd.addEventListener('click', commitField);
@@ -355,7 +361,7 @@ export class PmBoardModal extends Modal {
 			input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) commitField(); });
 		}
 		addFieldBtn.addEventListener('click', () => {
-			addRow.style.display = addRow.style.display === 'none' ? 'flex' : 'none';
+			addRow.classList.toggle('is-hidden');
 			keyInput.focus();
 		});
 	}
@@ -437,13 +443,14 @@ export class PmBoardModal extends Modal {
 	/** Write one canonical frontmatter key (empty deletes). */
 	private async writeField(key: string, value: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(this.projectFile, fm => {
+			const f = fm as Record<string, unknown>;
 			if (key === 'remind') {
-				if (value === 'true') fm['remind'] = true;
-				else delete fm['remind'];
+				if (value === 'true') f['remind'] = true;
+				else delete f['remind'];
 				return;
 			}
-			if (value) fm[key] = value;
-			else delete fm[key];
+			if (value) f[key] = value;
+			else delete f[key];
 		});
 		notifyPmChanged();
 		this.onChanged?.();
@@ -575,18 +582,17 @@ export class PmBoardModal extends Modal {
 			attr: { type: 'text', placeholder: t('pm.linkFilePh') },
 		});
 		const linkBtn = linkRow.createEl('button', { cls: 'dashboard-modal-btn', text: t('pm.linkFile') });
-		const results = sec.createDiv({ cls: 'dashboard-pmsec-link-results' });
-		results.style.display = 'none';
+		const results = sec.createDiv({ cls: 'dashboard-pmsec-link-results is-hidden' });
 		let matches: TFile[] = [];
 
 		const alreadyListed = new Set<string>([...pmLinkedFiles(frontmatter), ...folderFiles.map(f => f.path)]);
 		const renderResults = (): void => {
 			results.empty();
 			if (matches.length === 0) {
-				results.style.display = 'none';
+				results.addClass('is-hidden');
 				return;
 			}
-			results.style.display = 'flex';
+			results.removeClass('is-hidden');
 			for (const file of matches) {
 				const item = results.createDiv({ cls: 'dashboard-pmsec-link-item' });
 				setIcon(item.createSpan({ cls: 'dashboard-pmsec-link-item-icon' }), iconForExtension(file.path));
@@ -682,8 +688,9 @@ export class PmBoardModal extends Modal {
 	/** Append a vault path to the note's frontmatter `files` list (deduped). */
 	private async linkFile(file: TFile): Promise<void> {
 		await this.app.fileManager.processFrontMatter(this.projectFile, fm => {
-			const current = pmLinkedFiles(fm);
-			if (!current.includes(file.path)) fm['files'] = [...current, file.path];
+			const f = fm as Record<string, unknown>;
+			const current = pmLinkedFiles(f);
+			if (!current.includes(file.path)) f['files'] = [...current, file.path];
 		});
 		notifyPmChanged();
 		this.onChanged?.();
@@ -694,9 +701,10 @@ export class PmBoardModal extends Modal {
 	 *  untouched — linking never moves or copies anything). */
 	private async unlinkFile(path: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(this.projectFile, fm => {
-			const next = pmLinkedFiles(fm).filter(p => p !== path);
-			if (next.length > 0) fm['files'] = next;
-			else delete fm['files'];
+			const f = fm as Record<string, unknown>;
+			const next = pmLinkedFiles(f).filter(p => p !== path);
+			if (next.length > 0) f['files'] = next;
+			else delete f['files'];
 		});
 		notifyPmChanged();
 		this.onChanged?.();

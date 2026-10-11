@@ -161,8 +161,8 @@ function scanPmProjects(app: App, roots: readonly string[], excludes: readonly s
 		projects.push({
 			file,
 			frontmatter,
-			milestones: sectionProgress(cache!, MILESTONE_HEADING_RE),
-			todos: sectionProgress(cache!, TODO_HEADING_RE),
+			milestones: sectionProgress(cache, MILESTONE_HEADING_RE),
+			todos: sectionProgress(cache, TODO_HEADING_RE),
 		});
 	}
 	return projects;
@@ -316,7 +316,7 @@ export function parseProjectBody(content: string): PmBodySections {
 		if (!current) continue;
 		const parsed = parseTasks(lines[i]!);
 		if (parsed[0]) {
-			const task = { ...parsed[0]!, line: i };
+			const task = { ...parsed[0], line: i };
 			(current === 'milestone' ? milestones : todos).push(task);
 		}
 	}

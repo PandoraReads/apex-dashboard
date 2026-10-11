@@ -311,7 +311,7 @@ export function observeImmersiveGrid(grid: HTMLElement, refit: () => void, regis
 	// (pad -> grid narrower -> new bracket -> new pad ...): the whole board
 	// visibly breathed left-right.
 	const applySideRails = (): void => {
-		const scroller = grid.parentElement as HTMLElement | null;
+		const scroller = grid.parentElement;
 		if (!scroller) return;
 		const w = scroller.clientWidth;
 		const pad = w > 1600 ? 64 : w > 1200 ? 48 : w > 950 ? 28 : 14;
@@ -592,21 +592,21 @@ export function setupImmersiveDnD(
 
 	const findHandleTile = (target: HTMLElement, e: PointerEvent): HTMLElement | null => {
 		// Widget tiles: top strip only.
-		const widgetTile = target.closest('[data-widget-key]') as HTMLElement | null;
+		const widgetTile = target.closest<HTMLElement>('[data-widget-key]');
 		if (widgetTile && widgetTile.dataset.immId !== undefined && !target.closest('.dashboard-card')) {
 			const rect = widgetTile.getBoundingClientRect();
 			return e.clientY - rect.top <= MOVE_ZONE_PX ? widgetTile : null;
 		}
 		// Dissolved card tiles: their own header (nested card headers do NOT
 		// move the section — those cards keep their own machinery).
-		const cardHeader = target.closest('.dashboard-card-header') as HTMLElement | null;
+		const cardHeader = target.closest<HTMLElement>('.dashboard-card-header');
 		if (cardHeader) {
-			const card = cardHeader.closest('.dashboard-card') as HTMLElement | null;
+			const card = cardHeader.closest<HTMLElement>('.dashboard-card');
 			return card && card.dataset.immId ? card : null;
 		}
 		// Section tiles: the header is the handle.
-		const header = target.closest('.dashboard-section-header') as HTMLElement | null;
-		if (header) return header.closest('[data-imm-id]') as HTMLElement | null;
+		const header = target.closest<HTMLElement>('.dashboard-section-header');
+		if (header) return header.closest<HTMLElement>('[data-imm-id]');
 		return null;
 	};
 
@@ -755,7 +755,7 @@ export function setupImmersiveDnD(
 	// Nudge the scroll region when the pointer rides its edges (HTML5 DnD
 	// did this natively; pointer drags must scroll themselves).
 	const edgeAutoScroll = (clientY: number): void => {
-		const scroller = grid.closest('.dashboard-scroll-region') as HTMLElement | null;
+		const scroller = grid.closest<HTMLElement>('.dashboard-scroll-region');
 		if (!scroller) return;
 		const r = scroller.getBoundingClientRect();
 		const EDGE = 64;

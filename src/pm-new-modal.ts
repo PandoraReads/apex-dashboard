@@ -101,7 +101,7 @@ export class PmNewModal extends Modal {
 			for (const sub of subs) {
 				menu.addItem(item => item.setTitle(sub).onClick(() => { this.folderInput.value = sub; }));
 			}
-			menu.showAtMouseEvent(ev as MouseEvent);
+			menu.showAtMouseEvent(ev);
 		});
 		this.groupInput = textRow('pm.f.group', 'pm.f.groupPh');
 		this.introInput = textRow('pm.f.intro', 'pm.f.introPh');
@@ -179,7 +179,7 @@ export class PmNewModal extends Modal {
 			this.milestoneValues = [...this.milestoneValues, ''];
 			this.renderMilestoneRows();
 			const last = this.milestonesHost?.querySelectorAll('input');
-			(last?.[last.length - 1] as HTMLInputElement | undefined)?.focus();
+			(last?.[last.length - 1])?.focus();
 		});
 	}
 

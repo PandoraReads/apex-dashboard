@@ -47,7 +47,7 @@ export const SKILL_KEYS_PER_ROW = 5;
 export function chunkSkillKeys<T>(items: readonly T[], size = SKILL_KEYS_PER_ROW): T[][] {
 	const rows: T[][] = [];
 	for (let i = 0; i < items.length; i += Math.max(1, size)) {
-		rows.push(items.slice(i, i + Math.max(1, size)) as T[]);
+		rows.push(items.slice(i, i + Math.max(1, size)));
 	}
 	return rows;
 }

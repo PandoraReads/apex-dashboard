@@ -66,7 +66,7 @@ export class PomodoroSettingsModal extends Modal {
 		const sync = (): void => {
 			for (const cb of boxes) cb.checked = false;
 			const current = this.plugin.settings.pomodoroMode === 'stopwatch' ? 1 : 0;
-			if (boxes[current]) boxes[current]!.checked = true;
+			if (boxes[current]) boxes[current].checked = true;
 		};
 
 		// Mutually exclusive check rows (the quick-capture purpose idiom): the

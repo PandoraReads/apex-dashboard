@@ -179,7 +179,7 @@ export class PipelineConfigModal extends Modal {
 		styleRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pipeline.cfgBoardStyle') });
 		const styleSel = styleRow.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 		for (const [value, key] of [['theme', 'pipeline.cfgStyleTheme'], ['trello', 'pipeline.cfgStyleTrello'], ['solid', 'pipeline.cfgStyleSolid'], ['blush', 'pipeline.cfgStyleBlush']] as const) {
-			const opt = styleSel.createEl('option', { text: t(key), attr: { value } }) as HTMLOptionElement;
+			const opt = styleSel.createEl('option', { text: t(key), attr: { value } });
 			opt.selected = value === this.boardStyle;
 		}
 		styleSel.addEventListener('change', () => {
@@ -272,7 +272,7 @@ export class PipelineConfigModal extends Modal {
 			const color = row.createEl('input', {
 				cls: 'dashboard-pipeline-cfg-color',
 				attr: { type: 'color' },
-			}) as HTMLInputElement;
+			});
 			color.value = stage.color || '#a9a69c';
 			color.addEventListener('input', () => { this.patchStage(index, { color: color.value }); });
 
@@ -324,14 +324,14 @@ export class PipelineConfigModal extends Modal {
 				const opt = stageSel.createEl('option', {
 					text: stage.label || stage.value || t('pipeline.cfgStageValue'),
 					attr: { value: stage.value },
-				}) as HTMLOptionElement;
+				});
 				opt.selected = stage.value === skill.stage;
 			}
 			stageSel.addEventListener('change', () => { this.patchSkill(index, { stage: stageSel.value }); });
 
 			const scopeSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const [value, key] of [['card', 'pipeline.cfgScopeCard'], ['stage', 'pipeline.cfgScopeStage']] as const) {
-				const opt = scopeSel.createEl('option', { text: t(key), attr: { value } }) as HTMLOptionElement;
+				const opt = scopeSel.createEl('option', { text: t(key), attr: { value } });
 				opt.selected = value === skill.scope;
 			}
 			scopeSel.addEventListener('change', () => {
@@ -344,7 +344,7 @@ export class PipelineConfigModal extends Modal {
 				const opt = agentSel.createEl('option', {
 					text: pick.label,
 					attr: { value: target },
-				}) as HTMLOptionElement;
+				});
 				opt.disabled = pick.disabled;
 				opt.selected = target === skill.agent;
 			}
@@ -391,7 +391,7 @@ export class PipelineConfigModal extends Modal {
 			const sendToggle = sendRow.createEl('input', {
 				cls: 'dashboard-pipeline-cfg-toggle',
 				attr: { type: 'checkbox' },
-			}) as HTMLInputElement;
+			});
 			sendToggle.checked = skill.directSend === true;
 			sendToggle.addEventListener('change', () => { this.patchSkill(index, { directSend: sendToggle.checked }); });
 			sendRow.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgSkillDirectSendHint') });

@@ -27446,6 +27446,13 @@ button.dashboard-capturebar-glyph:hover {
 	gap: 6px;
 }
 
+/* Show/hide for the modal's reveal rows (custom-field adder, file-link
+   results) — class toggle instead of inline style.display. */
+.dashboard-pmsec-add-row.is-hidden,
+.dashboard-pmsec-link-results.is-hidden {
+	display: none;
+}
+
 .dashboard-pmsec-add-row .dashboard-modal-input {
 	flex: 1 1 auto;
 }
@@ -28362,6 +28369,7 @@ button.dashboard-capturebar-glyph:hover {
 /* Link-existing-file: live results under the search row (plain-name
    matching, no [[ prefix). Static inline list — robust inside panes. */
 .dashboard-pmsec-link-results {
+	display: flex;
 	flex-direction: column;
 	gap: 2px;
 	max-height: 180px;

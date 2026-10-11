@@ -81,7 +81,7 @@ export class SkillSectionConfigModal extends Modal {
 		for (const store of HOME_SKILL_STORES) {
 			const row = storesSection.createDiv({ cls: 'dashboard-skillsec-cfg-store' });
 			const label = row.createEl('label', { cls: 'dashboard-skillsec-cfg-store-label' });
-			const cb = label.createEl('input', { attr: { type: 'checkbox' } }) as HTMLInputElement;
+			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 			cb.checked = this.visibleStores.has(store.id);
 			cb.addEventListener('change', () => {
 				this.visibleStores = new Set(cb.checked
@@ -157,7 +157,7 @@ export class SkillSectionConfigModal extends Modal {
 		});
 		setIcon(handle, 'grip-vertical');
 		handle.addEventListener('pointerdown', (ev) => {
-			const e = ev as PointerEvent;
+			const e = ev;
 			row.addClass('is-dragging');
 			startGuardedDrag(e, {
 				cursor: 'grabbing',
@@ -185,7 +185,7 @@ export class SkillSectionConfigModal extends Modal {
 		const nameInput = row.createEl('input', {
 			cls: 'dashboard-skillsec-cfg-group-name',
 			attr: { type: 'text', placeholder: t('skills.cfgGroupNamePh'), 'aria-label': t('skills.cfgGroupNamePh') },
-		}) as HTMLInputElement;
+		});
 		nameInput.value = group.name;
 		nameInput.addEventListener('input', () => {
 			group.name = nameInput.value;
@@ -194,7 +194,7 @@ export class SkillSectionConfigModal extends Modal {
 		const kwInput = row.createEl('input', {
 			cls: 'dashboard-skillsec-cfg-group-keywords',
 			attr: { type: 'text', placeholder: t('skills.cfgGroupKeywordsPh'), 'aria-label': t('skills.cfgGroupKeywordsPh') },
-		}) as HTMLInputElement;
+		});
 		kwInput.value = group.keywords ?? '';
 		kwInput.addEventListener('input', () => {
 			group.keywords = kwInput.value;

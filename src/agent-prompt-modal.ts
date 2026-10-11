@@ -70,7 +70,7 @@ export class AgentPromptModal extends Modal {
 				const cb = row.createEl('input', {
 					cls: 'dashboard-skill-scope-check',
 					attr: { type: 'checkbox' },
-				}) as HTMLInputElement;
+				});
 				cb.addEventListener('change', () => {
 					if (cb.checked) this.selected.add(file.path);
 					else this.selected.delete(file.path);

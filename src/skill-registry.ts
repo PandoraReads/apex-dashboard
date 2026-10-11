@@ -149,13 +149,13 @@ export function expandHomePath(path: string, home: string): string {
  *  CSV). Empty input or non-desktop returns []. */
 export async function discoverFolderSkills(foldersCsv: string): Promise<string[]> {
 	if (!foldersCsv.trim() || !Platform.isDesktop) return [];
-	const nodeRequire = (globalThis as { require?: NodeRequire }).require ?? (window as unknown as { require?: NodeRequire }).require;
+	const nodeRequire = (window as { require?: NodeRequire }).require ?? (window as unknown as { require?: NodeRequire }).require;
 	if (!nodeRequire) return [];
 	let fs: typeof import('fs');
 	let home: string;
 	try {
 		fs = nodeRequire('fs') as typeof import('fs');
-		home = nodeRequire('os').homedir();
+		home = (nodeRequire('os') as typeof import('os')).homedir();
 	} catch {
 		return [];
 	}

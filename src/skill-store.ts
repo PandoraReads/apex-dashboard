@@ -105,7 +105,7 @@ const MAX_DESCRIPTION_CHARS = 500;
 export function parseSkillDoc(content: string, fallbackName: string): SkillDocMeta {
 	let name = '';
 	let description = '';
-	const text = content.replace(/^﻿/, '');
+	const text = content.replace(/^\uFEFF/, '');
 	if (text.startsWith('---')) {
 		const end = text.indexOf('\n---', 3);
 		if (end > 3) {
@@ -161,7 +161,7 @@ export const SKILL_HEAD_BYTES = 4096;
  *  renderer forbids require — callers degrade to the cached snapshot. */
 export function desktopSkillFs(): SkillFs | undefined {
 	if (!Platform.isDesktop) return undefined;
-	const nodeRequire = (globalThis as { require?: NodeRequire }).require ?? (window as unknown as { require?: NodeRequire }).require;
+	const nodeRequire = (window as { require?: NodeRequire }).require ?? (window as unknown as { require?: NodeRequire }).require;
 	if (!nodeRequire) return undefined;
 	try {
 		const fs = nodeRequire('fs') as typeof import('fs');
@@ -247,7 +247,7 @@ export async function scanSkillStoreDir(
 				const cached = previous.get(dirPath);
 				if (cached && cached.mtimeMs === mtimeMs) return cached;
 				const meta = parseSkillDoc(await fs.readTextHead(docPath, SKILL_HEAD_BYTES), entry.name);
-				return { ...meta, storeId: store.id, dirPath, mtimeMs } as SkillEntry;
+				return { ...meta, storeId: store.id, dirPath, mtimeMs };
 			} catch {
 				return null; // no SKILL.md / unreadable: not a skill folder
 			}
@@ -456,7 +456,7 @@ type SkillShellRequire = (name: string) => { shell?: SkillShell };
 
 function skillShell(): SkillShell | undefined {
 	try {
-		const nodeRequire = (globalThis as { require?: SkillShellRequire }).require
+		const nodeRequire = (window as { require?: SkillShellRequire }).require
 			?? (window as unknown as { require?: SkillShellRequire }).require;
 		return nodeRequire?.('electron').shell;
 	} catch {

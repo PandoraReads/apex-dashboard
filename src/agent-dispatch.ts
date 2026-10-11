@@ -113,7 +113,7 @@ export type AgentSendOutcome = 'sent' | 'timeout' | { error: unknown };
 export async function sendPromptWithTimeout(app: unknown, agent: AgentTarget, prompt: string, timeoutMs = 10_000): Promise<AgentSendOutcome> {
 	return Promise.race([
 		getAgentAdapter(agent).send(app, prompt).then(() => 'sent' as const, (error: unknown): AgentSendOutcome => ({ error })),
-		new Promise<'timeout'>(resolve => setTimeout(() => resolve('timeout'), timeoutMs)),
+		new Promise<'timeout'>(resolve => window.setTimeout(() => resolve('timeout'), timeoutMs)),
 	]);
 }
 
@@ -224,7 +224,7 @@ type ElectronRequire = (name: string) => { shell?: ElectronShell };
 
 function electronShell(): ElectronShell | undefined {
 	try {
-		const globalRequire = (globalThis as { require?: ElectronRequire }).require;
+		const globalRequire = (window as { require?: ElectronRequire }).require;
 		const windowRequire = (window as unknown as { require?: ElectronRequire }).require;
 		const requireElectron = globalRequire ?? windowRequire;
 		return requireElectron?.('electron').shell;
@@ -263,7 +263,7 @@ type MacOpen = (args: string[]) => { unref?: () => void };
 
 function macSpawnOpen(appName: string): boolean {
 	try {
-		const req = (globalThis as { require?: (m: string) => { spawn?: (cmd: string, args: string[], opts?: unknown) => { unref?: () => void } } }).require
+		const req = (window as { require?: (m: string) => { spawn?: (cmd: string, args: string[], opts?: unknown) => { unref?: () => void } } }).require
 			?? (window as unknown as { require?: (m: string) => { spawn?: (cmd: string, args: string[], opts?: unknown) => { unref?: () => void } } }).require;
 		const spawn = req?.('child_process')?.spawn;
 		if (typeof spawn !== 'function') return false;
@@ -276,7 +276,7 @@ function macSpawnOpen(appName: string): boolean {
 
 function macAppInstalled(name: string): boolean {
 	try {
-		const req = (globalThis as { require?: (m: string) => { existsSync?: (p: string) => boolean } }).require
+		const req = (window as { require?: (m: string) => { existsSync?: (p: string) => boolean } }).require
 			?? (window as unknown as { require?: (m: string) => { existsSync?: (p: string) => boolean } }).require;
 		return req?.('fs')?.existsSync?.(`/Applications/${name}.app`) === true;
 	} catch {

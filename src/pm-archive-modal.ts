@@ -9,7 +9,7 @@ import { PmBoardModal, deletePmProject, notifyPmChanged } from './pm-board-modal
 /** Restore: clear the archived flag and, when the note sits inside the
  *  configured archive folder, move it back into the section root. */
 export async function restorePmProject(app: App, file: TFile, cfg: PmConfig): Promise<void> {
-	await app.fileManager.processFrontMatter(file, fm => { delete fm['archived']; });
+	await app.fileManager.processFrontMatter(file, fm => { delete (fm as Record<string, unknown>)['archived']; });
 	const archive = normalizeFolderPath(cfg.archiveFolder ?? '');
 	const root = normalizeFolderPath(cfg.rootFolder ?? '');
 	if (archive && root && file.path.toLowerCase().startsWith(archive.toLowerCase() + '/')) {

@@ -2126,7 +2126,7 @@ export function refreshMediaSections(
 		const scrollStates = captureScrollStates(matched);
 		destroyMediaSection(matched);
 		const newEl = renderSection(column, callbacks, app, data, settings);
-		carryImmersivePlacement(matched as HTMLElement, newEl);
+		carryImmersivePlacement(matched, newEl);
 		matched.replaceWith(newEl);
 		restoreScrollStates(newEl, scrollStates);
 		refreshed++;

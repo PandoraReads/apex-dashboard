@@ -231,7 +231,7 @@ export class QuickNoteConfigModal extends Modal {
 			const target = card.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const agent of agentTargets()) {
 				const pick = agentPickerOption(agent);
-				const opt = target.createEl('option', { text: pick.label, attr: { value: agent } }) as HTMLOptionElement;
+				const opt = target.createEl('option', { text: pick.label, attr: { value: agent } });
 				opt.disabled = pick.disabled;
 			}
 			target.value = skill.target ?? 'claudian';
@@ -250,7 +250,7 @@ export class QuickNoteConfigModal extends Modal {
 			// Direct send: skip the confirm dialog entirely.
 			const directRow = card.createDiv({ cls: 'dashboard-quicknote-cfg-toggle' });
 			directRow.createSpan({ cls: 'dashboard-quicknote-cfg-cmd-id', text: t('agent.directSend') });
-			const direct = directRow.createEl('input', { attr: { type: 'checkbox' } }) as HTMLInputElement;
+			const direct = directRow.createEl('input', { attr: { type: 'checkbox' } });
 			direct.checked = skill.directSend === true;
 			direct.addEventListener('change', () => this.updateSkill(i, { directSend: direct.checked }));
 		});

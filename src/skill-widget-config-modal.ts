@@ -99,7 +99,7 @@ export class SkillWidgetConfigModal extends Modal {
 			const agentSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const target of agentTargets()) {
 				const pick = agentPickerOption(target);
-				const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } }) as HTMLOptionElement;
+				const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } });
 				opt.disabled = pick.disabled;
 				opt.selected = target === skill.target;
 			}
@@ -140,7 +140,7 @@ export class SkillWidgetConfigModal extends Modal {
 			const direct = directRow.createEl('input', {
 				cls: 'dashboard-pipeline-cfg-toggle',
 				attr: { type: 'checkbox' },
-			}) as HTMLInputElement;
+			});
 			direct.checked = skill.directSend === true;
 			direct.addEventListener('change', () => this.patchRow(index, { directSend: direct.checked }));
 		});

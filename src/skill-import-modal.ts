@@ -214,7 +214,7 @@ export class SkillImportModal extends Modal {
 		for (const candidate of this.githubCandidates) {
 			const row = list.createDiv({ cls: 'dashboard-skillsec-import-github-row' });
 			const label = row.createEl('label', { cls: 'dashboard-skillsec-import-github-label' });
-			const cb = label.createEl('input', { attr: { type: 'checkbox' } }) as HTMLInputElement;
+			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 			cb.checked = this.githubChecked.has(candidate.path);
 			cb.addEventListener('change', () => {
 				this.githubChecked = new Set(cb.checked
@@ -242,7 +242,7 @@ export class SkillImportModal extends Modal {
 	private renderTargetRow(parent: HTMLElement, store: SkillStoreDef): void {
 		const row = parent.createDiv({ cls: 'dashboard-skillsec-import-target' });
 		const label = row.createEl('label', { cls: 'dashboard-skillsec-import-target-label' });
-		const cb = label.createEl('input', { attr: { type: 'checkbox' } }) as HTMLInputElement;
+		const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 		cb.checked = this.checked.has(store.id);
 		cb.addEventListener('change', () => {
 			this.checked = new Set(cb.checked ? [...this.checked, store.id] : [...this.checked].filter(id => id !== store.id));

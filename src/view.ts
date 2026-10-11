@@ -856,7 +856,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			for (const col of this.data.columns) {
 				if (col.sectionType === 'pm') this.refreshSectionInPlace(col.name);
 			}
-		}) as EventListener);
+		}));
 
 		// PM card pin toggle: the full pinned path list arrives — persist and
 		// refresh in place (pinned cards jump to the front).
@@ -1209,7 +1209,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Image rotation — applies to both quote and stats modes (stats uses the
 		// same .dashboard-banner background, so it rotates identically). The
 		// shared time-seed rotator also drives the immersive background layer.
-		const bannerEl = container.querySelector('.dashboard-banner') as HTMLElement | null;
+		const bannerEl = container.querySelector<HTMLElement>('.dashboard-banner');
 		if (bannerEl) {
 			startBannerImageRotation(bannerEl, banner, this.app, DashboardView.BANNER_IMAGE_ROTATION_MS, fn => this.cleanupFns.push(fn));
 		}

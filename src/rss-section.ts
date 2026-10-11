@@ -282,7 +282,7 @@ export function renderRssSection(
 
 		rowEl.addEventListener('click', () => openReader(row, rowEl));
 		rowEl.addEventListener('keydown', (ev) => {
-			const key = (ev as KeyboardEvent).key;
+			const key = (ev).key;
 			if (key === 'Enter' || key === ' ') {
 				ev.preventDefault();
 				openReader(row, rowEl);

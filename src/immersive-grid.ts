@@ -240,7 +240,7 @@ export function planImmersive(items: readonly ImmersiveItem[], cols = IMM_COLS):
 			const h = clampSpanH(item.h);
 			for (let i = x; i < x + w; i++) {
 				const top = y + h;
-				if (heights[i]! < top) heights[i]! = top;
+				if (heights[i]! < top) heights[i] = top;
 			}
 			packed[index] = { ...item, w, h, col: x, row: y };
 		} else {
@@ -262,7 +262,7 @@ export function planImmersive(items: readonly ImmersiveItem[], cols = IMM_COLS):
 				bestX = x;
 			}
 		}
-		for (let i = bestX; i < bestX + w; i++) heights[i]! = bestRow + h;
+		for (let i = bestX; i < bestX + w; i++) heights[i] = bestRow + h;
 		packed[index] = { ...item, w, h, col: bestX, row: bestRow };
 	}
 	return packed;

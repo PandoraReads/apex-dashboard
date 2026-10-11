@@ -360,7 +360,7 @@ export function renderSkillSection(
 			syncCollapseAllIcon();
 		});
 		head.addEventListener('keydown', ev => {
-			const key = (ev as KeyboardEvent).key;
+			const key = (ev).key;
 			if (key === 'Enter' || key === ' ') {
 				ev.preventDefault();
 				head.click();
@@ -422,7 +422,7 @@ export function renderSkillSection(
 	 *  column up — external drags pass through untouched. */
 	function wireColumnDropTarget(col: HTMLElement, groupKey: string): void {
 		col.addEventListener('dragover', ev => {
-			const e = ev as DragEvent;
+			const e = ev;
 			if (!e.dataTransfer?.types?.includes(SKILL_DRAG_TYPE)) return;
 			e.preventDefault();
 			e.dataTransfer.dropEffect = 'move';
@@ -430,7 +430,7 @@ export function renderSkillSection(
 		});
 		col.addEventListener('dragleave', () => col.removeClass('is-drop-target'));
 		col.addEventListener('drop', ev => {
-			const e = ev as DragEvent;
+			const e = ev;
 			col.removeClass('is-drop-target');
 			const name = e.dataTransfer?.getData(SKILL_DRAG_TYPE) ?? '';
 			if (!name) return;
@@ -494,7 +494,7 @@ export function renderSkillSection(
 		card.dataset.skill = group.name;
 		if (kanbanDraggable) {
 			card.addEventListener('dragstart', ev => {
-				const e = ev as DragEvent;
+				const e = ev;
 				if (!e.dataTransfer) return;
 				e.dataTransfer.effectAllowed = 'move';
 				e.dataTransfer.setData(SKILL_DRAG_TYPE, group.name);
@@ -569,7 +569,7 @@ export function renderSkillSection(
 
 		card.addEventListener('click', () => openDetail(group));
 		card.addEventListener('keydown', ev => {
-			const key = (ev as KeyboardEvent).key;
+			const key = (ev).key;
 			if (key === 'Enter' || key === ' ') {
 				ev.preventDefault();
 				openDetail(group);

@@ -104,7 +104,7 @@ export class TableColumnsModal extends Modal {
 		});
 		setIcon(handle, 'grip-vertical');
 		handle.addEventListener('pointerdown', (ev) => {
-			const e = ev as PointerEvent;
+			const e = ev;
 			item.addClass('is-dragging');
 			startGuardedDrag(e, {
 				cursor: 'grabbing',

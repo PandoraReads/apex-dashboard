@@ -49,7 +49,7 @@ export class SkillGroupPickerModal extends Modal {
 			};
 			row.addEventListener('click', commit);
 			row.addEventListener('keydown', ev => {
-				const key = (ev as KeyboardEvent).key;
+				const key = (ev).key;
 				if (key === 'Enter' || key === ' ') {
 					ev.preventDefault();
 					commit();

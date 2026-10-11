@@ -55,7 +55,7 @@ export class SkillCreateConfigModal extends Modal {
 		const agentSel = agentRow.createEl('select', { cls: 'dashboard-library-filter-property' });
 		for (const target of agentTargets()) {
 			const pick = agentPickerOption(target);
-			const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } }) as HTMLOptionElement;
+			const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } });
 			opt.disabled = pick.disabled;
 			opt.selected = target === this.agent;
 		}
@@ -69,7 +69,7 @@ export class SkillCreateConfigModal extends Modal {
 		const nameInput = nameWrap.createEl('input', {
 			cls: 'dashboard-modal-input',
 			attr: { type: 'text', placeholder: 'skill-creator' },
-		}) as HTMLInputElement;
+		});
 		nameInput.value = this.skillName;
 		nameInput.addEventListener('input', () => {
 			this.skillName = nameInput.value.trim();
@@ -88,7 +88,7 @@ export class SkillCreateConfigModal extends Modal {
 		const tplInput = tplSection.createEl('input', {
 			cls: 'dashboard-modal-input',
 			attr: { type: 'text', placeholder: t('skills.createCfgTemplatePh') },
-		}) as HTMLInputElement;
+		});
 		tplInput.value = this.promptTemplate;
 		tplInput.addEventListener('input', () => {
 			this.promptTemplate = tplInput.value;
@@ -96,7 +96,7 @@ export class SkillCreateConfigModal extends Modal {
 
 		const sendRow = body.createDiv({ cls: 'dashboard-skillsec-createcfg-row' });
 		const dsLabel = sendRow.createEl('label', { cls: 'dashboard-skillsec-createcfg-ds' });
-		const dsCb = dsLabel.createEl('input', { attr: { type: 'checkbox' } }) as HTMLInputElement;
+		const dsCb = dsLabel.createEl('input', { attr: { type: 'checkbox' } });
 		dsCb.checked = this.directSend;
 		dsCb.addEventListener('change', () => {
 			this.directSend = dsCb.checked;

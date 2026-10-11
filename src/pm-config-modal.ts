@@ -190,7 +190,7 @@ export class PmConfigModal extends Modal {
 			const agentSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const target of agentTargets()) {
 				const pick = agentPickerOption(target);
-				const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } }) as HTMLOptionElement;
+				const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } });
 				opt.disabled = pick.disabled;
 			}
 			agentSel.value = skill.agent;
@@ -227,7 +227,7 @@ export class PmConfigModal extends Modal {
 			const direct = sendRow.createEl('input', {
 				cls: 'dashboard-pipeline-cfg-toggle',
 				attr: { type: 'checkbox' },
-			}) as HTMLInputElement;
+			});
 			direct.checked = skill.directSend === true;
 			direct.addEventListener('change', () => { this.skills[index] = { ...skill, directSend: direct.checked }; });
 

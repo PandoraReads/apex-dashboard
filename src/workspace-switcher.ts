@@ -102,7 +102,7 @@ export function renderWorkspaceSwitcher(container: HTMLElement, plugin: Dashboar
 		btn.addEventListener('contextmenu', (ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
-			openWorkspaceMenu(plugin, file, name, isActive, ev as MouseEvent);
+			openWorkspaceMenu(plugin, file, name, isActive, ev);
 		});
 	});
 

@@ -574,7 +574,7 @@ async function renderCardTasks(card: HTMLElement, item: PipelineItem, app: App):
 		const cb = row.createEl('input', {
 			cls: 'dashboard-pipeline-task-check',
 			attr: { type: 'checkbox' },
-		}) as HTMLInputElement;
+		});
 		cb.checked = task.checked;
 		// Checking a box must never fall through to the card's open-note click.
 		cb.addEventListener('click', (e) => e.stopPropagation());

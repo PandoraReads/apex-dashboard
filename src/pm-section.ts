@@ -221,14 +221,14 @@ function savePmOrder(el: HTMLElement, columnName: string, paths: readonly string
  *  card at the end. */
 function wirePmListDrop(list: HTMLElement, el: HTMLElement, columnName: string): void {
 	list.addEventListener('dragover', ev => {
-		const e = ev as DragEvent;
+		const e = ev;
 		if (!e.dataTransfer?.types?.includes(PM_DRAG_TYPE)) return;
 		// Only the empty grid region reaches here — cards stopPropagation.
 		e.preventDefault();
 		e.dataTransfer.dropEffect = 'move';
 	});
 	list.addEventListener('drop', ev => {
-		const e = ev as DragEvent;
+		const e = ev;
 		const name = e.dataTransfer?.getData(PM_DRAG_TYPE) ?? '';
 		if (!name) return;
 		e.preventDefault();
@@ -256,7 +256,7 @@ function renderProjectCard(
 	// Drag to reorder: payload = note path; insertion (before/after) is
 	// decided on the target card by pointer position.
 	card.addEventListener('dragstart', ev => {
-		const e = ev as DragEvent;
+		const e = ev;
 		if (!e.dataTransfer) return;
 		e.dataTransfer.effectAllowed = 'move';
 		e.dataTransfer.setData(PM_DRAG_TYPE, project.file.path);
@@ -269,7 +269,7 @@ function renderProjectCard(
 		}
 	});
 	card.addEventListener('dragover', ev => {
-		const e = ev as DragEvent;
+		const e = ev;
 		if (!e.dataTransfer?.types?.includes(PM_DRAG_TYPE)) return;
 		e.preventDefault();
 		e.stopPropagation();
@@ -281,7 +281,7 @@ function renderProjectCard(
 	});
 	card.addEventListener('dragleave', () => card.removeClass('drop-above', 'drop-below'));
 	card.addEventListener('drop', ev => {
-		const e = ev as DragEvent;
+		const e = ev;
 		const dragged = e.dataTransfer?.getData(PM_DRAG_TYPE) ?? '';
 		card.removeClass('drop-above', 'drop-below');
 		if (!dragged) return;
@@ -320,7 +320,7 @@ function renderProjectCard(
 	// beat, double click renames. Clicks that land on a button/input/select
 	// (work note, skills, archive/delete) are their controls' business.
 	// Timer handle works in browser AND the node test runner (window-less).
-	let clickTimer: ReturnType<typeof setTimeout> | null = null;
+	let clickTimer: number | null = null;
 	const isInteractiveTarget = (ev: Event): boolean => {
 		const target = ev.target as HTMLElement | null;
 		return !!target?.closest?.('button, input, select, textarea, a, label');
@@ -328,14 +328,14 @@ function renderProjectCard(
 	card.addEventListener('click', ev => {
 		if (isInteractiveTarget(ev)) return;
 		if (clickTimer !== null) return;
-		clickTimer = setTimeout(() => {
+		clickTimer = window.setTimeout(() => {
 			clickTimer = null;
 			new PmBoardModal(app, project.file, cfg).open();
 		}, 220);
 	});
 	card.addEventListener('dblclick', ev => {
 		if (isInteractiveTarget(ev)) return;
-		if (clickTimer !== null) { clearTimeout(clickTimer); clickTimer = null; }
+		if (clickTimer !== null) { window.clearTimeout(clickTimer); clickTimer = null; }
 		void (async () => {
 			const { showPromptDialog } = await import('./prompt-dialog');
 			const name = await showPromptDialog(app, { title: t('pm.board.renamed'), defaultValue: project.file.basename });

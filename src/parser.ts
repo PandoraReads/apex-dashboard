@@ -907,7 +907,7 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 						],
 					}),
 				],
-			} as DashboardColumn,
+			},
 			{
 				name: 'Library',
 				color: '#8b5cf6',
@@ -919,7 +919,7 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 					card({ id: 'demo-lib-toread', title: 'To Read', type: 'project', column: 'Library' }),
 					card({ id: 'demo-lib-done', title: 'Done', type: 'project', column: 'Library' }),
 				],
-			} as DashboardColumn,
+			},
 		],
 	};
 	if (layout === 'immersive') return serialize(immersiveBoard);
@@ -1649,7 +1649,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 	const filterDim = filterDimRaw || undefined;
 	const filterValue = str((raw.filter as Record<string, unknown> | undefined)?.value ?? '').trim();
 	const sortByRaw = str(raw.sortBy ?? '').trim();
-	const sortBy = sortByRaw === 'ctime' || sortByRaw === 'platform' ? sortByRaw as 'ctime' | 'platform' : undefined;
+	const sortBy = sortByRaw === 'ctime' || sortByRaw === 'platform' ? sortByRaw : undefined;
 	const excludeFolders = (Array.isArray(raw.excludeFolders) ? raw.excludeFolders : [])
 		.map((f: unknown) => str(f).trim().replace(/^\/+|\/+$/g, ''))
 		.filter((f: string) => f.length > 0);
@@ -1686,7 +1686,7 @@ function parseSkillsConfig(raw: Record<string, unknown>): SkillsSectionConfig {
 	const sortMode = sortModeRaw === 'recent' ? 'recent' as const : undefined;
 	const sortDirRaw = str(raw.sortDir ?? '');
 	const sortDirDefault = sortMode === 'recent' ? 'desc' : 'asc';
-	const sortDir = sortDirRaw === 'asc' || sortDirRaw === 'desc' ? (sortDirRaw !== sortDirDefault ? sortDirRaw as 'asc' | 'desc' : undefined) : undefined;
+	const sortDir = sortDirRaw === 'asc' || sortDirRaw === 'desc' ? (sortDirRaw !== sortDirDefault ? sortDirRaw : undefined) : undefined;
 	const pageSizeRaw = typeof raw.pageSize === 'number' ? raw.pageSize : undefined;
 	const pageSize = pageSizeRaw != null && [10, 20, 50, 100].includes(pageSizeRaw) && pageSizeRaw !== 50 ? pageSizeRaw : undefined;
 	const pinned = (Array.isArray(raw.pinned) ? raw.pinned : [])
@@ -1783,7 +1783,7 @@ function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 		? (raw.order as unknown[]).map(v => str(v).trim()).filter(Boolean)
 		: [])];
 	const sortModeRaw = str(raw.sortMode ?? '');
-	const sortMode = sortModeRaw === 'name' || sortModeRaw === 'milestone' || sortModeRaw === 'keyDate' ? sortModeRaw as 'name' | 'milestone' | 'keyDate' : undefined;
+	const sortMode = sortModeRaw === 'name' || sortModeRaw === 'milestone' || sortModeRaw === 'keyDate' ? sortModeRaw : undefined;
 	return {
 		rootFolder: str(raw.rootFolder ?? '').trim(),
 		stages: stages.length > 0 ? stages : defaultPmStages(),

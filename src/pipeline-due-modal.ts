@@ -37,7 +37,7 @@ export class PipelineDueModal extends Modal {
 		const dateInput = dateRow.createEl('input', {
 			cls: 'dashboard-pipeline-cfg-input',
 			attr: { type: 'date' },
-		}) as HTMLInputElement;
+		});
 		dateInput.value = current?.date ?? '';
 
 		const timeRow = body.createDiv({ cls: 'dashboard-library-config-inline-row' });
@@ -45,7 +45,7 @@ export class PipelineDueModal extends Modal {
 		const timeInput = timeRow.createEl('input', {
 			cls: 'dashboard-pipeline-cfg-input',
 			attr: { type: 'time' },
-		}) as HTMLInputElement;
+		});
 		timeInput.value = current?.time ?? '';
 
 		const remindRow = body.createDiv({ cls: 'dashboard-library-config-inline-row' });
@@ -53,7 +53,7 @@ export class PipelineDueModal extends Modal {
 		const remind = remindRow.createEl('input', {
 			cls: 'dashboard-pipeline-cfg-toggle',
 			attr: { type: 'checkbox' },
-		}) as HTMLInputElement;
+		});
 		remind.checked = current?.remind === true;
 		remindRow.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.dueRemindHint') });
 
