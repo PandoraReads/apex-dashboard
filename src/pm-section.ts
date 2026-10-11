@@ -109,8 +109,9 @@ export function renderPmSection(
 			savePrefs({ groupView: cfg.groupView === 'kanban' ? undefined : 'kanban' });
 		});
 		// Card size is GONE as a control (Rae): kanban view always renders
-		// compact cards; flat/stacked stay full.
-		toolbar.appendChild(countPill);
+		// compact cards; flat/stacked stay full. The WHOLE row packs RIGHT
+		// (Rae, final): count first, then the controls, all flush right.
+		toolbar.prepend(countPill);
 
 		// Belt-and-braces: strip cardSize here — the in-memory config (set via
 		// updatePmConfig before any parse round-trip) could still carry the

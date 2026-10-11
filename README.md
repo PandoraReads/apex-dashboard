@@ -4,11 +4,9 @@
 
 ![Apex Dashboard 工作台](assets/dashboard-hero.png)
 
-## 截图预览
+## 两种视图可选
 
 ![Apex Dashboard](screenshot1.png)
-
-![Apex Dashboard](screenshot4.png)
 
 ## 功能特色
 

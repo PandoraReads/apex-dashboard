@@ -26867,7 +26867,6 @@ button.dashboard-capturebar-glyph:hover {
 .dashboard-pmsec-count {
 	font-size: 0.72em;
 	color: var(--db-text-muted, var(--text-muted));
-	margin-left: auto;
 }
 
 .dashboard-pmsec-list {
@@ -28582,6 +28581,7 @@ button.dashboard-capturebar-glyph:hover {
 .dashboard-pmsec-toolbar {
 	display: flex;
 	align-items: center;
+	justify-content: flex-start;
 	gap: 8px;
 	flex-wrap: wrap;
 	margin: 8px 0 4px;
@@ -28725,10 +28725,15 @@ button.dashboard-capturebar-glyph:hover {
 	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 40%, var(--db-border-card, rgba(128, 128, 128, 0.25)));
 }
 
-/* Count pill rides the toolbar row's right end (Rae: one row with controls). */
+/* The WHOLE toolbar row packs RIGHT (Rae, final): count + filter + sort +
+   toggles all flush to the row's right edge. */
+.dashboard-pmsec-toolbar {
+	justify-content: flex-end;
+}
+
 .dashboard-pmsec-toolbar .dashboard-pmsec-count {
-	margin-left: auto;
 	flex-shrink: 0;
+	margin-left: 0;
 }
 
 /* ── PM kanban grouped view: one column per group, horizontal scroll ───── */
