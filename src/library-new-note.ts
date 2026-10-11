@@ -215,6 +215,9 @@ export function mergeTemplateNoteContent(
  * `templatePath`: a template note that seeds the new note — its body (with
  * {{title}}/{{date:…}} substituted) and the frontmatter properties the props
  * don't define (props win collisions) — the quick-note preset pipeline.
+ * `body`: overrides the template's body outright (frontmatter still merges);
+ *  used when the caller synthesizes the initial body itself (PM project
+ *  notes' two standard sections).
  */
 export async function createNoteWithProps(
 	app: App,
@@ -222,6 +225,7 @@ export async function createNoteWithProps(
 	title: string,
 	props: Record<string, string | string[]>,
 	templatePath?: string,
+	body?: string,
 ): Promise<TFile> {
 	const cleanFolder = folder.trim().replace(/^\/+|\/+$/g, '');
 	const name = sanitizeFilename(title);
@@ -232,14 +236,19 @@ export async function createNoteWithProps(
 
 	let content = yamlFrontmatter(props);
 	const tpl = (templatePath ?? '').trim();
-	if (tpl) {
-		const { content: tplContent, found } = await readTemplateContent(app, tpl, { title, now: nowMoment() });
-		if (!found) throw new Error(`Template not found: ${tpl}`);
-		// The template's body seeds the note; its frontmatter properties merge
-		// under the filter props (which win collisions so the note matches the
-		// section's filters).
-		const { fm, body } = splitFrontmatter(tplContent);
-		content = mergeTemplateNoteContent(fm, body.replace(/^\n+/, ''), props);
+	if (tpl || body !== undefined) {
+		let tplFm = '';
+		let tplBody = '';
+		if (tpl) {
+			const { content: tplContent, found } = await readTemplateContent(app, tpl, { title, now: nowMoment() });
+			if (!found) throw new Error(`Template not found: ${tpl}`);
+			const split = splitFrontmatter(tplContent);
+			tplFm = split.fm;
+			tplBody = split.body.replace(/^\n+/, '');
+		}
+		// An explicit body wins over the template's; template frontmatter
+		// still merges under the props (which win collisions).
+		content = mergeTemplateNoteContent(tplFm, (body !== undefined ? body.replace(/^\n+/, '') : tplBody), props);
 	}
 	return app.vault.create(path, content);
 }

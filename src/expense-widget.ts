@@ -1,5 +1,5 @@
 import { App, Notice, setIcon } from 'obsidian';
-import { t } from './i18n';
+import { getLanguage, t } from './i18n';
 import {
 	expenseToday,
 	type ExpenseType,
@@ -43,7 +43,8 @@ export function renderSidebarExpenseWidget(container: HTMLElement, app: App): vo
 	const titleEl = top.createDiv({ cls: 'dashboard-sidebar-expense-title' });
 	const titleIcon = titleEl.createDiv({ cls: 'dashboard-sidebar-expense-title-icon' });
 	setIcon(titleIcon, 'wallet');
-	titleEl.createSpan({ text: t('expense.title') });
+	// English shows the wallet icon only; other locales keep the icon + title text.
+	if (getLanguage() !== 'en') titleEl.createSpan({ text: t('expense.title') });
 	const countEl = top.createDiv({ cls: 'dashboard-sidebar-expense-count' });
 	countEl.setAttribute('aria-label', t('expense.netToday'));
 	top.createDiv({ cls: 'dashboard-sidebar-expense-top-spacer' });

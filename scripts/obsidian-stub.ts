@@ -31,6 +31,8 @@ export class Modal {
 export class TFolder {}
 export class App {}
 export class TFile {}
+export class MarkdownView {}
+export class WorkspaceLeaf {}
 export class Notice {
 	/** Every message ever shown, in order — lets verification scripts assert
 	 *  on notice text without a real toast. */

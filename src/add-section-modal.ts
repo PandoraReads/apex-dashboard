@@ -12,19 +12,25 @@ export interface SectionTypeOption {
  * Section types offered when adding a new section. Rendered as a wrapping grid
  * of icon+label cards so the picker is usable on narrow/mobile screens (the
  * previous inline name+9-buttons+confirm row ran out of space on mobile).
+ * Order = display rows (the grid is fixed at 5 columns on desktop, see
+ * .dashboard-add-section-grid): sticky & data sources first, then the
+ * agent boards + calendar/RSS, then media & web embeds, and the reading/task
+ * integrations last (Rae's layout).
  */
 export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
-	{ value: 'projects', icon: 'layout-grid', labelKey: 'renderer.typeNotes' },
 	{ value: 'sticky', icon: 'layers', labelKey: 'renderer.typeSticky' },
-	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
-	{ value: 'library', icon: 'database', labelKey: 'renderer.typeLibrary' },
 	{ value: 'folder', icon: 'folder', labelKey: 'renderer.typeFolder' },
+	{ value: 'library', icon: 'database', labelKey: 'renderer.typeLibrary' },
+	{ value: 'projects', icon: 'layout-grid', labelKey: 'renderer.typeNotes' },
+	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
+	{ value: 'pm', icon: 'briefcase', labelKey: 'renderer.typePm' },
+	{ value: 'pipeline', icon: 'workflow', labelKey: 'renderer.typePipeline' },
+	{ value: 'skills', icon: 'wand-sparkles', labelKey: 'renderer.typeSkills' },
+	{ value: 'calendar', icon: 'calendar-days', labelKey: 'renderer.typeCalendar' },
+	{ value: 'rss', icon: 'rss', labelKey: 'renderer.typeRss' },
 	{ value: 'images', icon: 'image', labelKey: 'renderer.typeImages' },
 	{ value: 'videos', icon: 'video', labelKey: 'renderer.typeVideos' },
-	{ value: 'calendar', icon: 'calendar-days', labelKey: 'renderer.typeCalendar' },
 	{ value: 'web', icon: 'globe', labelKey: 'renderer.typeWeb' },
-	{ value: 'rss', icon: 'rss', labelKey: 'renderer.typeRss' },
-	{ value: 'pipeline', icon: 'workflow', labelKey: 'renderer.typePipeline' },
 	{ value: 'weread', icon: 'book-open', labelKey: 'renderer.typeWeread' },
 	{ value: 'ticktick', icon: 'check-circle', labelKey: 'renderer.typeTickTick' },
 ];

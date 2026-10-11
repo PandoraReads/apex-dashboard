@@ -26,7 +26,14 @@ import type {
 	PipelineConfig,
 	PipelineStage,
 	PipelineSkill,
+	SkillsSectionConfig,
+	PmConfig,
+	PmStage,
+	PmSkill,
+	SkillCreateConfig,
+	SkillSectionGroup,
 	AgentTarget,
+	CountdownConfig,
 	ImmersiveItem,
 } from './types';
 import { parse as parseYaml } from 'yaml';
@@ -40,7 +47,7 @@ const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
 // sticky), so they never survive a load.
-const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web', 'rss', 'pipeline']);
+const SECTION_TYPES = new Set(['memo', 'todo', 'projects', 'notes', 'dashboard', 'library', 'folder', 'images', 'videos', 'alltasks', 'calendar', 'dataview', 'weread', 'ticktick', 'sticky', 'web', 'rss', 'pipeline', 'skills', 'pm']);
 
 // Card colors are persisted without the leading '#' (see serialize) so Obsidian
 // does not register them as tags. Restore the '#' here; legacy '#xxxxxx' values
@@ -546,6 +553,136 @@ export function serialize(data: DashboardData): string {
 				lines.push('      directSend: true');
 			}
 		}
+		if (col.skillsConfig) {
+			const sc = col.skillsConfig;
+			// All three home stores visible is the default — omit it so files
+			// stay clean and round-trips stay idempotent.
+			const defaultStores = ['claude', 'codex', 'workbuddy'];
+			const stores = [...new Set(sc.stores ?? [])].filter(id => defaultStores.includes(id));
+			const hasSubstores = stores.length > 0 && (stores.length !== defaultStores.length || stores.some(id => !defaultStores.includes(id)));
+			const pinned = (sc.pinned ?? []).filter(name => name.trim().length > 0);
+			// Skip the block entirely when every field is at its default (the
+			// config modal's save can produce such an object).
+			if (!hasSubstores && (sc.sortMode ?? 'name') === 'name' && !sc.sortDir && pinned.length === 0
+				&& (typeof sc.pageSize !== 'number' || sc.pageSize === 50)
+				&& !(sc.importTargets && sc.importTargets.length > 0)
+				&& sc.groups === undefined
+				&& !(sc.assignments && Object.keys(sc.assignments).length > 0)
+				&& !sc.groupView
+				&& !sc.createSkill) continue;
+			lines.push('    skills:');
+			if (hasSubstores) {
+				lines.push(`      stores: [${stores.map(id => JSON.stringify(id)).join(', ')}]`);
+			}
+			if (sc.sortMode && sc.sortMode !== 'name') {
+				lines.push(`      sortMode: ${sc.sortMode}`);
+			}
+			// Direction rides along only when it flips the mode's default
+			// (name asc / recent desc) so files stay minimal.
+			const sortDirDefault = (sc.sortMode ?? 'name') === 'recent' ? 'desc' : 'asc';
+			if (sc.sortDir && sc.sortDir !== sortDirDefault) {
+				lines.push(`      sortDir: ${sc.sortDir}`);
+			}
+			if (pinned.length > 0) {
+				lines.push('      pinned:');
+				for (const pinnedName of pinned) lines.push(`        - ${JSON.stringify(pinnedName)}`);
+			}
+			if (typeof sc.pageSize === 'number' && sc.pageSize !== 50) {
+				lines.push(`      pageSize: ${sc.pageSize}`);
+			}
+			if (sc.importTargets && sc.importTargets.length > 0) {
+				lines.push(`      importTargets: [${sc.importTargets.map(id => JSON.stringify(id)).join(', ')}]`);
+			}
+			// groups: persisted whenever the config modal saved them — an
+			// explicitly emptied list is meaningful (kills the preset
+			// fallback), so `groups: []` still serializes.
+			if (sc.groups) {
+				if (sc.groups.length === 0) {
+					lines.push('      groups: []');
+				} else {
+					lines.push('      groups:');
+					for (const group of sc.groups) {
+						lines.push(`        - id: ${JSON.stringify(group.id)}`);
+						lines.push(`          name: ${JSON.stringify(group.name)}`);
+						if (group.keywords) lines.push(`          keywords: ${JSON.stringify(group.keywords)}`);
+					}
+				}
+			}
+			if (sc.assignments && Object.keys(sc.assignments).length > 0) {
+				lines.push('      assignments:');
+				for (const [skill, groupId] of Object.entries(sc.assignments)) {
+					lines.push(`        ${JSON.stringify(skill)}: ${JSON.stringify(groupId)}`);
+				}
+			}
+			if (sc.groupView) {
+				lines.push(`      groupView: ${sc.groupView}`);
+			}
+			if (sc.createSkill) {
+				const cs = sc.createSkill;
+				lines.push('      createSkill:');
+				lines.push(`        agent: ${cs.agent}`);
+				lines.push(`        skillName: ${JSON.stringify(cs.skillName)}`);
+				if (cs.promptTemplate) {
+					lines.push(`        promptTemplate: ${JSON.stringify(cs.promptTemplate)}`);
+				}
+				if (cs.directSend) {
+					lines.push('        directSend: true');
+				}
+			}
+		}
+		if (col.pmConfig) {
+			const mc = col.pmConfig;
+			lines.push('    pm:');
+			lines.push(`      rootFolder: ${JSON.stringify(mc.rootFolder ?? '')}`);
+			// Stages equal to the localized defaults are omitted so files
+			// stay clean and round-trips stay idempotent.
+			const defaults = defaultPmStages();
+			const isDefaultStages = mc.stages.length === defaults.length
+				&& mc.stages.every((stage, index) => stage.label === defaults[index]!.label);
+			if (mc.stages.length > 0 && !isDefaultStages) {
+				lines.push('      stages:');
+				for (const stage of mc.stages) {
+					lines.push(`        - label: ${JSON.stringify(stage.label)}`);
+					if (stage.color) lines.push(`          color: ${JSON.stringify(stage.color)}`);
+				}
+			}
+			if (mc.workNoteTemplate) {
+				lines.push(`      workNoteTemplate: ${JSON.stringify(mc.workNoteTemplate)}`);
+			}
+			if (mc.order && mc.order.length > 0) {
+				lines.push(`      order: [${mc.order.map(p => JSON.stringify(p)).join(', ')}]`);
+			}
+			if (mc.sortMode) {
+				lines.push(`      sortMode: ${mc.sortMode}`);
+			}
+			if (mc.groupView) {
+				lines.push(`      groupView: ${mc.groupView}`);
+			}
+
+			if (mc.pinned && mc.pinned.length > 0) {
+				lines.push(`      pinned: [${mc.pinned.map(x => JSON.stringify(x)).join(', ')}]`);
+			}
+			if (mc.archiveFolder) {
+				lines.push(`      archiveFolder: ${JSON.stringify(mc.archiveFolder)}`);
+			}
+			if (mc.skills && mc.skills.length > 0) {
+				lines.push('      skills:');
+				for (const skill of mc.skills) {
+					lines.push(`        - label: ${JSON.stringify(skill.label)}`);
+					lines.push(`          icon: ${JSON.stringify(skill.icon)}`);
+					lines.push(`          agent: ${skill.agent}`);
+					lines.push(`          skillName: ${JSON.stringify(skill.skillName)}`);
+					lines.push(`          promptTemplate: ${JSON.stringify(skill.promptTemplate)}`);
+					if (skill.directSend) lines.push('          directSend: true');
+				}
+			}
+			if (mc.excludeFolders && mc.excludeFolders.length > 0) {
+				lines.push('      excludeFolders:');
+				for (const folder of mc.excludeFolders) {
+					lines.push(`        - ${JSON.stringify(folder)}`);
+				}
+			}
+		}
 	}
 
 	lines.push('---');
@@ -555,7 +692,7 @@ export function serialize(data: DashboardData): string {
 		lines.push(`## ${column.name}`);
 		lines.push('');
 
-		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview' || column.sectionType === 'web' || column.sectionType === 'rss' || column.sectionType === 'pipeline') continue;
+		if (column.sectionType === 'library' || column.sectionType === 'folder' || column.sectionType === 'images' || column.sectionType === 'videos' || column.sectionType === 'alltasks' || column.sectionType === 'calendar' || column.sectionType === 'dataview' || column.sectionType === 'web' || column.sectionType === 'rss' || column.sectionType === 'pipeline' || column.sectionType === 'skills' || column.sectionType === 'pm') continue;
 
 		for (const card of column.cards) {
 			lines.push(`### ${card.title}`);
@@ -675,6 +812,29 @@ export function serialize(data: DashboardData): string {
 	return lines.join('\n');
 }
 
+/**
+ * The immersive default board's countdown tile counts down to the NEXT New
+ * Year, computed at creation time — a hardcoded year ships expired boards the
+ * moment it passes (the cd-2026-end lesson). This single factory is shared by
+ * the tile id in generateDefaultMarkdown and both seeding sites in main.ts
+ * (first install + new immersive workspace), so the id and the settings entry
+ * can never drift apart.
+ */
+export function newYearCountdown(now: Date = new Date()): CountdownConfig {
+	const year = now.getFullYear();
+	return {
+		id: `cd-${year}-end`,
+		label: t('defaults.newYearEndLabel', { year }),
+		targetDate: `${year + 1}-01-01T00:00:00`,
+		displayMode: 'days',
+		reminderDays: 0,
+		background: {
+			image: 'https://images.pexels.com/photos/31409439/pexels-photo-31409439.jpeg',
+			opacity: 100, dim: 45, blur: 0, foreground: 'light',
+		},
+	};
+}
+
 export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 	const today = new Date();
 	const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -701,7 +861,7 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 		IM('widget:habit', 2, 19, 10, 58),
 		IM('widget:pomodoro', 2, 14, 10, 28),
 		IM('widget:expense', 2, 16, 10, 42),
-		IM('widget:countdown-cd-2026-end', 3, 10, 9, 0),
+		IM(`widget:countdown-${newYearCountdown().id}`, 3, 10, 9, 0),
 		IM('widget:music', 3, 17, 0, 0),
 		IM('card:demo-memo-1', 3, 21, 3, 0),
 		IM('card:demo-memo-path', 4, 21, 6, 32),
@@ -726,27 +886,24 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 				color: '#f59e0b',
 				sectionType: 'sticky',
 				cards: [
-					card({ id: 'demo-memo-1', title: `${dateStr} 备忘`, type: 'generic', column: stickyName, body: '欢迎使用 Apex Dashboard！点击此处编辑你的第一条备忘。' }),
+					card({ id: 'demo-memo-1', title: t('default.memoTitle', { date: dateStr }), type: 'generic', column: stickyName, body: t('default.memoBody') }),
+					card({ id: 'demo-memo-path', title: t('default.tipsTitle'), type: 'generic', column: stickyName, body: t('default.tipsBody') }),
 					card({
-						id: 'demo-memo-path', title: '提示', type: 'generic', column: stickyName,
-						body: '- 你可以在 **设置** > **Apex Dashboard** 中**修改 dashboard 文件路径**。\n- 双击分区标题即可**重命名分区**。',
-					}),
-					card({
-						id: 'demo-todo-1', title: '快速上手', type: 'task', column: stickyName,
+						id: 'demo-todo-1', title: t('default.todoTitle1'), type: 'task', column: stickyName,
 						tasks: [
-							{ text: '尝试添加一张新卡片', checked: false },
-							{ text: '在不同分区之间拖拽卡片', checked: false },
-							{ text: '编辑 Banner 区的名言', checked: false },
-							{ text: '添加一个快捷链接', checked: false },
+							{ text: t('default.itodo1'), checked: false },
+							{ text: t('default.itodo2'), checked: false },
+							{ text: t('default.itodo3'), checked: false },
+							{ text: t('default.itodo4'), checked: false },
 						],
 					}),
 					card({
-						id: 'demo-todo-2', title: '界面操作指南', type: 'task', column: stickyName,
+						id: 'demo-todo-2', title: t('default.todoTitle2'), type: 'task', column: stickyName,
 						tasks: [
-							{ text: '点击左侧隐藏条拉出左侧栏', checked: false },
-							{ text: '点击图钉按钮取消固定左侧栏', checked: false },
-							{ text: '点击 Banner 区的书签按钮收起 Banner', checked: false },
-							{ text: '在设置中开启更多小组件', checked: false },
+							{ text: t('default.iguide1'), checked: false },
+							{ text: t('default.iguide2'), checked: false },
+							{ text: t('default.iguide3'), checked: false },
+							{ text: t('default.iguide4'), checked: false },
 						],
 					}),
 				],
@@ -781,53 +938,11 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 						title: t('default.memoTitle', { date: dateStr }),
 						type: 'generic',
 						column: stickyName,
-						body: t('default.memoBody'),
-						tasks: [],
-						docs: [],
-						url: '',
-						wikiLink: '',
-						progress: -1,
-						streak: 0,
-						dueDate: '',
-						blockquote: '',
-						color: '',
-						coverImage: '',
-						width: 0,
-					size: 'M',
-					gridCols: 0,
-					gridRows: 0,
-					gridCol: 0,
-					gridRow: 0,
-					},
-					{
-						id: 'demo-memo-path',
-						title: t('default.memoPathTitle'),
-						type: 'generic',
-						column: stickyName,
-						body: t('default.memoPathBody'),
-						tasks: [],
-						docs: [],
-						url: '',
-						wikiLink: '',
-						progress: -1,
-						streak: 0,
-						dueDate: '',
-						blockquote: '',
-						color: '',
-						coverImage: '',
-						width: 0,
-					size: 'M',
-					gridCols: 0,
-					gridRows: 0,
-					gridCol: 0,
-					gridRow: 0,
-					},
-					{
-						id: 'demo-memo-rename',
-						title: t('default.memoRenameTitle'),
-						type: 'generic',
-						column: stickyName,
-						body: t('default.memoRenameBody'),
+						// The three former demo memos (welcome / path tip / rename
+						// tip) merged into ONE markdown-flavored memo — bold +
+						// bullet list, showcasing the memo's markdown rendering
+						// instead of three thin cards.
+						body: t('default.memoBodyFull'),
 						tasks: [],
 						docs: [],
 						url: '',
@@ -880,10 +995,10 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 						column: stickyName,
 						body: '',
 						tasks: [
-							{ text: t('default.guide1'), checked: false },
-							{ text: t('default.guide2'), checked: false },
-							{ text: t('default.guide3'), checked: false },
-							{ text: t('default.guide4'), checked: false },
+							{ text: t('default.cguide1'), checked: false },
+							{ text: t('default.cguide2'), checked: false },
+							{ text: t('default.cguide3'), checked: false },
+							{ text: t('default.cguide4'), checked: false },
 						],
 						docs: [],
 						url: '',
@@ -1179,7 +1294,7 @@ function parseImmersiveItems(fm: Record<string, unknown>): ImmersiveItem[] | und
 	return items.length > 0 ? items : undefined;
 }
 
-function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; pipelineConfig?: PipelineConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
+function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; pipelineConfig?: PipelineConfig; skillsConfig?: SkillsSectionConfig; pmConfig?: PmConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }> {
 	const raw = fm.columns;
 	if (!Array.isArray(raw)) return DEFAULT_COLUMNS;
 
@@ -1194,6 +1309,8 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 			webConfig: item.web ? parseWebConfig(item.web as Record<string, unknown>) : undefined,
 			rssConfig: item.rss ? parseRssConfig(item.rss as Record<string, unknown>) : undefined,
 			pipelineConfig: item.pipeline ? parsePipelineConfig(item.pipeline as Record<string, unknown>) : undefined,
+			skillsConfig: item.skills ? parseSkillsConfig(item.skills as Record<string, unknown>) : undefined,
+			pmConfig: item.pm ? parsePmConfig(item.pm as Record<string, unknown>) : undefined,
 			showCover: item.showCover === false ? false : undefined,
 			height: typeof item.height === 'number' ? item.height : undefined,
 			half: item.half === true ? true : undefined,
@@ -1201,7 +1318,7 @@ function parseColumnDefs(fm: Record<string, unknown>): Array<{ name: string; col
 		}));
 }
 
-function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; pipelineConfig?: PipelineConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
+function parseColumns(body: string, defs: Array<{ name: string; color: string; sectionType?: string; libraryConfig?: LibraryConfig; wereadConfig?: WereadConfig; ticktickConfig?: TickTickConfig; dataviewConfig?: DataviewConfig; webConfig?: WebEmbedConfig; rssConfig?: RssConfig; pipelineConfig?: PipelineConfig; skillsConfig?: SkillsSectionConfig; pmConfig?: PmConfig; showCover?: boolean; height?: number; half?: boolean; width?: number }>): DashboardColumn[] {
 	const sections = splitByH2(body);
 	const defMap = new Map(defs.map(d => [d.name, d]));
 	const usedDefIndices = new Set<number>();
@@ -1238,6 +1355,8 @@ function parseColumns(body: string, defs: Array<{ name: string; color: string; s
 			webConfig: def?.webConfig,
 			rssConfig: def?.rssConfig,
 			pipelineConfig: def?.pipelineConfig,
+			skillsConfig: def?.skillsConfig,
+			pmConfig: def?.pmConfig,
 			height: def?.height,
 			half: def?.half,
 			width: def?.half ? def?.width : undefined,
@@ -1554,6 +1673,147 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 		...(excludeFolders.length > 0 ? { excludeFolders } : {}),
 		...(cardProperties.length > 0 ? { cardProperties } : {}),
 		...(raw.directSend === true ? { directSend: true } : {}),
+	};
+}
+
+const SKILLS_HOME_STORE_IDS = new Set(['claude', 'codex', 'workbuddy']);
+
+function parseSkillsConfig(raw: Record<string, unknown>): SkillsSectionConfig {
+	const stores = [...new Set((Array.isArray(raw.stores) ? raw.stores : [])
+		.map(s => str(s).trim())
+		.filter(s => SKILLS_HOME_STORE_IDS.has(s)))];
+	const sortModeRaw = str(raw.sortMode ?? '');
+	const sortMode = sortModeRaw === 'recent' ? 'recent' as const : undefined;
+	const sortDirRaw = str(raw.sortDir ?? '');
+	const sortDirDefault = sortMode === 'recent' ? 'desc' : 'asc';
+	const sortDir = sortDirRaw === 'asc' || sortDirRaw === 'desc' ? (sortDirRaw !== sortDirDefault ? sortDirRaw as 'asc' | 'desc' : undefined) : undefined;
+	const pageSizeRaw = typeof raw.pageSize === 'number' ? raw.pageSize : undefined;
+	const pageSize = pageSizeRaw != null && [10, 20, 50, 100].includes(pageSizeRaw) && pageSizeRaw !== 50 ? pageSizeRaw : undefined;
+	const pinned = (Array.isArray(raw.pinned) ? raw.pinned : [])
+		.map(s => str(s).trim())
+		.filter(s => s.length > 0);
+	const importTargets = [...new Set((Array.isArray(raw.importTargets) ? raw.importTargets : [])
+		.map(s => str(s).trim())
+		.filter(s => SKILLS_HOME_STORE_IDS.has(s) || s.startsWith('custom:')))];
+	const groups: SkillSectionGroup[] = [];
+	if (Array.isArray(raw.groups)) {
+		for (const entry of raw.groups) {
+			if (typeof entry !== 'object' || entry === null) continue;
+			const rec = entry as Record<string, unknown>;
+			const id = str(rec.id ?? '').trim();
+			const name = str(rec.name ?? '').trim();
+			if (!id || !name) continue;
+			const keywords = str(rec.keywords ?? '').trim();
+			groups.push({ id, name, ...(keywords ? { keywords } : {}) });
+		}
+	}
+	const assignments: Record<string, string> = {};
+	if (raw.assignments && typeof raw.assignments === 'object' && !Array.isArray(raw.assignments)) {
+		for (const [skill, groupId] of Object.entries(raw.assignments as Record<string, unknown>)) {
+			const cleanSkill = skill.trim();
+			const cleanId = str(groupId).trim();
+			if (cleanSkill && cleanId) assignments[cleanSkill] = cleanId;
+		}
+	}
+	return {
+		...(stores.length > 0 ? { stores } : {}),
+		...(sortMode ? { sortMode } : {}),
+		...(sortDir ? { sortDir } : {}),
+		...(pinned.length > 0 ? { pinned } : {}),
+		...(pageSize ? { pageSize } : {}),
+		...(importTargets.length > 0 ? { importTargets } : {}),
+		...(raw.groups !== undefined ? { groups } : {}),
+		...(Object.keys(assignments).length > 0 ? { assignments } : {}),
+		...(raw.groupView === 'groups' || raw.groupView === 'kanban' ? { groupView: raw.groupView } : {}),
+		...parseSkillCreateConfig(raw.createSkill),
+	};
+}
+
+/** Localized default PM stages: seeded by parsePmConfig when a pm section
+ *  carries none, so a hand-added section works out of the box. Serialize
+ *  omits a stage list equal to these (round-trip idempotency). */
+export function defaultPmStages(): PmStage[] {
+	return [
+		t('pm.stage.lead'), t('pm.stage.proposal'), t('pm.stage.contract'),
+		t('pm.stage.executing'), t('pm.stage.acceptance'), t('pm.stage.done'),
+	].map(label => ({ label }));
+}
+
+const PM_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy']);
+
+function parsePmConfig(raw: Record<string, unknown>): PmConfig {
+	const pinned = [...new Set(Array.isArray(raw.pinned)
+		? (raw.pinned as unknown[]).map(v => str(v).trim()).filter(Boolean)
+		: [])];
+	const stages: PmStage[] = [];
+	const rawStages = raw.stages;
+	if (Array.isArray(rawStages)) {
+		for (const item of rawStages) {
+			const rec = item as Record<string, unknown>;
+			const label = str(rec.label ?? '').trim();
+			if (!label) continue;
+			const color = str(rec.color ?? '').trim();
+			stages.push(color ? { label, color } : { label });
+		}
+	}
+	const skills: PmSkill[] = [];
+	const rawSkills = raw.skills;
+	if (Array.isArray(rawSkills)) {
+		for (const item of rawSkills) {
+			const rec = item as Record<string, unknown>;
+			const label = str(rec.label ?? '').trim();
+			if (!label) continue;
+			const agent = str(rec.agent ?? '').trim();
+			if (!PM_AGENTS.has(agent)) continue;
+			skills.push({
+				id: str(rec.id ?? '').trim() || `pms_${label}_${skills.length}`,
+				label,
+				icon: str(rec.icon ?? '').trim() || 'sparkles',
+				agent: agent as PmSkill['agent'],
+				skillName: str(rec.skillName ?? '').trim(),
+				promptTemplate: str(rec.promptTemplate ?? ''),
+				...(rec.directSend === true ? { directSend: true } : {}),
+			});
+		}
+	}
+	const excludeFolders = Array.isArray(raw.excludeFolders)
+		? (raw.excludeFolders as unknown[]).map(v => str(v).trim()).filter(Boolean)
+		: [];
+	const order = [...new Set(Array.isArray(raw.order)
+		? (raw.order as unknown[]).map(v => str(v).trim()).filter(Boolean)
+		: [])];
+	const sortModeRaw = str(raw.sortMode ?? '');
+	const sortMode = sortModeRaw === 'name' || sortModeRaw === 'milestone' || sortModeRaw === 'keyDate' ? sortModeRaw as 'name' | 'milestone' | 'keyDate' : undefined;
+	return {
+		rootFolder: str(raw.rootFolder ?? '').trim(),
+		stages: stages.length > 0 ? stages : defaultPmStages(),
+		...(str(raw.workNoteTemplate ?? '').trim() ? { workNoteTemplate: str(raw.workNoteTemplate).trim() } : {}),
+		...(str(raw.archiveFolder ?? '').trim() ? { archiveFolder: str(raw.archiveFolder).trim() } : {}),
+		...(skills.length > 0 ? { skills } : {}),
+		...(excludeFolders.length > 0 ? { excludeFolders } : {}),
+		...(order.length > 0 ? { order } : {}),
+		...(sortMode ? { sortMode } : {}),
+		...(raw.groupView === 'blocks' || raw.groupView === 'kanban' ? { groupView: raw.groupView } : raw.groupView === true ? { groupView: 'blocks' as const } : {}),
+		...(pinned.length > 0 ? { pinned } : {}),
+	};
+}
+
+const SKILL_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy']);
+
+function parseSkillCreateConfig(raw: unknown): { createSkill?: SkillCreateConfig } {
+	if (typeof raw !== 'object' || raw === null) return {};
+	const rec = raw as Record<string, unknown>;
+	const agent = str(rec.agent ?? '');
+	const skillName = str(rec.skillName ?? '').trim();
+	if (!SKILL_AGENTS.has(agent) || !skillName) return {};
+	const promptTemplate = str(rec.promptTemplate ?? '');
+	return {
+		createSkill: {
+			agent: agent as SkillCreateConfig['agent'],
+			skillName,
+			promptTemplate,
+			...(rec.directSend === true ? { directSend: true } : {}),
+		},
 	};
 }
 

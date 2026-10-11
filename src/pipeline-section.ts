@@ -724,12 +724,15 @@ async function movePipelineItem(
 /** Send a skill prompt through its agent adapter — via the preview modal, or
  *  straight away when the section opts into direct send. Stage-scope skills
  *  always open the modal (its checklist is the only way to narrow the run to
- *  selected items); direct send applies to card-scope buttons only. */
-function dispatchSkill(
+ *  selected items); direct send applies to card-scope buttons only.
+ *
+ *  Exported for the PM section, whose PmSkill buttons dispatch through the
+ *  exact same machinery (spec fields + vars; no selectable list). */
+export function dispatchSkill(
 	app: App,
-	skill: PipelineSkill,
+	skill: Pick<PipelineSkill, 'label' | 'skillName' | 'promptTemplate' | 'agent' | 'directSend'>,
 	vars: Record<string, string>,
-	cfg: PipelineConfig,
+	cfg: Pick<PipelineConfig, 'directSend'>,
 	options?: { selectableFiles?: Array<{ path: string; title: string }> },
 ): void {
 	const spec = {

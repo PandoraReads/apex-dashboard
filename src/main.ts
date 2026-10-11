@@ -4,7 +4,7 @@ import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
-import { setLanguage, t } from './i18n';
+import { setLanguage, t, type Language } from './i18n';
 import { setRssReadRetentionDays } from './rss-store';
 import { DataviewGuideModal } from './dataview-guide-modal';
 import { ThemeStudioModal } from './theme-studio-modal';
@@ -14,14 +14,14 @@ import { ThemeStudioModal } from './theme-studio-modal';
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
  *  shipped with 2.5.1. */
-const ANNOUNCE_VERSION = '3.7.1';
+const ANNOUNCE_VERSION = '3.8.0';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
 import { HabitService, registerHabitService } from './habit-service';
 import { ExpenseService, registerExpenseService } from './expense-service';
 import { MusicService, registerMusicService } from './music-service';
-import { generateDefaultMarkdown } from './parser';
+import { generateDefaultMarkdown, newYearCountdown } from './parser';
 import {
 	alignWorkspaceNames,
 	migrateWorkspaces,
@@ -190,6 +190,21 @@ export default class DashboardPlugin extends Plugin {
 				const next = themes[(idx + 1) % themes.length] ?? 'earth';
 				this.settings = { ...this.settings, stylePreset: next, activeCustomThemeId: '' };
 				await this.saveSettings();
+				this.refreshAllDashboards();
+			},
+		});
+
+		// Toggle zh/en. Registered as a normal Obsidian command so the
+		// quick-command bar can bind it like any other.
+		this.addCommand({
+			id: 'toggle-language',
+			name: t('main.toggleLanguage'),
+			callback: async () => {
+				const lang: Language = this.settings.language === 'zh' ? 'en' : 'zh';
+				this.settings = { ...this.settings, language: lang };
+				setLanguage(lang);
+				await this.saveSettings();
+				new Notice(t('main.languageSwitched'));
 				this.refreshAllDashboards();
 			},
 		});
@@ -366,6 +381,11 @@ export default class DashboardPlugin extends Plugin {
 		if (loaded === null) {
 			this.settings = {
 				...this.settings,
+				// Fresh installs open on the flagship immersive board. NOT moved
+				// into DEFAULT_SETTINGS: upgraders whose data.json predates the
+				// layoutMode key must keep resolving their layout-less boards to
+				// 'side', not have them flip immersive overnight.
+				layoutMode: 'immersive' as const,
 				quickNotesEnabled: true,
 				// The bar ships with its capture pill ready to type into (the
 				// master toggle above only shows the bar itself).
@@ -384,17 +404,23 @@ export default class DashboardPlugin extends Plugin {
 					opacity: 95, dim: 0, blur: 0, foreground: '#f4ebeb',
 				},
 				countdownEnabled: true,
-				countdowns: [{
-					id: 'cd-default',
-					label: t('defaults.countdownLabel'),
-					targetDate: `${new Date().getFullYear()}-12-31T23:55`,
-					displayMode: 'hours',
-					reminderDays: 0,
-					background: {
-						image: 'https://images.pexels.com/photos/31409439/pexels-photo-31409439.jpeg',
-						opacity: 100, dim: 0, blur: 0, foreground: 'light',
+				countdowns: [
+					{
+						id: 'cd-default',
+						label: t('defaults.countdownLabel'),
+						targetDate: `${new Date().getFullYear()}-12-31T23:55`,
+						displayMode: 'hours',
+						reminderDays: 0,
+						background: {
+							image: 'https://images.pexels.com/photos/31409439/pexels-photo-31409439.jpeg',
+							opacity: 100, dim: 0, blur: 0, foreground: 'light',
+						},
 					},
-				}],
+					// The immersive default board's countdown tile references this
+					// entry by id (parser.newYearCountdown) — seed it alongside so
+					// the first-run board's tile actually renders.
+					newYearCountdown(),
+				],
 				// Example anniversary so the widget ships with its background
 				// styling already shown (the author's vault look). Dated one
 				// year back from install so the elapsed value reads sensibly on
@@ -415,8 +441,43 @@ export default class DashboardPlugin extends Plugin {
 			};
 			this.app.saveLocalStorage('apex-dashboard-sidebar-pinned', 'true');
 			await this.saveSettings();
+			// First install ships TWO preset workspaces: the immersive flagship
+			// board (active) plus a classic one. Files are created once the
+			// vault settles — keeps onload light and the file index coherent.
+			this.app.workspace.onLayoutReady(() => { void this.seedFirstInstallWorkspaces(); });
 		}
 		setLanguage(this.settings.language);
+	}
+
+	/** First-install preset: create the two registry files — the immersive
+	 *  board first (active), a classic board second. Existing files are left
+	 *  untouched (same contract as findOrCreateFile): a pre-existing
+	 *  dashboard.md simply stays the active board. The classic board pins
+	 *  `layout: side` in its frontmatter because the fresh-install global
+	 *  default is immersive — an unpinned board would render immersive. */
+	private async seedFirstInstallWorkspaces(): Promise<void> {
+		if (this.settings.workspaceFiles.length >= 2) return;
+		const exists = (p: string) => !!this.app.vault.getFileByPath(p.endsWith('.md') ? p : `${p}.md`);
+		const first = normalizeWorkspacePath(this.settings.dashboardFile) || 'dashboard';
+		const second = nextWorkspacePath(this.settings.workspaceFiles, '', exists);
+		const files = [first, second];
+		for (const [index, entry] of files.entries()) {
+			if (exists(entry)) continue;
+			try {
+				await this.app.vault.create(
+					entry.endsWith('.md') ? entry : `${entry}.md`,
+					generateDefaultMarkdown(index === 0 ? 'immersive' : 'side'),
+				);
+			} catch {
+				// raced or blocked — the lazy findOrCreateFile path still covers it
+			}
+		}
+		this.settings = {
+			...this.settings,
+			workspaceFiles: files,
+			workspaceNames: files.map(() => ''),
+		};
+		await this.saveSettings();
 	}
 
 	async saveSettings(): Promise<void> {
@@ -530,28 +591,30 @@ export default class DashboardPlugin extends Plugin {
 		// Immersive boards carry the year-end countdown tile; its settings
 		// entry (managed globally) is ensured here so the tile can render
 		// (added once for installs whose data.json predates the default).
-		if (layout === 'immersive' && !this.settings.countdowns.some(c => c.id === 'cd-2026-end')) {
-			const seeded = (await this.loadData()) as Partial<DashboardSettings> | null;
-			const rawCountdowns = seeded?.countdowns;
-			this.settings = {
-				...this.settings,
-				countdowns: [
-					...(rawCountdowns ?? this.settings.countdowns),
-					{
-						id: 'cd-2026-end',
-						label: '2026年结束',
-						targetDate: '2027-01-01T00:00:00',
-						displayMode: 'days' as const,
-						reminderDays: 0,
-						background: { image: 'https://images.pexels.com/photos/31409439/pexels-photo-31409439.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
-					},
-				],
-			};
-			await this.saveSettings();
+		// The immersive template's countdown tile needs its settings entry
+		// (id computed per-year via newYearCountdown, so boards created after
+		// any given New Year never ship an expired countdown).
+		if (layout === 'immersive') {
+			const cd = newYearCountdown();
+			if (!this.settings.countdowns.some(c => c.id === cd.id)) {
+				const seeded = (await this.loadData()) as Partial<DashboardSettings> | null;
+				const rawCountdowns = seeded?.countdowns;
+				this.settings = {
+					...this.settings,
+					countdowns: [...(rawCountdowns ?? this.settings.countdowns), cd],
+				};
+				await this.saveSettings();
+			}
 		}
 		try {
 			const withExt = path.endsWith('.md') ? path : `${path}.md`;
-			await this.app.vault.create(withExt, generateDefaultMarkdown(layout));
+			// A plain "new workspace" follows the user's global layout default:
+			// immersive-default users get the immersive template instead of a
+			// classic-shaped board that then renders immersive with no
+			// arrangement. 'side' stays undefined to keep the classic
+			// follow-global semantics.
+			const effectiveLayout = layout ?? (this.settings.layoutMode === 'immersive' ? 'immersive' : undefined);
+			await this.app.vault.create(withExt, generateDefaultMarkdown(effectiveLayout));
 		} catch (err) {
 			console.error('Workspace file creation failed:', err);
 			new Notice(t('workspace.createFailed'));

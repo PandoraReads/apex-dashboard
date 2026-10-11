@@ -31,6 +31,13 @@ import { rememberSkillNames } from './skill-registry';
 import { fireSkillDirect } from './skill-widget';
 import { SkillWidgetConfigModal } from './skill-widget-config-modal';
 import { PipelineConfigModal } from './pipeline-config-modal';
+import { PmConfigModal } from './pm-config-modal';
+import { PmNewModal } from './pm-new-modal';
+import { PmArchiveModal } from './pm-archive-modal';
+import { SkillSectionConfigModal } from './skill-section-config-modal';
+import { SkillCreateConfigModal } from './skill-create-config-modal';
+import { SkillImportModal } from './skill-import-modal';
+import { getSkillLibraryStore } from './skill-store';
 import { CountdownSettingsModal } from './countdown-modal';
 import { AlbumSettingsModal } from './album-settings-modal';
 import { AnniversarySettingsModal } from './anniversary-settings-modal';
@@ -68,6 +75,7 @@ import { createReadingMiniTimer, type ReadingMiniTimer } from './reading-mini-ti
 import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
 import { parseNoteDue } from './pipeline-model';
+import { pmKeyDate } from './pm-model';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
 import { getOrCreateDailyNote, ensureFolder } from './daily-notes';
@@ -402,11 +410,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		await this.sync.switchFile();
 	}
 
-	async addSection(): Promise<void> {
-		const name = await showPromptDialog(this.app, { title: t('renderer.sectionName') });
-		if (name) {
-			void this.sync.addColumn(name);
-		}
+	addSection(): void {
+		// Same flow as the "+ 添加分区" button: pick the section type first,
+		// then name it. The plain name prompt (always a notes section) is gone.
+		this.openAddSectionModalInner();
 	}
 
 	/** Flip the banner between poster & quotes and the stats dashboard.
@@ -716,6 +723,10 @@ export class DashboardView extends ItemView implements HoverParent {
 				this.openRssConfigModal(columnName);
 			} else if (col?.sectionType === 'pipeline') {
 				this.openPipelineConfigModal(columnName);
+			} else if (col?.sectionType === 'skills') {
+				this.openSkillsConfigModal(columnName);
+			} else if (col?.sectionType === 'pm') {
+				this.openPmConfigModal(columnName);
 			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
 				this.openMediaConfigModal(columnName);
 			} else if (col?.sectionType === 'projects') {
@@ -735,6 +746,70 @@ export class DashboardView extends ItemView implements HoverParent {
 					this.refreshSectionInPlace(columnName);
 				});
 			}
+		}) as EventListener);
+
+		// Skills section view prefs (sort / page size / pinned) — the section
+		// dispatches partial prefs; they merge into skillsConfig and the
+		// section rebuilds in place with the new order.
+		board.addEventListener('dashboard-skills-prefs', ((e: CustomEvent) => {
+			const { columnName, prefs } = e.detail as { columnName: string; prefs: Partial<import('./types').SkillsSectionConfig> };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.sectionType !== 'skills' || !prefs) return;
+			const next = { ...col.skillsConfig, ...prefs };
+			// Undefined values from the section (back-to-default picks) must
+			// drop the key entirely so serialize stays idempotent.
+			for (const key of Object.keys(next) as Array<keyof typeof next>) {
+				if (next[key] === undefined) delete next[key];
+			}
+			void this.sync.updateSkillsConfig(columnName, next).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		}) as EventListener);
+
+		// Skills "new skill" button: the first click configures the creator
+		// skill (agent + name + template), later clicks go straight to the
+		// confirm dialog (directSend is an explicit opt-out).
+		board.addEventListener('dashboard-skills-create', ((e: CustomEvent) => {
+			const { columnName } = e.detail as { columnName: string };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.sectionType !== 'skills') return;
+			const cfg = col.skillsConfig?.createSkill;
+			if (cfg) {
+				this.dispatchSkillCreate(cfg);
+				return;
+			}
+			new SkillCreateConfigModal(this.app, this.plugin, undefined, saved => {
+				const fresh = this.data?.columns.find(c => c.name === columnName);
+				void (async () => {
+					await this.sync.updateSkillsConfig(columnName, { ...fresh?.skillsConfig, createSkill: saved });
+					await rememberSkillNames(this.plugin, saved.agent, [saved.skillName]);
+					this.dispatchSkillCreate(saved);
+				})();
+			}).open();
+		}) as EventListener);
+
+		// Skills import — the modal needs the plugin (custom folders CSV,
+		// remember-registry); the section only signals the intent.
+		board.addEventListener('dashboard-skills-import', ((e: CustomEvent) => {
+			const { columnName } = e.detail as { columnName: string };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.sectionType !== 'skills') return;
+			new SkillImportModal(this.app, {
+				foldersCsv: this.plugin.settings.skillSourceFolders ?? '',
+				defaultTargets: col.skillsConfig?.importTargets ?? [],
+				onSaveTargets: ids => {
+					// Fresh lookup: prefs may have changed while the modal was open.
+					const fresh = this.data?.columns.find(c => c.name === columnName);
+					void this.sync.updateSkillsConfig(columnName, { ...fresh?.skillsConfig, importTargets: ids });
+				},
+				onImported: (name, agents) => {
+					// Fresh skills surface immediately: rescan on next render
+					// and offer the name in every targeted agent's picker.
+					getSkillLibraryStore(this.app).markDirty();
+					for (const agent of agents) void rememberSkillNames(this.plugin, agent, [name]);
+					this.refreshSectionInPlace(columnName);
+				},
+			}).open();
 		}) as EventListener);
 
 		// Pipeline value-filter rail pick — persists into the section config
@@ -771,6 +846,71 @@ export class DashboardView extends ItemView implements HoverParent {
 				stages: config.stages.map(stage => stage.value === stageValue ? { ...stage, width } : stage),
 			};
 			void this.sync.updatePipelineConfig(columnName, next);
+		}) as EventListener);
+
+		// PM board edits land straight on the project note — refresh every pm
+		// section in place (the vault-event path is debounced; this is the
+		// instant feedback the board modal's write-through wants).
+		board.addEventListener('dashboard-pm-updated', (() => {
+			if (!this.data) return;
+			for (const col of this.data.columns) {
+				if (col.sectionType === 'pm') this.refreshSectionInPlace(col.name);
+			}
+		}) as EventListener);
+
+		// PM card pin toggle: the full pinned path list arrives — persist and
+		// refresh in place (pinned cards jump to the front).
+		board.addEventListener('dashboard-pm-pin', ((e: CustomEvent) => {
+			const { columnName, pinned } = e.detail as { columnName: string; pinned: string[] };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !Array.isArray(pinned)) return;
+			void this.sync.updatePmConfig(columnName, { ...col.pmConfig, pinned }).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		}) as EventListener);
+
+		// PM view prefs (sort mode / grouped view) — merge into pmConfig.
+		board.addEventListener('dashboard-pm-prefs', ((e: CustomEvent) => {
+			const { columnName, prefs } = e.detail as { columnName: string; prefs: { sortMode?: 'name' | 'milestone' | 'keyDate'; groupView?: 'blocks' | 'kanban' } };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !prefs) return;
+			const next = { ...col.pmConfig, ...prefs };
+			for (const key of Object.keys(next) as Array<keyof typeof next>) {
+				if (next[key] === undefined) delete next[key];
+			}
+			void this.sync.updatePmConfig(columnName, next).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		}) as EventListener);
+
+		// PM card drag reorder: the card list arrived in display order —
+		// persist it as pmConfig.order and refresh in place.
+		board.addEventListener('dashboard-pm-order', ((e: CustomEvent) => {
+			const { columnName, order } = e.detail as { columnName: string; order: string[] };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !Array.isArray(order)) return;
+			void this.sync.updatePmConfig(columnName, { ...col.pmConfig, order }).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		}) as EventListener);
+
+		// PM section header's + button: open the new-project form for that
+		// column's config.
+		board.addEventListener('dashboard-pm-new', ((e: CustomEvent) => {
+			const { columnName } = e.detail as { columnName: string };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (col?.sectionType === 'pm' && col.pmConfig) {
+				new PmNewModal(this.app, col.pmConfig).open();
+			}
+		}) as EventListener);
+
+		// PM section header's archive button: the archived-projects viewer.
+		board.addEventListener('dashboard-pm-archive', ((e: CustomEvent) => {
+			const { columnName } = e.detail as { columnName: string };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (col?.sectionType === 'pm' && col.pmConfig) {
+				new PmArchiveModal(this.app, col.pmConfig).open();
+			}
 		}) as EventListener);
 
 		// Library/folder "new note" button — dispatched from the section toolbar.
@@ -1742,6 +1882,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.openRssConfigModal(name);
 		} else if (sectionType === 'pipeline') {
 			this.openPipelineConfigModal(name);
+		} else if (sectionType === 'skills') {
+			this.openSkillsConfigModal(name);
+		} else if (sectionType === 'pm') {
+			this.openPmConfigModal(name);
 		}
 	}
 
@@ -2021,6 +2165,28 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
+	/** Run the configured creator skill — via the confirm dialog by default,
+	 *  direct-send only when the config opted in. */
+	private dispatchSkillCreate(cfg: import('./types').SkillCreateConfig): void {
+		const spec = { label: cfg.skillName, skillName: cfg.skillName, promptTemplate: cfg.promptTemplate };
+		if (cfg.directSend) fireSkillDirect(this.app, spec, cfg.agent);
+		else new AgentPromptModal(this.app, spec, cfg.agent, {}).open();
+	}
+
+	/** Skills sections: visible stores + default sort (see
+	 *  SkillSectionConfigModal). The section works with no config at all —
+	 *  this modal is for trimming, not for setup. */
+	private openSkillsConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const modal = new SkillSectionConfigModal(
+			this.app,
+			column?.skillsConfig,
+			(config) => { void this.sync.updateSkillsConfig(colName, config); },
+			this.plugin,
+		);
+		modal.open();
+	}
+
 	/** Pipeline sections: stages, skill buttons and the status field. The modal
 	 *  seeds sensible defaults when the section was just created. */
 	private openPipelineConfigModal(colName: string): void {
@@ -2035,6 +2201,24 @@ export class DashboardView extends ItemView implements HoverParent {
 					// offer them next time (see skill-registry).
 					for (const agent of new Set(config.skills.map(skill => skill.agent))) {
 						await rememberSkillNames(this.plugin, agent, config.skills.filter(skill => skill.agent === agent && skill.skillName).map(skill => skill.skillName));
+					}
+				})();
+			},
+			this.plugin,
+		);
+		modal.open();
+	}
+
+	private openPmConfigModal(colName: string): void {
+		const column = this.data?.columns.find(col => col.name === colName);
+		const modal = new PmConfigModal(
+			this.app,
+			column?.pmConfig,
+			(config) => {
+				void (async () => {
+					await this.sync.updatePmConfig(colName, config);
+					for (const agent of new Set((config.skills ?? []).map(skill => skill.agent))) {
+						await rememberSkillNames(this.plugin, agent, (config.skills ?? []).filter(skill => skill.agent === agent && skill.skillName).map(skill => skill.skillName));
 					}
 				})();
 			},
@@ -2479,13 +2663,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	private async promptAddColumn(): Promise<void> {
-		const name = await showPromptDialog(this.app, { title: t('renderer.sectionName') });
-		if (name) {
-			void this.sync.addColumn(name);
-		}
-	}
-
 	private async navigateToPath(path: string): Promise<void> {
 		let file = this.app.vault.getFileByPath(path);
 		if (!file && !path.endsWith('.md')) {
@@ -2702,7 +2879,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const sectionType = (col: { sectionType?: string }) => col.sectionType;
 		const hasScanning = !immersive && data.columns.some(col => {
 			const st = sectionType(col);
-			return st === 'library' || st === 'calendar' || st === 'folder' || st === 'pipeline';
+			return st === 'library' || st === 'calendar' || st === 'folder' || st === 'pipeline' || st === 'pm';
 		});
 		const hasMedia = !immersive && data.columns.some(col => {
 			const st = sectionType(col);
@@ -2728,8 +2905,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (immersive && changedMd) {
 				for (const col of data.columns) {
 					const st = col.sectionType;
-					if (st === 'pipeline') {
-						const rootFolder = (col.pipelineConfig?.rootFolder ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+					if (st === 'pipeline' || st === 'pm') {
+						const rootFolder = ((st === 'pipeline'
+							? col.pipelineConfig?.rootFolder
+							: col.pmConfig?.rootFolder) ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
 						const hit = rootFolder.length === 0 || lowerPaths.some(p => p.startsWith(rootFolder + '/'));
 						if (hit) this.refreshSectionInPlace(col.name);
 					} else if (st === 'library' || st === 'folder') {
@@ -2757,9 +2936,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			const folders = (col.libraryConfig?.folders ?? [])
 				.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
 				.filter(f => f.length > 0);
-			// Pipeline sections scope to their root folder (empty = whole vault).
-			if (folders.length === 0 && col.sectionType === 'pipeline') {
-				const root = (col.pipelineConfig?.rootFolder ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+			// Pipeline/PM sections scope to their root folder (empty = whole vault).
+			if (folders.length === 0 && (col.sectionType === 'pipeline' || col.sectionType === 'pm')) {
+				const root = ((col.sectionType === 'pipeline' ? col.pipelineConfig?.rootFolder : col.pmConfig?.rootFolder) ?? '')
+					.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
 				if (root.length > 0) {
 					if (broad || lowerPaths.length === 0) return true;
 					return lowerPaths.some(p => p.startsWith(root + '/'));
@@ -3186,6 +3366,47 @@ export class DashboardView extends ItemView implements HoverParent {
 						const value = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
 						this.firedReminders.delete(key);
 						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { f['due'] = value; f['remind'] = true; });
+					},
+				);
+				modal.open();
+			}
+		}
+
+		// PM projects: the note's `keyDate` + `remind: true` pair raises the
+		// same reminder modal (dismiss clears the flag; snooze pushes the key
+		// date one hour out). Metadata-cache only — no file reads.
+		for (const col of this.data.columns) {
+			if (col.sectionType !== 'pm' || !col.pmConfig) continue;
+			const rootFolder = col.pmConfig.rootFolder.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+			if (!rootFolder) continue;
+			for (const file of this.app.vault.getMarkdownFiles()) {
+				if (!file.path.toLowerCase().startsWith(rootFolder + '/')) continue;
+				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+				if (!fm || fm['remind'] !== true) continue;
+				const keyDate = pmKeyDate(fm);
+				if (!keyDate) continue;
+				const key = `pm:${file.path}`;
+				if (this.firedReminders.has(key)) continue;
+				const [y, mo, d] = keyDate.date.split('-').map(Number);
+				if (!y || !mo || !d) continue;
+				const [h, mi] = (keyDate.time ?? '09:00').split(':').map(Number);
+				const when = new Date(y, mo - 1, d, h ?? 9, mi ?? 0);
+				if (now < when) continue;
+				this.firedReminders.add(key);
+				const modal = new ReminderNoticeModal(
+					this.app,
+					file.basename,
+					() => {
+						// Dismiss: drop the alarm flag, keep the key date.
+						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { delete f['remind']; });
+					},
+					() => {
+						// Snooze one hour, re-arm.
+						const snoozed = new Date(Date.now() + 60 * 60 * 1000);
+						const pad = (n: number) => String(n).padStart(2, '0');
+						const value = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
+						this.firedReminders.delete(key);
+						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { f['keyDate'] = value; f['remind'] = true; });
 					},
 				);
 				modal.open();

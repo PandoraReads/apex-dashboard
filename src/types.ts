@@ -1110,6 +1110,125 @@ export interface PipelineConfig {
 	directSend?: boolean;
 }
 
+/** One selectable "current stage" of a PM project. The stage's identity is
+ *  its LABEL — that exact string is what gets written into the project
+ *  note's `stage` frontmatter field. */
+export interface PmStage {
+	label: string;
+	/** Accent color (hex). */
+	color?: string;
+}
+
+/** A skill button on a PM project card/board (e.g. project retrospective).
+ *  Dispatch vars: {skill} {path} {title} {folder} {input}. */
+export interface PmSkill {
+	id: string;
+	label: string;
+	/** Lucide icon name. */
+	icon: string;
+	/** Agent adapter that receives the prompt. */
+	agent: AgentTarget;
+	/** Agent-side skill name. Empty = free-form prompt. */
+	skillName: string;
+	/** Prompt template. Empty uses the target agent's skill invocation plus
+	 *  input. */
+	promptTemplate: string;
+	/** Skip the preview modal and send this button's prompt immediately. */
+	directSend?: boolean;
+}
+
+/** PM section config (sectionType 'pm'): a project-management board. Each
+ *  project is a vault note (frontmatter `type: project`) under rootFolder —
+ *  metadata on the card, the full editable "project board" in a modal. Work
+ *  notes live in a per-project subfolder `<root>/<project name>/`. */
+export interface PmConfig {
+	/** Root folder scanned for project notes. Required: an unset root renders
+	 *  the unconfigured state instead of scanning the vault. */
+	rootFolder: string;
+	/** Manual card order (note PATHS, drag-reordered). Non-empty overrides
+	 *  the stage→keyDate sort entirely; unknown/new projects append after
+	 *  it in that sort's order. */
+	order?: string[];
+	/** Sort mode beyond the default stage order: name / milestone progress /
+	 *  key date. Undefined = stage order (drag order rides on top). */
+	sortMode?: 'name' | 'milestone' | 'keyDate';
+	/** Grouped view: 'blocks' = stacked (vertical), 'kanban' = one column
+	 *  per group (horizontal scroll). Absent = flat. */
+	groupView?: 'blocks' | 'kanban';
+	/** INTERNAL ONLY — compact rendering is forced by the kanban view, never
+	 *  persisted (dropped at parse; the old user toggle was removed). */
+	cardSize?: 'compact';
+	/** Pinned project note paths — always render before everything else. */
+	pinned?: string[];
+	/** Selectable stages for the `stage` frontmatter field. */
+	stages: PmStage[];
+	/** Template note seeded by the "+ work note" button (vault path; empty =
+	 *  bare note). */
+	workNoteTemplate?: string;
+	/** Folder the archive button moves project notes into (archive also
+	 *  stamps `archived: true`, which removes the note from the board). */
+	archiveFolder?: string;
+	/** Skill buttons rendered on every project card/board. */
+	skills?: PmSkill[];
+	/** Folders whose notes never appear in the section. */
+	excludeFolders?: string[];
+}
+
+/** One user-defined skill group. `keywords` (CSV, matched case-insensitively
+ *  as substrings of the skill NAME) auto-assigns unclaimed skills — manual
+ *  assignments always win over keyword matches. */
+export interface SkillSectionGroup {
+	id: string;
+	name: string;
+	/** Comma-separated match keywords ('' = manual assignment only). */
+	keywords?: string;
+}
+
+/** Config for the section header's "new skill" button: one-time setup that
+ *  points at a skill-creator-style skill; afterwards a click goes straight
+ *  to the confirm dialog (directSend opts out). */
+export interface SkillCreateConfig {
+	agent: AgentTarget;
+	/** The creator skill to invoke (default 'skill-creator'). */
+	skillName: string;
+	/** Optional template over {skill}/{input}; '' = default invocation. */
+	promptTemplate: string;
+	directSend?: boolean;
+}
+
+/** Skills section config (sectionType 'skills'): which skill directories
+ *  the library shows and how. Scanned skill metadata lives in the plugin's
+ *  skills.json cache (see skill-store), not here — this is view state only. */
+export interface SkillsSectionConfig {
+	/** Home store ids to show ('claude' | 'codex' | 'workbuddy'). Undefined
+	 *  or empty = all three. Custom skillSourceFolders always show. */
+	stores?: string[];
+	/** Card order: 'name' (default) or 'recent' (SKILL.md mtime). Pinned
+	 *  skills stay ahead of either. */
+	sortMode?: 'name' | 'recent';
+	/** Sort direction: asc/desc. Defaults depend on the mode — name asc,
+	 *  recent desc (newest first) — so only the non-default persists. */
+	sortDir?: 'asc' | 'desc';
+	/** Pinned skill names, pinned order first on the board. */
+	pinned?: string[];
+	/** Grid page size (library-section idiom; one of 10/20/50/100, default
+	 *  50 — ~440 aggregated cards need pagination, not one wall). */
+	pageSize?: number;
+	/** Store ids checked in the last import (memory for the next one). */
+	importTargets?: string[];
+	/** User-defined groups (ordered; editable + drag-sortable in the config
+	 *  modal). Undefined = the built-in presets; [] = deliberately empty. */
+	groups?: SkillSectionGroup[];
+	/** skillName → groupId. Manual assignments; keyword matches fill the
+	 *  gaps at render time. */
+	assignments?: Record<string, string>;
+	/** Group view mode: undefined = flat grid, 'groups' = grouped list with
+	 *  collapsible headers, 'kanban' = one column per group. */
+	groupView?: 'groups' | 'kanban';
+	/** The header "new skill" button's one-time dispatch config. */
+	createSkill?: SkillCreateConfig;
+}
+
 export interface DashboardColumn {
 	name: string;
 	color: string;
@@ -1128,6 +1247,10 @@ export interface DashboardColumn {
 	rssConfig?: RssConfig;
 	/** Pipeline section config (sectionType 'pipeline'). */
 	pipelineConfig?: PipelineConfig;
+	/** Skills section config (sectionType 'skills'). */
+	skillsConfig?: SkillsSectionConfig;
+	/** PM section config (sectionType 'pm'). */
+	pmConfig?: PmConfig;
 	/** Notes (projects) sections: render the cover strip on cards. Default
 	 *  true; false reproduces the retired standalone 'notes' (无封面) section
 	 *  type, which migrates to projects + showCover:false at parse time.

@@ -12,9 +12,9 @@ interface GuideFeature {
 /** The capabilities showcased in the announcement modal. Content is refreshed
  *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'gallery-vertical', textKey: 'announce.featureImmersive' },
-	{ icon: 'rss', textKey: 'announce.featureRss' },
 	{ icon: 'workflow', textKey: 'announce.featurePipeline' },
+	{ icon: 'wand-sparkles', textKey: 'announce.featureSkills' },
+	{ icon: 'briefcase', textKey: 'announce.featurePm' },
 ];
 
 /**
@@ -47,16 +47,6 @@ export class DataviewGuideModal extends Modal {
 
 		const body = container.createDiv({ cls: 'dashboard-modal-body' });
 
-		// Release banner under the title (this cycle: the LME launch promo).
-		// Click opens the raw image at full size — same affordance as the QR.
-		const banner = body.createEl('img', {
-			cls: 'dashboard-dataview-guide-banner',
-			attr: { src: ANNOUNCE_BANNER_DATA_URL, alt: '' },
-		});
-		banner.addEventListener('click', () => {
-			window.open(ANNOUNCE_BANNER_DATA_URL, '_blank');
-		});
-
 		// Intro is optional per release: an empty announce.intro renders nothing
 		// (no stray empty paragraph above the feature list).
 		const intro = t('announce.intro');
@@ -74,6 +64,18 @@ export class DataviewGuideModal extends Modal {
 			setIcon(iconWrap, feature.icon);
 			row.createSpan({ text: t(feature.textKey) });
 		}
+
+		// --- LME promo card (lower half): free-download message + artwork.
+		// Click opens the raw image at full size — same affordance as the QR.
+		const promoCard = body.createDiv({ cls: 'dashboard-dataview-guide-promo' });
+		promoCard.createDiv({ cls: 'dashboard-dataview-guide-promo-title', text: t('announce.lmeTitle') });
+		const banner = promoCard.createEl('img', {
+			cls: 'dashboard-dataview-guide-banner',
+			attr: { src: ANNOUNCE_BANNER_DATA_URL, alt: '' },
+		});
+		banner.addEventListener('click', () => {
+			window.open(ANNOUNCE_BANNER_DATA_URL, '_blank');
+		});
 
 		// --- Community group card: centered QR, one title, fallback below ---
 		const groupCard = body.createDiv({ cls: 'dashboard-dataview-guide-group' });

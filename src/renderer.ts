@@ -13,6 +13,8 @@ import { renderDataviewSection, setDataviewApp } from './dataview-section';
 import { renderWebSection } from './web-section';
 import { renderRssSection } from './rss-section';
 import { renderPipelineSection } from './pipeline-section';
+import { renderSkillSection } from './skill-section';
+import { renderPmSection } from './pm-section';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { resolveVaultImage } from './banner';
 import { focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
@@ -1992,7 +1994,7 @@ export function renderDashboard(
 	});
 }
 
-const SCANNING_SECTION_TYPES = new Set(['library', 'folder', 'pipeline']);
+const SCANNING_SECTION_TYPES = new Set(['library', 'folder', 'pipeline', 'pm']);
 const MEDIA_SECTION_TYPES = new Set(['images', 'videos']);
 
 /** Render-input signatures per scanning section, keyed
@@ -2020,30 +2022,37 @@ function scanningSectionSignature(column: DashboardColumn, app: App): string {
 		.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
 		.filter(f => f.length > 0);
 	// Pipeline sections scope to their root folder (empty = whole vault) and
-	// skip their excluded folders in both the scan and this signature.
+	// skip their excluded folders in both the scan and this signature. PM
+	// sections scope the same way through their own root.
 	const pipeCfg = column.pipelineConfig ?? null;
 	const pipelineRoot = pipeCfg
 		? pipeCfg.rootFolder.trim().replace(/^\/+|\/+$/g, '').toLowerCase()
 		: null;
+	const pmRoot = column.sectionType === 'pm' && column.pmConfig
+		? column.pmConfig.rootFolder.trim().replace(/^\/+|\/+$/g, '').toLowerCase()
+		: null;
 	const excluded = normalizeExcludeFolders([
 		...(cfg?.excludeFolders ?? []),
 		...(pipeCfg?.excludeFolders ?? []),
+		...(column.pmConfig?.excludeFolders ?? []),
 	]);
+	const scopeRoots = [pipelineRoot, pmRoot].filter((root): root is string => root !== null && root.length > 0);
 	const parts: string[] = [];
 	for (const file of app.vault.getMarkdownFiles()) {
 		if (folders.length > 0) {
 			const lp = file.path.toLowerCase();
 			if (!folders.some(f => lp.startsWith(f.toLowerCase() + '/'))) continue;
 		}
-		if (pipelineRoot !== null && pipelineRoot.length > 0) {
-			if (!file.path.toLowerCase().startsWith(pipelineRoot + '/')) continue;
+		if (scopeRoots.length > 0) {
+			const lp = file.path.toLowerCase();
+			if (!scopeRoots.some(root => lp.startsWith(root + '/'))) continue;
 		}
 		if (isUnderExcludedFolder(file.path, excluded)) continue;
 		parts.push(`${file.path}|${file.stat.mtime}|${file.stat.ctime}`);
 	}
 	// Vault iteration order is not contractual; sort for a stable signature.
 	parts.sort();
-	return JSON.stringify([column.name, cfg ?? null, column.pipelineConfig ?? null, parts]);
+	return JSON.stringify([column.name, cfg ?? null, column.pipelineConfig ?? null, column.pmConfig ?? null, parts]);
 }
 
 /**
@@ -2794,6 +2803,110 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		});
 
 		renderPipelineSection(el, column, app, callbacks, activeHoverParent);
+		return el;
+	}
+
+	// Skills section: AI-skill library rendered by skill-section (aggregated
+	// cards with source badges + per-store agent launch buttons, import,
+	// detail/reveal/trash, pinned skills).
+	if (sectionType === 'skills') {
+		// "New skill": dispatches the configured creator skill (skill-creator
+		// by default). view.ts opens the one-time config on the first click.
+		const createSkillBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('skills.createSkill') },
+		});
+		setIcon(createSkillBtn, 'plus');
+		createSkillBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-skills-create', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const refreshBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('skills.refresh') },
+		});
+		setIcon(refreshBtn, 'refresh-cw');
+		let reload: (() => void) | null = null;
+		refreshBtn.addEventListener('click', () => reload?.());
+
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('skills.cfgTitle') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
+		});
+
+		renderSkillSection(el, column, app, settings, (fn) => { reload = fn; });
+		return el;
+	}
+
+	// PM section: project management cards (one per project note) with the
+	// board modal, work notes, skills, archive/delete (desktop only — the
+	// section hides on phones/tablets like the pipeline section).
+	if (sectionType === 'pm') {
+		if (Platform.isMobile) {
+			el.addClass('dashboard-section-row--pm-off-mobile');
+			return el;
+		}
+		// New project: same header + button the other sections use; the
+		// creation modal opens through the view's event route.
+		const newProjectBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('pm.new') },
+		});
+		setIcon(newProjectBtn, 'plus');
+		newProjectBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-pm-new', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		// Archived projects: lightweight viewer (full board per project,
+		// restore, delete).
+		const archiveBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('pm.archive.title') },
+		});
+		setIcon(archiveBtn, 'archive');
+		archiveBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-pm-archive', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const configBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn',
+			attr: { 'aria-label': t('pm.cfgTitle') },
+		});
+		setIcon(configBtn, 'settings');
+		configBtn.addEventListener('click', () => {
+			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
+			el.dispatchEvent(event);
+		});
+
+		const deleteSectionBtn = headerActions.createEl('button', {
+			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
+			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
+		});
+		setIcon(deleteSectionBtn, 'trash-2');
+		deleteSectionBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
+		});
+
+		renderPmSection(el, column, app);
 		return el;
 	}
 
@@ -4104,6 +4217,7 @@ function getSectionType(column: DashboardColumn): string {
 	if (lower === 'ticktick') return 'ticktick';
 	if (lower === 'web') return 'web';
 	if (lower === 'rss') return 'rss';
+	if (lower === 'skills') return 'skills';
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);

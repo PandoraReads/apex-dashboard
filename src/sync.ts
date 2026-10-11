@@ -551,6 +551,30 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async updateSkillsConfig(columnName: string, config: import('./types').SkillsSectionConfig): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, skillsConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
+	async updatePmConfig(columnName: string, config: import('./types').PmConfig): Promise<void> {
+		if (!this.data) return;
+
+		this.data = {
+			...this.data,
+			columns: this.data.columns.map(col =>
+				col.name === columnName ? { ...col, pmConfig: config } : col
+			),
+		};
+		await this.writeToDisk();
+	}
+
 	/** Reorder sections by array index (index-based to avoid name collisions).
 	 *  Vertical drop = "own full-width row": a moved section loses any pairing
 	 *  and never lands between two partners (see moveToOwnRow). from === to is
@@ -956,7 +980,12 @@ export class SyncEngine {
 			return;
 		}
 
-		const content = generateDefaultMarkdown();
+		// Follow the global layout default when (re)creating the active file:
+		// fresh installs (seeded layoutMode 'immersive') open on the immersive
+		// board; everyone else keeps the classic default. Only 'immersive' is
+		// passed through — other modes stay unpinned so the board keeps
+		// following the global setting.
+		const content = generateDefaultMarkdown(this.settings.layoutMode === 'immersive' ? 'immersive' : undefined);
 		this.file = await this.app.vault.create(path, content);
 	}
 

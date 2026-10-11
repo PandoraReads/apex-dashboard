@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apex Dashboard 数据同步说明</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+	--paper: #F7F6FB;
+	--card: #FFFFFF;
+	--card-soft: #FBFAFE;
+	--ink: #211D33;
+	--muted: #6B6580;
+	--faint: #9893AC;
+	--accent: #6C4FD8;
+	--accent-deep: #4E37A8;
+	--accent-soft: #EFEBFB;
+	--line: #E7E4F2;
+	--line-strong: #D6D1E8;
+	--ok: #1F7A52;
+	--ok-soft: #E4F3EA;
+	--ok-line: #BCE0CC;
+	--warn: #8F5B06;
+	--warn-soft: #FBF0DA;
+	--warn-line: #EBD9B4;
+	--serif: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+	--sans: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+	--mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, 'PingFang SC', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--sans);
+	font-size: 16px;
+	line-height: 1.75;
+	-webkit-font-smoothing: antialiased;
+}
+.page {
+	max-width: 780px;
+	margin: 0 auto;
+	padding: 56px 24px 72px;
+}
+
+/* ---------- header ---------- */
+.masthead { margin-bottom: 44px; }
+.kicker {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12.5px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	color: var(--accent-deep);
+	background: var(--accent-soft);
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	padding: 5px 14px;
+	margin-bottom: 20px;
+}
+.kicker svg { width: 14px; height: 14px; flex: none; }
+h1 {
+	font-family: var(--serif);
+	font-weight: 900;
+	font-size: clamp(28px, 5.4vw, 40px);
+	line-height: 1.28;
+	letter-spacing: 0.01em;
+	text-wrap: balance;
+	margin-bottom: 14px;
+}
+.lede {
+	font-size: 17px;
+	color: var(--muted);
+	max-width: 40em;
+}
+.lede strong { color: var(--ink); font-weight: 700; }
+.lede .hl { color: var(--accent-deep); font-weight: 700; }
+
+/* ---------- sections ---------- */
+section { margin-top: 52px; }
+.sec-head {
+	display: flex;
+	align-items: baseline;
+	gap: 12px;
+	margin-bottom: 18px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--line);
+}
+.sec-head h2 {
+	font-family: var(--serif);
+	font-size: 21px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	text-wrap: balance;
+}
+.sec-head .tag {
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	color: var(--faint);
+	white-space: nowrap;
+	margin-left: auto;
+}
+p + p { margin-top: 10px; }
+p.note { color: var(--muted); font-size: 14.5px; }
+
+/* ---------- file tree card (hero visual) ---------- */
+.tree-card {
+	background: var(--card);
+	border: 1px solid var(--line-strong);
+	border-radius: 14px;
+	padding: 22px 24px 16px;
+	box-shadow: 0 1px 2px rgba(33, 29, 51, 0.04), 0 8px 28px rgba(78, 55, 168, 0.06);
+	font-family: var(--mono);
+	font-size: 13.5px;
+	line-height: 2.05;
+	overflow-x: auto;
+}
+.tree-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	white-space: nowrap;
+	padding: 1px 0;
+}
+.tree-row .branch { color: var(--faint); flex: none; }
+.tree-row .fname { font-weight: 600; color: var(--ink); flex: none; }
+.tree-row.dir .fname { color: var(--accent-deep); }
+.tree-row.root .fname { font-weight: 600; }
+.tree-row .leader {
+	flex: 1 1 24px;
+	min-width: 16px;
+	border-bottom: 1px dotted var(--line-strong);
+	transform: translateY(-5px);
+}
+.tree-row .fdesc { color: var(--muted); flex: none; font-family: var(--sans); font-size: 12.5px; }
+.badge {
+	flex: none;
+	font-family: var(--sans);
+	font-size: 11.5px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	border-radius: 999px;
+	padding: 1.5px 10px;
+	line-height: 1.7;
+}
+.badge--sync { color: var(--ok); background: var(--ok-soft); border: 1px solid var(--ok-line); }
+.badge--local { color: var(--warn); background: var(--warn-soft); border: 1px solid var(--warn-line); }
+.tree-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 18px;
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+	font-family: var(--sans);
+	font-size: 12.5px;
+	color: var(--muted);
+}
+.tree-legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- path & inline code ---------- */
+code.path {
+	font-family: var(--mono);
+	font-size: 0.88em;
+	background: var(--accent-soft);
+	color: var(--accent-deep);
+	border-radius: 5px;
+	padding: 1px 6px;
+	white-space: nowrap;
+}
+
+/* ---------- two-path sync cards ---------- */
+.paths {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 14px;
+}
+@media (max-width: 620px) { .paths { grid-template-columns: 1fr; } }
+.path-card {
+	background: var(--card);
+	border: 1px solid var(--line-strong);
+	border-radius: 12px;
+	padding: 20px 20px 18px;
+}
+.path-card h3 {
+	font-size: 15.5px;
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+.path-card h3 .dot {
+	width: 8px; height: 8px; border-radius: 50%;
+	background: var(--ok); flex: none;
+}
+.path-card p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+.path-card p + p { margin-top: 8px; }
+.path-card b { color: var(--ink); font-weight: 700; }
+
+/* ---------- caveat cards ---------- */
+.caveat {
+	display: flex;
+	gap: 16px;
+	background: var(--card);
+	border: 1px solid var(--warn-line);
+	border-left: 4px solid #D9A03C;
+	border-radius: 12px;
+	padding: 18px 20px;
+	margin-bottom: 14px;
+}
+.caveat .icon {
+	flex: none;
+	width: 34px; height: 34px;
+	border-radius: 9px;
+	background: var(--warn-soft);
+	display: flex; align-items: center; justify-content: center;
+	color: var(--warn);
+}
+.caveat .icon svg { width: 18px; height: 18px; }
+.caveat h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 5px; }
+.caveat p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+.caveat p b { color: var(--ink); }
+.allclear {
+	display: flex;
+	gap: 16px;
+	background: var(--ok-soft);
+	border: 1px solid var(--ok-line);
+	border-radius: 12px;
+	padding: 16px 20px;
+}
+.allclear .icon {
+	flex: none; width: 34px; height: 34px; border-radius: 9px;
+	background: #FFFFFF; border: 1px solid var(--ok-line);
+	display: flex; align-items: center; justify-content: center;
+	color: var(--ok);
+}
+.allclear .icon svg { width: 18px; height: 18px; }
+.allclear p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+.allclear p b { color: var(--ok); }
+
+/* ---------- retention table ---------- */
+.table-wrap {
+	overflow-x: auto;
+	background: var(--card);
+	border: 1px solid var(--line-strong);
+	border-radius: 12px;
+}
+table {
+	width: 100%;
+	min-width: 500px;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 14px;
+}
+th, td {
+	text-align: left;
+	padding: 11px 16px;
+	border-bottom: 1px solid var(--line);
+	vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+th {
+	font-size: 12.5px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	color: var(--faint);
+	background: var(--card-soft);
+}
+td { font-variant-numeric: tabular-nums; }
+td .d { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+td .s { color: var(--muted); font-size: 13px; }
+.size-compare {
+	margin-top: 12px;
+	font-size: 14px;
+	color: var(--muted);
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+.size-compare .big { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--accent-deep); font-variant-numeric: tabular-nums; }
+
+/* ---------- advice checklist ---------- */
+.advice { list-style: none; display: grid; gap: 10px; }
+.advice li {
+	display: flex;
+	gap: 12px;
+	background: var(--card);
+	border: 1px solid var(--line-strong);
+	border-radius: 10px;
+	padding: 13px 16px;
+	font-size: 14.5px;
+	line-height: 1.65;
+	color: var(--muted);
+}
+.advice li b { color: var(--ink); }
+.advice .ck {
+	flex: none;
+	width: 20px; height: 20px; margin-top: 2px;
+	border-radius: 50%;
+	background: var(--ok-soft);
+	border: 1px solid var(--ok-line);
+	color: var(--ok);
+	display: inline-flex; align-items: center; justify-content: center;
+}
+.advice .ck svg { width: 11px; height: 11px; }
+
+/* ---------- footer ---------- */
+footer {
+	margin-top: 60px;
+	padding-top: 18px;
+	border-top: 1px solid var(--line);
+	font-size: 12.5px;
+	color: var(--faint);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 24px;
+	justify-content: space-between;
+}
+footer a { color: var(--accent-deep); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+footer a:hover { border-bottom-color: var(--accent); }
+
+/* ---------- entrance ---------- */
+@keyframes rise {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+.masthead { animation: rise 0.5s ease-out both; }
+section { animation: rise 0.5s ease-out both; }
+section:nth-of-type(1) { animation-delay: 0.06s; }
+section:nth-of-type(2) { animation-delay: 0.12s; }
+section:nth-of-type(3) { animation-delay: 0.18s; }
+section:nth-of-type(4) { animation-delay: 0.24s; }
+section:nth-of-type(5) { animation-delay: 0.3s; }
+@media (prefers-reduced-motion: reduce) {
+	.masthead, section { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+	<header class="masthead">
+		<span class="kicker">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/><polyline points="21 3 21 9 15 9"/></svg>
+			APEX DASHBOARD
+		</span>
+		<h1>番茄钟、习惯打卡的数据存在哪里，<br>能同步到手机和平板吗？</h1>
+		<p class="lede">
+			简短回答：<strong>数据都在你的库里，会随库同步</strong>——但有两处使用习惯需要注意（见下文）。
+			仪表盘本身的待办、便利贴存成普通笔记，和别的笔记一样同步；番茄钟、习惯打卡、阅读进度则是
+			<span class="hl">插件目录下的三个独立 JSON 文件</span>。
+		</p>
+	</header>
+
+	<section>
+		<div class="sec-head">
+			<h2>数据存储全景</h2>
+			<span class="tag">WHO LIVES WHERE</span>
+		</div>
+		<div class="tree-card">
+			<div class="tree-row root">
+				<span class="branch"></span><span class="fname">你的仓库 /</span>
+				<span class="leader"></span>
+				<span class="fdesc">Obsidian Vault</span>
+			</div>
+			<div class="tree-row">
+				<span class="branch">├─</span><span class="fname">dashboard.md</span>
+				<span class="leader"></span>
+				<span class="fdesc">卡片 / 待办 / 便利贴 / 快捷笔记</span>
+				<span class="badge badge--sync">随库同步</span>
+			</div>
+			<div class="tree-row">
+				<span class="branch">├─</span><span class="fname dir">.dashboard-backup /</span>
+				<span class="leader"></span>
+				<span class="fdesc">自动备份，仅本机</span>
+				<span class="badge badge--local">不同步</span>
+			</div>
+			<div class="tree-row dir">
+				<span class="branch">└─</span><span class="fname">.obsidian /</span>
+				<span class="leader"></span>
+				<span class="fdesc">Obsidian 配置目录</span>
+			</div>
+			<div class="tree-row dir">
+				<span class="branch">&nbsp;&nbsp;&nbsp;└─</span><span class="fname">plugins / apex-dashboard /</span>
+				<span class="leader"></span>
+			</div>
+			<div class="tree-row">
+				<span class="branch">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─</span><span class="fname">pomodoro.json</span>
+				<span class="leader"></span>
+				<span class="fdesc">番茄钟记录（保留 1 年）</span>
+				<span class="badge badge--sync">随库同步</span>
+			</div>
+			<div class="tree-row">
+				<span class="branch">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─</span><span class="fname">habits.json</span>
+				<span class="leader"></span>
+				<span class="fdesc">习惯打卡（保留 2 年）</span>
+				<span class="badge badge--sync">随库同步</span>
+			</div>
+			<div class="tree-row">
+				<span class="branch">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─</span><span class="fname">reading.json</span>
+				<span class="leader"></span>
+				<span class="fdesc">阅读进度（保留 2 年）</span>
+				<span class="badge badge--sync">随库同步</span>
+			</div>
+			<div class="tree-row">
+				<span class="branch">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─</span><span class="fname">data.json</span>
+				<span class="leader"></span>
+				<span class="fdesc">插件设置</span>
+				<span class="badge badge--sync">随库同步</span>
+			</div>
+			<div class="tree-legend">
+				<span><span class="badge badge--sync">随库同步</span>用任何方案同步库，文件都会跟着走</span>
+				<span><span class="badge badge--local">不同步</span>隐藏目录，Obsidian Sync 明确跳过</span>
+			</div>
+		</div>
+		<p class="note" style="margin-top:12px">
+			仪表盘笔记的文件名和位置可以在插件设置里修改，默认是仓库根目录的 <code class="path">dashboard.md</code>；
+			它的每次改动还会在 <code class="path">.dashboard-backup/</code> 里留一份带时间戳的备份。
+		</p>
+	</section>
+
+	<section>
+		<div class="sec-head">
+			<h2>会同步到手机、平板吗？</h2>
+			<span class="tag">TWO ROADS</span>
+		</div>
+		<div class="paths">
+			<div class="path-card">
+				<h3><span class="dot"></span>Obsidian 官方同步</h3>
+				<p><b>会同步。</b>插件数据跟随配置文件夹一起走。</p>
+				<p>前提：设置 → 同步 → 选择性同步里，<b>「已安装插件」「插件设置」开关保持打开</b>。同步粒度是整个配置目录，不能单独挑选某个 JSON。</p>
+			</div>
+			<div class="path-card">
+				<h3><span class="dot"></span>iCloud / 坚果云 / Syncthing 等</h3>
+				<p><b>会同步。</b><code class="path">.obsidian</code> 目录属于仓库文件夹的一部分，文件级同步会一并带上。</p>
+				<p>前提：没有在同步工具里手动排除 <code class="path">.obsidian</code>。iCloud 偶尔的同步延迟会让数据晚几分钟到，属正常现象。</p>
+			</div>
+		</div>
+	</section>
+
+	<section>
+		<div class="sec-head">
+			<h2>两个使用注意点</h2>
+			<span class="tag">GOOD TO KNOW</span>
+		</div>
+		<div class="caveat">
+			<div class="icon">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+			</div>
+			<div>
+				<h3>打卡不会立刻出现在另一台开着的设备上</h3>
+				<p>番茄钟 / 习惯 / 阅读数据在<b>插件启动时读取一次</b>，运行中不会感知其他设备写来的变化。手机上打了卡，桌面端若一直开着，需要<b>重启 Obsidian（或在设置里关闭再开启本插件）</b>才会读到新数据。</p>
+			</div>
+		</div>
+		<div class="caveat">
+			<div class="icon">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+			</div>
+			<div>
+				<h3>两台设备同时在线写入，可能互相覆盖</h3>
+				<p>这三个 JSON 是整文件保存：<b>谁最后保存，谁说了算</b>。如果手机和桌面同时开着仪表盘并先后打卡，先保存的一方可能被覆盖。避免多设备<b>同时</b>记录，一般错峰使用就完全没有问题。</p>
+			</div>
+		</div>
+		<div class="allclear">
+			<div class="icon">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+			</div>
+			<p><b>待办、便利贴不受这两条影响。</b>它们存在仪表盘笔记里，插件会监听文件变化实时重载——手机改完，桌面端几乎立刻就能看到，这也是它们被设计成笔记的原因。</p>
+		</div>
+	</section>
+
+	<section>
+		<div class="sec-head">
+			<h2>数据体积与保留策略</h2>
+			<span class="tag">WON'T BALLOON</span>
+		</div>
+		<p style="margin-bottom:16px">三类数据都有内置的滚动清理窗口：超过保留期的记录会在读取时自动剪掉，所以文件大小会在一两年内<b>趋于稳定</b>，不会逐年膨胀。</p>
+		<div class="table-wrap">
+			<table>
+				<thead>
+					<tr><th>数据</th><th>保留窗口</th><th>数据形态</th><th>封顶体积（估）</th></tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><span class="d">habits.json</span><div class="s">习惯打卡</div></td>
+						<td>730 天</td>
+						<td>按天一条：日期 → 当日完成的习惯</td>
+						<td>最坏约 300 KB<br><span class="s">日常几十 KB</span></td>
+					</tr>
+					<tr>
+						<td><span class="d">pomodoro.json</span><div class="s">番茄钟</div></td>
+						<td>365 天</td>
+						<td>按天一条：日期 → 完成数与活动明细</td>
+						<td>约 100 KB</td>
+					</tr>
+					<tr>
+						<td><span class="d">reading.json</span><div class="s">阅读进度</div></td>
+						<td>730 天</td>
+						<td>按书一条：进度与会话记录</td>
+						<td>量级同上</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div class="size-compare">
+			<span class="big">&lt; 1 张图片</span>
+			<span>所有数据文件的封顶体积加起来，也比仓库里随便一张图片（2–5 MB）小得多，对同步流量和仓库体积都可以忽略。</span>
+		</div>
+	</section>
+
+	<section>
+		<div class="sec-head">
+			<h2>实用建议</h2>
+			<span class="tag">CHEAT SHEET</span>
+		</div>
+		<ul class="advice">
+			<li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span><b>错峰记录。</b>同一时间只用一台设备打卡 / 计时，就完全避开覆盖问题。</span></li>
+			<li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span><b>切换设备前重开一下。</b>手机打卡 → 回到桌面：重启 Obsidian 或重新启用插件，统计里就能看到最新数据。</span></li>
+			<li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span><b>要换设备 / 重装时放心迁移。</b>整个仓库文件夹拷走（含 <code class="path">.obsidian</code>），三个 JSON 会原样跟过去。</span></li>
+			<li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span><b>误删可回滚。</b>仪表盘笔记的每个历史版本都在 <code class="path">.dashboard-backup/</code> 里留有带时间戳的备份。</span></li>
+		</ul>
+	</section>
+
+	<footer>
+		<span>Apex Dashboard · 数据说明 · 2026-08</span>
+		<span>同步行为依据 <a href="https://obsidian.md/help/sync/settings" target="_blank" rel="noopener">Obsidian 官方帮助 · 选择性同步</a> 与 <a href="https://obsidian.md/help/sync/troubleshoot" target="_blank" rel="noopener">同步故障排查</a></span>
+	</footer>
+
+</div>
+</body>
+</html>

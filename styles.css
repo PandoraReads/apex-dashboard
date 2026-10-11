@@ -157,6 +157,8 @@
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #7f8cff; --db-sec-glow: rgba(127, 140, 255, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #ffb454; --db-sec-glow: rgba(255, 180, 84, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #a3e635; --db-sec-glow: rgba(163, 230, 53, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="skills"] { --db-sec-hue: #f472b6; --db-sec-glow: rgba(244, 114, 182, 0.16); }
+.apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="pm"] { --db-sec-hue: #38bdf8; --db-sec-glow: rgba(56, 189, 248, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #ff4d7e; --db-sec-glow: rgba(255, 77, 126, 0.16); }
 .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #e879f9; --db-sec-glow: rgba(232, 121, 249, 0.16); }
 
@@ -173,6 +175,8 @@
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #4f46e5; --db-sec-glow: rgba(79, 70, 229, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #b45309; --db-sec-glow: rgba(180, 83, 9, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #4d7c0f; --db-sec-glow: rgba(77, 124, 15, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="skills"] { --db-sec-hue: #be185d; --db-sec-glow: rgba(190, 24, 93, 0.14); }
+.theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="pm"] { --db-sec-hue: #1d4ed8; --db-sec-glow: rgba(29, 78, 216, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #e11d48; --db-sec-glow: rgba(225, 29, 72, 0.14); }
 .theme-light .apex-dashboard-root[data-theme="aurora"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #c026d3; --db-sec-glow: rgba(192, 38, 211, 0.14); }
 
@@ -3513,6 +3517,24 @@
 .apex-dashboard-root {
 	--background-modifier-form-field: var(--db-bg-input);
 	--background-modifier-form-field-hover: var(--db-bg-input);
+	/* Core CONTROL paint (buttons, native selects/dropdowns, .mod-cta) rides a
+	   different token set than form fields: Obsidian paints buttons with
+	   --interactive-normal and selects with --dropdown-background, both owned
+	   by the appearance (pure white under Border light — see app.css
+	   `button:not(.clickable-icon)` / `select, .dropdown`). Left alone they
+	   render as white chips on the dark-glass immersive board, and dialogs
+	   mirroring the tokens (applyModalTheme → the .dashboard-themed-surface
+	   block) inherited the same whites: the agent-target and scope selects in
+	   the skill-button configs showed light-on-white text. Re-anchoring the
+	   control family keeps every Obsidian-styled control following the
+	   dashboard palette wherever the dashboard is present. */
+	--interactive-normal: var(--db-bg-btn);
+	--interactive-hover: var(--db-bg-btn-hover);
+	--interactive-accent: var(--db-accent);
+	--interactive-accent-hover: var(--db-accent-light, var(--db-accent));
+	--dropdown-background: var(--db-bg-input);
+	--dropdown-background-hover: var(--db-bg-input);
+	--text-on-accent: var(--db-text-inverse, #fff);
 }
 
 /* ── Foreign global-input-hijack shield, consolidated ─────────────────────
@@ -10476,7 +10498,9 @@
 .dashboard-section-row[data-section-type="dataview"],
 .dashboard-section-row[data-section-type="web"],
 .dashboard-section-row[data-section-type="rss"],
-.dashboard-section-row[data-section-type="pipeline"] {
+.dashboard-section-row[data-section-type="pipeline"],
+.dashboard-section-row[data-section-type="skills"],
+.dashboard-section-row[data-section-type="pm"] {
 	max-height: 800px;
 }
 
@@ -10994,9 +11018,18 @@
 /* Add-section modal type picker (icon+label grid, mobile-friendly) */
 .dashboard-add-section-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+	/* Fixed 5 columns on desktop so the option ORDER reads as deliberate
+	   rows (sticky & data / agent boards & calendar-RSS / media & web /
+	   reading & tasks) — an auto-fill grid reflows with modal width and
+	   scrambles the layout. */
+	grid-template-columns: repeat(5, minmax(0, 1fr));
 	gap: 8px;
 	margin-bottom: 12px;
+}
+
+/* Phones: back to fluid columns — five 66px cards don't fit a 350px sheet. */
+.is-mobile .dashboard-add-section-grid {
+	grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
 }
 
 .dashboard-add-section-card {
@@ -11906,6 +11939,38 @@
 
 .dashboard-themed-surface .setting-item-description {
 	color: var(--db-text-muted, var(--text-muted));
+}
+
+/* ── Modal-layer CONTROL legibility (the button/select twin of the fixes
+   above) ── Core-styled controls inside a mirrored dialog paint with the
+   appearance's own tokens, NOT the mirrored --db-* set: `select`/`.dropdown`
+   get --dropdown-background and buttons get --interactive-normal (both white
+   under Border light), while the input rule above already forced light field
+   text — so the agent-target (Claudian/Codex/…) and scope (作用于卡片/整列)
+   selects in every skill-button config rendered light-on-white. Re-anchor
+   the same control family the root block maps, resolved from the INLINE
+   mirrored tokens applyModalTheme copied onto this very element (no
+   mirror-list change needed; the marker class only exists once they were
+   mirrored). Deliberately NOT mapping --text-normal/--text-muted here: the
+   `select option` pin above must keep painting the APP's chrome for the
+   native dropdown list, and Setting rows already carry their own pair. Plain
+   buttons get their text via --text-color instead; .mod-cta/.mod-warning
+   keep core behavior on the mapped --text-on-accent. --input-shadow becomes
+   a palette border ring so glass controls read as controls. */
+.dashboard-themed-surface {
+	--interactive-normal: var(--db-bg-btn, var(--background-modifier-hover));
+	--interactive-hover: var(--db-bg-btn-hover, var(--background-modifier-hover));
+	--interactive-accent: var(--db-accent, var(--text-accent));
+	--interactive-accent-hover: var(--db-accent-light, var(--db-accent));
+	--dropdown-background: var(--db-bg-input, var(--background-modifier-form-field));
+	--dropdown-background-hover: var(--db-bg-input, var(--background-modifier-form-field));
+	--text-on-accent: var(--db-text-inverse, #fff);
+	--input-shadow: inset 0 0 0 1px var(--db-border-btn, var(--background-modifier-border));
+	--input-shadow-hover: inset 0 0 0 1px var(--db-border-btn, var(--background-modifier-border));
+}
+
+.dashboard-themed-surface button:not(.clickable-icon):not(.mod-cta):not(.mod-warning) {
+	--text-color: var(--db-text, var(--text-normal));
 }
 
 .dashboard-modal.modal,
@@ -16833,14 +16898,33 @@
 	color: var(--db-text, var(--text-normal));
 }
 
-/* Release banner under the title: full-width artwork, rounded to match the
-   modal, preserves its aspect ratio (no fixed height). Click = full size. */
+/* LME promo card (lower half of the modal): free-download message above the
+   full-width artwork, rounded to match the modal, preserves its aspect ratio
+   (no fixed height). Click = full size. */
+.dashboard-dataview-guide-promo {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 14px 16px;
+	margin-bottom: 18px;
+	border: 1px solid var(--db-border-card, rgba(255, 255, 255, 0.1));
+	border-radius: var(--db-radius-md, 10px);
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.06));
+}
+
+.dashboard-dataview-guide-promo-title {
+	font-size: 0.875em;
+	font-weight: 600;
+	text-align: center;
+	color: var(--db-text, var(--text-normal));
+}
+
 .dashboard-dataview-guide-banner {
 	display: block;
 	width: 100%;
 	height: auto;
 	border-radius: var(--db-radius-md, 10px);
-	margin-bottom: 14px;
+	margin-bottom: 0;
 	cursor: zoom-in;
 }
 
@@ -22609,6 +22693,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		--db-text-faint: rgba(255, 255, 255, 0.52);
 		--db-border-card: rgba(255, 255, 255, 0.24);
 		--db-border-section: rgba(255, 255, 255, 0.24);
+		/* Control borders too: the capture bar (quick-capture / file-search
+		   widgets) and in-tile buttons draw --db-border-input / --db-border-btn,
+		   which light themes define as SOLID light strokes (mono/Vermilion:
+		   #dedcd2) — on the dark glass they read as a hard white ring instead
+		   of glass. Same translucent-white family as the card borders. */
+		--db-border-input: rgba(255, 255, 255, 0.24);
+		--db-border-btn: rgba(255, 255, 255, 0.24);
+		--db-border-add-section: rgba(255, 255, 255, 0.24);
 		--db-backdrop-blur: none;
 		/* Page-background token: the board is ALWAYS dark glass here, but the
 		   theme's own --db-bg (e.g. nordic in a light Obsidian session is
@@ -23925,6 +24017,1029 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .is-mobile:not(.is-tablet) .dashboard-rss-item-meta {
 	gap: 6px;
 	font-size: 10px;
+}
+
+/* ==========================================================================
+   Skills section — AI skill library (see src/skill-section + skill-store)
+   ========================================================================== */
+
+.dashboard-skillsec-content {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+	/* Height chain into the row's max-height: content must be able to
+	   shrink (穿模 fix — a non-shrinking middle layer lets the grid grow
+	   past the section bottom into the add-section button). */
+	flex: 1;
+	overflow: hidden;
+}
+
+.dashboard-skillsec-results {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+	flex: 1;
+	overflow: hidden;
+}
+
+.dashboard-skillsec-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.dashboard-skillsec-toolbar .dashboard-toolbar-dropdown {
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-search {
+	flex: 0 1 200px;
+	min-width: 120px;
+	padding: 4px 10px;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.75em;
+	font-family: var(--db-font, var(--font-interface));
+	outline: none;
+}
+
+.dashboard-skillsec-search:focus {
+	border-color: var(--db-border-input-focus, var(--interactive-accent));
+}
+
+.dashboard-skillsec-search::placeholder {
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-skillsec-import {
+	flex-shrink: 0;
+	padding: 4px 12px;
+	font-size: 0.75em;
+}
+
+.dashboard-skillsec-scanning {
+	font-size: 11px;
+	color: var(--db-text-faint);
+}
+
+.dashboard-skillsec-scanning.is-hidden {
+	display: none;
+}
+
+.dashboard-skillsec-stats {
+	font-size: 11px;
+	color: var(--db-text-faint);
+	margin: 0 2px;
+}
+
+/* --- Card grid --- */
+.dashboard-skillsec-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+	gap: 8px;
+	align-content: start;
+	/* Rows must size to their tallest card: without this, a height-capped
+	   scrolling grid under-sizes auto rows and the card's shrinkable
+	   children (desc first — overflow:hidden zeroes its min-height) collapse
+	   — the "flat view shows title-only cards" bug. */
+	grid-auto-rows: min-content;
+	overflow-y: auto;
+	min-height: 0;
+	/* Fill the results area (flat view) — the group grids override this
+	   back to content height inside the scrolling groups container. */
+	flex: 1;
+	padding-right: 2px;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+/* Grouped view: the groups container owns the scroll; each group's grid
+   renders at full height inside it (only the ungrouped backlog paginates). */
+.dashboard-skillsec-groups {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	overflow-y: auto;
+	min-height: 0;
+	flex: 1;
+	padding-right: 2px;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-skillsec-groups:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-skillsec-group-grid {
+	overflow: visible;
+	flex: none;
+}
+
+.dashboard-skillsec-group.is-collapsed .dashboard-skillsec-group-grid {
+	display: none;
+}
+
+.dashboard-skillsec-group-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.08));
+	cursor: pointer;
+	user-select: none;
+	/* Sticky inside the scrolling groups container. */
+	position: sticky;
+	top: 0;
+	z-index: 2;
+}
+
+.dashboard-skillsec-group-head:hover {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 14%, var(--db-bg-hover, rgba(128, 128, 128, 0.08)));
+}
+
+.dashboard-skillsec-group-chevron {
+	display: inline-flex;
+	color: var(--db-text-muted, var(--text-muted));
+	transition: transform 0.15s ease;
+}
+
+.dashboard-skillsec-group.is-collapsed .dashboard-skillsec-group-chevron {
+	transform: rotate(-90deg);
+}
+
+.dashboard-skillsec-group-chevron svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-skillsec-group-name {
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-skillsec-group-count {
+	font-size: 10.5px;
+	color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-card, rgba(128, 128, 128, 0.1));
+	border-radius: 9px;
+	padding: 1px 7px;
+}
+
+.dashboard-skillsec-collapse-all {
+	flex-shrink: 0;
+}
+
+/* View-mode toggles (分组 / 看板): house pill + active state (ticktick
+   view-toggle convention — accent ring while the mode is on). */
+.dashboard-skillsec-toggle {
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-toggle.active {
+	color: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}
+
+/* Kanban mode: one column per group, horizontal scroll (pipeline-board
+   geometry); each column scrolls its own card stack. */
+.dashboard-skillsec-kanban {
+	display: flex;
+	gap: 10px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	flex: 1;
+	min-height: 0;
+	align-items: stretch;
+	padding-bottom: 4px;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-skillsec-kanban:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-skillsec-kcol {
+	min-width: 262px;
+	width: 262px;
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+	max-height: 100%;
+}
+
+.dashboard-skillsec-kcol.is-collapsed .dashboard-skillsec-kcol-list {
+	display: none;
+}
+
+/* Kanban column heads span exactly the card width (inset by the list's 2px
+   padding so their edges align with the cards below). Full-width heads keep
+   every column gutter reading the same — fit-content heads of varying
+   widths made the top-row gaps uneven (Rae: the 1↔2 gap is the benchmark). */
+.dashboard-skillsec-kcol > .dashboard-skillsec-group-head {
+	margin: 0 2px 2px 2px;
+}
+
+.dashboard-skillsec-kcol-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	overflow-y: auto;
+	min-height: 0;
+	flex: 1;
+	padding: 2px;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-skillsec-kcol-list .dashboard-skillsec-card {
+	flex: none;
+}
+
+/* Drag-to-regroup feedback: the dragged card dims, the hovered column
+   lights up with an accent wash + dashed rail. */
+.dashboard-skillsec-card.is-dragging {
+	opacity: 0.45;
+}
+
+.dashboard-skillsec-kcol.is-drop-target {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 9%, transparent);
+	outline: 1.5px dashed var(--db-accent, var(--interactive-accent));
+	outline-offset: -3px;
+	border-radius: var(--db-radius-md, 10px);
+}
+
+.dashboard-skillsec-grid:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-skillsec-empty {
+	grid-column: 1 / -1;
+	padding: 18px 10px;
+	text-align: center;
+	font-size: 12px;
+	color: var(--db-text-faint);
+}
+
+.dashboard-skillsec-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 10px 10px 8px;
+	border-radius: var(--db-radius-md);
+	background: var(--db-bg-card);
+	border: 1px solid var(--db-border-card);
+	cursor: pointer;
+	overflow: hidden;
+}
+
+.dashboard-skillsec-card:hover {
+	background: var(--db-bg-card-hover);
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 32%, var(--db-border-card));
+}
+
+/* Flex-shrink belt: the card is a column flex and its desc/actions rows
+   must never be squeezed (overflow:hidden on desc would let it collapse to
+   zero the moment a grid row under-sizes the card). */
+.dashboard-skillsec-card > * {
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-card.is-pinned {
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 45%, var(--db-border-card));
+}
+
+.dashboard-skillsec-card-top {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding-right: 22px;
+}
+
+.dashboard-skillsec-name-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+}
+
+.dashboard-skillsec-pin {
+	display: inline-flex;
+	color: var(--db-accent, var(--interactive-accent));
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-pin svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-skillsec-name {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Card update date, riding the badges line (right of the source badges). */
+.dashboard-skillsec-date {
+	margin-left: auto;
+	flex-shrink: 0;
+	font-size: 10px;
+	color: var(--db-text-muted, var(--text-muted));
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-skillsec-badges {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 3px;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.02em;
+}
+
+.dashboard-skillsec-badge.is-claude {
+	color: #ff9d7a;
+	background: rgba(255, 157, 122, 0.13);
+}
+
+.dashboard-skillsec-badge.is-codex {
+	color: #8ab8ff;
+	background: rgba(138, 184, 255, 0.13);
+}
+
+.dashboard-skillsec-badge.is-workbuddy {
+	color: #7adcc0;
+	background: rgba(122, 220, 192, 0.13);
+}
+
+.dashboard-skillsec-badge.is-custom {
+	color: var(--db-text-faint);
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.12));
+}
+
+.dashboard-skillsec-card .dashboard-skillsec-badges {
+	align-self: flex-start;
+}
+
+.dashboard-skillsec-desc {
+	font-size: 11.5px;
+	line-height: 1.45;
+	color: var(--db-text-muted, var(--text-muted));
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Launch buttons: one per agent store the skill is installed in. Compact —
+   three buttons (Claude + Codex + WorkBuddy) must fit one card row without
+   wrapping: 10px labels + tight padding leave ~200px of the ~228px card
+   interior. */
+.dashboard-skillsec-actions {
+	display: flex;
+	gap: 4px;
+	flex-wrap: wrap;
+	margin-top: 2px;
+}
+
+.dashboard-skillsec-launch {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 2px 5px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card);
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.08));
+	color: var(--db-text, var(--text-normal));
+	font-size: 10px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.dashboard-skillsec-launch:hover {
+	border-color: var(--db-accent, var(--interactive-accent));
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-skillsec-launch svg {
+	width: 11px;
+	height: 11px;
+	flex-shrink: 0;
+}
+
+/* Card menu: dim-but-visible at rest (low-contrast themes made a fully
+   transparent icon-only button read as missing), full contrast on hover;
+   always visible on touch, where hover doesn't exist. padding:0 is
+   load-bearing — Obsidian's base `button` rule carries 4px 12px, and 24px
+   of padding inside a fixed 22px button leaves the svg's flex box at ≤0,
+   crushing it to zero width (the invisible-icon bug). */
+.dashboard-skillsec-menu {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none;
+	border-radius: var(--db-radius-sm, 6px);
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	opacity: 0.55;
+}
+
+.dashboard-skillsec-card:hover .dashboard-skillsec-menu {
+	opacity: 1;
+}
+
+.dashboard-skillsec-menu:hover {
+	color: var(--db-accent, var(--interactive-accent));
+	background: var(--db-bg-hover);
+}
+
+.dashboard-skillsec-menu svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* --- Phones: trim informational chrome, keep the controls --- */
+.is-mobile .dashboard-skillsec-menu {
+	opacity: 1;
+}
+
+.is-mobile:not(.is-tablet) .dashboard-skillsec-stats,
+.is-mobile:not(.is-tablet) .dashboard-skillsec-scanning {
+	display: none;
+}
+
+.is-mobile:not(.is-tablet) .dashboard-skillsec-search {
+	flex: 1 1 100%;
+	max-width: none;
+}
+
+.is-mobile:not(.is-tablet) .dashboard-skillsec-grid {
+	grid-template-columns: 1fr;
+}
+
+/* Tablet padding reset (the buttons above carry their own padding:0 now,
+   so only the launch buttons need their non-zero inset restored here). */
+.is-tablet button.dashboard-skillsec-launch {
+	padding: 2px 6px;
+}
+
+/* ==========================================================================
+   Skills detail modal (see src/skill-detail-modal)
+   ========================================================================== */
+
+.dashboard-skillsec-detail-header {
+	align-items: center;
+}
+
+/* Wide reading surface: SKILL.md bodies run long, so the detail modal takes
+   most of the viewport and scrolls its body. The width rides the .modal
+   element (centered by Obsidian) — putting it on an inner div instead lets
+   the content spill right past the clip ("only the left half shows").
+   Keyed on .modal (not .modal--dashboard) so it can't be missed. */
+.modal.dashboard-skillsec-detail-modal {
+	width: min(880px, 92vw);
+	max-width: min(880px, 92vw);
+}
+
+/* Fill the widened .modal — the inner container would otherwise keep its
+   content-based ~528px width. */
+.dashboard-skillsec-detail-modal .dashboard-skillsec-detail {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.dashboard-skillsec-detail .dashboard-modal-body {
+	max-height: 72vh;
+	overflow-y: auto;
+}
+
+.dashboard-skillsec-detail .dashboard-skillsec-detail-doc {
+	max-height: 52vh;
+}
+
+.dashboard-skillsec-detail-title-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+.dashboard-skillsec-detail-pin {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: none;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.08));
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+}
+
+.dashboard-skillsec-detail-pin:hover,
+.dashboard-skillsec-detail-pin.is-pinned {
+	color: var(--db-accent, var(--interactive-accent));
+	background: var(--db-bg-hover);
+}
+
+.dashboard-skillsec-detail-pin svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-skillsec-detail-desc {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--db-text-muted, var(--text-muted));
+	margin-bottom: 10px;
+}
+
+.dashboard-skillsec-instance {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card);
+	margin-bottom: 6px;
+}
+
+.dashboard-skillsec-instance-main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.dashboard-skillsec-instance-path {
+	font-size: 11px;
+	color: var(--db-text, var(--text-normal));
+	font-family: var(--font-monospace);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-skillsec-instance-date {
+	font-size: 10px;
+	color: var(--db-text-faint);
+}
+
+.dashboard-skillsec-instance-actions {
+	display: flex;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-instance-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.08));
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+}
+
+.dashboard-skillsec-instance-btn:hover {
+	color: var(--db-accent, var(--interactive-accent));
+	background: var(--db-bg-hover);
+}
+
+.dashboard-skillsec-instance-delete:hover {
+	color: var(--db-danger, #e93147);
+}
+
+.dashboard-skillsec-instance-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-skillsec-detail-doc {
+	max-height: 320px;
+	overflow-y: auto;
+	padding: 10px 12px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card);
+	background: var(--db-bg-input, rgba(128, 128, 128, 0.06));
+	font-size: 12.5px;
+	line-height: 1.55;
+}
+
+.dashboard-skillsec-detail-doc-loading,
+.dashboard-skillsec-detail-doc-error {
+	font-size: 11px;
+	color: var(--db-text-faint);
+}
+
+/* ==========================================================================
+   Skills import modal (see src/skill-import-modal)
+   ========================================================================== */
+
+.dashboard-skillsec-import-file {
+	display: none;
+}
+
+.dashboard-skillsec-import-path-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.dashboard-skillsec-import-path {
+	flex: 1;
+	min-width: 0;
+	padding: 5px 10px;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.8em;
+	font-family: var(--font-monospace);
+	outline: none;
+}
+
+.dashboard-skillsec-import-path:focus {
+	border-color: var(--db-border-input-focus, var(--interactive-accent));
+}
+
+.dashboard-skillsec-import-status.is-ok {
+	color: var(--db-success, #40b881);
+}
+
+.dashboard-skillsec-import-status.is-error {
+	color: var(--db-danger, #e93147);
+}
+
+.dashboard-skillsec-import-preview {
+	margin-top: 8px;
+	padding: 8px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px dashed var(--db-border-card);
+}
+
+.dashboard-skillsec-import-preview.is-hidden {
+	display: none;
+}
+
+.dashboard-skillsec-import-preview-name {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-skillsec-import-preview-desc {
+	font-size: 11.5px;
+	color: var(--db-text-muted, var(--text-muted));
+	margin-top: 3px;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.dashboard-skillsec-import-preview-count {
+	font-size: 10.5px;
+	color: var(--db-text-faint);
+	margin-top: 3px;
+}
+
+.dashboard-skillsec-import-target {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 4px;
+	flex-wrap: wrap;
+}
+
+.dashboard-skillsec-import-target-label {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	min-width: 0;
+	cursor: pointer;
+}
+
+.dashboard-skillsec-import-target-name {
+	font-size: 12.5px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-skillsec-import-target-dir {
+	font-size: 10.5px;
+	color: var(--db-text-faint);
+	font-family: var(--font-monospace);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-skillsec-import-conflict {
+	flex-basis: 100%;
+	font-size: 10.5px;
+	color: var(--db-warning, #d4a72c);
+}
+
+.dashboard-skillsec-import-conflict.is-hidden {
+	display: none;
+}
+
+/* --- GitHub candidate list (import modal) --- */
+.dashboard-skillsec-import-github.is-hidden {
+	display: none;
+}
+
+.dashboard-skillsec-import-github-hint {
+	font-size: 10.5px;
+	color: var(--db-text-muted, var(--text-muted));
+	margin-bottom: 6px;
+}
+
+.dashboard-skillsec-import-github-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 180px;
+	overflow-y: auto;
+}
+
+.dashboard-skillsec-import-github-row {
+	padding: 2px 0;
+}
+
+.dashboard-skillsec-import-github-label {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	min-width: 0;
+	cursor: pointer;
+}
+
+.dashboard-skillsec-import-github-name {
+	font-size: 12.5px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-import-github-path {
+	font-size: 10.5px;
+	color: var(--db-text-faint);
+	font-family: var(--font-monospace);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ==========================================================================
+   Skills group picker modal (see src/skill-group-picker-modal)
+   ========================================================================== */
+
+.dashboard-skillsec-grouppick-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card);
+	margin-bottom: 6px;
+	cursor: pointer;
+}
+
+.dashboard-skillsec-grouppick-row:hover {
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-skillsec-grouppick-row.is-active {
+	border-color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 10%, transparent);
+}
+
+.dashboard-skillsec-grouppick-check {
+	display: inline-flex;
+	width: 16px;
+	color: var(--db-accent, var(--interactive-accent));
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-grouppick-check svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-skillsec-grouppick-label {
+	flex: 1;
+	font-size: 13px;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-skillsec-grouppick-glyph {
+	display: inline-flex;
+	color: var(--db-text-muted, var(--text-muted));
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-grouppick-glyph svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* ==========================================================================
+   Skills config modal — group manager rows (see src/skill-section-config-modal)
+   ========================================================================== */
+
+.dashboard-skillsec-cfg-groups {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.dashboard-skillsec-cfg-group {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px;
+	border-radius: var(--db-radius-sm, 6px);
+	border: 1px solid var(--db-border-card);
+}
+
+.dashboard-skillsec-cfg-group.is-dragging {
+	opacity: 0.7;
+	border-style: dashed;
+}
+
+.dashboard-skillsec-cfg-group-handle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 26px;
+	color: var(--db-text-faint);
+	cursor: grab;
+	touch-action: none;
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-cfg-group-handle svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-skillsec-cfg-group-name {
+	flex: 0 1 34%;
+	min-width: 90px;
+	padding: 4px 8px;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.8em;
+	outline: none;
+}
+
+.dashboard-skillsec-cfg-group-keywords {
+	flex: 1;
+	min-width: 0;
+	padding: 4px 8px;
+	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.8em;
+	outline: none;
+}
+
+.dashboard-skillsec-cfg-group-delete {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: var(--db-radius-sm, 6px);
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-cfg-group-delete:hover {
+	color: var(--db-danger, #e93147);
+	background: var(--db-bg-hover);
+}
+
+.dashboard-skillsec-cfg-group-delete svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-skillsec-cfg-add-group {
+	margin-top: 2px;
+}
+
+/* --- New-skill button config modal (see src/skill-create-config-modal) --- */
+.dashboard-skillsec-createcfg-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 8px 0;
+	flex-wrap: wrap;
+}
+
+.dashboard-skillsec-createcfg-label {
+	flex: 0 0 64px;
+	font-size: 12px;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-skillsec-createcfg-row select {
+	flex: 0 1 180px;
+}
+
+.dashboard-skillsec-createcfg-namewrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 1;
+	min-width: 200px;
+}
+
+.dashboard-skillsec-createcfg-namewrap .dashboard-modal-input {
+	flex: 1;
+	min-width: 0;
+}
+
+.dashboard-skillsec-createcfg-ds {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--db-text, var(--text-normal));
+	cursor: pointer;
+}
+
+/* Config modal: creator-skill summary + edit launcher row. */
+.dashboard-skillsec-cfg-create-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.dashboard-skillsec-cfg-create-summary {
+	flex: 1;
+	min-width: 0;
+	font-size: 12px;
+	color: var(--db-text-muted, var(--text-muted));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -25722,3 +26837,1974 @@ button.dashboard-capturebar-glyph:hover {
 .apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #dca8b8; --db-sec-glow: rgba(220, 168, 184, 0.12); }
 .apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #c8b3d8; --db-sec-glow: rgba(200, 179, 216, 0.12); }
 .apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #8ed6cf; --db-sec-glow: rgba(142, 214, 207, 0.12); }
+.apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="pm"] { --db-sec-hue: #a9bfd4; --db-sec-glow: rgba(169, 191, 212, 0.12); }
+
+/* ===== PM section (项目管理) — dashboard-pmsec-* =====
+   Project cards from vault notes (frontmatter type: project): metadata
+   chips, milestone progress bar, hover action row. The per-project board is
+   a modal (pm-board-modal) reusing the config-modal skeleton. */
+.dashboard-section-row--pm-off-mobile {
+	display: none;
+}
+
+.dashboard-pmsec-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+
+.dashboard-pmsec-income-pill {
+	font-size: 0.75em;
+	font-weight: 600;
+	padding: 2px 10px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 14%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-pmsec-count {
+	font-size: 0.72em;
+	color: var(--db-text-muted, var(--text-muted));
+	margin-left: auto;
+}
+
+.dashboard-pmsec-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 10px;
+	/* stretch (not start): every card in a row shares the tallest card's
+	   height — uniform cards regardless of how much metadata each carries. */
+	align-items: stretch;
+}
+
+.dashboard-pmsec-card {
+	position: relative;
+	/* min-width:0 decouples the fr track's content floor — without it each
+	   card's min-content (milestone stepper count, long titles) stretches
+	   ITS track, making neighbors unequal widths. */
+	min-width: 0;
+	/* Flex column: the fields grid absorbs the slack between the fixed head
+	   (eyebrow + title + reserved intro) and the bottom money/actions strip,
+	   so cards with fewer fields still fill their uniform height. */
+	display: flex;
+	flex-direction: column;
+	padding: 12px 14px;
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.25));
+	border-radius: var(--db-radius-md, 10px);
+	background: var(--db-bg-card, rgba(255, 255, 255, 0.04));
+	cursor: default;
+	transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Drag-to-reorder states: dragged card dims; the hovered card shows the
+   insertion rail above or below its own edge. */
+.dashboard-pmsec-card.is-dragging {
+	opacity: 0.45;
+}
+
+.dashboard-pmsec-card.drop-above {
+	box-shadow: 0 -2px 0 0 var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-pmsec-card.drop-below {
+	box-shadow: 0 2px 0 0 var(--db-accent, var(--interactive-accent));
+}
+
+/* The card lifts toward the hand — a quiet cue that it is clickable (the
+ *  board opens on title click). */
+.dashboard-pmsec-card:hover {
+	transform: translateY(-1.5px);
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, var(--db-border-card, transparent));
+	box-shadow: 0 6px 18px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 10%, transparent);
+}
+
+.dashboard-pmsec-title-row {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.dashboard-pmsec-title {
+	font-weight: 700;
+	font-size: 1.02em;
+	letter-spacing: -0.01em;
+	color: var(--db-text, var(--text-normal));
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+/* Stage badge: tinted pill + solid dot wearing the STAGE's own color
+ *  (--pmsec-stage is set inline per card from the stage config). */
+.dashboard-pmsec-badge {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 0.68em;
+	font-weight: 600;
+	padding: 2px 9px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--pmsec-stage, var(--db-accent, #8b7cf6)) 16%, transparent);
+	border: 1px solid color-mix(in srgb, var(--pmsec-stage, var(--db-accent, #8b7cf6)) 34%, transparent);
+	color: var(--db-text, var(--text-normal));
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-badge-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--pmsec-stage, var(--db-accent, #8b7cf6));
+	flex-shrink: 0;
+}
+
+.dashboard-pmsec-progress-row {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	margin: 2px 0 9px;
+	min-width: 0;
+}
+
+/* The number a PM reads first: a big numeral beats a thin bar. */
+.dashboard-pmsec-progress-pct {
+	flex-shrink: 0;
+	font-size: 1.08em;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	color: var(--db-accent, var(--interactive-accent));
+	font-variant-numeric: tabular-nums;
+	min-width: 2.6em;
+}
+
+/* Milestone stepper: one NODE per milestone. Each step paints DOT-then-
+   CONNECTOR (::before dot, ::after hairline to the next node); the LAST
+   step drops its connector and stops stretching, so N dots spread evenly
+   with N-1 equal connectors and no dead space beside the % numeral. */
+.dashboard-pmsec-stepper {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	/* Long milestone chains compress instead of widening the card. */
+	overflow: hidden;
+}
+
+.dashboard-pmsec-step {
+	flex: 1 1 0;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.dashboard-pmsec-step:last-child {
+	flex: 0 0 auto;
+}
+
+.dashboard-pmsec-step:last-child::after {
+	display: none;
+}
+
+.dashboard-pmsec-step::before {
+	content: '';
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	border: 2.5px solid color-mix(in srgb, var(--db-text-faint, #888) 45%, transparent);
+	background: var(--db-bg-card, transparent);
+	flex-shrink: 0;
+	transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-pmsec-step::after {
+	content: '';
+	flex: 1 1 auto;
+	height: 2.5px;
+	border-radius: 2px;
+	margin: 0 3px;
+	background: color-mix(in srgb, var(--db-text-faint, #888) 22%, transparent);
+}
+
+.dashboard-pmsec-step.is-done::before {
+	background: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-pmsec-step.is-done::after {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, transparent);
+}
+
+.dashboard-pmsec-step:not(.is-done):hover::before {
+	border-color: var(--db-accent, var(--interactive-accent));
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
+}
+
+/* The board banner's nodes read larger — it is the headline. */
+.dashboard-pmsec-progress-banner .dashboard-pmsec-step::before {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-pmsec-progress-label {
+	flex-shrink: 0;
+	font-size: 0.68em;
+	color: var(--db-text-faint, var(--text-faint));
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-intro {
+	font-size: 0.85em;
+	line-height: 1.5;
+	color: var(--db-text-muted, var(--text-muted));
+	margin-bottom: 9px;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	/* Reserve the full two-line box even when the intro is empty/short —
+	   cards without a pitch keep the same head height. */
+	min-height: calc(2 * 1.5em);
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Invoice-style field rows: icon + label + value in ONE grid so the label
+   column aligns down the whole card; each row joins the grid via
+   display:contents (no per-row box). Empty fields are never rendered. */
+.dashboard-pmsec-fields {
+	display: grid;
+	grid-template-columns: 16px auto minmax(0, 1fr);
+	column-gap: 7px;
+	row-gap: 5px;
+	align-items: baseline;
+	/* Uniform-height engine: the grid ABSORBS the card's slack, and
+	   space-between SPREADS it across the row gaps (Rae: one big crater
+	   under 下一步 read as broken) — no single void, rows breathe evenly,
+	   money/actions stay pinned at the foot. */
+	align-content: space-between;
+	flex: 1 1 auto;
+	padding: 8px 0 2px;
+	border-top: 1px dashed color-mix(in srgb, var(--db-text-faint, #888) 35%, transparent);
+}
+
+.dashboard-pmsec-field {
+	display: contents;
+}
+
+.dashboard-pmsec-field-icon {
+	display: inline-flex;
+	align-self: center;
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+.dashboard-pmsec-field-icon svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-pmsec-field-label {
+	font-size: 0.7em;
+	color: var(--db-text-faint, var(--text-faint));
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-field-value {
+	font-size: 0.8em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-field--overdue .dashboard-pmsec-field-value,
+.dashboard-pmsec-field--overdue .dashboard-pmsec-field-icon {
+	color: var(--db-danger, #e5484d);
+	font-weight: 600;
+}
+
+/* Money strip: the invoice total — income is the hero figure in the accent,
+ *  payment is the outstanding note, right-aligned and quieter. */
+.dashboard-pmsec-money {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 7px;
+	flex-shrink: 0;
+	padding-top: 9px;
+	border-top: 1px dashed color-mix(in srgb, var(--db-text-faint, #888) 35%, transparent);
+}
+
+.dashboard-pmsec-money-block {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.dashboard-pmsec-money-block--right {
+	margin-left: auto;
+	text-align: right;
+	align-items: flex-end;
+}
+
+.dashboard-pmsec-money-label {
+	font-size: 0.64em;
+	letter-spacing: 0.05em;
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+.dashboard-pmsec-money-value {
+	font-size: 1.12em;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	color: var(--db-accent, var(--interactive-accent));
+	font-variant-numeric: tabular-nums;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 160px;
+}
+
+.dashboard-pmsec-money-value--muted {
+	font-size: 0.82em;
+	font-weight: 600;
+	color: var(--db-text-muted, var(--text-muted));
+	max-width: 150px;
+}
+
+.dashboard-pmsec-actions {
+	position: absolute;
+	top: 6px;
+	right: 8px;
+	display: flex;
+	gap: 4px;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+
+.dashboard-pmsec-card:hover .dashboard-pmsec-actions,
+.dashboard-pmsec-actions:focus-within {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.dashboard-pmsec-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+}
+
+.dashboard-pmsec-action:hover {
+	background: color-mix(in srgb, var(--db-text) 9%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-pmsec-action--danger:hover {
+	color: var(--db-danger, #e5484d);
+}
+
+.dashboard-pmsec-action svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-pmsec-empty {
+	padding: 18px 8px;
+	text-align: center;
+}
+
+/* Board modal (dashboard-modal skeleton carries the chrome; these are the
+   pm-specific bits). The new-project form keeps a capped scrolling body;
+   the BOARD itself is page-grade (modal--pm-board below) and scrolls per
+   pane instead. */
+.dashboard-pmsec-new .dashboard-modal-body {
+	max-height: min(70vh, 640px);
+	overflow-y: auto;
+}
+
+/* ── Page-grade project board ────────────────────────────────────────────
+   Mission-control layout: a hero header (name + meta chips + intro), a
+   full-width progress banner, then the two working panes. Claims nearly
+   the whole viewport; each pane scrolls on its own so the hero and footer
+   stay put. Later + equally specific than the .modal--dashboard .modal
+   rule above, so size/overflow win by source order. */
+.modal-container.modal--pm-board .modal {
+	width: min(1280px, 96vw);
+	max-width: none;
+	height: min(90vh, 960px);
+	max-height: 90vh;
+	overflow: hidden;
+}
+
+.modal-container.modal--pm-board .modal > .dashboard-pmsec-board {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Hero: the project's masthead. */
+.dashboard-pmsec-hero {
+	flex-shrink: 0;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
+}
+
+.dashboard-pmsec-hero-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+.dashboard-pmsec-hero-title {
+	font-size: 1.32em;
+	font-weight: 750;
+	letter-spacing: -0.02em;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-hero .dashboard-pmsec-close {
+	margin-left: auto;
+}
+
+.dashboard-pmsec-hero-intro {
+	margin-top: 7px;
+	font-size: 0.92em;
+	line-height: 1.55;
+	color: var(--db-text-muted, var(--text-muted));
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	max-width: 72ch;
+}
+
+/* Progress banner: the delivery state, across the full board width. */
+.dashboard-pmsec-progress-banner {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 14px;
+	margin: 12px 0 0;
+	border-radius: var(--db-radius-md, 10px);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 7%, transparent);
+	border: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
+}
+
+.dashboard-pmsec-progress-banner .dashboard-pmsec-progress-pct {
+	font-size: 1.3em;
+	min-width: 3em;
+}
+
+.dashboard-pmsec-board-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+	gap: 22px;
+	margin-top: 12px;
+	overflow: hidden;
+}
+
+.dashboard-pmsec-pane {
+	min-width: 0;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+	padding-right: 4px;
+}
+
+/* Checklist header: title + done/total count badge. */
+.dashboard-pmsec-check-title {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.dashboard-pmsec-check-count {
+	flex-shrink: 0;
+	font-size: 0.68em;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	padding: 1px 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+/* Footer: the destructive pair, right-aligned. */
+.dashboard-pmsec-foot {
+	flex-shrink: 0;
+	align-items: center;
+	gap: 10px;
+}
+
+.dashboard-pmsec-foot .dashboard-modal-btn--danger {
+	margin-left: auto;
+}
+
+/* Narrow windows: one column, the body scrolls as a whole. */
+@media (max-width: 900px) {
+	.dashboard-pmsec-board-body {
+		grid-template-columns: minmax(0, 1fr);
+		overflow-y: auto;
+	}
+	.dashboard-pmsec-pane {
+		overflow: visible;
+	}
+}
+
+.dashboard-pmsec-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+}
+
+.dashboard-pmsec-close:hover {
+	background: color-mix(in srgb, var(--db-text) 9%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-pmsec-close svg {
+	width: 15px;
+	height: 15px;
+}
+
+.dashboard-pmsec-date {
+	flex: 1 1 120px;
+	min-width: 0;
+}
+
+.dashboard-pmsec-time {
+	flex: 0 0 96px;
+}
+
+.dashboard-pmsec-checklist {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-bottom: 6px;
+}
+
+.dashboard-pmsec-check-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 4px;
+	border-radius: 6px;
+}
+
+.dashboard-pmsec-check-item:hover {
+	background: color-mix(in srgb, var(--db-text) 5%, transparent);
+}
+
+.dashboard-pmsec-check-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: 0.88em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-check-due {
+	flex-shrink: 0;
+	font-size: 0.68em;
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+.dashboard-pmsec-add-row {
+	display: flex;
+	gap: 6px;
+}
+
+.dashboard-pmsec-add-row .dashboard-modal-input {
+	flex: 1 1 auto;
+}
+
+.dashboard-pmsec-files {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.dashboard-pmsec-file {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 6px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.dashboard-pmsec-file:hover {
+	background: color-mix(in srgb, var(--db-text) 6%, transparent);
+}
+
+.dashboard-pmsec-file-icon {
+	display: inline-flex;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-pmsec-file-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-pmsec-file-name {
+	font-size: 0.85em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-skill-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.dashboard-pmsec-ms-row {
+	align-items: flex-start;
+}
+
+.dashboard-pmsec-ms-row .dashboard-library-config-inline-label {
+	padding-top: 6px;
+}
+
+/* Both destructive buttons sit LEFT together (Rae: a right-pinned delete
+   next to the scrollbar was an accidental-click magnet). */
+.dashboard-pmsec-board .dashboard-modal-footer .dashboard-modal-btn--danger {
+	margin-left: 0;
+}
+
+/* ── Overview dossier: stat tiles (view mode) ───────────────────────────
+   Key date with a countdown, the cycle span with its duration, income,
+   payment, client, status as compact tiles; next-step and deliverables
+   take full-width emphasis cards. Accent/danger tiles tint border+bg. */
+.dashboard-pmsec-ov-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+	margin-top: 10px;
+}
+
+.dashboard-pmsec-tile {
+	display: flex;
+	align-items: flex-start;
+	gap: 9px;
+	padding: 10px 12px;
+	border-radius: var(--db-radius-md, 10px);
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
+	background: color-mix(in srgb, var(--db-text-faint, #888) 5%, transparent);
+	min-width: 0;
+}
+
+.dashboard-pmsec-tile--full {
+	grid-column: 1 / -1;
+}
+
+.dashboard-pmsec-tile--accent {
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 30%, transparent);
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 8%, transparent);
+}
+
+.dashboard-pmsec-tile--danger {
+	border-color: color-mix(in srgb, var(--db-danger, #e5484d) 40%, transparent);
+	background: color-mix(in srgb, var(--db-danger, #e5484d) 8%, transparent);
+}
+
+.dashboard-pmsec-tile-icon {
+	display: inline-flex;
+	margin-top: 2px;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-pmsec-tile-icon svg {
+	width: 15px;
+	height: 15px;
+}
+
+.dashboard-pmsec-tile--accent .dashboard-pmsec-tile-icon {
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-pmsec-tile--danger .dashboard-pmsec-tile-icon {
+	color: var(--db-danger, #e5484d);
+}
+
+.dashboard-pmsec-tile-body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.dashboard-pmsec-tile-label {
+	font-size: 0.66em;
+	letter-spacing: 0.05em;
+	color: var(--db-text-faint, var(--text-faint));
+}
+
+.dashboard-pmsec-tile-value {
+	font-size: 0.88em;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+	overflow-wrap: anywhere;
+}
+
+.dashboard-pmsec-tile-value--big {
+	font-size: 1.14em;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-pmsec-tile--accent .dashboard-pmsec-tile-value {
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-pmsec-tile--danger .dashboard-pmsec-tile-value {
+	color: var(--db-danger, #e5484d);
+}
+
+.dashboard-pmsec-tile-sub {
+	font-size: 0.68em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+.dashboard-pmsec-ov-edit {
+	margin-left: auto;
+}
+
+/* ── Overview edit form: aligned grid ────────────────────────────────────
+   Fixed label column + controls wrapper, so every input's left edge lines
+   up however long its label is (the old flex rows read as a spreadsheet). */
+.dashboard-pmsec-edit .dashboard-library-config-inline-row {
+	display: grid;
+	grid-template-columns: 6.5em minmax(0, 1fr);
+	align-items: center;
+	column-gap: 10px;
+	row-gap: 6px;
+}
+
+.dashboard-pmsec-edit .dashboard-library-config-inline-label {
+	font-size: 0.78em;
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-edit-controls {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	flex-wrap: wrap;
+}
+
+.dashboard-pmsec-edit-controls .dashboard-modal-input {
+	flex: 1 1 120px;
+	min-width: 0;
+}
+
+/* ── Archived-projects viewer ────────────────────────────────────────────
+   One compact row per archived note: title + stage badge + counts; the row
+   opens the full board (archived data stays viewable), with restore and
+   delete beside it. */
+.dashboard-pmsec-archive .dashboard-modal-body {
+	max-height: min(70vh, 620px);
+	overflow-y: auto;
+}
+
+.dashboard-pmsec-arch-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.dashboard-pmsec-arch-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 9px 12px;
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
+	border-radius: var(--db-radius-md, 10px);
+	background: color-mix(in srgb, var(--db-text-faint, #888) 4%, transparent);
+	cursor: pointer;
+	transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.dashboard-pmsec-arch-item:hover {
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 34%, transparent);
+	transform: translateY(-1px);
+}
+
+.dashboard-pmsec-arch-main {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1 1 auto;
+	min-width: 0;
+	flex-wrap: wrap;
+}
+
+.dashboard-pmsec-arch-title {
+	font-weight: 600;
+	font-size: 0.92em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 22ch;
+}
+
+.dashboard-pmsec-arch-counts {
+	font-size: 0.72em;
+	color: var(--db-text-muted, var(--text-muted));
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-arch-delete {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.dashboard-pmsec-arch-delete:hover {
+	color: var(--db-danger, #e5484d);
+	background: color-mix(in srgb, var(--db-danger, #e5484d) 12%, transparent);
+}
+
+.dashboard-pmsec-arch-delete svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* Project board: a quiet editorial brief with the active work kept in view. */
+.modal-container.modal--pm-board .modal > .dashboard-pmsec-board {
+	--pm-ink: var(--db-text, var(--text-normal));
+	--pm-muted: var(--db-text-muted, var(--text-muted));
+	--pm-rule: color-mix(in srgb, var(--pm-ink) 13%, transparent);
+	--pm-accent: var(--db-accent, var(--interactive-accent));
+	padding: 0;
+	border-radius: 18px;
+	overflow: hidden;
+	background: var(--db-bg-modal, var(--background-primary)) !important;
+	font-family: "Avenir Next", "Noto Sans CJK SC", "PingFang SC", var(--db-font, var(--font-interface));
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-hero {
+	display: block;
+	position: relative;
+	margin: 0;
+	padding: 30px 46px 24px;
+	border: 0;
+	background: linear-gradient(115deg,
+		color-mix(in srgb, var(--pm-accent) 12%, var(--db-bg-modal, var(--background-primary))),
+		var(--db-bg-modal, var(--background-primary)) 62%);
+}
+
+.dashboard-pmsec-hero-eyebrow {
+	margin-bottom: 10px;
+	color: var(--pm-accent);
+	font-size: 0.68em;
+	font-weight: 800;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-hero-row {
+	gap: 14px;
+	align-items: center;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-hero-title {
+	font-family: "Iowan Old Style", "Songti SC", "Noto Serif CJK SC", serif;
+	font-size: clamp(1.65em, 2.3vw, 2.35em);
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: -0.035em;
+	color: var(--pm-ink);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-badge {
+	padding: 5px 10px;
+	border-radius: 5px;
+	font-size: 0.72em;
+	font-weight: 700;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-hero-intro {
+	max-width: 75ch;
+	margin-top: 13px;
+	font-size: 0.92em;
+	line-height: 1.6;
+	color: var(--pm-muted);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-close {
+	width: 32px;
+	height: 32px;
+	border: 1px solid var(--pm-rule);
+	border-radius: 50%;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-progress-banner {
+	margin: 0;
+	padding: 16px 46px 18px;
+	gap: 17px;
+	border: 0;
+	border-top: 1px solid var(--pm-rule);
+	border-bottom: 1px solid var(--pm-rule);
+	border-radius: 0;
+	background: color-mix(in srgb, var(--pm-accent) 4%, var(--db-bg-modal, var(--background-primary)));
+}
+
+.dashboard-pmsec-progress-heading {
+	flex: 0 0 auto;
+	font-size: 0.75em;
+	font-weight: 700;
+	color: var(--pm-muted);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-progress-banner .dashboard-pmsec-progress-pct {
+	min-width: 2.3em;
+	font-family: "Iowan Old Style", "Songti SC", serif;
+	font-size: 1.8em;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--pm-accent);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-stepper {
+	max-width: 360px;
+	margin-left: auto;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-progress-label {
+	font-size: 0.75em;
+	font-weight: 600;
+	color: var(--pm-muted);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-board-body {
+	grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+	gap: 0;
+	margin: 0;
+	background: var(--db-bg-modal, var(--background-primary));
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-pane {
+	padding: 20px 30px 22px 36px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-pane + .dashboard-pmsec-pane {
+	padding-left: 38px;
+	padding-right: 46px;
+	border-left: 1px solid var(--pm-rule);
+}
+
+.dashboard-pmsec-board .dashboard-library-config-section {
+	margin-bottom: 12px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+
+.dashboard-pmsec-board .dashboard-library-config-section-title {
+	margin: 0;
+	font-size: 0.83em;
+	font-weight: 800;
+	letter-spacing: 0.02em;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-check-title {
+	align-items: center;
+	min-height: 24px;
+	margin-bottom: 7px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-check-count {
+	margin-left: 2px;
+	padding: 3px 8px;
+	border-radius: 4px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-ov-grid {
+	gap: 0 20px;
+	margin-top: 2px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile {
+	min-height: 0;
+	gap: 10px;
+	padding: 7px 0;
+	border: 0;
+	border-top: 1px solid var(--pm-rule);
+	border-radius: 0;
+	background: transparent;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile--accent {
+	background: transparent;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile--accent.dashboard-pmsec-tile--full {
+	min-height: 98px;
+	margin-bottom: 10px;
+	padding: 18px 20px;
+	border: 1px solid color-mix(in srgb, var(--pm-accent) 28%, transparent);
+	border-left: 4px solid var(--pm-accent);
+	border-radius: 9px;
+	background: color-mix(in srgb, var(--pm-accent) 9%, var(--db-bg-modal, var(--background-primary)));
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile--danger {
+	background: transparent;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile-icon {
+	margin-top: 3px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile-label {
+	font-size: 0.7em;
+	font-weight: 650;
+	letter-spacing: 0.07em;
+	color: var(--pm-muted);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile-value {
+	font-size: 0.94em;
+	line-height: 1.45;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile-value--big {
+	font-size: 1.16em;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile--accent.dashboard-pmsec-tile--full .dashboard-pmsec-tile-value {
+	font-size: 1.32em;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-tile-sub {
+	margin-top: 3px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-ov-edit {
+	margin-left: auto;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-section--milestone,
+.dashboard-pmsec-board .dashboard-pmsec-section--todo,
+.dashboard-pmsec-board .dashboard-pmsec-section--files {
+	margin-bottom: 22px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid var(--pm-rule);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-checklist {
+	gap: 0;
+	margin: 0 0 8px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-check-item {
+	min-height: 29px;
+	padding: 3px 4px;
+	border-radius: 5px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-check-item + .dashboard-pmsec-check-item {
+	border-top: 1px solid color-mix(in srgb, var(--pm-ink) 7%, transparent);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-check-item input[type="checkbox"] {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 16px;
+	margin: 0 4px 0 0;
+	accent-color: var(--pm-accent);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-check-text {
+	font-size: 0.88em;
+	line-height: 1.45;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-check-item:has(input:checked) .dashboard-pmsec-check-text {
+	color: var(--pm-muted);
+	text-decoration: line-through;
+	text-decoration-color: color-mix(in srgb, var(--pm-muted) 60%, transparent);
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-add-row {
+	gap: 8px;
+}
+
+/* Todo add-row time picker: kind select + date + optional time — compact,
+   text input keeps the flex share. */
+.dashboard-pmsec-board .dashboard-pmsec-add-kind {
+	flex: 0 0 auto;
+	min-width: 70px;
+	padding: 6px 8px;
+	border-radius: 6px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-add-date,
+.dashboard-pmsec-board .dashboard-pmsec-add-time {
+	flex: 0 0 auto;
+	width: 118px;
+	padding: 6px 8px;
+	border-radius: 6px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-add-time {
+	width: 84px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-add-row .dashboard-modal-input {
+	min-width: 0;
+	padding: 8px 11px;
+	border-radius: 6px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-add-row .dashboard-modal-btn--confirm {
+	min-width: 64px;
+	border-radius: 6px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-section--files .dashboard-library-config-inline-row {
+	justify-content: space-between;
+	margin: 0 0 14px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-files .dashboard-library-empty {
+	padding: 22px 12px;
+	border: 1px dashed var(--pm-rule);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--pm-ink) 2%, transparent);
+	text-align: center;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-file {
+	min-height: 36px;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-foot {
+	margin: 0;
+	/* Align with the panes' CONTENT edges (the hairline rails), not the
+	   modal frame: left = left pane's 36px inset, right = right pane's
+	   46px inset — the buttons read as standing on the same rules. */
+	padding: 14px 46px 14px 36px;
+	/* Both buttons LEFT (Rae: a right-pinned delete near the scrollbar is an
+	   accidental-click magnet) — the house footer class right-aligns. */
+	justify-content: flex-start;
+	border-top: 1px solid var(--pm-rule);
+	background: color-mix(in srgb, var(--pm-ink) 2%, var(--db-bg-modal, var(--background-primary)));
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-foot .dashboard-modal-btn {
+	background: transparent;
+	border-color: var(--pm-rule);
+	font-size: 0.77em;
+}
+
+.dashboard-pmsec-board .dashboard-pmsec-foot .dashboard-modal-btn--danger {
+	color: var(--db-danger, #e5484d);
+	border-color: color-mix(in srgb, var(--db-danger, #e5484d) 30%, transparent);
+}
+
+@media (max-width: 900px) {
+	.modal-container.modal--pm-board .modal {
+		width: min(720px, 96vw);
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-board-body {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0;
+		overflow-y: auto;
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-pane,
+	.dashboard-pmsec-board .dashboard-pmsec-pane + .dashboard-pmsec-pane {
+		padding: 25px 32px;
+		overflow: visible;
+		border-left: 0;
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-pane + .dashboard-pmsec-pane {
+		border-top: 1px solid var(--pm-rule);
+	}
+}
+
+@media (max-width: 560px) {
+	.dashboard-pmsec-board .dashboard-pmsec-hero,
+	.dashboard-pmsec-board .dashboard-pmsec-progress-banner,
+	.dashboard-pmsec-board .dashboard-pmsec-pane,
+	.dashboard-pmsec-board .dashboard-pmsec-pane + .dashboard-pmsec-pane,
+	.dashboard-pmsec-board .dashboard-pmsec-foot {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-hero-title {
+		white-space: normal;
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-progress-banner {
+		flex-wrap: wrap;
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-stepper {
+		flex-basis: 100%;
+		order: 3;
+		max-width: none;
+		margin: 0;
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-progress-label {
+		margin-left: auto;
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-ov-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.dashboard-pmsec-board .dashboard-pmsec-tile--full {
+		grid-column: auto;
+	}
+}
+
+/* Link-existing-file row + linked file rows in the board's files section. */
+.dashboard-pmsec-link-row {
+	margin-bottom: 8px;
+}
+
+.dashboard-pmsec-file--linked {
+	border-left: 2px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 55%, transparent);
+}
+
+.dashboard-pmsec-file--missing {
+	opacity: 0.55;
+}
+
+.dashboard-pmsec-file-unlink {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	margin-left: auto;
+	border: none;
+	border-radius: 5px;
+	background: transparent;
+	color: var(--db-text-faint, var(--text-faint));
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.dashboard-pmsec-file-unlink:hover {
+	color: var(--db-danger, #e5484d);
+	background: color-mix(in srgb, var(--db-danger, #e5484d) 12%, transparent);
+}
+
+.dashboard-pmsec-file-unlink svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* Card bottom action row: work note + skill buttons, always visible. */
+.dashboard-pmsec-foot-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	/* Always-present row anchors the bottom; money (when present) sits above
+	   it. This guarantees the foot alignment across cards. */
+	flex-shrink: 0;
+	margin-top: 9px;	flex-wrap: wrap;
+}
+
+.dashboard-pmsec-foot-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 3px 10px;
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--db-text-faint, #888) 6%, transparent);
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.72em;
+	cursor: pointer;
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.dashboard-pmsec-foot-btn:hover {
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 40%, transparent);
+	color: var(--db-text, var(--text-normal));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 9%, transparent);
+}
+
+.dashboard-pmsec-foot-btn-icon {
+	display: inline-flex;
+}
+
+.dashboard-pmsec-foot-btn-icon svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* ── Card refinements ─────────────────────────────────────────────────────
+   Stage eyebrow at the top-LEFT (kicker above the title — breathing room);
+   tight pct→stepper spacing (the old transparent first connector ate a
+   whole step-width of dead space). */
+.dashboard-pmsec-eyebrow {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.dashboard-pmsec-title-row {
+	margin-bottom: 5px;
+}
+
+.dashboard-pmsec-progress-row {
+	gap: 10px;
+}
+
+.dashboard-pmsec-progress-pct {
+	min-width: 2.4em;
+}
+
+/* ── Board panes as raised panels ─────────────────────────────────────────
+   Framed, tinted panels give the two columns visual weight (the bare
+   columns read hollow) and separate the panes' own scrolling. */
+.dashboard-pmsec-board-body {
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.dashboard-pmsec-pane {
+	background: color-mix(in srgb, var(--db-text-faint, #888) 4%, transparent);
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.18));
+	border-radius: var(--db-radius-lg, 12px);
+	padding: 14px 14px 14px 16px;
+}
+
+.dashboard-pmsec-board .dashboard-library-config-section-title {
+	font-size: 0.78em;
+	letter-spacing: 0.04em;
+	/* Section heads (里程碑/待办/项目文件) read in the accent color. */
+	color: var(--pm-accent, var(--db-accent, var(--interactive-accent)));
+}
+
+/* ── New-project form alignment ──────────────────────────────────────────
+   The shared inline-row pattern leaves both the label and the input at
+   content width — with Chinese labels of varying length every input started
+   at a different x. Scope a fixed label column + flexing controls so all
+   rows share one grid line (date/time pairs and the stage select included). */
+.dashboard-pmsec-new .dashboard-library-config-inline-label {
+	flex: 0 0 92px;
+}
+
+.dashboard-pmsec-new .dashboard-library-config-inline-row {
+	align-items: center;
+}
+
+.dashboard-pmsec-new .dashboard-library-config-inline-row > input.dashboard-modal-input,
+.dashboard-pmsec-new .dashboard-library-config-inline-row > select {
+	flex: 1 1 110px;
+	min-width: 0;
+	width: auto;
+}
+
+.dashboard-pmsec-new .dashboard-pmsec-ms-row > textarea {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* Key-date row: date + time + reminder checkbox share the flex line; the
+   reminder label hugs its checkbox. */
+.dashboard-pmsec-new .dashboard-pmsec-date,
+.dashboard-pmsec-new .dashboard-pmsec-time {
+	flex: 1 1 96px;
+	min-width: 0;
+	width: auto;
+}
+
+/* ── Board scroll chain (real-DOM fix) + hero-progress refinements ────────
+   Real Obsidian nests the board inside an unclassed contentEl div; the
+   board-host class (added in code) lets the whole chain flex so the PANES
+   own the scrolling — the missing link that left the board clipped and
+   unscrollable in the app while the flattened stub hid it. */
+.modal-container.modal--pm-board .modal {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.modal-container.modal--pm-board .dashboard-pmsec-board-host {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+/* The missing scroll link: the board container itself must be a flex column
+   — as a plain block its body's `flex: 1` was inert, the body grew past the
+   board's bounded height and the modal's overflow:hidden clipped it with
+   nothing scrollable anywhere. */
+.modal-container.modal--pm-board .dashboard-pmsec-board {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	min-width: 0;
+}
+
+.modal-container.modal--pm-board .dashboard-pmsec-board .dashboard-pmsec-hero {
+	flex-shrink: 0;
+}
+
+.modal-container.modal--pm-board .modal > .dashboard-pmsec-board,
+.modal-container.modal--pm-board .dashboard-pmsec-board-host > .dashboard-pmsec-board {
+	flex: 1 1 auto;
+	min-height: 0;
+	height: auto;
+}
+
+/* Milestone progress riding the hero's right side, beside the title. */
+.dashboard-pmsec-hero-progress {
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 46%;
+}
+
+.dashboard-pmsec-hero-progress .dashboard-pmsec-progress-pct {
+	font-size: 1.05em;
+	min-width: 2.2em;
+}
+
+.dashboard-pmsec-hero-progress .dashboard-pmsec-step::before {
+	width: 10px;
+	height: 10px;
+}
+
+/* Overview head: edit/done button only (no section title), pinned right. */
+.dashboard-pmsec-ov-head {
+	justify-content: flex-end;
+	margin-bottom: 2px;
+}
+
+/* Tighter dossier rhythm: smaller grid gap, leaner tiles. */
+.dashboard-pmsec-ov-grid {
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.dashboard-pmsec-tile {
+	padding: 8px 11px;
+	gap: 8px;
+}
+
+/* Tighter checklist rows: zero list gap, slimmer rows and delete buttons. */
+.dashboard-pmsec-checklist {
+	gap: 0;
+}
+
+.dashboard-pmsec-check-item {
+	padding: 1px 4px;
+}
+
+.dashboard-pmsec-check-item .dashboard-pipeline-cfg-icon-btn {
+	width: 20px;
+	height: 20px;
+}
+
+.dashboard-pmsec-check-item .dashboard-pipeline-cfg-icon-btn svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Link-existing-file: live results under the search row (plain-name
+   matching, no [[ prefix). Static inline list — robust inside panes. */
+.dashboard-pmsec-link-results {
+	flex-direction: column;
+	gap: 2px;
+	max-height: 180px;
+	overflow-y: auto;
+	margin: 2px 0 8px;
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
+	border-radius: var(--db-radius-sm, 6px);
+	padding: 4px;
+	background: color-mix(in srgb, var(--db-bg-modal-raised, rgba(255, 255, 255, 0.05)) 60%, transparent);
+}
+
+.dashboard-pmsec-link-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 6px;
+	border-radius: 5px;
+	cursor: pointer;
+}
+
+.dashboard-pmsec-link-item:hover {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}
+
+.dashboard-pmsec-link-item-icon {
+	display: inline-flex;
+	color: var(--db-text-muted, var(--text-muted));
+	flex-shrink: 0;
+}
+
+.dashboard-pmsec-link-item-icon svg {
+	width: 13px;
+	height: 13px;
+}
+
+.dashboard-pmsec-link-item-info {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+}
+
+.dashboard-pmsec-link-item-name {
+	font-size: 0.82em;
+	color: var(--db-text, var(--text-normal));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-link-item-path {
+	font-size: 0.66em;
+	color: var(--db-text-faint, var(--text-faint));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Section-height interplay: the resize handle clamps the ROW (max-height);
+   the card list must own the overflow like every other section's body
+   (.dashboard-section-cards pattern — pm renders its own DOM, so claim
+   flex:1 + internal scroll here). Without this a dragged-short section
+   let the cards spill past the row. */
+.dashboard-pmsec-head {
+	flex-shrink: 0;
+}
+
+.dashboard-pmsec-list {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	align-content: start;
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+	padding-right: 2px;
+}
+
+/* Custom info tiles + the inline name/value adder. */
+.dashboard-pmsec-custom-add {
+	margin: 6px 0 2px;
+}
+
+.dashboard-pmsec-custom-add .dashboard-modal-input {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.dashboard-pmsec-custom-add .dashboard-modal-input:first-child {
+	flex: 0 1 7em;
+}
+
+.dashboard-pmsec-tile--custom .dashboard-pmsec-file-unlink {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	margin-left: 0;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+
+.dashboard-pmsec-tile--custom {
+	position: relative;
+}
+
+.dashboard-pmsec-tile--custom:hover .dashboard-pmsec-file-unlink {
+	opacity: 1;
+}
+
+/* The missing line that broke real-app scrolling: the board container is a
+   flex ITEM (sizing applied) but was never a flex CONTAINER in the real DOM
+   (the display:flex rule only matched the flattened stub's .modal > .board
+   path). Children stacked as blocks, the grid body grew to content, and no
+   pane ever overflowed. */
+.modal-container.modal--pm-board .modal > .dashboard-pmsec-board,
+.modal-container.modal--pm-board .dashboard-pmsec-board-host > .dashboard-pmsec-board {
+	display: flex;
+	flex-direction: column;
+}
+
+/* New-project form: milestone dynamic rows (input + trash each, + appends). */
+.dashboard-pmsec-ms-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 100%;
+}
+
+.dashboard-pmsec-ms-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dashboard-pmsec-ms-item .dashboard-modal-input {
+	flex: 1 1 auto;
+}
+
+.dashboard-pmsec-ms-item--add .dashboard-modal-btn {
+	width: 100%;
+	justify-content: center;
+}
+
+/* ── Remind toggle: a bare alarm-clock (no chrome) ───────────────────────
+   Muted at rest, red when armed — in the edit form AND riding the card's
+   key-date value. */
+.dashboard-pmsec-remind {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	/* Bare icon (Rae: no background, no border) — !important because theme
+	   button rules (e.g. Border's .modal button) out-specify plain classes
+	   otherwise and paint a white chip behind it. */
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint, var(--text-faint));
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.dashboard-pmsec-remind svg {
+	width: 14px;
+	height: 14px;
+}
+
+.dashboard-pmsec-remind.is-armed {
+	color: var(--db-danger, #e5484d);
+}
+
+/* Card copy rides inline after the key-date value — smaller, aligned. */
+.dashboard-pmsec-field .dashboard-pmsec-remind svg {
+	width: 12px;
+	height: 12px;
+	vertical-align: -1px;
+}
+
+/* ── Input height unification (Rae): native date/time pickers and the
+   styled text inputs must share one height in the pm forms — edit
+   overview's key-date row and the todo add row both mixed two heights. */
+.dashboard-pmsec-new .dashboard-pmsec-date,
+.dashboard-pmsec-new .dashboard-pmsec-time,
+.dashboard-pmsec-board .dashboard-pmsec-edit .dashboard-pmsec-date,
+.dashboard-pmsec-board .dashboard-pmsec-edit .dashboard-pmsec-time,
+.dashboard-pmsec-board .dashboard-pmsec-add-date,
+.dashboard-pmsec-board .dashboard-pmsec-add-time {
+	box-sizing: border-box;
+	height: 32px;
+	padding: 4px 8px;
+}
+
+/* The TEXT inputs sharing those rows get the same 32px — a mixed 30/34
+   read as sloppy (Rae). Scoped to the pm form contexts only. */
+.dashboard-pmsec-board .dashboard-pmsec-add-row .dashboard-modal-input,
+.dashboard-pmsec-board .dashboard-pmsec-edit .dashboard-library-config-inline-row .dashboard-modal-input {
+	box-sizing: border-box;
+	height: 32px;
+	padding: 4px 10px;
+}
+
+/* New-project subfolder row: input + folder picker chevron share the line. */
+.dashboard-pmsec-folderwrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 1 1 120px;
+	min-width: 0;
+}
+
+.dashboard-pmsec-folderwrap .dashboard-modal-input {
+	flex: 1;
+	min-width: 0;
+}
+
+/* ── PM section toolbar + grouped view + card sizes ────────────────────── */
+.dashboard-pmsec-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin: 8px 0 4px;
+}
+
+.dashboard-pmsec-toolbar .dashboard-toolbar-dropdown {
+	flex-shrink: 0;
+}
+
+.dashboard-pmsec-group-toggle.active {
+	color: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}
+
+/* Grouped blocks: header rail + the shared card grid inside. */
+.dashboard-pmsec-groupwrap {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 14px;
+	min-width: 0;
+}
+
+.dashboard-pmsec-grouphead {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--db-accent, var(--interactive-accent));
+	padding: 2px 4px;
+}
+
+.dashboard-pmsec-grouphead-count {
+	flex-shrink: 0;
+	font-size: 10.5px;
+	font-weight: 600;
+	color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.12));
+	border-radius: 9px;
+	padding: 1px 7px;
+}
+
+/* Card eyebrow: the group chip rides beside the stage badge. */
+.dashboard-pmsec-groupchip {
+	font-size: 10.5px;
+	font-weight: 600;
+	color: var(--db-text-muted, var(--text-muted));
+	border: 1px dashed color-mix(in srgb, var(--db-text-faint, #888) 45%, transparent);
+	border-radius: 999px;
+	padding: 1px 8px;
+	max-width: 140px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* N/A money values read quiet, not broken. */
+.dashboard-pmsec-money-value--na {
+	opacity: 0.45;
+}
+
+/* Compact cards: denser grid; the head + actions do the talking. */
+.dashboard-pmsec-list--compact {
+	grid-template-columns: repeat(auto-fill, minmax(198px, 1fr));
+	gap: 8px;
+}
+
+.dashboard-pmsec-list--compact .dashboard-pmsec-intro {
+	min-height: calc(2 * 1.4em);
+	font-size: 0.8em;
+}
+
+/* PM content: ONE scrollable column — the row is drag-height-capped, so
+   without this a taller view (grouped/compact switch) overflows and
+   OVERLAPS the section below. */
+.dashboard-section-row[data-section-type="pm"] > .dashboard-pmsec-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-right: 2px;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-section-row[data-section-type="pm"] > .dashboard-pmsec-content:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-pmsec-size-toggle.active {
+	color: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}
+
+/* Pin star: bottom-right, ALWAYS visible (Rae) — hollow outline at rest,
+ * solid accent fill when pinned. Sits clear of the foot-action buttons. */
+.dashboard-pmsec-star {
+	position: absolute;
+	right: 10px;
+	bottom: 42px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint, var(--text-faint));
+	cursor: pointer;
+	opacity: 0.75;
+	z-index: 2;
+}
+
+.dashboard-pmsec-star:hover {
+	opacity: 1;
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-pmsec-star.is-active {
+	opacity: 1;
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-pmsec-star.is-active svg {
+	fill: currentColor;
+}
+
+.dashboard-pmsec-star svg {
+	width: 15px;
+	height: 15px;
+}
+
+.dashboard-pmsec-card.is-pinned {
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 40%, var(--db-border-card, rgba(128, 128, 128, 0.25)));
+}
+
+/* Count pill rides the toolbar row's right end (Rae: one row with controls). */
+.dashboard-pmsec-toolbar .dashboard-pmsec-count {
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+/* ── PM kanban grouped view: one column per group, horizontal scroll ───── */
+.dashboard-pmsec-kanban {
+	display: flex;
+	gap: 10px;
+	overflow-x: auto;
+	flex: 1 1 auto;
+	min-height: 0;
+	align-items: stretch;
+	padding-bottom: 4px;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-pmsec-kanban:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+.dashboard-pmsec-kcol {
+	min-width: 268px;
+	width: 268px;
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+	max-height: 100%;
+}
+
+/* Column body: cards stack vertically and the column owns its scroll. */
+.dashboard-pmsec-list--col {
+	display: flex !important;
+	flex-direction: column;
+	gap: 8px;
+	overflow-y: auto;
+	min-height: 0;
+	flex: 1;
+	grid-template-columns: none;
+	padding: 2px;
+	/* Invisible scrollbar (Rae): transparent at rest, hover reveals the
+	   accent hint — the section-wide convention. */
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.dashboard-pmsec-list--col:hover {
+	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+/* WebKit twin: hidden rail until hover. */
+.dashboard-pmsec-list--col::-webkit-scrollbar {
+	width: 6px;
+}
+
+.dashboard-pmsec-list--col::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 3px;
+}
+
+.dashboard-pmsec-list--col:hover::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 22%, transparent);
+}
+
+.dashboard-pmsec-list--col::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.dashboard-pmsec-list--col .dashboard-pmsec-card {
+	flex: none;
+	width: auto;
+}
+
+.dashboard-pmsec-kanban-toggle.active {
+	color: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}

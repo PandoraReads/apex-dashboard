@@ -255,10 +255,18 @@ export async function collectVaultTasks(
 		// Cheap pre-filter via the metadata cache: skip files Obsidian has already
 		// parsed that contain no checkbox tasks at all (the common case — most notes
 		// have none). This avoids reading + regex-parsing the vast majority of notes.
-		// (Don't cache the empty result: re-checking the metadata cache each scan is
-		// cheap and self-heals if the cache was briefly stale after a write.)
+		// STALENESS GATE (the trailing-blank-line bug): Obsidian reindexes a
+		// modified file ASYNCHRONOUSLY, and the calendar's rescan (fired by the
+		// same vault 'modify') can beat the reindex — the pre-filter then sees
+		// "no listItems" for a note that JUST gained a task and skips it, so
+		// the task never shows until an unrelated later edit. Only trust the
+		// cache when its own mtime has caught up with the file's.
+		// (Don't cache the empty result: re-checking each scan is cheap and
+		// self-heals if the cache was briefly stale after a write.)
 		const fc = app.metadataCache.getFileCache(file);
-		if (fc && !fc.listItems?.some(li => li.task !== undefined)) {
+		const cacheMtime = (fc as { mtime?: number } | null)?.mtime;
+		const cacheFresh = fc != null && typeof cacheMtime === 'number' && cacheMtime >= file.stat.mtime;
+		if (fc && cacheFresh && !fc.listItems?.some(li => li.task !== undefined)) {
 			continue;
 		}
 

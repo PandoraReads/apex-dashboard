@@ -329,7 +329,10 @@ export interface PipelineTask {
 }
 
 const TASK_LINE_RE = /^(\s*)- \[( |x|X)\] (.*)$/;
-const INLINE_DUE_RE = /\[due::\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*\]/i;
+/** Inline time markers a task line may carry — due/scheduled/start all make
+ *  the todo calendar-visible (calendar-task-insert); the chip shows the
+ *  value, the marker itself is stripped from the display text. */
+const INLINE_DUE_RE = /\[(?:due|scheduled|start)::\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*\]/i;
 
 /** Parse a note's checkbox tasks (verbatim lines, markers stripped). */
 export function parseTasks(content: string): PipelineTask[] {
