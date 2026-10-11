@@ -24444,9 +24444,21 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	white-space: nowrap;
 }
 
-.dashboard-skillsec-launch:hover {
+/* Hover/press highlight rides BORDER + SURFACE only — the content color
+ * NEVER flips to accent (Rae's bug): themes/snippets that paint a button's
+ * BACKGROUND accent on hover would leave accent-on-accent icon/text
+ * invisible inside a fully-highlighted chip. */
+.dashboard-skillsec-launch:hover,
+.dashboard-skillsec-launch:active,
+.dashboard-skillsec-launch:focus-visible {
 	border-color: var(--db-accent, var(--interactive-accent));
-	color: var(--db-accent, var(--interactive-accent));
+	color: var(--db-text, var(--text-normal));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 10%, var(--db-bg-hover, rgba(128, 128, 128, 0.08)));
+}
+
+.dashboard-skillsec-launch:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 35%, transparent);
 }
 
 .dashboard-skillsec-launch svg {
@@ -28819,4 +28831,43 @@ button.dashboard-capturebar-glyph:hover {
 	color: var(--db-accent, var(--interactive-accent));
 	border-color: var(--db-accent, var(--interactive-accent));
 	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}
+
+/* ── Skill card pin star (Rae, pm-card scheme): action-row right end ───── */
+.dashboard-skillsec-star {
+	/* Inside the action row (last child, margin-left auto) — same line as
+	   the launch buttons by construction. */
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	color: var(--db-text-faint, var(--text-faint));
+	cursor: pointer;
+	opacity: 0.75;
+	flex-shrink: 0;
+}
+
+.dashboard-skillsec-star:hover {
+	opacity: 1;
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-skillsec-star.is-active {
+	opacity: 1;
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-skillsec-star.is-active svg {
+	fill: currentColor;
+}
+
+.dashboard-skillsec-star svg {
+	width: 14px;
+	height: 14px;
 }

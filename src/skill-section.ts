@@ -557,6 +557,20 @@ export function renderSkillSection(
 			}
 		}
 
+		// Pin star (Rae, same scheme as the pm cards): rides the action row's
+		// right end, always visible — hollow at rest, solid accent when
+		// pinned. One click toggles; no menu dive.
+		const isPinned = (config.pinned ?? []).includes(group.name);
+		const starBtn = actions.createEl('button', {
+			cls: 'dashboard-skillsec-star' + (isPinned ? ' is-active' : ''),
+			attr: { type: 'button', 'aria-label': t(isPinned ? 'skills.unpin' : 'skills.pin'), title: t(isPinned ? 'skills.unpin' : 'skills.pin'), 'aria-pressed': String(isPinned) },
+		});
+		setIcon(starBtn, 'star');
+		starBtn.addEventListener('click', ev => {
+			ev.stopPropagation();
+			togglePinned(group.name);
+		});
+
 		const menuBtn = card.createEl('button', {
 			cls: 'dashboard-skillsec-menu',
 			attr: { type: 'button', 'aria-label': t('skills.cardMenu'), title: t('skills.cardMenu') },
@@ -578,13 +592,8 @@ export function renderSkillSection(
 	}
 
 	function openCardMenu(ev: MouseEvent, group: SkillGroup): void {
-		const pinned = (config.pinned ?? []).includes(group.name);
 		const assigned = resolveSkillGroup(group.name, groups, config.assignments);
 		const menu = new Menu();
-		menu.addItem(item => item
-			.setTitle(pinned ? t('skills.unpin') : t('skills.pin'))
-			.setIcon(pinned ? 'pin-off' : 'pin')
-			.onClick(() => togglePinned(group.name)));
 		menu.addItem(item => item
 			.setTitle(assigned
 				? t('skills.regroupFrom', { group: assigned.name })

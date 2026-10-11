@@ -401,17 +401,22 @@ async function main(): Promise<void> {
 	host.addEventListener('dashboard-skills-prefs', ev => {
 		prefsDetail = (ev as CustomEvent).detail;
 	});
-	const menuBtn = findByClass(cardsOf(host)[0]!, 'dashboard-skillsec-menu')[0]!;
+	// Pin is now the ALWAYS-VISIBLE star on the action row (Rae) — no menu.
+	const card0 = cardsOf(host)[0]!;
+	const star = findByClass(card0, 'dashboard-skillsec-star')[0]!;
+	assert.ok(star, 'pin star rendered on the card');
+	star.click();
+	const detail = prefsDetail as unknown as { columnName: string; prefs: Partial<SkillsSectionConfig> };
+	assert.ok(detail, 'star click fires the prefs event');
+	assert.equal(detail.columnName, 'S');
+	assert.deepEqual(detail.prefs.pinned, ['alpha'], 'star toggles route through the prefs event');
+	// The menu no longer offers pin (single entry point).
+	const menuBtn = findByClass(card0, 'dashboard-skillsec-menu')[0]!;
 	menuBtn.click();
-	type StubMenu = { items: Array<{ title: string; click(): void }> };
+	type StubMenu = { items: Array<{ title: string }> };
 	const menu = (Menu as unknown as { last: Menu | null }).last as unknown as StubMenu;
-	const pinItem = menu.items.find(i => i.title.length > 0 && i.title === '置顶');
-	assert.ok(pinItem, 'pin menu item present (zh default locale)');
-	pinItem!.click();
-	await flush();
-	assert.equal(prefsDetail!.columnName, 'S');
-	assert.deepEqual(prefsDetail!.prefs.pinned, ['alpha'], 'pin toggles route through the prefs event');
-	console.log('3b pin menu: ok');
+	assert.ok(!menu.items.some(i => i.title === '置顶'), 'pin removed from the card menu');
+	console.log('3b pin star: ok');
 }
 
 // ── 3c. Grouped view: buckets, collapse, collapse-all ───────────────────
