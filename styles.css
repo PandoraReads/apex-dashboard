@@ -896,6 +896,75 @@
 	--db-aurora-speed: 26s;
 }
 
+/* Evening matcha — deep tea base for DARK Obsidian (Rae: the light-only
+   palette left filenames dark-on-dark wherever Obsidian's own dark chrome
+   bled through translucent surfaces). Deep tea green bg, cream text, the
+   same matcha-gold accent family. */
+.theme-dark .apex-dashboard-root[data-theme="matcha"] {
+	--db-bg: #1a2014;
+	--db-bg-section: transparent;
+	--db-bg-card: rgba(110, 148, 52, 0.10);
+	--db-bg-card-hover: rgba(110, 148, 52, 0.18);
+	--db-bg-sidebar: transparent;
+	--db-bg-input: rgba(110, 148, 52, 0.06);
+	--db-bg-btn: rgba(110, 148, 52, 0.10);
+	--db-bg-btn-hover: rgba(110, 148, 52, 0.18);
+	--db-bg-banner: rgba(200, 169, 106, 0.08);
+	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
+	--db-bg-hover: rgba(255, 255, 255, 0.04);
+	--db-bg-hover-strong: rgba(255, 255, 255, 0.07);
+	--db-bg-add-section: rgba(110, 148, 52, 0.06);
+	--db-bg-drop-indicator: rgba(110, 148, 52, 0.14);
+
+	--db-border: rgba(184, 212, 174, 0.12);
+	--db-border-card: rgba(184, 212, 174, 0.18);
+	--db-border-section: transparent;
+	--db-border-sidebar: transparent;
+	--db-border-input: rgba(184, 212, 174, 0.12);
+	--db-border-input-focus: #b8d4ae;
+	--db-border-btn: rgba(184, 212, 174, 0.14);
+	--db-border-add-section: rgba(184, 212, 174, 0.20);
+
+	--db-text: #ece7d5;
+	--db-text-muted: #c2bda6;
+	--db-text-faint: #8f8b74;
+	--db-text-inverse: rgba(30, 36, 22, 0.92);
+	--db-text-inverse-muted: rgba(30, 36, 22, 0.55);
+
+	--db-accent: #a4c86a;
+	--db-accent-light: #c8e096;
+	--db-danger: #ff5c7a;
+
+	--db-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+	--db-shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.25);
+	--db-backdrop-blur: none;
+
+	--db-radius-sm: 10px;
+	--db-radius-md: 16px;
+	--db-radius-lg: 20px;
+
+	--db-font: 'Nunito', 'LXGW WenKai', var(--font-interface);
+	--db-progress-from: #a4c86a;
+	--db-progress-to: #c8a96a;
+	--db-checkbox: #a4c86a;
+	--db-quote-border: #c8a96a;
+	--db-link: #a4c86a;
+
+	--db-bg-modal: #20261a;
+	--db-bg-modal-raised: rgba(255, 255, 255, 0.04);
+
+	--db-aurora-bg: linear-gradient(135deg,
+		#1a2014 0%,
+		rgba(110, 148, 52, 0.16) 18%,
+		rgba(200, 169, 106, 0.10) 38%,
+		#1a2014 52%,
+		rgba(79, 112, 40, 0.18) 70%,
+		#1c2316 86%,
+		#1a2014 100%);
+	--db-aurora-size: 250% 250%;
+	--db-aurora-speed: 26s;
+}
+
 /* Morning matcha latte — rice-paper base, green only where the tea is */
 .theme-light .apex-dashboard-root[data-theme="matcha"] {
 	--db-bg: #f1efe3;
@@ -28836,8 +28905,10 @@ button.dashboard-capturebar-glyph:hover {
 /* ── Skill card pin star (Rae, pm-card scheme): action-row right end ───── */
 .dashboard-skillsec-star {
 	/* Inside the action row (last child, margin-left auto) — same line as
-	   the launch buttons by construction. */
+	   the launch buttons by construction; nudged 3px down to sit on the
+	   buttons' optical baseline (Rae). */
 	margin-left: auto;
+	margin-top: 3px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
