@@ -2,6 +2,8 @@
 
 > Obsidian 一页纸工作台。一个页面，搞定一切。随手记灵感、管理待办、追踪项目 — 而且好看得不像实力派。[English](README_EN.md)
 
+📺 **[Apex Dashboard 新手教程：15 分钟学会从设置到搭建自己的工作台](https://www.bilibili.com/video/BV17jph6GELp/?share_source=copy_web&vd_source=8d264377ea22b1761c5edc1cc529996f)**
+
 ![Apex Dashboard 工作台](assets/dashboard-hero.png)
 
 ## 两种视图可选
