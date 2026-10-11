@@ -377,6 +377,8 @@ function renderProjectCard(
 	// Bottom action row (always visible): work note + skill buttons —
 	// these are the project's working tools, they belong in plain sight.
 	const footActions = card.createDiv({ cls: 'dashboard-pmsec-foot-actions' });
+	const isPinned = (cfg.pinned ?? []).includes(project.file.path);
+	if (isPinned) card.addClass('is-pinned');
 	const workBtn = footActions.createEl('button', {
 		cls: 'dashboard-pmsec-foot-btn',
 		attr: { type: 'button' },
@@ -395,12 +397,7 @@ function renderProjectCard(
 		btn.createSpan({ text: skill.label });
 		btn.addEventListener('click', () => dispatchPmSkill(app, skill, pmSkillVars(project.file, cfg)));
 	}
-
-	// Pin star (Rae): ALWAYS visible at the card's bottom-right — hollow
-	// star at rest, solid + accent when pinned. Click toggles.
-	const isPinned = (cfg.pinned ?? []).includes(project.file.path);
-	if (isPinned) card.addClass('is-pinned');
-	const starBtn = card.createEl('button', {
+	const starBtn = footActions.createEl('button', {
 		cls: 'dashboard-pmsec-star' + (isPinned ? ' is-active' : ''),
 		attr: { type: 'button', 'aria-label': t('pm.pin'), title: t('pm.pin'), 'aria-pressed': String(isPinned) },
 	});

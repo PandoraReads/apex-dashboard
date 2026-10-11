@@ -28685,14 +28685,14 @@ button.dashboard-capturebar-glyph:hover {
 /* Pin star: bottom-right, ALWAYS visible (Rae) — hollow outline at rest,
  * solid accent fill when pinned. Sits clear of the foot-action buttons. */
 .dashboard-pmsec-star {
-	position: absolute;
-	right: 10px;
-	bottom: 42px;
+	/* Lives INSIDE the foot-action row (last child, margin-left:auto) — same
+	   line as the skill buttons by construction, never over the money strip. */
+	margin-left: auto;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 	padding: 0;
 	border: none !important;
 	background: transparent !important;
@@ -28700,7 +28700,6 @@ button.dashboard-capturebar-glyph:hover {
 	color: var(--db-text-faint, var(--text-faint));
 	cursor: pointer;
 	opacity: 0.75;
-	z-index: 2;
 }
 
 .dashboard-pmsec-star:hover {
@@ -28718,8 +28717,8 @@ button.dashboard-capturebar-glyph:hover {
 }
 
 .dashboard-pmsec-star svg {
-	width: 15px;
-	height: 15px;
+	width: 14px;
+	height: 14px;
 }
 
 .dashboard-pmsec-card.is-pinned {
