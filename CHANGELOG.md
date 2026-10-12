@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.8.4 (2026-10-12)
+
+### Fixed
+- **WeRead section loads again (official skill 1.0.5)** — WeRead's gateway started rejecting the plugin's pinned `skill_version` 1.0.4 with an upgrade-required response after the official skill package moved to 1.0.5, so a freshly added WeRead section showed "微信读书 Skill 需要升级" instead of data. The pinned version is bumped to 1.0.5; the gateway contract (endpoint, flat body params, auth) is unchanged and all five APIs the service calls remain documented.
+- **Skill buttons send to Claudian again after its 2.3 update** — Claudian 2.3 moved `activateView`/`getView` off the plugin instance onto its internal `views` domain, so every dashboard skill button targeting Claudian failed the bridge's shape check and raised "This Claudian version does not support direct sending from the dashboard." The bridge now resolves the view surface through `plugin.views` first (2.3+) and falls back to the plugin-level methods (2.2 and earlier), and additionally treats a turn still being prepared (`inputController.isPreparingMainTurn`) as busy instead of letting the send vanish silently.
+
 ## 2.0.2 (2026-08-30)
 
 ### Changed

@@ -99,6 +99,70 @@ async function main(): Promise<void> {
 		},
 	} } } }, 'hello'),
 		(error: unknown) => error instanceof AgentBridgeError && error.code === 'busy');
+
+	// Claudian 2.3.19 moved activateView/getView onto plugin.views; the bridge
+	// resolves that surface first and still delivers through the active tab's
+	// inputController.sendMessage({ content }).
+	const claudian = getAgentAdapter('claudian');
+	function claudianApp(pluginShape: Record<string, unknown>) {
+		return { plugins: { plugins: { realclaudian: pluginShape } } };
+	}
+	function claudianTab(overrides: Record<string, unknown> = {}) {
+		return {
+			state: { isStreaming: false },
+			controllers: { inputController: {
+				isPreparingMainTurn: false,
+				sendMessage: async (options: { content: string }) => { claudianDelivered.push(options); },
+			} },
+			...overrides,
+		};
+	}
+	let claudianDelivered: Array<{ content: string }> = [];
+	let claudianActivated = 0;
+	const modernTab = claudianTab();
+	const modernShape = {
+		views: {
+			activateView: async () => { claudianActivated += 1; },
+			getView: () => ({ getActiveTab: () => modernTab }),
+		},
+	};
+	assert.equal(claudian.isAvailable(claudianApp(modernShape)), true, '2.3 shape available');
+	await claudian.send(claudianApp(modernShape), '$start-my-day\n\nFocus');
+	assert.equal(claudianActivated, 1);
+	assert.deepEqual(claudianDelivered, [{ content: '$start-my-day\n\nFocus' }]);
+
+	// Legacy shape (Claudian <= 2.2, methods on the plugin itself) still sends.
+	claudianDelivered = [];
+	const legacyTab = claudianTab();
+	const legacyShape = {
+		activateView: async () => { claudianActivated += 1; },
+		getView: () => ({ getActiveTab: () => legacyTab }),
+	};
+	assert.equal(claudian.isAvailable(claudianApp(legacyShape)), true, 'legacy shape available');
+	await claudian.send(claudianApp(legacyShape), 'hello');
+	assert.deepEqual(claudianDelivered, [{ content: 'hello' }]);
+
+	// Neither surface: the fail-closed unsupported error the error modal maps to.
+	assert.equal(claudian.isAvailable(claudianApp({})), false);
+	await assert.rejects(claudian.send(claudianApp({ someOtherApi: true }), 'hello'),
+		(error: unknown) => error instanceof AgentBridgeError && error.code === 'unsupported');
+	// Streaming and turn-preparation both read as busy.
+	const streamingShape = {
+		views: { activateView: async () => {}, getView: () => ({ getActiveTab: () => claudianTab({ state: { isStreaming: true } }) }) },
+	};
+	await assert.rejects(claudian.send(claudianApp(streamingShape), 'hello'),
+		(error: unknown) => error instanceof AgentBridgeError && error.code === 'busy');
+	const preparingShape = {
+		views: { activateView: async () => {}, getView: () => ({ getActiveTab: () => ({
+			state: { isStreaming: false },
+			controllers: { inputController: { isPreparingMainTurn: true, sendMessage: async () => {} } },
+		}) }) },
+	};
+	await assert.rejects(claudian.send(claudianApp(preparingShape), 'hello'),
+		(error: unknown) => error instanceof AgentBridgeError && error.code === 'busy');
+	// View present but no tab yet: chat-not-ready, not unsupported.
+	await assert.rejects(claudian.send(claudianApp({ views: { activateView: async () => {}, getView: () => null } }), 'hello'),
+		(error: unknown) => error instanceof AgentBridgeError && error.code === 'chat');
 }
 
 void main();

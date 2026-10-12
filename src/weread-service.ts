@@ -15,7 +15,7 @@ import type {
  *
  *   POST https://i.weread.qq.com/api/agent/gateway
  *   Authorization: Bearer wrk-...
- *   { "api_name": "/shelf/sync", "skill_version": "1.0.4", ...params }
+ *   { "api_name": "/shelf/sync", "skill_version": "1.0.5", ...params }
  *
  * Responses are wrapped as { ok, api_name, data }. We surface `data` and throw
  * on `data.errcode` / `data.upgrade_info` / non-ok. requestUrl bypasses CORS, so
@@ -23,7 +23,7 @@ import type {
  */
 
 const GATEWAY_URL = 'https://i.weread.qq.com/api/agent/gateway';
-const SKILL_VERSION = '1.0.4';
+const SKILL_VERSION = '1.0.5';
 const MAX_RETRIES = 3;
 
 /** Per-endpoint rate-limit cooldowns (circuit breaker state, app-session scope). */

@@ -14,12 +14,24 @@ import { t } from './i18n';
 
 type ClaudianTab = {
 	state?: { isStreaming?: boolean };
-	controllers?: { inputController?: { sendMessage?: (options: { content: string }) => Promise<void> } };
+	controllers?: {
+		inputController?: {
+			isPreparingMainTurn?: boolean;
+			sendMessage?: (options: { content: string }) => Promise<void>;
+		};
+	};
 };
 
-type ClaudianPlugin = {
+type ClaudianViewHost = {
 	activateView?: () => Promise<void>;
 	getView?: () => { getActiveTab?: () => ClaudianTab | null } | null;
+};
+
+/** Claudian 2.3+ keeps activateView/getView on plugin.views; 2.2 and earlier
+ *  exposed them directly on the plugin instance. Both shapes resolve the same
+ *  chat view. */
+type ClaudianPlugin = ClaudianViewHost & {
+	views?: ClaudianViewHost;
 };
 
 type PluginHost = { plugins?: { plugins?: Record<string, unknown> } };
@@ -36,22 +48,33 @@ export class AgentBridgeError extends Error {
 export { AgentBridgeError as ClaudianBridgeError };
 
 /** Claudian 2.x currently has no documented cross-plugin submit API. Keep its
- *  internal shape in one place and fail closed if an update changes it. */
+ *  internal shape in one place and fail closed if an update changes it.
+ *  2.3.19 moved the view surface onto plugin.views and kept
+ *  inputController.sendMessage({ content }) working — verified in its
+ *  bundled main.js (the composer draft is only read when content is absent). */
+function claudianViewSurface(plugin: ClaudianPlugin): ClaudianViewHost | null {
+	const views = plugin.views;
+	if (typeof views?.activateView === 'function' && typeof views.getView === 'function') return views;
+	if (typeof plugin.activateView === 'function' && typeof plugin.getView === 'function') return plugin;
+	return null;
+}
+
 export async function prepareClaudian(app: unknown): Promise<(content: string) => Promise<void>> {
 	const host = app as PluginHost;
 	const plugin = host.plugins?.plugins?.realclaudian as ClaudianPlugin | undefined;
 	if (!plugin) throw new AgentBridgeError('missing', 'Claudian is not enabled');
-	if (typeof plugin.activateView !== 'function' || typeof plugin.getView !== 'function') {
-		throw new AgentBridgeError('unsupported', 'Unsupported Claudian interface');
-	}
-	await plugin.activateView();
-	const view = plugin.getView();
-	const tab = view?.getActiveTab?.();
+	const surface = claudianViewSurface(plugin);
+	if (!surface) throw new AgentBridgeError('unsupported', 'Unsupported Claudian interface');
+	await surface.activateView?.();
+	const tab = surface.getView?.()?.getActiveTab?.() ?? null;
 	if (!tab) throw new AgentBridgeError('chat', 'Claudian chat is not ready');
-	if (tab.state?.isStreaming) throw new AgentBridgeError('busy', 'Claudian chat is busy');
-	const send = tab.controllers?.inputController?.sendMessage;
+	if (tab.state?.isStreaming || tab.controllers?.inputController?.isPreparingMainTurn) {
+		throw new AgentBridgeError('busy', 'Claudian chat is busy');
+	}
+	const inputController = tab.controllers?.inputController;
+	const send = inputController?.sendMessage;
 	if (typeof send !== 'function') throw new AgentBridgeError('unsupported', 'Unsupported Claudian interface');
-	return async (content: string) => { await send.call(tab.controllers?.inputController, { content }); };
+	return async (content: string) => { await send.call(inputController, { content }); };
 }
 
 export async function submitToClaudian(app: unknown, content: string): Promise<void> {
@@ -160,7 +183,7 @@ const claudianAdapter: AgentAdapter = {
 	kind: 'in-app',
 	isAvailable(app: unknown): boolean {
 		const plugin = (app as PluginHost)?.plugins?.plugins?.realclaudian as ClaudianPlugin | undefined;
-		return !!plugin && typeof plugin.activateView === 'function' && typeof plugin.getView === 'function';
+		return !!plugin && claudianViewSurface(plugin) !== null;
 	},
 	send(app: unknown, prompt: string): Promise<void> {
 		return submitToClaudian(app, prompt);
