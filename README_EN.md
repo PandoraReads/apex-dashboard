@@ -556,3 +556,8 @@ Credentials are submitted directly to NetEase. The plugin uses the local session
 ### Move cards between sections
 
 Drag a card header between Todo, Memo and Sticky sections. Notes with or without covers can also move into these sections. Memo destinations show the original text, tasks and links as a memo. Todo destinations keep existing tasks and turn other non-empty text lines and note links into unchecked items. Sticky destinations preserve the original card appearance, including whether a note has a cover. Changes persist across reloads. Moving a board card does not move or delete linked vault files.
+
+
+## Gantt charts (draft)
+
+Native note-backed Gantt charts can be rendered and edited in project notes and referenced by Memo/Sticky dashboard cards. See [usage, examples and security boundaries](docs/gantt.md).
