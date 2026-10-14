@@ -2375,6 +2375,110 @@
 	padding: 8px 16px 0 16px;
 }
 
+/* ===== Section navigation rail (normal workspace, right edge) =====
+   One semi-transparent dash per section, vertically centered on the
+   positioned root (scrolls with nothing — it overlays). The dash of the
+   section owning the most viewport height stays lit; hover slides the
+   section's name out to the left. pointer-events pass through the gaps so
+   the rail never blocks section chrome beneath it. */
+.dashboard-section-rail {
+	position: absolute;
+	top: 50%;
+	right: 4px;
+	transform: translateY(-50%);
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	justify-content: center;
+	/* Many sections squeeze the dashes (flex shrink on the items) instead of
+	   overflowing the viewport. */
+	max-height: 82%;
+	gap: 5px;
+	z-index: 30;
+	pointer-events: none;
+}
+
+.dashboard-section-rail-item {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 0 1 auto;
+	/* Desktop hit zone stays slim — the rail floats over section toolbars
+	   and resize handles, so wide corridors would block their right-edge
+	   buttons. Phones widen it in the media block below. */
+	min-height: 12px;
+	padding: 2px 4px 2px 4px;
+	cursor: pointer;
+	pointer-events: auto;
+}
+
+.dashboard-section-rail-dash {
+	width: 14px;
+	height: 3px;
+	border-radius: 2px;
+	/* Neutral faint gray (Rae: column-color tints read as visual noise —
+	   the rail must stay quiet). Theme-text-based so it adapts to light and
+	   dark themes; the hover/active states step the same gray up. */
+	background: color-mix(in srgb, var(--db-text, var(--text-normal)) 18%, transparent);
+	transition: width 0.15s ease, background-color 0.15s ease;
+}
+
+.dashboard-section-rail-item:hover .dashboard-section-rail-dash {
+	width: 20px;
+	background: color-mix(in srgb, var(--db-text, var(--text-normal)) 50%, transparent);
+}
+
+.dashboard-section-rail-item.is-active .dashboard-section-rail-dash {
+	width: 20px;
+	background: color-mix(in srgb, var(--db-text, var(--text-normal)) 68%, transparent);
+}
+
+/* Hover label: the section's name slides out left of the dash. */
+.dashboard-section-rail-item::after {
+	content: attr(data-name);
+	position: absolute;
+	right: calc(100% + 6px);
+	top: 50%;
+	transform: translateY(-50%) translateX(4px);
+	white-space: nowrap;
+	font-size: 0.72em;
+	padding: 2px 8px;
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--db-bg-section, rgb(20, 20, 26)) 92%, transparent);
+	border: 1px solid var(--db-border-section, rgba(128, 128, 128, 0.25));
+	color: var(--db-text, var(--text-normal));
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.dashboard-section-rail-item:hover::after {
+	opacity: 1;
+	transform: translateY(-50%) translateX(0);
+}
+
+/* Auto-hide on pointer-capable devices (Rae): fully invisible until the
+   cursor rides the right-edge reveal strip (JS proximity check in
+   section-rail) or keyboard focus enters. Touch keeps it permanently
+   visible — no mouse to trigger the reveal. */
+@media (hover: hover) {
+	.dashboard-section-rail {
+		opacity: 0;
+		transition: opacity 0.22s ease;
+	}
+
+	.dashboard-section-rail.is-revealed {
+		opacity: 1;
+	}
+
+	/* Invisible means unclickable: no phantom hit zones over section
+	   chrome while hidden. */
+	.dashboard-section-rail:not(.is-revealed) .dashboard-section-rail-item {
+		pointer-events: none;
+	}
+}
+
 /* ===== Sidebar ===== */
 .dashboard-sidebar {
 	/* Width is user-draggable (side layout): the render applies the persisted
@@ -2449,6 +2553,27 @@
 @media (max-width: 640px) {
 	.dashboard-sidebar-width-handle {
 		display: none;
+	}
+
+	/* Bigger touch corridors and slimmer dashes on phones; right-8 would sit
+	   under the root's scrollbar gutter, hug the edge instead. */
+	.dashboard-section-rail {
+		right: 3px;
+		gap: 3px;
+	}
+
+	.dashboard-section-rail-item {
+		min-height: 16px;
+		padding-left: 16px;
+	}
+
+	.dashboard-section-rail-dash {
+		width: 11px;
+	}
+
+	.dashboard-section-rail-item:hover .dashboard-section-rail-dash,
+	.dashboard-section-rail-item.is-active .dashboard-section-rail-dash {
+		width: 15px;
 	}
 }
 
@@ -10093,6 +10218,10 @@
 .is-tablet button.dashboard-weread-cfg-op,
 .is-tablet button.dashboard-weread-notebook-import,
 .is-tablet button.dashboard-theme-studio-color-clear,
+.is-tablet button.dashboard-pmsec-action,
+.is-tablet button.dashboard-pmsec-star,
+.is-tablet button.dashboard-pmsec-remind,
+.is-tablet button.dashboard-pmsec-file-unlink,
 .is-tablet button.note-popover-btn {
 	padding: 0;
 }
@@ -10105,6 +10234,7 @@
 .is-tablet button.dashboard-card-btn { padding: 2px; }
 .is-tablet button.dashboard-card-btn--size { padding: 2px 5px; }
 .is-tablet button.dashboard-section-add-btn { padding: 2px 4px; }
+.is-tablet button.dashboard-pmsec-foot-btn { padding: 3px 10px; }
 .is-tablet button.dashboard-qa-add-btn,
 .is-tablet button.dashboard-qa-palette-btn { padding: 2px 4px; }
 .is-tablet button.dashboard-weread-pager-btn { padding: 0 6px; }
@@ -13961,6 +14091,30 @@
 	.dashboard-section-row[data-section-type="rss"] {
 		height: 60vh;
 		max-height: none;
+	}
+
+	/* PM: workhorse height too — the project list is the content, and the
+	 * desktop 500px generic clamp must lift so 60vh is the only ruler. The
+	 * list scrolls internally (pmsec-list overflow-y). */
+	.dashboard-section-row[data-section-type="pm"] {
+		height: 60vh;
+		max-height: none;
+	}
+
+	/* PM card's hover-only destructive pair (archive/delete): touch has no
+	 * hover — always visible, the card-delete convention. Specificity beats
+	 * the base .dashboard-pmsec-actions rule, which sits later in the file
+	 * (media queries add none). */
+	.dashboard-pmsec-card .dashboard-pmsec-actions {
+		opacity: 1;
+		pointer-events: auto;
+		top: 4px;
+		right: 4px;
+	}
+
+	.dashboard-pmsec-action {
+		width: 28px;
+		height: 28px;
 	}
 
 	.dashboard-section-header {
@@ -26923,11 +27077,9 @@ button.dashboard-capturebar-glyph:hover {
 /* ===== PM section (项目管理) — dashboard-pmsec-* =====
    Project cards from vault notes (frontmatter type: project): metadata
    chips, milestone progress bar, hover action row. The per-project board is
-   a modal (pm-board-modal) reusing the config-modal skeleton. */
-.dashboard-section-row--pm-off-mobile {
-	display: none;
-}
-
+   a modal (pm-board-modal) reusing the config-modal skeleton. Runs on
+   mobile too (workhorse height + always-visible card actions in the phone
+   media block). */
 .dashboard-pmsec-head {
 	display: flex;
 	align-items: center;
@@ -27520,6 +27672,46 @@ button.dashboard-capturebar-glyph:hover {
 	flex-shrink: 0;
 	font-size: 0.68em;
 	color: var(--db-text-faint, var(--text-faint));
+}
+
+/* Checklist row reorder grip (guarded pointer drag — desktop AND touch).
+   Faint at rest, full contrast on row hover; touch-action:none hands the
+   gesture to the drag instead of the modal's scroll. */
+.dashboard-pmsec-check-grip {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	width: 14px;
+	height: 18px;
+	color: var(--db-text-faint, var(--text-faint));
+	cursor: grab;
+	touch-action: none;
+	opacity: 0.4;
+	transition: opacity 0.12s ease;
+}
+
+.dashboard-pmsec-check-item:hover .dashboard-pmsec-check-grip {
+	opacity: 1;
+}
+
+.dashboard-pmsec-check-grip svg {
+	width: 12px;
+	height: 12px;
+}
+
+.dashboard-pmsec-check-item.is-dragging {
+	opacity: 0.7;
+	outline: 1px dashed color-mix(in srgb, var(--pm-accent, var(--interactive-accent)) 55%, transparent);
+	outline-offset: -1px;
+}
+
+/* Inline edit input inside a checklist row (double-click the text). */
+.dashboard-pmsec-check-item .dashboard-pmsec-check-edit {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 2px 8px;
+	border-radius: 4px;
 }
 
 .dashboard-pmsec-add-row {

@@ -11,9 +11,10 @@ import { attachNoteHover } from './hover-preview';
 import { iconForExtension } from './file-types';
 import {
 	parseProjectBody, pmField, pmGroupName, pmIncome, pmKeyDate, keyDateCountdown, pmStageColor, projectFolder,
-	insertProjectTask, removeProjectTask, pmLinkedFiles, pmCustomFields,
+	insertProjectTask, removeProjectTask, renameProjectTask, reorderProjectTasks, pmLinkedFiles, pmCustomFields,
 } from './pm-model';
 import { toggleTaskLine, type PipelineTask } from './pipeline-model';
+import { startGuardedDrag } from './drag-guard';
 import { NotePopoverModal } from './note-popover-modal';
 
 /** Tell the view to refreshSectionInPlace for every pm column (edits land on
@@ -470,6 +471,43 @@ export class PmBoardModal extends Modal {
 		}
 		for (const task of tasks) {
 			const item = list.createDiv({ cls: 'dashboard-pmsec-check-item' });
+			item.dataset.taskLine = String(task.line);
+
+			// Reorder grip (guarded pointer drag, skill-group idiom — works for
+			// touch too): rows live-reorder under the pointer; release commits
+			// the DOM order through reorderProjectTasks. The grip iterates the
+			// item's OWN parent, so a milestone row can never wander into the
+			// todo list — reordering stays inside one section.
+			const grip = item.createDiv({
+				cls: 'dashboard-pmsec-check-grip',
+				attr: { role: 'button', 'aria-label': t('pm.reorderTask'), title: t('pm.reorderTask') },
+			});
+			setIcon(grip, 'grip-vertical');
+			grip.addEventListener('pointerdown', (ev) => {
+				const e = ev;
+				item.addClass('is-dragging');
+				startGuardedDrag(e, {
+					cursor: 'grabbing',
+					onMove: (mv: PointerEvent): void => {
+						const parent = item.parentElement;
+						if (!parent) return;
+						for (const sibling of Array.from(parent.children) as HTMLElement[]) {
+							if (sibling === item || !sibling.dataset.taskLine) continue;
+							const r = sibling.getBoundingClientRect();
+							if (mv.clientY < r.top + r.height / 2) {
+								parent.insertBefore(item, sibling);
+								return;
+							}
+						}
+						parent.appendChild(item);
+					},
+					onUp: (): void => {
+						item.removeClass('is-dragging');
+						this.commitTaskOrder(list, tasks);
+					},
+				});
+			});
+
 			const box = item.createEl('input', { attr: { type: 'checkbox', 'aria-label': task.text } });
 			box.checked = task.checked;
 			box.addEventListener('change', () => {
@@ -487,6 +525,44 @@ export class PmBoardModal extends Modal {
 			});
 			const label = item.createDiv({ cls: 'dashboard-pmsec-check-text', text: task.text });
 			if (task.due) label.createSpan({ cls: 'dashboard-pmsec-check-due', text: task.due });
+			label.setCssProps({ cursor: 'text' });
+			// Double-click edits in place (the card-title idiom): the [due::]
+			// marker is NOT part of the editable text — renameProjectTask keeps
+			// it on the line, and the re-render restores its chip.
+			label.addEventListener('dblclick', (e) => {
+				e.stopPropagation();
+				const currentText = task.text;
+				label.empty();
+				const input = label.createEl('input', {
+					cls: 'dashboard-modal-input dashboard-pmsec-check-edit',
+					attr: { type: 'text', value: currentText, 'aria-label': t('pm.editTask') },
+				});
+				input.focus();
+				input.select();
+				const restore = (): void => {
+					label.empty();
+					label.setText(currentText);
+					if (task.due) label.createSpan({ cls: 'dashboard-pmsec-check-due', text: task.due });
+				};
+				const finish = (save: boolean): void => {
+					const newText = input.value.trim();
+					if (save && newText && newText !== currentText) {
+						void this.renameTask(task.line, newText);
+					} else {
+						restore();
+					}
+				};
+				input.addEventListener('keydown', (ke: KeyboardEvent) => {
+					if (ke.key === 'Enter' && !ke.isComposing) {
+						ke.preventDefault();
+						finish(true);
+					} else if (ke.key === 'Escape') {
+						ke.preventDefault();
+						finish(false);
+					}
+				});
+				input.addEventListener('blur', () => finish(true));
+			});
 			const del = item.createEl('button', {
 				cls: 'dashboard-pipeline-cfg-icon-btn dashboard-pipeline-cfg-icon-btn--danger',
 				attr: { type: 'button', 'aria-label': t('common.delete') },
@@ -551,6 +627,24 @@ export class PmBoardModal extends Modal {
 
 	private async removeTask(line: number): Promise<void> {
 		await this.mutateFile(content => removeProjectTask(content, line));
+	}
+
+	/** Inline rename of one checklist task (keeps the checkbox + markers). */
+	private async renameTask(line: number, text: string): Promise<void> {
+		await this.mutateFile(content => renameProjectTask(content, line, text));
+	}
+
+	/** Commit a checklist's post-drag DOM order: the rows' original line
+	 *  numbers, read off the DOM, become reorderProjectTasks' new order.
+	 *  A no-op order (drag aborted back to start) skips the disk write. */
+	private commitTaskOrder(list: HTMLElement, tasks: readonly PipelineTask[]): void {
+		const lines = (Array.from(list.children) as HTMLElement[])
+			.map(el => el.dataset.taskLine)
+			.filter((value): value is string => !!value)
+			.map(Number);
+		const before = tasks.map(task => task.line);
+		if (lines.length !== before.length || lines.every((line, i) => line === before[i])) return;
+		void this.mutateFile(content => reorderProjectTasks(content, lines));
 	}
 
 	private filesSection(host: HTMLElement, frontmatter: Record<string, unknown>): void {

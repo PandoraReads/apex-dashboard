@@ -1,19 +1,20 @@
 /**
  * Skills section settings: which home stores the library shows (custom
- * skillSourceFolders always show), the default card order, and the group
- * manager — group rows (drag handle to reorder, name + match keywords,
- * delete) with an add button. The row list starts from the saved groups or,
- * when the section has never saved any, the built-in presets (fully
- * editable — deleting every one and saving persists an empty list). Pinned
- * names, page size, assignments and the import-target memory live on the
- * same config and pass through untouched.
+ * skillSourceFolders always show) and the group manager — group rows (drag
+ * handle to reorder, name + match keywords, delete) with an add button. The
+ * row list starts from the saved groups or, when the section has never saved
+ * any, the built-in presets (fully editable — deleting every one and saving
+ * persists an empty list). Pinned names, sort prefs, page size, assignments
+ * and the import-target memory live on the same config and pass through
+ * untouched — the toolbar's sort control owns them now (the old "default
+ * sort" dropdown here was redundant with it).
  */
 
 import { App, Modal, setIcon } from 'obsidian';
 import type { SkillsSectionConfig, SkillCreateConfig, SkillSectionGroup } from './types';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
-import { effectiveSkillGroups, HOME_SKILL_STORES, UNGROUPED_ASSIGNMENT } from './skill-store';
+import { effectiveSkillGroups, getSkillLibraryStore, HOME_SKILL_STORES, UNGROUPED_ASSIGNMENT } from './skill-store';
 import { startGuardedDrag } from './drag-guard';
 import { SkillCreateConfigModal } from './skill-create-config-modal';
 import type DashboardPlugin from './main';
@@ -27,7 +28,6 @@ function newGroupId(): string {
 
 export class SkillSectionConfigModal extends Modal {
 	private visibleStores: Set<string>;
-	private sortMode: 'name' | 'recent';
 	private groups: SkillSectionGroup[];
 
 	constructor(
@@ -39,7 +39,6 @@ export class SkillSectionConfigModal extends Modal {
 	) {
 		super(app);
 		this.visibleStores = new Set(existing?.stores?.length ? existing.stores : HOME_SKILL_STORES.map(s => s.id));
-		this.sortMode = existing?.sortMode ?? 'name';
 		// Copy so Cancel discards edits; presets fill in until the user has
 		// ever saved (undefined = never customized — see effectiveSkillGroups).
 		this.groups = (existing?.groups ?? effectiveSkillGroups(undefined)).map(group => ({ ...group }));
@@ -92,20 +91,23 @@ export class SkillSectionConfigModal extends Modal {
 			label.createSpan({ cls: 'dashboard-skillsec-cfg-store-dir', text: store.dir });
 		}
 
-		const sortSection = body.createDiv({ cls: 'dashboard-library-config-section' });
-		sortSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('skills.cfgSort') });
-		const sortSelect = sortSection.createEl('select', { cls: 'dashboard-library-filter-property' });
-		const options: Array<{ value: 'name' | 'recent'; label: string }> = [
-			{ value: 'name', label: t('skills.sortName') },
-			{ value: 'recent', label: t('skills.sortRecent') },
-		];
-		for (const option of options) {
-			const opt = sortSelect.createEl('option', { text: option.label, attr: { value: option.value } });
-			opt.selected = this.sortMode === option.value;
+		// Custom skill source folders — the entry point the home stores lack.
+		// The scan engine (resolveSkillStores) has read settings.skillSourceFolders
+		// all along; until now the only place to edit it was the quick-note
+		// config. Desktop-only by nature ('~' allowed, comma-separated).
+		if (this.plugin) {
+			const foldersSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+			foldersSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('skills.cfgFolders') });
+			foldersSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('skillPicker.foldersHint') });
+			const foldersInput = foldersSection.createEl('input', {
+				cls: 'dashboard-modal-input dashboard-skillsec-cfg-folders',
+				attr: { type: 'text', placeholder: t('skillPicker.foldersPh') },
+			});
+			foldersInput.value = this.plugin.settings.skillSourceFolders ?? '';
+			foldersInput.addEventListener('change', () => {
+				this.foldersCsv = foldersInput.value.trim();
+			});
 		}
-		sortSelect.addEventListener('change', () => {
-			this.sortMode = sortSelect.value === 'recent' ? 'recent' : 'name';
-		});
 
 		// The header "new skill" button's dispatch config (re-configurable
 		// here; the first click on the button itself sets it up otherwise).
@@ -131,6 +133,8 @@ export class SkillSectionConfigModal extends Modal {
 	private listEl: HTMLElement | null = null;
 	private createSkill: SkillCreateConfig | undefined;
 	private createSkillEl: HTMLElement | null = null;
+	/** Draft of settings.skillSourceFolders — persisted on save when changed. */
+	private foldersCsv: string | null = null;
 
 	private renderGroups(): void {
 		if (!this.listEl) return;
@@ -249,6 +253,15 @@ export class SkillSectionConfigModal extends Modal {
 
 	private save(): void {
 		const visible = HOME_SKILL_STORES.map(s => s.id).filter(id => this.visibleStores.has(id));
+		// Custom source folders changed → persist the global setting and bust
+		// the scan cache BEFORE onSave, so the section refresh it triggers
+		// re-renders with the new foldersCsv and rescans the added stores.
+		const plugin = this.plugin;
+		if (plugin && this.foldersCsv !== null && (plugin.settings.skillSourceFolders ?? '') !== this.foldersCsv) {
+			plugin.settings = { ...plugin.settings, skillSourceFolders: this.foldersCsv };
+			void plugin.saveSettings();
+			getSkillLibraryStore(this.app).markDirty();
+		}
 		// Drop blank rows (add-button misclicks); trim the rest.
 		const savedGroups = this.groups
 			.map(g => ({ ...g, name: g.name.trim(), keywords: (g.keywords ?? '').trim() }))
@@ -265,7 +278,6 @@ export class SkillSectionConfigModal extends Modal {
 			// All three visible is the default — persist nothing (round-trip
 			// cleanliness; serialize omits defaults the same way).
 			...(visible.length === HOME_SKILL_STORES.length ? {} : { stores: visible }),
-			...(this.sortMode === 'name' ? {} : { sortMode: this.sortMode }),
 			// Persisted whenever the modal saved — an explicitly emptied list
 			// is meaningful (kills the preset fallback).
 			groups: savedGroups,

@@ -1478,7 +1478,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'skills.cfgTitle': 'Skills section settings',
 		'skills.cfgStores': 'Visible skill sources',
 		'skills.cfgStoresHint': 'Custom skill folders (settings) always show.',
-		'skills.cfgSort': 'Default sort',
+		'skills.cfgFolders': 'Custom skill folders',
 
 		// Agent dispatch (shared by quick-note skill chips and pipeline skills)
 		'agent.target': 'Target: {agent} current chat',
@@ -1499,7 +1499,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'agent.error.unsupported': 'This {agent} version does not support direct sending from the dashboard.',
 		'agent.error.chat': '{agent} chat is not ready. Open it and try again.',
 		'agent.error.busy': '{agent} is busy. Wait for the current reply and try again.',
-		'agent.sendTimeout': 'Sent to {agent}, but the bridge did not confirm — check the chat.',
+		'rail.sections': 'Sections',
 		'agent.directSend': 'Send directly (skip the confirm dialog)',
 		'agent.comingSoon': 'Coming soon',
 		'immersive.addWidgetFailed': 'Could not add the widget: {message}',
@@ -1709,6 +1709,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'pm.board.renamed': 'Project renamed',
 		'pm.addMilestone': 'Add milestone',
 		'pm.addTodo': 'Add todo',
+		'pm.editTask': 'Edit task',
+		'pm.reorderTask': 'Drag to reorder',
 		'pm.remindToggle': 'Reminder',
 		'pm.filterAllStages': 'All stages',
 		'pm.sortStage': 'By stage',
@@ -3602,7 +3604,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'skills.cfgTitle': '技能库设置',
 		'skills.cfgStores': '显示的技能来源',
 		'skills.cfgStoresHint': '自定义技能文件夹（全局设置）始终显示。',
-		'skills.cfgSort': '默认排序',
+		'skills.cfgFolders': '自定义技能文件夹',
 
 		// Agent dispatch (shared by quick-note skill chips and pipeline skills)
 		'agent.target': '目标：{agent} 当前对话',
@@ -3623,7 +3625,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'agent.error.unsupported': '当前 {agent} 版本不支持从工作台直接发送。',
 		'agent.error.chat': '{agent} 对话尚未就绪，请打开后重试。',
 		'agent.error.busy': '{agent} 正在回复中，请稍后再试。',
-		'agent.sendTimeout': '已尝试发送到 {agent}，但桥接未确认——请到对话中查看。',
+		'rail.sections': '分区导航',
 		'agent.directSend': '直接发送（跳过确认弹窗）',
 		'agent.comingSoon': '即将上线',
 		'immersive.addWidgetFailed': '添加小组件失败：{message}',
@@ -3833,6 +3835,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'pm.board.renamed': '项目已重命名',
 		'pm.addMilestone': '添加里程碑',
 		'pm.addTodo': '添加待办',
+		'pm.editTask': '编辑任务',
+		'pm.reorderTask': '拖动调整顺序',
 		'pm.remindToggle': '提醒',
 		'pm.filterAllStages': '全部阶段',
 		'pm.sortStage': '按阶段',

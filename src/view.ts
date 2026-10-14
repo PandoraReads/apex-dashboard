@@ -19,6 +19,7 @@ import { getMusicService } from './music-service';
 import { getHabitService } from './habit-service';
 import { getExpenseService } from './expense-service';
 import { renderBanner, BannerEditModal, startBannerImageRotation, BANNER_IMAGE_ROTATION_MS as BANNER_IMAGE_ROTATION_MS_SHARED } from './banner';
+import { renderSectionRail } from './section-rail';
 import { renderWorkspaceSwitcher } from './workspace-switcher';
 import { refreshBannerStats } from './banner-stats';
 import { applyAppearance } from './appearance';
@@ -157,7 +158,10 @@ export class DashboardView extends ItemView implements HoverParent {
 	private static readonly BANNER_QUOTE_OFFSET_MS = 60 * 60 * 1000; // offset by 1 hour from image
 	private reminderTimer: number | null = null;
 	private firedReminders = new Set<string>();
-	private sidebarPinned = this.app.loadLocalStorage('apex-dashboard-sidebar-pinned') === 'true';
+	// Pinned by default: absence of the stored key (first ever load) reads as
+	// pinned — "默认固定" per Rae. Only an explicit unpin ('false', saved by
+	// the banner pin toggle) keeps the hover-to-expand rail.
+	private sidebarPinned = this.app.loadLocalStorage('apex-dashboard-sidebar-pinned') !== 'false';
 	private sidebarExpanded = false;
 	private bannerCollapsed = this.app.loadLocalStorage('apex-dashboard-banner-collapsed') === 'true';
 	private pendingScrollCardId: string | null = null;
@@ -616,6 +620,15 @@ export class DashboardView extends ItemView implements HoverParent {
 			const kanban = kanbanWrapper.createDiv({ cls: 'dashboard-kanban' });
 			renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this, { skipQuickNotes: stacked });
 			boardHost = kanban;
+
+			// Section nav rail (right-edge dashes): one per section row, click
+			// to center it. Hidden under two sections; the rail's own DOM order
+			// matches the rendered rows (which match data.columns order).
+			renderSectionRail(
+				container,
+				kanban.querySelectorAll('.dashboard-section-row').length,
+				data.columns.map(col => col.name),
+			);
 		}
 		// The immersive grid owns section geometry; its section grip becomes a
 		// whole-tile reorder handle (setupImmersiveDnD), so the side/stacked

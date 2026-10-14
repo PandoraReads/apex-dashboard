@@ -368,6 +368,40 @@ export function removeProjectTask(content: string, line: number): string {
 	return next.join('\n');
 }
 
+/** Rewrite one task line's visible text, keeping its checkbox state and any
+ *  [due:: …]/[scheduled:: …]/[start:: …] marker verbatim (the marker rides
+ *  the line, not the text — the board edits what it displays). Returns the
+ *  content unchanged when the line is no longer a task or the text is
+ *  blank. */
+export function renameProjectTask(content: string, line: number, text: string): string {
+	const clean = text.trim();
+	const lines = content.split('\n');
+	const match = lines[line]?.match(/^(\s*)- \[( |x|X)\] (.*)$/);
+	if (!match || !clean) return content;
+	const marker = match[3]!.match(/\[(?:due|scheduled|start)::\s*[^\]]*\]/i)?.[0] ?? '';
+	lines[line] = `${match[1]!}- [${match[2]!}] ${clean}${marker ? ` ${marker}` : ''}`;
+	return lines.join('\n');
+}
+
+/** Rewrite a section's task lines into a new order. `orderedLines` lists the
+ *  ORIGINAL line numbers in the desired order (drag release reads the DOM).
+ *  Task contents land in the section's line slots in document order, so
+ *  interleaved non-task lines (blank lines, notes) stay anchored. Pure;
+ *  invalid or duplicate line numbers return the content unchanged. */
+export function reorderProjectTasks(content: string, orderedLines: readonly number[]): string {
+	const lines = content.split('\n');
+	const isTask = (index: number): boolean => /^(\s*)- \[( |x|X)\] /.test(lines[index] ?? '');
+	const unique = new Set(orderedLines);
+	if (orderedLines.length === 0 || unique.size !== orderedLines.length) return content;
+	if (!orderedLines.every(line => isTask(line))) return content;
+	const slots = [...orderedLines].sort((a, b) => a - b);
+	const original = [...lines];
+	for (let i = 0; i < slots.length; i++) {
+		lines[slots[i]!] = original[orderedLines[i]!]!;
+	}
+	return lines.join('\n');
+}
+
 /** The standard two-section body written on project creation. */
 export function projectBodyTemplate(milestones: readonly string[]): string {
 	const parts = ['## 里程碑'];

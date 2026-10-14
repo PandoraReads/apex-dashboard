@@ -134,9 +134,11 @@ export class AgentPromptModal extends Modal {
 				const outcome = await sendPromptWithTimeout(this.app, this.agent, prompt);
 				if (outcome === 'sent') {
 					if (prefillOnly) new Notice(t(clipboardApp ? 'agent.openedClipboard' : 'agent.openedPrefill', { agent: adapter.label }));
-				} else if (outcome === 'timeout') {
-					new Notice(t('agent.sendTimeout', { agent: adapter.label }));
-				} else {
+				} else if (outcome !== 'timeout') {
+					// 'timeout' stays silent (Rae): Claudian's sendMessage only
+					// settles when the whole agent turn ends, so the old "bridge
+					// did not confirm" notice fired on every healthy send. A
+					// genuinely failed bridge reports through its typed error.
 					const error = outcome.error;
 					if (error instanceof ClaudianBridgeError) {
 						new Notice(t(`agent.error.${error.code}`, { agent: adapter.label }));

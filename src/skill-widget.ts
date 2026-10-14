@@ -16,8 +16,9 @@ export function fireSkillDirect(app: App, spec: { label: string; skillName: stri
 	}
 	void (async () => {
 		const outcome = await sendPromptWithTimeout(app, agent, prompt);
-		if (outcome === 'timeout') new Notice(t('agent.sendTimeout', { agent: getAgentAdapter(agent).label }));
-		else if (outcome !== 'sent') {
+		// 'timeout' stays silent — the in-app bridge resolves when the agent
+		// turn ends, not on accept (see AgentPromptModal's send handler).
+		if (outcome !== 'sent' && outcome !== 'timeout') {
 			const error = outcome.error;
 			if (error instanceof ClaudianBridgeError) new Notice(t(`agent.error.${error.code}`, { agent: getAgentAdapter(agent).label }));
 			else new Notice(t('agent.sendFailed', { agent: getAgentAdapter(agent).label, message: error instanceof Error ? error.message : String(error) }));

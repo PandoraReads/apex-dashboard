@@ -21,7 +21,7 @@ import { strict as assert } from 'node:assert';
 import type { CachedMetadata, TFile } from 'obsidian';
 import {
 	collectPmProjects, collectArchivedPmProjects, pmField, pmIncome, pmKeyDate, isKeyDateOverdue, pmCycleText,
-	sumIncome, parseProjectBody, insertProjectTask, removeProjectTask, projectBodyTemplate,
+	sumIncome, parseProjectBody, insertProjectTask, removeProjectTask, renameProjectTask, reorderProjectTasks, projectBodyTemplate,
 	projectFolder, keyDateCountdown, pmCustomFields,
 	orderPmProjects,
 } from '../src/pm-model';
@@ -170,6 +170,27 @@ assert.ok(bare.includes('## 待办\n- [ ] 新待办'), 'missing section created 
 const removed = removeProjectTask('## 里程碑\n- [ ] a\n- [ ] b\n', 1);
 assert.equal(removed, '## 里程碑\n- [ ] b\n');
 assert.equal(removeProjectTask('## 里程碑\n正文', 1), '## 里程碑\n正文', 'non-task line untouched');
+
+// --- 4b. Rename + reorder (board dblclick edit / drag). ---
+{
+	const doc = '## 里程碑\n- [x] 需求确认\n\n- [ ] 初稿\n## 待办\n- [ ] 发素材 [due:: 2026-10-20]\n- [ ] 联系客户\n';
+	// Rename: text swaps, checkbox state + [due::] marker survive.
+	const renamed = renameProjectTask(doc, 1, '需求确认与方案');
+	assert.ok(renamed.includes('- [x] 需求确认与方案'), 'checked state kept on rename');
+	assert.equal(renameProjectTask(doc, 5, '发设计稿').includes('- [ ] 发设计稿 [due:: 2026-10-20]'), true, 'due marker kept on rename');
+	assert.equal(renameProjectTask(doc, 0, 'x'), doc, 'non-task line untouched by rename');
+	assert.equal(renameProjectTask(doc, 1, '   '), doc, 'blank rename is a no-op');
+	// Reorder: milestone lines 1 & 3 swap; the blank line 2 stays anchored.
+	const swapped = reorderProjectTasks(doc, [3, 1]);
+	assert.ok(swapped.startsWith('## 里程碑\n- [ ] 初稿\n\n- [x] 需求确认\n## 待办'), 'tasks swap slots, interleaved blank line anchored');
+	assert.equal(parseProjectBody(swapped).milestones[0]!.text, '初稿', 'parse reflects the new order');
+	// Round trip: applying the same swap again restores (involution).
+	assert.equal(reorderProjectTasks(swapped, [3, 1]), doc, 'swapping again restores');
+	// Guards: empty, duplicate, non-task lines.
+	assert.equal(reorderProjectTasks(doc, []), doc, 'empty order = no-op');
+	assert.equal(reorderProjectTasks(doc, [1, 1]), doc, 'duplicate lines = no-op');
+	assert.equal(reorderProjectTasks(doc, [1, 0]), doc, 'non-task line in order = no-op');
+}
 
 // Project folder: sanitization.
 assert.equal(projectFolder('项目', 'A/B 官网'), '项目/A-B 官网');

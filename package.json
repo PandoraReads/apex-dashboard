@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "3.8.4",
+	"version": "3.8.5",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -30,6 +30,8 @@
 		"test:default-board": "esbuild scripts/verify-default-board.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-default-board.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-default-board.cjs",
 		"test:pm-model": "esbuild scripts/verify-pm-model.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pm-model.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pm-model.cjs",
 		"test:pm-section": "esbuild scripts/verify-pm-section.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pm-section.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pm-section.cjs",
+		"test:pm-board-edit": "esbuild scripts/verify-pm-board-edit.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-pm-board-edit.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-pm-board-edit.cjs",
+		"test:section-rail": "esbuild scripts/verify-section-rail.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-section-rail.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-section-rail.cjs",
 		"test:immersive-render": "esbuild scripts/verify-immersive-render.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-immersive-render.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-immersive-render.cjs",
 		"test:countdown-picker": "esbuild scripts/verify-countdown-picker.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-countdown-picker.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-countdown-picker.cjs",
 		"test:gallery-placeholder": "esbuild scripts/verify-gallery-placeholder.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-gallery-placeholder.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-gallery-placeholder.cjs",

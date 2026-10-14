@@ -2855,13 +2855,11 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	}
 
 	// PM section: project management cards (one per project note) with the
-	// board modal, work notes, skills, archive/delete (desktop only — the
-	// section hides on phones/tablets like the pipeline section).
+	// board modal, work notes, skills, archive/delete. Data-first (notes +
+	// metadata cache), so it runs on mobile too — the card drag-reorder is
+	// desktop HTML5 DnD and simply stays inert on touch (pin/sort still
+	// reorder); the board modal has its own ≤900px/≤560px layouts.
 	if (sectionType === 'pm') {
-		if (Platform.isMobile) {
-			el.addClass('dashboard-section-row--pm-off-mobile');
-			return el;
-		}
 		// New project: same header + button the other sections use; the
 		// creation modal opens through the view's event route.
 		const newProjectBtn = headerActions.createEl('button', {
@@ -3093,7 +3091,10 @@ export function renderCard(card: DashboardCard, columnName: string, sectionType:
 		});
 	}
 
-	if (isMemo && (card.type === 'generic' || card.type === 'note') || isWidget) {
+	// Widget cards (weather/tracker) keep their accent picker; memo cards
+	// dropped theirs (Rae: the palette key read as clutter — the sticky card
+	// type modal owns styling choices now). Saved memo colors still render.
+	if (isWidget) {
 		const colorBtn = actions.createEl('button', {
 			cls: 'dashboard-card-btn dashboard-card-btn--color',
 			attr: { 'aria-label': t('renderer.setMemoColor') },
