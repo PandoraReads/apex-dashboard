@@ -54,6 +54,11 @@ const STORE_AGENT_ICON: Record<string, string> = {
  * "keep out of groups" assignment value (see UNGROUPED_ASSIGNMENT). */
 const UNGROUPED_KEY = UNGROUPED_ASSIGNMENT;
 
+/** Search text per column name — preserved across the section's in-place
+ *  refreshes (a group move re-renders the section, which would otherwise
+ *  reset the toolbar input to ''). Ephemeral view state, never persisted. */
+const searchTextByColumn = new Map<string, string>();
+
 /** HTML5 drag payload type for kanban card→column regrouping. */
 const SKILL_DRAG_TYPE = 'application/x-apex-skill';
 
@@ -83,7 +88,7 @@ export function renderSkillSection(
 		? resolveSkillStores(foldersCsv, fs.homeDir())
 		: resolveSkillStores('', '/');
 	const visibleStoreIds = new Set(
-		config.stores?.length ? config.stores : ['claude', 'codex', 'workbuddy'],
+		config.stores !== undefined ? config.stores : ['claude', 'codex', 'workbuddy'],
 	);
 	const content = el.createDiv({ cls: 'dashboard-skillsec-content' });
 
@@ -92,7 +97,7 @@ export function renderSkillSection(
 	let epoch = 0;
 	let pending = true;
 	let scanning = false;
-	let searchText = '';
+	let searchText = searchTextByColumn.get(column.name) ?? '';
 	let storeFilter = 'all';
 	// Pagination (library idiom): page resets on filter/search changes; a
 	// page-size change rebuilds the whole section (config round trip).
@@ -107,7 +112,14 @@ export function renderSkillSection(
 	let collapseAllBtn: HTMLElement | null = null;
 
 	function allGroups(): SkillGroup[] {
-		const aggregated = groupSkillEntries(store.entries(), stores.map(s => s.id));
+		// Hide instances from unchecked home stores (custom folders always show);
+		// a skill whose every instance is in a hidden store drops out entirely.
+		const aggregated = groupSkillEntries(store.entries(), stores.map(s => s.id))
+			.map(group => ({
+				...group,
+				instances: group.instances.filter(inst => visibleStoreIds.has(inst.storeId) || inst.storeId.startsWith('custom:')),
+			}))
+			.filter(group => group.instances.length > 0);
 		const pinned = new Set(config.pinned ?? []);
 		const pinnedFirst = (config.pinned ?? [])
 			.map(name => aggregated.find(g => g.name === name))
@@ -172,6 +184,7 @@ export function renderSkillSection(
 		searchInput.value = searchText;
 		searchInput.addEventListener('input', () => {
 			searchText = searchInput.value;
+			searchTextByColumn.set(column.name, searchText);
 			currentPage = 1;
 			renderResults();
 		});
@@ -297,7 +310,7 @@ export function renderSkillSection(
 	/** Group ids that currently have a rendered header (ungrouped included). */
 	function visibleGroupKeys(): string[] {
 		const filtered = filteredGroups();
-		const keys = groups.filter(g => filtered.some(item => resolveSkillGroup(item.name, groups, config.assignments)?.id === g.id)).map(g => g.id);
+		const keys = (filtered.length > 0 ? groups.map(g => g.id) : []);
 		if (filtered.some(item => !resolveSkillGroup(item.name, groups, config.assignments))) keys.push(UNGROUPED_KEY);
 		return keys;
 	}
@@ -333,13 +346,16 @@ export function renderSkillSection(
 		else renderFlatResults(filtered);
 	}
 
-	/** Buckets shared by both grouped modes: config-ordered groups then the
-	 *  ungrouped backlog last. */
 	function groupBuckets(filtered: readonly SkillGroup[]): Array<{ key: string; name: string | null; members: SkillGroup[] }> {
 		const buckets: Array<{ key: string; name: string | null; members: SkillGroup[] }> = [];
+		// Show every configured group once there are skills to bucket — an
+		// empty one (a freshly-created group) still renders so it reads as
+		// saved and is a drop target. With zero skills, hide the empty groups
+		// so the empty-state message takes over.
+		const showEmptyGroups = filtered.length > 0;
 		for (const group of groups) {
 			const members = filtered.filter(item => resolveSkillGroup(item.name, groups, config.assignments)?.id === group.id);
-			if (members.length > 0) buckets.push({ key: group.id, name: group.name, members });
+			if (showEmptyGroups || members.length > 0) buckets.push({ key: group.id, name: group.name, members });
 		}
 		const ungrouped = filtered.filter(item => !resolveSkillGroup(item.name, groups, config.assignments));
 		if (ungrouped.length > 0) buckets.push({ key: UNGROUPED_KEY, name: null, members: ungrouped });

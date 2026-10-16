@@ -1,4 +1,5 @@
 import type { App, CachedMetadata, TFile } from 'obsidian';
+import { parse as parseYaml } from 'yaml';
 import type { PmConfig, PmStage } from './types';
 import { isPathInPipelineRoot, normalizeFolderPath, parseTasks, parseNoteDue, chipColorFor, type PipelineTask, type NoteDue } from './pipeline-model';
 import { isUnderExcludedFolder, normalizeExcludeFolders } from './exclude-folders';
@@ -295,6 +296,24 @@ export function projectFolder(rootFolder: string, projectTitle: string): string 
 export interface PmBodySections {
 	milestones: PipelineTask[];
 	todos: PipelineTask[];
+}
+
+/** Parse a note's leading `---` YAML frontmatter into a record. Returns {} for
+ *  no frontmatter or a malformed block (the board's fields then read empty).
+ *  The board re-reads the file after every write, so parsing straight from the
+ *  fresh content avoids the metadata cache's async-update window after
+ *  processFrontMatter (a stale cache rendered stale file links). */
+export function parseNoteFrontmatter(content: string): Record<string, unknown> {
+	const text = content.replace(/^\uFEFF/, '');
+	if (!text.startsWith('---')) return {};
+	const end = text.indexOf('\n---', 3);
+	if (end < 0) return {};
+	try {
+		const doc = parseYaml(text.slice(4, end)) as Record<string, unknown> | null;
+		return doc && typeof doc === 'object' ? doc : {};
+	} catch {
+		return {};
+	}
 }
 
 /** Split a note's checkbox tasks into the two standard sections. Line-keyed

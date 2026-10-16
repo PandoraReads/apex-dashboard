@@ -10,7 +10,7 @@ import { dispatchSkill } from './pipeline-section';
 import { attachNoteHover } from './hover-preview';
 import { iconForExtension } from './file-types';
 import {
-	parseProjectBody, pmField, pmGroupName, pmIncome, pmKeyDate, keyDateCountdown, pmStageColor, projectFolder,
+	parseProjectBody, parseNoteFrontmatter, pmField, pmGroupName, pmIncome, pmKeyDate, keyDateCountdown, pmStageColor, projectFolder,
 	insertProjectTask, removeProjectTask, renameProjectTask, reorderProjectTasks, pmLinkedFiles, pmCustomFields,
 } from './pm-model';
 import { toggleTaskLine, type PipelineTask } from './pipeline-model';
@@ -140,8 +140,11 @@ export class PmBoardModal extends Modal {
 
 	private async renderBody(): Promise<void> {
 		const { contentEl } = this;
-		const frontmatter = this.app.metadataCache.getFileCache(this.projectFile)?.frontmatter ?? {};
 		const content = await this.app.vault.read(this.projectFile);
+		// Frontmatter from the freshly-read content — not the metadata cache,
+		// which lags a beat behind processFrontMatter and would re-render a
+		// stale file list after unlink/link.
+		const frontmatter = parseNoteFrontmatter(content);
 		const sections = parseProjectBody(content);
 
 		contentEl.empty();

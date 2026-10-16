@@ -1201,7 +1201,8 @@ export interface SkillCreateConfig {
  *  skills.json cache (see skill-store), not here — this is view state only. */
 export interface SkillsSectionConfig {
 	/** Home store ids to show ('claude' | 'codex' | 'workbuddy'). Undefined
-	 *  or empty = all three. Custom skillSourceFolders always show. */
+	 *  = all three (never configured); [] = explicitly none. Custom
+	 *  skillSourceFolders always show. */
 	stores?: string[];
 	/** Card order: 'name' (default) or 'recent' (SKILL.md mtime). Pinned
 	 *  skills stay ahead of either. */

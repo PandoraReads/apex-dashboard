@@ -67,6 +67,20 @@ assert.equal(serialize(initial), snapshot, 'input is not mutated');
 const nested = extractCardParts('- [ ] A\n    - [ ] B\n        - [x] C\n    - [ ] D');
 assert.equal(nested.tasks[0]?.children?.[0]?.children?.[0]?.text, 'C');
 assert.equal(nested.tasks[0]?.children?.[1]?.text, 'D');
+// A task whose text contains an in-text newline survives the markdown
+// round-trip (serialized as the ⏎ glyph, un-escaped on parse) instead of its
+// post-newline tail re-parsing as card body.
+{
+	const withNewline = parse(serialize({
+		...initial,
+		columns: initial.columns.map(col => col.name === '清单'
+			? { ...col, cards: col.cards.map(card => card.id === 'todo-1'
+				? { ...card, tasks: [{ text: '第一行\n第二行', checked: false }] }
+				: card) }
+			: col),
+	}));
+	assert.equal(find(withNewline, 'todo-1').tasks[0]?.text, '第一行\n第二行', 'newline in task text round-trips');
+}
 for (const showCover of [true, false]) {
 	const noteData = { ...initial, columns: [...initial.columns, {
 		name: '笔记区', sectionType: 'projects', color: '#fff', ...(showCover ? {} : { showCover: false }), cards: [{ ...find(initial, 'memo-1'),

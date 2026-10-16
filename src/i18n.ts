@@ -1479,6 +1479,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'skills.cfgStores': 'Visible skill sources',
 		'skills.cfgStoresHint': 'Custom skill folders (settings) always show.',
 		'skills.cfgFolders': 'Custom skill folders',
+		'skills.cfgBrowse': 'Browse for a folder',
 
 		// Agent dispatch (shared by quick-note skill chips and pipeline skills)
 		'agent.target': 'Target: {agent} current chat',
@@ -3605,6 +3606,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'skills.cfgStores': '显示的技能来源',
 		'skills.cfgStoresHint': '自定义技能文件夹（全局设置）始终显示。',
 		'skills.cfgFolders': '自定义技能文件夹',
+		'skills.cfgBrowse': '浏览选择文件夹',
 
 		// Agent dispatch (shared by quick-note skill chips and pipeline skills)
 		'agent.target': '目标：{agent} 当前对话',

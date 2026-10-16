@@ -8,6 +8,7 @@ import { applyModalTheme } from './modal-theme';
 import { attachPathPicker, type PathPickerMode } from './path-picker-modal';
 import { agentTargets, agentPickerOption } from './agent-dispatch';
 import { attachSkillPicker, clearRememberedSkills, rememberSkillNames } from './skill-registry';
+import { getSkillLibraryStore } from './skill-store';
 
 /**
  * Configuration modal for the Quick Notes region: CRUD for create-presets,
@@ -373,6 +374,7 @@ export class QuickNoteConfigModal extends Modal {
 			return;
 		}
 		const savedSkills = this.skills.filter(skill => skill.label.trim() && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(skill.skillName.trim())).map(skill => ({ ...skill, skillName: skill.skillName.trim() }));
+		const foldersChanged = (this.plugin.settings.skillSourceFolders ?? '') !== (this.skillSourceFolders ?? '');
 		this.plugin.settings = {
 			...this.plugin.settings,
 			quickNotePresets: this.presets.filter(p => p.label.trim()),
@@ -389,6 +391,7 @@ export class QuickNoteConfigModal extends Modal {
 			quickDailyEnabled: this.dailyEnabled,
 		};
 		await this.plugin.saveSettings();
+		if (foldersChanged) getSkillLibraryStore(this.app).markDirty();
 		// Remember valid names per agent so the pickers offer them next time.
 		for (const agent of new Set(savedSkills.map(skill => skill.target))) {
 			await rememberSkillNames(this.plugin, agent, savedSkills.filter(skill => skill.target === agent && skill.skillName).map(skill => skill.skillName));

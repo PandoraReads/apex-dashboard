@@ -11591,6 +11591,9 @@
 	line-height: 1.2;
 	/* Long task text wraps instead of pushing action buttons off-screen. */
 	overflow-wrap: anywhere;
+	/* Multi-line task text (Shift+Enter in the inline editor) renders its
+	   line breaks instead of collapsing them to a single space. */
+	white-space: pre-wrap;
 }
 
 .dashboard-task-text--done {
@@ -23978,6 +23981,42 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	font-weight: 500;
 }
 
+/* Labeled close button (right of 保存到仓库): a neutral pill, same footprint
+   as the save button so the two read as one actions pair. */
+.dashboard-rss-reader-close {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+	height: 32px;
+	padding: 0 12px !important;
+	border: 1px solid var(--db-border-card) !important;
+	border-radius: 999px !important;
+	background: var(--db-bg-hover) !important;
+	box-shadow: none !important;
+	color: var(--db-text-muted) !important;
+	font-size: 12.5px;
+	font-weight: 500;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.dashboard-rss-reader-close:hover {
+	color: var(--db-text) !important;
+	border-color: var(--db-text-muted) !important;
+}
+
+.dashboard-rss-reader-close-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+.dashboard-rss-reader-close-icon svg {
+	width: 14px !important;
+	height: 14px !important;
+	flex-shrink: 0;
+}
+
 .dashboard-rss-reader-save-icon {
 	display: inline-flex;
 	flex-shrink: 0;
@@ -25216,6 +25255,18 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 
 .dashboard-skillsec-cfg-add-group {
 	margin-top: 2px;
+}
+
+/* Custom-folder input + native folder-picker browse button. */
+.dashboard-skillsec-cfg-folders-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dashboard-skillsec-cfg-folders-row .dashboard-modal-input {
+	flex: 1;
+	min-width: 0;
 }
 
 /* --- New-skill button config modal (see src/skill-create-config-modal) --- */
@@ -28955,6 +29006,13 @@ button.dashboard-capturebar-glyph:hover {
 
 .dashboard-section-row[data-section-type="pm"] > .dashboard-pmsec-content:hover {
 	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
+}
+
+/* The PM content's `display: flex` above out-specifies the generic collapse
+   rule (`.dashboard-section-row--collapsed > *`), so a collapsed PM section
+   kept rendering its cards. Match the specificity and win by source order. */
+.dashboard-section-row--collapsed[data-section-type="pm"] > .dashboard-pmsec-content {
+	display: none;
 }
 
 .dashboard-pmsec-size-toggle.active {

@@ -60,6 +60,12 @@ function normalizeHexColor(value?: string): string {
 
 const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*$/;
 const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
+// Task text is a single markdown list item (`- [ ] …`), so a literal newline
+// would break the line and its remainder would re-parse as card body. Encode
+// an in-text line break as the return-symbol glyph (the ⏰ reminder marker is
+// the same "meaningful glyph" convention) so multi-line task text survives the
+// markdown round-trip.
+const TASK_NEWLINE_ESCAPE = '⏎';
 // Doc lines are `- [[path]]` / `[[path]]` (optionally indented for nesting).
 // The path may itself contain single brackets (z-library books carry `[美]`
 // etc.), so a lone `]` is allowed — the link only terminates on `]]`. Paths
@@ -559,7 +565,10 @@ export function serialize(data: DashboardData): string {
 			// stay clean and round-trips stay idempotent.
 			const defaultStores = ['claude', 'codex', 'workbuddy'];
 			const stores = [...new Set(sc.stores ?? [])].filter(id => defaultStores.includes(id));
-			const hasSubstores = stores.length > 0 && (stores.length !== defaultStores.length || stores.some(id => !defaultStores.includes(id)));
+			// A defined stores list — even an emptied one — differs from the
+			// all-three default, so `stores: []` must survive the round-trip
+			// (the `groups: []` idiom). Undefined = never configured = all three.
+			const hasSubstores = sc.stores !== undefined && stores.length !== defaultStores.length;
 			const pinned = (sc.pinned ?? []).filter(name => name.trim().length > 0);
 			// Skip the block entirely when every field is at its default (the
 			// config modal's save can produce such an object).
@@ -784,7 +793,7 @@ export function serialize(data: DashboardData): string {
 			if (card.tasks.length > 0) {
 				const writeTask = (task: TaskItem, indent: number) => {
 					const prefix = indent > 0 ? '    '.repeat(indent) : '';
-					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
+					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text.replace(/\n/g, TASK_NEWLINE_ESCAPE)}`;
 					if (task.reminder) taskLine += ` ⏰ ${task.reminder}`;
 					if (task.collapsed) taskLine += ` <!--collapsed-->`;
 					lines.push(taskLine);
@@ -1716,7 +1725,7 @@ function parseSkillsConfig(raw: Record<string, unknown>): SkillsSectionConfig {
 		}
 	}
 	return {
-		...(stores.length > 0 ? { stores } : {}),
+		...(raw.stores !== undefined ? { stores } : {}),
 		...(sortMode ? { sortMode } : {}),
 		...(sortDir ? { sortDir } : {}),
 		...(pinned.length > 0 ? { pinned } : {}),
@@ -1944,6 +1953,7 @@ export function extractCardParts(body: string): {
 				taskText = taskText.replace(REMINDER_REGEX, '');
 				taskReminder = reminderMatch[1];
 			}
+			taskText = taskText.split(TASK_NEWLINE_ESCAPE).join('\n');
 			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder, collapsed: taskCollapsed };
 			ancestors = ancestors.filter(parent => parent.indent < indent);
 			const parent = ancestors[ancestors.length - 1];

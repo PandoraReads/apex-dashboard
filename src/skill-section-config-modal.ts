@@ -14,7 +14,7 @@ import { App, Modal, setIcon } from 'obsidian';
 import type { SkillsSectionConfig, SkillCreateConfig, SkillSectionGroup } from './types';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
-import { effectiveSkillGroups, getSkillLibraryStore, HOME_SKILL_STORES, UNGROUPED_ASSIGNMENT } from './skill-store';
+import { effectiveSkillGroups, getSkillLibraryStore, HOME_SKILL_STORES, pickFolderPath, UNGROUPED_ASSIGNMENT } from './skill-store';
 import { startGuardedDrag } from './drag-guard';
 import { SkillCreateConfigModal } from './skill-create-config-modal';
 import type DashboardPlugin from './main';
@@ -38,7 +38,7 @@ export class SkillSectionConfigModal extends Modal {
 		private readonly plugin?: DashboardPlugin,
 	) {
 		super(app);
-		this.visibleStores = new Set(existing?.stores?.length ? existing.stores : HOME_SKILL_STORES.map(s => s.id));
+		this.visibleStores = new Set(existing?.stores !== undefined ? existing.stores : HOME_SKILL_STORES.map(s => s.id));
 		// Copy so Cancel discards edits; presets fill in until the user has
 		// ever saved (undefined = never customized — see effectiveSkillGroups).
 		this.groups = (existing?.groups ?? effectiveSkillGroups(undefined)).map(group => ({ ...group }));
@@ -99,13 +99,30 @@ export class SkillSectionConfigModal extends Modal {
 			const foldersSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 			foldersSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('skills.cfgFolders') });
 			foldersSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('skillPicker.foldersHint') });
-			const foldersInput = foldersSection.createEl('input', {
+			const foldersRow = foldersSection.createDiv({ cls: 'dashboard-skillsec-cfg-folders-row' });
+			const foldersInput = foldersRow.createEl('input', {
 				cls: 'dashboard-modal-input dashboard-skillsec-cfg-folders',
 				attr: { type: 'text', placeholder: t('skillPicker.foldersPh') },
 			});
 			foldersInput.value = this.plugin.settings.skillSourceFolders ?? '';
-			foldersInput.addEventListener('change', () => {
+			foldersInput.addEventListener('input', () => {
 				this.foldersCsv = foldersInput.value.trim();
+			});
+			// Native folder picker: choose a skills folder on this machine and
+			// append it to the CSV (comma-separated — the field may hold several).
+			const browseBtn = foldersRow.createEl('button', {
+				cls: 'dashboard-pipeline-cfg-icon-btn dashboard-skillsec-cfg-browse',
+				attr: { type: 'button', 'aria-label': t('skills.cfgBrowse'), title: t('skills.cfgBrowse') },
+			});
+			setIcon(browseBtn, 'folder-search');
+			browseBtn.addEventListener('click', () => {
+				void (async () => {
+					const picked = await pickFolderPath();
+					if (!picked) return;
+					const current = foldersInput.value.trim();
+					foldersInput.value = current ? `${current}, ${picked}` : picked;
+					this.foldersCsv = foldersInput.value.trim();
+				})();
 			});
 		}
 
@@ -261,6 +278,11 @@ export class SkillSectionConfigModal extends Modal {
 			plugin.settings = { ...plugin.settings, skillSourceFolders: this.foldersCsv };
 			void plugin.saveSettings();
 			getSkillLibraryStore(this.app).markDirty();
+			// The folder path lives in settings, not the dashboard data — when
+			// stores/groups are unchanged, onSave's notifyCallbacks re-render can
+			// no-op and never reach the dirty store's rescan. Force every open
+			// dashboard to re-render so the section rescans the newly-added folder.
+			plugin.refreshAllDashboards();
 		}
 		// Drop blank rows (add-button misclicks); trim the rest.
 		const savedGroups = this.groups
@@ -275,9 +297,9 @@ export class SkillSectionConfigModal extends Modal {
 		}
 		this.onSave({
 			...this.existing,
-			// All three visible is the default — persist nothing (round-trip
-			// cleanliness; serialize omits defaults the same way).
-			...(visible.length === HOME_SKILL_STORES.length ? {} : { stores: visible }),
+			// A defined stores list — even emptied — is meaningful (all three
+			// home stores hidden); serialize omits only the full default set.
+			stores: visible,
 			// Persisted whenever the modal saved — an explicitly emptied list
 			// is meaningful (kills the preset fallback).
 			groups: savedGroups,

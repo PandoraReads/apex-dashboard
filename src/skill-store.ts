@@ -170,7 +170,23 @@ export function desktopSkillFs(): SkillFs | undefined {
 		return {
 			list: async dir => {
 				const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-				return entries.map(e => ({ path: `${dir}/${e.name}`, name: e.name, isDir: e.isDirectory() }));
+				const out: SkillListEntry[] = [];
+				for (const e of entries) {
+					let isDir = e.isDirectory();
+					// Dirent.isDirectory() is false for symlinks, and skill dirs
+					// are often symlinked in (e.g. `bailian-cli` → ~/.bailian/…,
+					// `archive` → ../../.agents/skills/…). Resolve the target so
+					// those skills list instead of silently vanishing.
+					if (e.isSymbolicLink()) {
+						try {
+							isDir = (await fs.promises.stat(`${dir}/${e.name}`)).isDirectory();
+						} catch {
+							continue; // broken symlink: nothing readable here
+						}
+					}
+					out.push({ path: `${dir}/${e.name}`, name: e.name, isDir });
+				}
+				return out;
 			},
 			statMs: async path => (await fs.promises.stat(path)).mtimeMs,
 			readTextHead: async (path, bytes) => {
@@ -459,6 +475,39 @@ function skillShell(): SkillShell | undefined {
 		const nodeRequire = (window as { require?: SkillShellRequire }).require
 			?? (window as unknown as { require?: SkillShellRequire }).require;
 		return nodeRequire?.('electron').shell;
+	} catch {
+		return undefined;
+	}
+}
+
+type ElectronDialog = {
+	showOpenDialog?: (options: { properties: string[] }) => Promise<{ canceled: boolean; filePaths: string[] }>;
+};
+
+/** Open the native folder picker (Electron dialog) and return the chosen
+ *  absolute path, or undefined on cancel/unavailable. Desktop-only; used by
+ *  the skills config's custom-folder row so the user can pick a skills folder
+ *  on their machine instead of typing a path. */
+export async function pickFolderPath(): Promise<string | undefined> {
+	if (!Platform.isDesktop) return undefined;
+	try {
+		const nodeRequire = (window as { require?: NodeRequire }).require
+			?? (window as unknown as { require?: NodeRequire }).require;
+		if (!nodeRequire) return undefined;
+		let dialog: ElectronDialog | undefined;
+		try {
+			dialog = nodeRequire('@electron/remote').dialog as ElectronDialog | undefined;
+		} catch {
+			try {
+				dialog = nodeRequire('electron').remote?.dialog as ElectronDialog | undefined;
+			} catch {
+				// neither @electron/remote nor electron.remote available
+			}
+		}
+		if (typeof dialog?.showOpenDialog !== 'function') return undefined;
+		const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+		if (result.canceled || result.filePaths.length === 0) return undefined;
+		return result.filePaths[0];
 	} catch {
 		return undefined;
 	}

@@ -189,6 +189,12 @@ async function main(): Promise<void> {
 	const emptied = serialize(dataWith({ groups: [] }));
 	assert.ok(emptied.includes('groups: []'), 'empty groups persist as []');
 	assert.deepEqual(parse(emptied).columns[0]!.skillsConfig!.groups, [], 'empty groups parse back empty');
+
+	// An explicitly emptied stores list persists too (hides all three home
+	// stores) — undefined is "all three", [] is a deliberate none.
+	const noStores = serialize(dataWith({ stores: [] }));
+	assert.ok(noStores.includes('stores: []'), 'empty stores persist as []');
+	assert.deepEqual(parse(noStores).columns[0]!.skillsConfig!.stores, [], 'empty stores parse back empty');
 	console.log('1 parser round-trip: ok');
 }
 
@@ -389,6 +395,29 @@ async function main(): Promise<void> {
 	console.log('3 section render: ok');
 }
 
+// ── 3-2. stores subset filters cards, not just the filter dropdown ───────
+
+{
+	const { fs, tree } = makeFakeFs('/h');
+	addSkill(tree, '/h/.claude/skills/alpha', 'alpha', 'a');       // claude + codex
+	addSkill(tree, '/h/.codex/skills/alpha', 'alpha', 'a');
+	addSkill(tree, '/h/.workbuddy/skills/beta', 'beta', 'b');      // workbuddy only → hidden
+	addSkill(tree, '/h/.claude/skills/gamma', 'gamma', 'g');       // claude only
+
+	const column: DashboardColumn = {
+		name: 'S', color: '6366f1', sectionType: 'skills', cards: [],
+		skillsConfig: { stores: ['claude'] },
+	};
+	const host = await renderSkills(column, { fs });
+
+	const names = cardsOf(host).map(c => c.dataset.skill);
+	assert.deepEqual(names, ['alpha', 'gamma'], 'workbuddy-only skill hidden when workbuddy is unchecked');
+	const alpha = cardByName(host, 'alpha')!;
+	assert.equal(findByClass(alpha, 'dashboard-skillsec-badge').length, 1, 'hidden-store instance drops off the card');
+	assert.equal(findByClass(alpha, 'dashboard-skillsec-launch').length, 1, 'only the visible store offers a launch button');
+	console.log('3-2 stores filtering: ok');
+}
+
 // ── 3b. Pin from the card menu routes the prefs event ───────────────────
 
 {
@@ -531,6 +560,28 @@ async function main(): Promise<void> {
 	ungroupedCol.dispatchEvent({ type: 'drop', dataTransfer: makeTransfer('gamma'), target: ungroupedCol });
 	assert.equal(prefsDetail!.prefs.assignments!.gamma, '__ungrouped__', 'dropping on ungrouped writes the sentinel (blocks keyword snap-back)');
 	console.log('3c-2 kanban view: ok');
+}
+
+// ── 3c-3. A freshly-created (empty) group still renders a column ─────────
+
+{
+	const { fs, tree } = makeFakeFs('/h');
+	addSkill(tree, '/h/.claude/skills/gamma', 'gamma', 'g');
+	const column: DashboardColumn = {
+		name: 'S', color: '6366f1', sectionType: 'skills', cards: [],
+		skillsConfig: {
+			groupView: 'kanban',
+			groups: [
+				{ id: 'g-custom', name: '我的新分组' }, // no keywords, no members yet
+				{ id: 'g-write', name: '写作', keywords: 'write' },
+			],
+		},
+	};
+	const host = await renderSkills(column, { fs });
+	const names = findByClass(host, 'dashboard-skillsec-group-name').map(el => el.textContent);
+	assert.ok(names.includes('我的新分组'), 'empty group still renders a column');
+	assert.ok(names.includes('写作') && names[names.length - 1] === '未分组', 'existing groups + ungrouped render after it');
+	console.log('3c-3 empty group renders: ok');
 }
 
 // ── 3d. Group assignment through the card menu ──────────────────────────
@@ -692,6 +743,60 @@ async function main(): Promise<void> {
 	assert.equal(saved!.assignments!.orphan, undefined, 'assignment to a deleted group pruned');
 	assert.equal(saved!.assignments!.exiled, '__ungrouped__', 'explicit ungrouped sentinel survives pruning');
 	console.log('5 config modal: ok');
+}
+
+// ── 5c. Config modal: uncheck-all stores + custom-folder input ────────────
+
+{
+	// Unchecking every home store saves an explicit empty list (not "all three").
+	let saved: SkillsSectionConfig | null = null;
+	const modal = new SkillSectionConfigModal({} as never, undefined, config => { saved = config; });
+	modal.open();
+	(modal as unknown as { onOpen(): void }).onOpen();
+	let modalEl = lastModalEl();
+	for (const row of findByClass(modalEl, 'dashboard-skillsec-cfg-store')) {
+		const cb = findTag(row, 'input')[0] as unknown as El & { checked: boolean; dispatchEvent(ev: unknown): void };
+		cb.checked = false;
+		cb.dispatchEvent({ type: 'change', target: cb });
+	}
+	findByClass(modalEl, 'dashboard-modal-btn--confirm')[0]!.click();
+	assert.deepEqual(saved!.stores, [], 'unchecking all three stores persists an empty list');
+
+	// The custom-folder row renders a browse button and persists a typed path.
+	let refreshed = 0;
+	const pluginStub = { settings: { skillSourceFolders: '' }, saveSettings: async (): Promise<void> => {}, refreshAllDashboards: (): void => { refreshed += 1; } };
+	let saved2: SkillsSectionConfig | null = null;
+	const modal2 = new SkillSectionConfigModal({} as never, undefined, config => { saved2 = config; }, pluginStub as never);
+	modal2.open();
+	(modal2 as unknown as { onOpen(): void }).onOpen();
+	modalEl = lastModalEl();
+	assert.ok(findByClass(modalEl, 'dashboard-skillsec-cfg-browse').length === 1, 'folder browse button rendered');
+	const foldersInput = findByClass(modalEl, 'dashboard-skillsec-cfg-folders')[0] as unknown as El & { value: string; dispatchEvent(ev: unknown): void };
+	foldersInput.value = '~/.my-skills';
+	foldersInput.dispatchEvent({ type: 'input', target: foldersInput });
+	findByClass(modalEl, 'dashboard-modal-btn--confirm')[0]!.click();
+	assert.equal(pluginStub.settings.skillSourceFolders, '~/.my-skills', 'typed folder path persists to settings');
+	assert.equal(refreshed, 1, 'folder change forces a dashboard refresh so the section rescans');
+	assert.ok(saved2, 'config save fires alongside the folder persist');
+	console.log('5c config modal stores-empty + folders: ok');
+}
+
+// ── 5d. Config modal: add a group persists ───────────────────────────────
+
+{
+	let saved: SkillsSectionConfig | null = null;
+	const modal = new SkillSectionConfigModal({} as never, undefined, config => { saved = config; });
+	modal.open();
+	(modal as unknown as { onOpen(): void }).onOpen();
+	const modalEl = lastModalEl();
+	findByClass(modalEl, 'dashboard-skillsec-cfg-add-group')[0]!.click();
+	assert.equal(findByClass(modalEl, 'dashboard-skillsec-cfg-group').length, PRESET_SKILL_GROUPS.length + 1, 'add button appends a row');
+	const nameInput = findByClass(findByClass(modalEl, 'dashboard-skillsec-cfg-group').at(-1)!, 'dashboard-skillsec-cfg-group-name')[0] as unknown as El & { value: string; dispatchEvent(ev: unknown): void };
+	nameInput.value = '我的新分组';
+	nameInput.dispatchEvent({ type: 'input', target: nameInput });
+	findByClass(modalEl, 'dashboard-modal-btn--confirm')[0]!.click();
+	assert.ok((saved!.groups ?? []).some(g => g.name === '我的新分组'), 'newly added group persists');
+	console.log('5d config modal add-group: ok');
 }
 
 // ── 5b. New-skill button config modal ───────────────────────────────────
