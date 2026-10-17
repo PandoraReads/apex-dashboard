@@ -33,6 +33,8 @@ import { fireSkillDirect } from './skill-widget';
 import { SkillWidgetConfigModal } from './skill-widget-config-modal';
 import { PipelineConfigModal } from './pipeline-config-modal';
 import { PmConfigModal } from './pm-config-modal';
+import { GanttColumnPicker } from './gantt';
+import type { GanttReference } from './gantt-model';
 import { PmNewModal } from './pm-new-modal';
 import { PmArchiveModal } from './pm-archive-modal';
 import { SkillSectionConfigModal } from './skill-section-config-modal';
@@ -217,6 +219,20 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.sync.onDataUpdate((data, source) => {
 			this.handleDataUpdate(data, source);
 		});
+	}
+
+	addGanttReference(reference: GanttReference, title: string): void {
+		const columns = this.data?.columns.filter(column => !column.sectionType || ['memo', 'sticky'].includes(column.sectionType)).map(column => column.name) ?? [];
+		if (!columns.length) { new Notice('Add a memo or sticky section before referencing a chart'); return; }
+		const dashboardFile = this.plugin.settings.dashboardFile;
+		const picker = new GanttColumnPicker(this.app, columns, async column => {
+			if (this.plugin.settings.dashboardFile !== dashboardFile || !this.data?.columns.some(item => item.name === column)) throw Error('Dashboard changed; choose the target again');
+			const body = '```apex-gantt\n' + JSON.stringify(reference, null, 2) + '\n```';
+			if (this.data.columns.find(item => item.name === column)?.cards.some(card => card.body === body)) { new Notice('This section already references the chart'); return; }
+			await this.sync.addCard(column, { id: `gantt-${crypto.randomUUID()}`, type: 'generic', title: title.replace(/[\r\n]/g, ' '), body, width: 0 });
+		});
+		this.register(() => picker.close());
+		picker.open();
 	}
 
 	getViewType(): string {

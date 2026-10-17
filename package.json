@@ -6,6 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
+    "test:gantt": "esbuild scripts/verify-gantt.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-gantt.cjs --log-level=warning && node node_modules/.tmp/verify-gantt.cjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test:mobile-stability": "esbuild scripts/verify-mobile-stability.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-mobile-stability.cjs --log-level=warning && node node_modules/.tmp/verify-mobile-stability.cjs",
 		"test:weather-mapping": "esbuild scripts/verify-weather-mapping.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weather-mapping.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weather-mapping.cjs",
@@ -95,6 +96,7 @@
 	},
 	"dependencies": {
 		"chart.js": "^4.5.1",
+		"frappe-gantt": "1.0.4",
 		"lunar-typescript": "^1.8.6",
 		"obsidian": "^1.13.1",
 		"yaml": "^2.9.0"

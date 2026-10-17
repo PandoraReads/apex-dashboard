@@ -1,0 +1,64 @@
+// Runs ONLY in a disposable Obsidian profile with this development build.
+import { readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+const runtime = JSON.parse(await readFile('node_modules/.tmp/gantt-runtime.json', 'utf8'));
+const relative = path.relative(tmpdir(), runtime.vaultRoot);
+if (!/^apex-gantt-pr-[a-f0-9]+[\\/]vault$/.test(relative)) throw Error('Refusing a non-disposable vault');
+const targets = await fetch('http://127.0.0.1:19328/json/list').then(r => r.json());
+const socket = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
+await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
+const expression = `(async()=>{
+ if(app.vault.adapter.basePath!==${JSON.stringify(runtime.vaultRoot)})throw Error('Wrong vault');
+ const wait=async p=>{for(let i=0;i<160;i++){if(await p())return;await new Promise(r=>setTimeout(r,50));}throw Error('Runtime check timed out');};
+ const passed=[],assert=(ok,label)=>{if(!ok)throw Error(label);passed.push(label);};
+ if(!app.plugins.plugins['apex-dashboard']){await app.plugins.setEnable(true);await app.plugins.enablePluginAndSave('apex-dashboard');}
+ for(const button of document.querySelectorAll('.modal button'))if(button.textContent.includes('信任仓库作者并启用插件'))button.click();
+ const oldTimeline=app.vault.getFileByPath('Projects/Alpha/Timeline.md');if(oldTimeline)await app.vault.delete(oldTimeline);
+ const source=JSON.stringify({ganttId:'alpha',title:'Project Alpha',groups:[{id:'design',name:'Design'}],tasks:[{id:'plan',kind:'task',name:'Planning',start:'2026-10-12',end:'2026-10-16',groupId:'design'},{id:'review',kind:'milestone',name:'Review',date:'2026-10-16',groupId:'design'}]},null,2);
+ const note='Project Alpha schedule\\n\\n\`\`\`apex-gantt\\n'+source+'\\n\`\`\`\\nEnd of note.';
+ let file=app.vault.getFileByPath('Projects/Alpha/Schedule.md');if(file)await app.vault.modify(file,note);else file=await app.vault.create('Projects/Alpha/Schedule.md',note);
+ const ref='\`\`\`apex-gantt\\n'+JSON.stringify({note:file.path,ganttId:'alpha'},null,2)+'\\n\`\`\`';
+ const dashboard='---\\ncolumns:\\n  - name: Schedules\\n    type: memo\\n---\\n\\n## Schedules\\n\\n### Project Alpha\\nid: sample-alpha\\ntype: generic\\n'+ref+'\\n';
+ let board=app.vault.getFileByPath('Dashboard.md');if(board)await app.vault.modify(board,dashboard);else board=await app.vault.create('Dashboard.md',dashboard);
+ await app.plugins.plugins['apex-dashboard'].openDashboard();
+ await app.workspace.revealLeaf(app.workspace.getLeavesOfType('apex-dashboard-view')[0]);
+ await wait(()=>document.querySelector('.apex-gantt .bar-wrapper')&&document.querySelector('.apex-gantt .apex-gantt-source')?.textContent==='Projects/Alpha/Schedule.md'&&document.querySelector('.apex-gantt')?.textContent.includes('Planning'));
+ const root=()=>document.querySelector('.apex-dashboard-root .apex-gantt');
+ assert(root().textContent.includes('Project Alpha'),'Dashboard renders a source-note reference');
+ assert(root().querySelectorAll('.bar-wrapper').length===3,'Group, task and milestone lane render');
+ const grid=()=>root().querySelector('.apex-gantt-grid');
+ await wait(()=>grid().getBoundingClientRect().width>300);assert(true,'Chart has usable layout width');
+ for(const mode of ['Week','Month','Day']){[...root().querySelectorAll('.apex-gantt-header button')].find(b=>b.textContent===mode).click();await wait(()=>root().querySelector('.is-active')?.textContent===mode&&root().querySelector('.apex-gantt-diamond'));assert(true,mode+' mode renders');}
+ [...root().querySelectorAll('.apex-gantt-names button')].find(b=>b.textContent.includes('Design')).click();await wait(()=>root().querySelector('.apex-gantt-folded-task'));assert(root().querySelectorAll('.apex-gantt-diamond').length===1,'Folded group retains milestone');
+ [...root().querySelectorAll('.apex-gantt-names button')].find(b=>b.textContent.includes('Design')).click();await wait(()=>root().querySelectorAll('.bar-wrapper').length===3);
+ const before=await app.vault.read(file);
+ [...root().querySelectorAll('button')].find(b=>b.textContent==='Edit schedule').click();await wait(()=>document.querySelector('.apex-gantt-editor'));
+ const modal=document.querySelector('.apex-gantt-editor');const input=modal.querySelector('input[aria-label="Entry name"]');input.value='<img src=x onerror=alert(1)>';input.dispatchEvent(new Event('input',{bubbles:true}));
+ [...modal.querySelectorAll('button')].find(b=>b.textContent==='Save').click();await wait(()=>!document.querySelector('.apex-gantt-editor'));
+ await wait(()=>root().textContent.includes('<img src=x onerror=alert(1)>'));
+ assert(!root().querySelector('img,script,iframe'),'Untrusted task names remain inert text');
+ assert((await app.vault.read(file)).endsWith('End of note.'),'Editing preserves surrounding Markdown');
+ const leaf=app.workspace.getLeaf('tab');await leaf.openFile(file,{state:{mode:'preview'}});await wait(()=>leaf.view.containerEl.querySelector('.apex-gantt .bar-wrapper'));
+ assert(leaf.view.containerEl.textContent.includes('<img src=x onerror=alert(1)>'),'Source note and dashboard share the update');
+ const nameChanged=await app.vault.read(file);
+ const noteRoot=leaf.view.containerEl.querySelector('.apex-gantt');[...noteRoot.querySelectorAll('button')].find(b=>b.textContent==='Edit schedule').click();await wait(()=>document.querySelector('.apex-gantt-editor'));
+ const edit=document.querySelector('.apex-gantt-editor');edit.querySelector('input[aria-label="Entry name"]').value='Not saved';[...edit.querySelectorAll('button')].find(b=>b.textContent==='Cancel').click();assert(await app.vault.read(file)===nameChanged,'Cancel does not write');
+ await app.fileManager.renameFile(file,'Projects/Alpha/Timeline.md');await wait(async()=> (await app.vault.read(board)).includes('Projects/Alpha/Timeline.md'));assert(true,'Rename updates persisted dashboard reference');
+ await app.vault.modify(file,nameChanged.replace('<img src=x onerror=alert(1)>','Planning updated'));
+ await wait(()=>root()?.textContent.includes('Planning updated'));
+ assert(true,'Source modification refreshes the dashboard');
+ leaf.detach();
+ await app.vault.modify(file,nameChanged.replace('<img src=x onerror=alert(1)>','Planning'));
+ await wait(()=>root()?.textContent.includes('Planning'));
+ return {passed};
+})()`;
+socket.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression,awaitPromise:true,returnByValue:true}}));
+const result=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Runtime timeout')),90000);socket.onmessage=e=>{const r=JSON.parse(e.data);if(r.id!==1)return;clearTimeout(timer);if(r.result?.exceptionDetails)reject(Error(JSON.stringify(r.result.exceptionDetails)));else resolve(r.result.result.value);};});
+console.log(JSON.stringify(result));
+// Save a demo composed exclusively of the fictional disposable vault above.
+socket.send(JSON.stringify({id:3,method:'Runtime.evaluate',params:{expression:"(()=>{const r=document.querySelector('.apex-gantt').getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,scale:1}})()",returnByValue:true}}));
+const clip=await new Promise(resolve=>{socket.onmessage=e=>{const r=JSON.parse(e.data);if(r.id===3)resolve(r.result.result.value);};});
+socket.send(JSON.stringify({id:2,method:'Page.captureScreenshot',params:{format:'png',clip}}));
+await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Screenshot timeout')),10000);socket.onmessage=e=>{const r=JSON.parse(e.data);if(r.id!==2)return;clearTimeout(timer);if(r.result?.data){writeFile('node_modules/.tmp/gantt-demo.png',Buffer.from(r.result.data,'base64')).then(resolve,reject);}else reject(Error('No screenshot'));};});
+socket.close();

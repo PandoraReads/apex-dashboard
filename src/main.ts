@@ -1,4 +1,5 @@
 import { Notice, Platform, Plugin, TAbstractFile, TFile } from 'obsidian';
+import { registerGantt } from './gantt';
 import { DEFAULT_SETTINGS, type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
 import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
@@ -122,6 +123,11 @@ export default class DashboardPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
+		registerGantt(this, async (reference, title) => {
+			await this.openDashboard();
+			const leaf = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)[0];
+			if (leaf?.view instanceof DashboardView) leaf.view.addGanttReference(reference, title);
+		});
 
 			this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
 
