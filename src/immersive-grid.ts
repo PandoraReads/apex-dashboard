@@ -274,6 +274,40 @@ export function overlapsAny(self: { x: number; y: number; w: number; h: number }
 		&& self.y < o.y + o.h && o.y < self.y + self.h);
 }
 
+/** After a resize commit, tiles the resized tile now covers must give way:
+ *  planImmersive stamps explicit x/y tiles verbatim with no mutual collision
+ *  check, so a grown tile extending over a pinned neighbour overlaps it for
+ *  good (the "cards overlap after resizing" bug). Strip the covered tiles'
+ *  x/y so the packer flows them around the grown obstacle; their sizes —
+ *  and `fixed` exact sizing — are untouched. `rects` are the tiles' CURRENT
+ *  stamped placements in grid units (at commit time these already carry the
+ *  resize drag's live span writes). The resized tile always WINS: only the
+ *  OTHER tiles give way. Pure. */
+export function displaceOverlappedBy(
+	items: readonly ImmersiveItem[],
+	selfId: string,
+	rects: ReadonlyMap<string, { x: number; y: number; w: number; h: number }>,
+): ImmersiveItem[] {
+	const self = rects.get(selfId);
+	if (!self) return [...items];
+	const covered = new Set<string>();
+	for (const item of items) {
+		if (item.id === selfId) continue;
+		// Only PINNED tiles need demotion — flow tiles re-pack around the
+		// grown obstacle on their own.
+		if (typeof item.x !== 'number' || typeof item.y !== 'number') continue;
+		const r = rects.get(item.id);
+		if (!r) continue;
+		if (self.x < r.x + r.w && r.x < self.x + self.w && self.y < r.y + r.h && r.y < self.y + self.h) {
+			covered.add(item.id);
+		}
+	}
+	if (covered.size === 0) return [...items];
+	return items.map(item => covered.has(item.id)
+		? { ...item, x: undefined, y: undefined }
+		: item);
+}
+
 /** Resolve a free placement for an intended drop: if the exact spot is
  *  free, keep it; otherwise find the NEAREST free cell (by Manhattan
  *  distance from the intent) — beside, above or below obstacles alike.

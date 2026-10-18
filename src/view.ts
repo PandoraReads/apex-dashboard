@@ -5,8 +5,8 @@ import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
-import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu } from './immersive';
-import { defaultWidgetSize, widgetItemId } from './immersive-grid';
+import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
+import { defaultWidgetSize, displaceOverlappedBy, widgetItemId } from './immersive-grid';
 import type { PreserveScope } from './preserve-scope';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
 import { refreshCalendarSections } from './calendar-section';
@@ -1001,7 +1001,15 @@ export class DashboardView extends ItemView implements HoverParent {
 			const el = child as HTMLElement;
 			const id = el.dataset?.immId;
 			if (!id) continue;
-			attachImmersiveResizeHandle(el, id, () => this.immItems, next => this.commitImmersiveItems(next));
+			attachImmersiveResizeHandle(el, id, () => this.immItems, next => {
+				// A resize keeps the tile pinned at its x/y; any PINNED tile its
+				// new size now covers must give way — planImmersive stamps x/y
+				// tiles verbatim with no mutual collision check, so without the
+				// demotion the overlap renders forever (the "cards overlap
+				// after resizing" bug). The stamped rects already carry the
+				// drag's live span writes.
+				this.commitImmersiveItems(displaceOverlappedBy(next, id, stampedRects(grid)));
+			});
 			if (id.startsWith('widget:')) {
 				attachImmersiveWidgetDelete(el, removeId => void this.removeImmersiveItem(removeId));
 			}

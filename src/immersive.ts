@@ -99,6 +99,31 @@ function applyGridPosition(el: HTMLElement, tile: PackedItem): void {
 	el.style.gridRow = `${tile.row + 1} / span ${tile.h}`;
 }
 
+/** `N / span M` → 1-based start + span; null when unparseable. */
+function parseGridArea(value: string): { start: number; span: number } | null {
+	const m = /^(\d+)\s*\/\s*span\s+(\d+)/.exec((value ?? '').trim());
+	return m ? { start: parseInt(m[1]!, 10), span: parseInt(m[2]!, 10) } : null;
+}
+
+/** The tiles' CURRENT stamped placements as 0-based grid-unit rects, read
+ *  straight off the inline grid-line styles. At a resize commit these already
+ *  carry the drag's live span writes (the handle restyles the tile in place),
+ *  so this is exactly the world the commit must reconcile. Tiles without a
+ *  parseable stamp are omitted. */
+export function stampedRects(grid: HTMLElement): Map<string, { x: number; y: number; w: number; h: number }> {
+	const out = new Map<string, { x: number; y: number; w: number; h: number }>();
+	for (const child of Array.from(grid.children)) {
+		const el = child as HTMLElement;
+		const id = el.dataset?.immId;
+		if (!id) continue;
+		const col = parseGridArea(el.style.gridColumn);
+		const row = parseGridArea(el.style.gridRow);
+		if (!col || !row) continue;
+		out.set(id, { x: col.start - 1, y: row.start - 1, w: col.span, h: row.span });
+	}
+	return out;
+}
+
 /** Order the kanban's children to match `packed` and stamp positions. Moves
  *  are ORDER-AWARE: when the children already sit in the packed sequence
  *  (positions-only refit), nothing is re-appended at all — appendChild moves
@@ -265,6 +290,31 @@ export function refitImmersiveGrid(grid: HTMLElement, items: readonly GridItem[]
 	const unchanged = !force && !!memo && memo.size === measured.size
 		&& [...measured].every(([id, entry]) => memo.get(id)?.rows === entry.rows);
 	fitMemo.set(grid, measured);
+	// Self-heal stale PINNED overlaps (a hand-edited file, or a swap whose
+	// traded origins collide once sizes differ): planImmersive stamps x/y
+	// tiles verbatim with no mutual collision check, so an overlapping pin
+	// renders forever otherwise. The EARLIER tile in list order keeps its
+	// spot; the later one loses its x/y and flows around it. Visual-only
+	// here — the arrangement on disk heals on the next user commit. (A
+	// resize commit resolves its own overlaps first, with the resized tile
+	// winning, via displaceOverlappedBy.)
+	const pinnedIdx = effective
+		.map((it, i) => (typeof it.x === 'number' && typeof it.y === 'number' ? i : -1))
+		.filter(i => i >= 0);
+	const demoted = new Set<number>();
+	for (const i of pinnedIdx) {
+		const a = effective[i]!;
+		for (const j of pinnedIdx) {
+			if (j <= i || demoted.has(j)) continue;
+			const b = effective[j]!;
+			if (a.x! < b.x! + b.w && b.x! < a.x! + a.w
+				&& a.y! < b.y! + b.h && b.y! < a.y! + a.h) demoted.add(j);
+		}
+	}
+	for (const j of demoted) {
+		delete effective[j]!.x;
+		delete effective[j]!.y;
+	}
 	if (unchanged) {
 		// Placements are already correct from the previous pass.
 		return planImmersive(effective);

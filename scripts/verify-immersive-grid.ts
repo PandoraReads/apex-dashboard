@@ -31,6 +31,7 @@ import {
 	clampSpanW,
 	clampSpanH,
 	defaultWidgetSize,
+	displaceOverlappedBy,
 	effectiveLayout,
 	migrateLegacyHeight,
 	normalizeImmersive,
@@ -295,6 +296,35 @@ const run = (): void => {
 		assert.equal(clampSpanH(9999), IMM_MAX_H, 'ceiling clamps');
 		assert.equal(clampSpanH(null), 40, 'dirty value falls back');
 		assert.equal(clampSpanH('x'), 40);
+	}
+
+	// --- 7. Resize displacement: covered pinned tiles give way -------------
+	{
+		const rects = new Map<string, { x: number; y: number; w: number; h: number }>([
+			['widget:weather', { x: 0, y: 0, w: 3, h: 19 }],
+			['section:A', { x: 3, y: 0, w: 9, h: 40 }],   // grown over the calendar below
+			['widget:calendar', { x: 0, y: 19, w: 4, h: 28 }],
+			['section:B', { x: 6, y: 45, w: 6, h: 40 }],  // far away, must stay pinned
+		]);
+		const items: ImmersiveItem[] = [
+			{ id: 'widget:weather', w: 3, h: 19, x: 0, y: 0 },
+			{ id: 'section:A', w: 9, h: 40, x: 3, y: 0, fixed: true },
+			{ id: 'widget:calendar', w: 4, h: 28, x: 0, y: 19, fixed: true },
+			{ id: 'section:B', w: 6, h: 40, x: 6, y: 45 },
+			{ id: 'section:C', w: 6, h: 30 }, // flow tile under the grown one — untouched
+		];
+		const out = displaceOverlappedBy(items, 'section:A', rects);
+		const byId = Object.fromEntries(out.map(i => [i.id, i]));
+		const cal = byId['widget:calendar']!;
+		assert.ok(typeof cal.x === 'undefined', 'covered pinned tile demoted to flow');
+		assert.equal(cal.h, 28, 'demoted tile keeps its size');
+		assert.equal(cal.fixed, true, 'demoted tile keeps fixed sizing');
+		assert.equal(byId['section:B']!.x, 6, 'unrelated pinned tile stays pinned');
+		assert.equal(byId['widget:weather']!.x, 0, 'side-by-side neighbour untouched (no overlap)');
+		assert.equal(byId['section:C']!.x, undefined, 'flow tile never carries x/y');
+		assert.equal(byId['section:A']!.x, 3, 'the resized tile itself wins');
+		// Unknown self id: no-op.
+		assert.deepEqual(displaceOverlappedBy(items, 'section:zzz', rects).map(i => i.x), items.map(i => i.x));
 	}
 };
 

@@ -23287,6 +23287,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   (the library files area, kanban columns). */
 	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] {
 		position: relative; /* containing block for the strips/delete chrome */
+		/* BORDER-BOX is load-bearing: the fit pins height/min/max to
+		   rowsToPx(span) and that math budgets the tile's own padding+border
+		   INSIDE the spanned tracks (the 10px margin rides in there too). As
+		   content-box every tile's box overshot its tracks by its chrome
+		   (12+12 padding + 2 border = 26px), overlapping the tile below by
+		   ~16px — worst right after a drag-resize ("cards overlap after
+		   resizing"). */
+		box-sizing: border-box;
 		background: color-mix(in srgb, var(--db-bg-card) 35%, rgba(8, 10, 14, 0.74));
 		border: 1px solid rgba(255, 255, 255, 0.22);
 		backdrop-filter: var(--db-backdrop-blur);
