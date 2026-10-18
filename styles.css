@@ -15543,6 +15543,21 @@
 	flex-shrink: 0;
 }
 
+/* Progressive-render load-more (pipeline / PM sections reuse the library
+   pill). Pipeline stage columns are flex columns: full-width footer. */
+.dashboard-pipeline-cards .dashboard-library-load-more {
+	width: 100%;
+	text-align: center;
+	margin-top: 2px;
+	flex-shrink: 0;
+}
+
+/* PM content is block flow: centered under the list/kanban. */
+.dashboard-pmsec-content .dashboard-library-load-more {
+	width: fit-content;
+	margin: 8px auto 2px;
+}
+
 /* Render-ceiling notice (grouped + kanban paths only; see RENDER_CEILING). */
 .dashboard-library-render-cap {
 	font-size: 0.75em;

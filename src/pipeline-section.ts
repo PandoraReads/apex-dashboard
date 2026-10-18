@@ -61,6 +61,17 @@ const TITLE_OPEN_DELAY_MS = 300;
  *  instead of a click. */
 const SKILL_DRAG_THRESHOLD_PX = 5;
 
+/** Progressive rendering: cards a stage column builds up front before the
+ *  load-more pill takes over (pipeline cards are heavy — chips, footer skill
+ *  row, hover wiring — a 200-item backlog column must not land in the DOM in
+ *  one shot). */
+export const PIPELINE_COLUMN_PAGE_SIZE = 20;
+
+/** Per-column progressive limits (runtime, not persisted), keyed
+ *  `column::stage`. Survives in-place refreshes so a vault event doesn't
+ *  collapse an expanded column back to its first page (library idiom). */
+const stageRenderLimits = new Map<string, number>();
+
 export function renderPipelineSection(
 	el: HTMLElement,
 	column: DashboardColumn,
@@ -270,9 +281,31 @@ function renderStageColumn(
 	});
 
 	const cardsHost = col.createDiv({ cls: 'dashboard-pipeline-cards' });
-	for (const item of items) {
-		cardsHost.appendChild(renderPipelineCard(item, stage, cfg, app, callbacks, hoverParent, columnName));
-	}
+	// Progressive render (library idiom): first PIPELINE_COLUMN_PAGE_SIZE
+	// cards + a load-more pill; the pill re-renders ONLY this column's cards
+	// in place (the column element persists, so its scroll survives).
+	const limitKey = `${columnName}::${stage.value}`;
+	const renderCards = (): void => {
+		const limit = stageRenderLimits.get(limitKey) ?? PIPELINE_COLUMN_PAGE_SIZE;
+		cardsHost.empty();
+		for (const item of items.slice(0, limit)) {
+			cardsHost.appendChild(renderPipelineCard(item, stage, cfg, app, callbacks, hoverParent, columnName));
+		}
+		if (items.length > limit) {
+			const hidden = items.length - limit;
+			const more = cardsHost.createDiv({
+				cls: 'dashboard-library-load-more dashboard-pipeline-load-more',
+				text: t('library.showMore', { count: hidden }),
+				attr: { 'data-hidden-count': String(hidden) },
+			});
+			more.addEventListener('click', (e) => {
+				e.stopPropagation();
+				stageRenderLimits.set(limitKey, limit + PIPELINE_COLUMN_PAGE_SIZE);
+				renderCards();
+			});
+		}
+	};
+	renderCards();
 
 	attachColumnDrop(col, stage, cfg, app);
 	if (!Platform.isMobile) attachColumnWidthHandle(col, columnName, stage);
@@ -742,12 +775,17 @@ function attachColumnDrop(col: HTMLElement, stage: PipelineStage, cfg: PipelineC
 }
 
 /** Rewrite the column's count badge so it matches the cards now in the DOM
- *  (covers the optimistic-move window before the debounced re-render). */
+ *  (covers the optimistic-move window before the debounced re-render). With
+ *  progressive rendering the DOM holds only the rendered slice, so the
+ *  load-more pill's data-hidden-count tops the number back up to the data
+ *  total (library's refreshKanbanColumnCount idiom). */
 function refreshColumnCount(col: HTMLElement): void {
 	const count = col.querySelector(':scope > .dashboard-pipeline-col-head .dashboard-pipeline-col-count');
 	if (!count) return;
 	const rendered = col.querySelectorAll(':scope .dashboard-pipeline-card').length;
-	count.setText(String(rendered));
+	const hiddenRaw = col.querySelector(':scope > .dashboard-pipeline-load-more')?.getAttribute('data-hidden-count');
+	const hidden = hiddenRaw != null && hiddenRaw !== '' && Number.isFinite(parseInt(hiddenRaw, 10)) ? parseInt(hiddenRaw, 10) : 0;
+	count.setText(String(rendered + hidden));
 }
 
 /**

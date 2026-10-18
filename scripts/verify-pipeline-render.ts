@@ -231,6 +231,29 @@ async function main(): Promise<void> {
 	const host3 = new El('div');
 	renderPipelineSection(host3 as unknown as HTMLElement, pipelineColumn({ ...config, rootFolder: '' }), app, callbacks, null);
 	assert.equal(findByClass(host3, 'dashboard-pipeline-empty').length, 1, 'empty root folder stays unconfigured');
+
+	// --- Progressive render: first PIPELINE_COLUMN_PAGE_SIZE cards + a
+	// load-more pill; the pill expands the column in place. Distinct column
+	// name so the module-level limit map never bleeds into the blocks above.
+	{
+		const many: Array<{ file: TFile; fm: Record<string, unknown> }> = [];
+		for (let i = 1; i <= 25; i++) {
+			many.push({ file: fakeFile(`内容创作/01-选题/选题${i}.md`, 1000 + i), fm: { status: 'idea' } });
+		}
+		const appMany = makeApp(many);
+		const hostMany = new El('div');
+		renderPipelineSection(hostMany as unknown as HTMLElement, { ...pipelineColumn(config), name: '大量流水线' }, appMany, callbacks, null);
+		const cardsMany = findByClass(hostMany, 'dashboard-pipeline-card');
+		assert.equal(cardsMany.length, 20, 'column renders only the first page of items');
+		const pill = findByClass(hostMany, 'dashboard-pipeline-load-more');
+		assert.equal(pill.length, 1, 'load-more pill appears past the page');
+		assert.equal(pill[0]!.getAttribute('data-hidden-count'), '5', 'hidden count in the pill');
+		// Count badge still reports the data total, not the rendered slice.
+		assert.deepEqual(findByClass(hostMany, 'dashboard-pipeline-col-count').map(el => el.textContent).sort(), ['0', '25']);
+		pill[0]!.click();
+		assert.equal(findByClass(hostMany, 'dashboard-pipeline-card').length, 25, 'pill expands the column in place');
+		assert.equal(findByClass(hostMany, 'dashboard-pipeline-load-more').length, 0, 'pill gone once everything renders');
+	}
 }
 
 void main();

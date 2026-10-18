@@ -1,6 +1,7 @@
 import { App, Notice, setIcon } from 'obsidian';
 import type { DashboardColumn } from './types';
 import { t } from './i18n';
+import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 import {
 	collectPmProjects, orderPmProjects, pmField, pmGroupName, pmIncome, pmCycleText, pmKeyDate, isKeyDateOverdue,
 	pmStageColor, sortPmProjects, sumIncome, type PmProject,
@@ -18,6 +19,15 @@ import {
  * the project board; double click renames the note. Header: new project,
  * total income pill, config gear (renderSection's generic gear handles it).
  */
+
+/** Progressive rendering: projects rendered before the load-more pill (PM
+ *  cards are DOM-heavy — field grid, milestone stepper, per-skill buttons). */
+export const PM_PAGE_SIZE = 20;
+
+/** Per-column progressive limits (runtime, not persisted): the map survives
+ *  in-place refreshes so a vault event doesn't collapse an expanded list
+ *  back to its first page (library idiom). */
+const pmRenderLimits = new Map<string, number>();
 
 export function renderPmSection(
 	el: HTMLElement,
@@ -51,6 +61,10 @@ export function renderPmSection(
 		}));
 	};
 	const render = (): void => {
+		// The load-more pill re-renders the whole content; the list's scroll
+		// position must ride over that rebuild (the pill sits at the bottom —
+		// resetting to top would yank the user away from the click).
+		const scrollStates = captureScrollStates(content);
 		content.empty();
 		const collected = orderPmProjects(collectPmProjects(app, cfg), cfg.order);
 		const sorted = sortPmProjects(collected, cfg.sortMode);
@@ -116,7 +130,23 @@ export function renderPmSection(
 		// Belt-and-braces: strip cardSize here — the in-memory config (set via
 		// updatePmConfig before any parse round-trip) could still carry the
 		// retired value. Only the kanban branch re-injects compact.
-		renderProjectList(content, lastProjects, app, { ...cfg, cardSize: undefined }, column.name);
+		// Progressive render (library idiom): first PM_PAGE_SIZE cards, then a
+		// load-more pill — a section with 100+ projects must not build every
+		// card up front.
+		const limit = pmRenderLimits.get(column.name) ?? PM_PAGE_SIZE;
+		const visible = lastProjects.slice(0, limit);
+		renderProjectList(content, visible, app, { ...cfg, cardSize: undefined }, column.name);
+		if (lastProjects.length > limit) {
+			const more = content.createDiv({
+				cls: 'dashboard-library-load-more',
+				text: t('library.showMore', { count: lastProjects.length - limit }),
+			});
+			more.addEventListener('click', () => {
+				pmRenderLimits.set(column.name, limit + PM_PAGE_SIZE);
+				render();
+			});
+		}
+		restoreScrollStates(content, scrollStates);
 	};
 	render();
 }

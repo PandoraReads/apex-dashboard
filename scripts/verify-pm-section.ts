@@ -273,6 +273,27 @@ const app = makeApp([
 	assert.ok(first.hasClass('is-pinned'), 'pinned card flagged');
 	assert.equal(first.dataset.path, p0, 'pinned card renders first');
 	console.log('5 pin: ok');
+
+	// --- 6. Progressive render: first PM_PAGE_SIZE cards + load-more pill;
+	// the pill expands in place. Distinct column name so the module-level
+	// limit map never bleeds into the blocks above.
+	{
+		const many: Array<{ file: TFile; cache: CachedMetadata }> = [];
+		for (let i = 1; i <= 25; i++) {
+			const f = fakeFile(`项目/项目${i}.md`);
+			many.push({ file: f, cache: cacheFor({ type: 'project', stage: '意向沟通', intro: `第${i}个` }, BODY) });
+		}
+		const appMany = makeApp(many);
+		const elMany = new El('div');
+		renderPmSection(elMany as unknown as HTMLElement, { ...column(config), name: '项目管理大量' }, appMany);
+		assert.equal(findByClass(elMany, 'dashboard-pmsec-card').length, 20, 'only the first page of projects renders');
+		const pill = findByClass(elMany, 'dashboard-library-load-more');
+		assert.equal(pill.length, 1, 'load-more pill appears past the page');
+		pill[0]!.click();
+		assert.equal(findByClass(elMany, 'dashboard-pmsec-card').length, 25, 'pill expands the list');
+		assert.equal(findByClass(elMany, 'dashboard-library-load-more').length, 0, 'pill gone once everything renders');
+		console.log('6 progressive: ok');
+	}
 }
 
 console.log('verify-pm-section: all assertions passed');
