@@ -653,115 +653,147 @@
 		--db-aurora-speed: 14s;
 }
 
-/* ----- 9. BLOSSOM (花漾 — Prism clone, transparent sections) ----- */
+/* ----- 9. BLOSSOM (芭比 — Barbie gelato parlor, opaque ice-cream surfaces) ----- */
+/* Formerly a rose-glass Prism clone; rebuilt on the capsule skeleton in
+   Barbie pink: berry-night ground, SUNKEN syrup trays (sections), RAISED
+   scoops of dense raspberry-cream (cards). Every surface opaque, zero blur —
+   the creaminess is layered pillow shadows + satin sheen, never
+   translucency. Dimensional treatments + per-section gelato flavors live in
+   the BLOSSOM chapter near the AQUA block (design: /tmp/blossom-barbie-design.html). */
 .apex-dashboard-root[data-theme="blossom"] {
-	--db-bg: #12081a;
-	--db-bg-section: transparent;
-	--db-bg-card: rgba(255, 255, 255, 0.06);
-	--db-bg-card-hover: rgba(255, 255, 255, 0.10);
+	--db-bg: #220d1c;
+	--db-bg-section: #1b0916;
+	--db-bg-card: #3c1e32;
+	--db-bg-card-hover: #47243b;
+	/* Transparent like aqua: --db-bg-sidebar also feeds the INNER
+	   .dashboard-section — an opaque value here paints box-in-box over the
+	   tray. Sidebar widgets sit straight on the berry ground. */
 	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(255, 255, 255, 0.05);
-	--db-bg-btn: rgba(244, 63, 94, 0.08);
-	--db-bg-btn-hover: rgba(244, 63, 94, 0.15);
-	--db-bg-banner: rgba(139, 92, 246, 0.12);
-	--db-bg-overlay: linear-gradient(135deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 100%);
-	--db-bg-hover: rgba(255, 255, 255, 0.05);
-	--db-bg-hover-strong: rgba(255, 255, 255, 0.09);
-	--db-bg-add-section: rgba(255, 255, 255, 0.02);
-	--db-bg-drop-indicator: rgba(244, 63, 94, 0.08);
+	--db-bg-input: #2c1123;
+	--db-bg-btn: rgba(255, 111, 181, 0.12);
+	--db-bg-btn-hover: rgba(255, 111, 181, 0.20);
+	--db-bg-banner: #2e1225;
+	--db-bg-overlay: linear-gradient(135deg, rgba(10, 2, 8, 0.62) 0%, rgba(10, 2, 8, 0.32) 100%);
+	--db-bg-hover: rgba(255, 140, 196, 0.07);
+	--db-bg-hover-strong: rgba(255, 140, 196, 0.12);
+	--db-bg-add-section: #2a0f20;
+	--db-bg-drop-indicator: rgba(255, 111, 181, 0.12);
 
-	--db-border: rgba(255, 255, 255, 0.08);
-	--db-border-card: rgba(255, 255, 255, 0.10);
+	--db-border: rgba(255, 175, 208, 0.14);
+	--db-border-card: rgba(255, 182, 213, 0.17);
 	--db-border-section: transparent;
 	--db-border-sidebar: transparent;
-	--db-border-input: rgba(255, 255, 255, 0.08);
-	--db-border-input-focus: rgba(244, 63, 94, 0.5);
-	--db-border-btn: rgba(255, 255, 255, 0.10);
-	--db-border-add-section: rgba(244, 63, 94, 0.15);
+	--db-border-input: rgba(255, 175, 208, 0.16);
+	--db-border-input-focus: #ff6fb5;
+	--db-border-btn: rgba(255, 111, 181, 0.26);
+	--db-border-add-section: rgba(255, 111, 181, 0.28);
 
-	--db-text: #f0e8f0;
-	--db-text-muted: #b098b8;
-	--db-text-faint: #705878;
-	--db-text-inverse: rgba(255, 255, 255, 0.95);
+	--db-text: #fce8f2;
+	--db-text-muted: #cf9ab4;
+	--db-text-faint: #96627b;
+	--db-text-inverse: rgba(255, 255, 255, 0.96);
 	--db-text-inverse-muted: rgba(255, 255, 255, 0.55);
 
-	--db-accent: #f43f5e;
-	--db-accent-light: #a855f7;
-	--db-danger: #ef4444;
+	/* Bright bubblegum — pops on berry surfaces; CTAs pair it with the
+	   white --db-text-inverse like every pink theme in the family. */
+	--db-accent: #ff6fb5;
+	--db-accent-light: #ffa3cf;
+	--db-danger: #f2545b;
 
-	--db-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
-		--db-shadow-card-hover: 0 6px 24px rgba(244, 63, 94, 0.12), 0 0 16px rgba(168, 85, 247, 0.06);
+	/* Scoop: satin sheen + dense base + pillow drop, all opaque. */
+	--db-shadow-card: inset 0 1px 0 rgba(255, 196, 224, 0.14), inset 0 -3px 6px rgba(0, 0, 0, 0.22), 0 3px 10px rgba(12, 2, 8, 0.45), 0 12px 28px rgba(12, 2, 8, 0.32);
+	--db-shadow-card-hover: inset 0 1px 0 rgba(255, 196, 224, 0.18), inset 0 -3px 8px rgba(0, 0, 0, 0.24), 0 6px 16px rgba(12, 2, 8, 0.5), 0 16px 36px rgba(12, 2, 8, 0.38);
 	--db-backdrop-blur: none;
 
-	--db-radius-sm: 8px;
-	--db-radius-md: 14px;
-	--db-radius-lg: 18px;
+	--db-radius-sm: 10px;
+	--db-radius-md: 16px;
+	--db-radius-lg: 22px;
 
 		--db-font: 'Quicksand', 'ZCOOL KuaiLe', var(--font-interface);
-	--db-progress-from: #f43f5e;
-	--db-progress-to: #a855f7;
-	--db-checkbox: #f43f5e;
-	--db-quote-border: #a855f7;
-	--db-link: #f43f5e;
+	--db-progress-from: #ff6fb5;
+	--db-progress-to: #ffb1d6;
+	--db-checkbox: #ff6fb5;
+	--db-quote-border: #ff6fb5;
+	--db-link: #ff6fb5;
 
-	--db-aurora-bg: linear-gradient(135deg,
-		#12081a 0%,
-		rgba(244, 63, 94, 0.07) 18%,
-		rgba(168, 85, 247, 0.06) 36%,
-		rgba(245, 158, 11, 0.05) 54%,
-		rgba(244, 63, 94, 0.04) 72%,
-		#12081a 100%);
+	/* Opaque modal surfaces — without these dialogs borrow the base theme's
+	   deep-blue defaults (the same trap the dark neon/onyx family hit). */
+	--db-bg-modal: #2a1224;
+	--db-bg-modal-raised: #38182e;
+
+	/* Default flavor: cotton candy. Per-section gelato flavors below in the
+	   BLOSSOM chapter. */
+	--db-sec-hue: #ff85bd;
+	--db-sec-glow: rgba(255, 111, 181, 0.16);
+
+	/* Strawberry night: dense berry milk, static (no aurora drift on blossom). */
+	--db-aurora-bg: linear-gradient(160deg,
+		#2b1023 0%,
+		#200c1b 45%,
+		#2c1226 78%,
+		#251020 100%);
 	--db-aurora-size: 400% 400%;
 	--db-aurora-speed: 14s;
 }
 .theme-light .apex-dashboard-root[data-theme="blossom"] {
-	--db-bg: #faf5f8;
-	--db-bg-section: transparent;
-	--db-bg-card: rgba(255, 255, 255, 0.55);
-	--db-bg-card-hover: rgba(255, 255, 255, 0.70);
+	--db-bg: #fdd9ea;
+	--db-bg-section: #fbcfe4;
+	--db-bg-card: #fffaf7;
+	--db-bg-card-hover: #ffffff;
+	/* Transparent like aqua — see the dark block note (box-in-box guard). */
 	--db-bg-sidebar: transparent;
-	--db-bg-input: rgba(244, 63, 94, 0.04);
-	--db-bg-btn: rgba(244, 63, 94, 0.07);
-	--db-bg-btn-hover: rgba(244, 63, 94, 0.12);
-	--db-bg-banner: rgba(139, 92, 246, 0.08);
-	--db-bg-overlay: linear-gradient(135deg, rgba(60,20,40,0.5) 0%, rgba(60,20,40,0.2) 100%);
-	--db-bg-hover: rgba(244, 63, 94, 0.05);
-	--db-bg-hover-strong: rgba(244, 63, 94, 0.08);
-	--db-bg-add-section: rgba(244, 63, 94, 0.03);
+	--db-bg-input: #ffe6f0;
+	--db-bg-btn: rgba(224, 33, 138, 0.08);
+	--db-bg-btn-hover: rgba(224, 33, 138, 0.14);
+	--db-bg-banner: #fbd0e5;
+	--db-bg-overlay: linear-gradient(135deg, rgba(74, 16, 48, 0.45) 0%, rgba(74, 16, 48, 0.18) 100%);
+	--db-bg-hover: rgba(224, 33, 138, 0.06);
+	--db-bg-hover-strong: rgba(224, 33, 138, 0.11);
+	--db-bg-add-section: #ffe2ee;
+	--db-bg-drop-indicator: rgba(224, 33, 138, 0.12);
 
-	--db-border: rgba(244, 63, 94, 0.10);
-	--db-border-card: rgba(244, 63, 94, 0.12);
+	--db-border: rgba(190, 24, 110, 0.14);
+	--db-border-card: rgba(190, 24, 110, 0.16);
 	--db-border-section: transparent;
 	--db-border-sidebar: transparent;
-	--db-border-input: rgba(244, 63, 94, 0.10);
-	--db-border-input-focus: rgba(244, 63, 94, 0.6);
-	--db-border-btn: rgba(244, 63, 94, 0.12);
+	--db-border-input: rgba(190, 24, 110, 0.18);
+	--db-border-input-focus: #e0218a;
+	--db-border-btn: rgba(224, 33, 138, 0.20);
+	--db-border-add-section: rgba(224, 33, 138, 0.28);
 
-	--db-text: #1c1018;
-	--db-text-muted: #5a3850;
-	--db-text-faint: #907080;
+	--db-text: #4a1030;
+	--db-text-muted: #93507b;
+	--db-text-faint: #bd88a5;
 
-	--db-accent: #e11d48;
-	--db-accent-light: #7c3aed;
-	--db-danger: #dc2626;
+	/* True Barbie pink — deep enough for the white CTA text pairing. */
+	--db-accent: #e0218a;
+	--db-accent-light: #f062ab;
+	--db-danger: #d92b4b;
 
-	--db-shadow-card: 0 2px 12px rgba(244, 63, 94, 0.05);
-	--db-shadow-card-hover: 0 8px 32px rgba(244, 63, 94, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
+	/* Scoop: vanilla-cream pillow on the strawberry tray. */
+	--db-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -3px 6px rgba(224, 33, 138, 0.05), 0 3px 10px rgba(190, 24, 110, 0.09), 0 12px 28px rgba(190, 24, 110, 0.08);
+	--db-shadow-card-hover: inset 0 1px 0 rgba(255, 255, 255, 1), inset 0 -3px 8px rgba(224, 33, 138, 0.06), 0 6px 16px rgba(190, 24, 110, 0.14), 0 16px 36px rgba(190, 24, 110, 0.12);
 	--db-backdrop-blur: none;
 
-	--db-progress-from: #e11d48;
-	--db-progress-to: #7c3aed;
-	--db-checkbox: #e11d48;
-	--db-quote-border: #7c3aed;
-	--db-link: #e11d48;
+	--db-progress-from: #e0218a;
+	--db-progress-to: #ffa8cf;
+	--db-checkbox: #e0218a;
+	--db-quote-border: #e0218a;
+	--db-link: #e0218a;
 
+	--db-bg-modal: #fff7fb;
+	--db-bg-modal-raised: rgba(224, 33, 138, 0.05);
+
+	--db-sec-hue: #e0218a;
+	--db-sec-glow: rgba(224, 33, 138, 0.16);
+
+	/* Strawberry milk: dense opaque blend, vanilla drifting through. */
 	--db-aurora-bg: linear-gradient(135deg,
-		#faf5f8 0%,
-		rgba(244, 63, 94, 0.06) 18%,
-		rgba(168, 85, 247, 0.05) 36%,
-		rgba(245, 158, 11, 0.04) 54%,
-		rgba(244, 63, 94, 0.03) 72%,
-		#faf5f8 100%);
+		#fdd3e7 0%,
+		#ffe4ef 30%,
+		#ffedf2 55%,
+		#fff0ea 78%,
+		#ffe0ee 100%);
 }
 
 /* Blossom: static gradient background */
@@ -779,14 +811,15 @@
 	will-change: background-position;
 }
 
-/* ===== Shared: transparent sections for tundra, blossom, matcha =====
+/* ===== Shared: transparent sections for tundra, matcha =====
+   (blossom left this cluster for its opaque Barbie-gelato rebuild — its
+   sections are syrup trays now.)
    NOTE: each group MUST keep its own block. A 3.7.3 lilac-removal edit left
    the section-row/section/kanban selector lists blockless, so they merged
    into the trailing `overflow: visible` rule — which flipped the kanban to
    overflow-y:visible on these themes and froze the board's vertical scroll
    (3.7.4 regression: "right side cannot scroll, sidebar still can"). */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section-row,
-.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section-row {
 	background: transparent;
 	border: none;
@@ -796,7 +829,6 @@
 }
 
 .apex-dashboard-root[data-theme="tundra"] .dashboard-section,
-.apex-dashboard-root[data-theme="blossom"] .dashboard-section,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-section {
 	background: transparent;
 	border: none;
@@ -806,7 +838,6 @@
 
 /* Tighter kanban gap for transparent-section themes */
 .apex-dashboard-root[data-theme="tundra"] .dashboard-kanban,
-.apex-dashboard-root[data-theme="blossom"] .dashboard-kanban,
 .apex-dashboard-root[data-theme="matcha"] .dashboard-kanban {
 	--db-kanban-gap: 8px;
 }
@@ -13411,35 +13442,47 @@
 
 /* Tundra: modal — warm organic, rounded */
 
-/* -- Blossom: rose glass glow (cloned from Prism) -- */
+/* -- Blossom: Barbie gelato — pink hover edges + candy focus rings (the
+   scoop shadows themselves live in the --db-shadow-card tokens; the
+   dimensional chapter sits next to the AQUA block) -- */
 .apex-dashboard-root[data-theme="blossom"] .dashboard-card:hover {
-	box-shadow: 0 6px 24px rgba(244, 63, 94, 0.12), 0 0 16px rgba(168, 85, 247, 0.06);
-	border-color: rgba(244, 63, 94, 0.2);
+	border-color: rgba(224, 33, 138, 0.24);
 }
 
 .apex-dashboard-root[data-theme="blossom"] .dashboard-memo-textarea:focus {
-	border-color: rgba(244, 63, 94, 0.4);
-	box-shadow: 0 0 16px rgba(244, 63, 94, 0.08);
+	border-color: rgba(224, 33, 138, 0.45);
+	box-shadow: 0 0 0 3px rgba(224, 33, 138, 0.10);
 }
 
 .apex-dashboard-root[data-theme="blossom"] .dashboard-modal-input:focus {
-	border-color: rgba(244, 63, 94, 0.4);
-	box-shadow: 0 0 16px rgba(244, 63, 94, 0.08);
+	border-color: rgba(224, 33, 138, 0.45);
+	box-shadow: 0 0 0 3px rgba(224, 33, 138, 0.10);
 }
 
+/* Drag-over REPLACES the tray's inset shadow (higher specificity), so the
+   syrup-tray insets ride along inside the candy ring. */
 .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row--drag-over {
-	border-color: rgba(244, 63, 94, 0.4);
-	box-shadow: 0 0 20px rgba(244, 63, 94, 0.06);
+	border-color: rgba(224, 33, 138, 0.45);
+	box-shadow:
+		0 0 0 3px rgba(224, 33, 138, 0.10),
+		inset 0 2px 6px rgba(190, 24, 110, 0.10),
+		inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+}
+.theme-dark .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row--drag-over {
+	box-shadow:
+		0 0 0 3px rgba(255, 111, 181, 0.12),
+		inset 0 2px 6px rgba(0, 0, 0, 0.35),
+		inset 0 -1px 0 rgba(255, 182, 213, 0.07);
 }
 
 .apex-dashboard-root[data-theme="blossom"] .dashboard-add-section {
-	border-radius: var(--db-radius-lg, 14px);
-	border-color: rgba(244, 63, 94, 0.15);
+	border-radius: var(--db-radius-lg, 22px);
+	border-color: rgba(224, 33, 138, 0.28);
 }
 
 .apex-dashboard-root[data-theme="blossom"] .dashboard-add-section:hover {
-	border-color: rgba(244, 63, 94, 0.4);
-	box-shadow: 0 0 12px rgba(244, 63, 94, 0.06);
+	border-color: rgba(224, 33, 138, 0.55);
+	box-shadow: 0 0 0 3px rgba(224, 33, 138, 0.10);
 }
 
 /* Blossom: modal — rose glass with warm glow */
@@ -27175,6 +27218,121 @@ button.dashboard-capturebar-glyph:hover {
 .apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #c8b3d8; --db-sec-glow: rgba(200, 179, 216, 0.12); }
 .apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #8ed6cf; --db-sec-glow: rgba(142, 214, 207, 0.12); }
 .apex-dashboard-root[data-theme="aqua"] .dashboard-section-row[data-section-type="pm"] { --db-sec-hue: #a9bfd4; --db-sec-glow: rgba(169, 191, 212, 0.12); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOSSOM 芭比 — Barbie gelato parlor (design: /tmp/blossom-barbie-design.html).
+   The capsule skeleton wearing Barbie pink: SUNKEN strawberry-syrup trays
+   (sections, quick bar) under RAISED scoops of dense vanilla-berry cream
+   (cards, confirm buttons, checkboxes). The creaminess is layered pillow
+   shadows + satin top sheens on OPAQUE fills — zero translucency, zero blur
+   (the old rose-glass Prism clone is fully retired). Each section title
+   wears its own gelato flavor. All scoped to [data-theme="blossom"].
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Sections: sunken syrup trays (soft inset edges, no hard border). */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row {
+	box-shadow: inset 0 2px 6px rgba(190, 24, 110, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+}
+.theme-dark .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row {
+	box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 182, 213, 0.07);
+}
+
+/* Cards: scoops — the pillow shadow rides in --db-shadow-card (dashboard-card
+   consumes it natively); library & pipeline cards need the explicit handoff. */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-library-card,
+.apex-dashboard-root[data-theme="blossom"] .dashboard-pipeline:not(.dashboard-pipeline--trello):not(.dashboard-pipeline--solid):not(.dashboard-pipeline--blush) .dashboard-pipeline-card {
+	box-shadow: var(--db-shadow-card);
+}
+
+/* Quick bar: sunken sauce dish. */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-quicknote {
+	box-shadow: inset 0 2px 5px rgba(190, 24, 110, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+}
+.theme-dark .apex-dashboard-root[data-theme="blossom"] .dashboard-quicknote {
+	box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 182, 213, 0.07);
+}
+
+/* Banner: the syrup awning strip. */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-banner {
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.60), inset 0 -2px 5px rgba(190, 24, 110, 0.06);
+}
+.theme-dark .apex-dashboard-root[data-theme="blossom"] .dashboard-banner {
+	box-shadow: inset 0 1px 0 rgba(255, 182, 213, 0.10), inset 0 -2px 5px rgba(0, 0, 0, 0.28);
+}
+
+/* Modal confirm: hot-pink candy scoop; press = squish. */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-modal-btn--confirm {
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.40),
+		inset 0 -2px 4px rgba(140, 10, 80, 0.28),
+		0 3px 8px rgba(190, 24, 110, 0.28);
+}
+.apex-dashboard-root[data-theme="blossom"] .dashboard-modal-btn--confirm:active {
+	transform: translateY(1px);
+	box-shadow: inset 0 2px 4px rgba(140, 10, 80, 0.30), 0 1px 2px rgba(190, 24, 110, 0.16);
+}
+
+/* Todo checkboxes: candy drops. */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-todo-item input[type="checkbox"],
+.apex-dashboard-root[data-theme="blossom"] .card input[type="checkbox"] {
+	border-radius: 8px;
+	box-shadow: inset 0 1px 2px rgba(190, 24, 110, 0.18), 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+.theme-dark .apex-dashboard-root[data-theme="blossom"] .dashboard-todo-item input[type="checkbox"],
+.theme-dark .apex-dashboard-root[data-theme="blossom"] .card input[type="checkbox"] {
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 182, 213, 0.12);
+}
+
+/* Titles wear their gelato flavor (same trick as aurora's pony hues). */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row .dashboard-section-title {
+	color: var(--db-sec-hue);
+}
+
+/* Gelato flavors — dark parlor: bright pastels on berry night.
+   glow via color-mix keeps each line a single source of truth. */
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #ff7cab; --db-sec-glow: color-mix(in srgb, #ff7cab 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #ff9dbd; --db-sec-glow: color-mix(in srgb, #ff9dbd 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #f87d99; --db-sec-glow: color-mix(in srgb, #f87d99 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="alltasks"] { --db-sec-hue: #f76d8b; --db-sec-glow: color-mix(in srgb, #f76d8b 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #8f97e8; --db-sec-glow: color-mix(in srgb, #8f97e8 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #c492ec; --db-sec-glow: color-mix(in srgb, #c492ec 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="notes"] { --db-sec-hue: #e07cc4; --db-sec-glow: color-mix(in srgb, #e07cc4 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="folder"] { --db-sec-hue: #a8c977; --db-sec-glow: color-mix(in srgb, #a8c977 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #5fd0bf; --db-sec-glow: color-mix(in srgb, #5fd0bf 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="ticktick"] { --db-sec-hue: #7f9fe8; --db-sec-glow: color-mix(in srgb, #7f9fe8 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="calendar"] { --db-sec-hue: #ff9d6f; --db-sec-glow: color-mix(in srgb, #ff9d6f 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="heatmap"] { --db-sec-hue: #ff6f7f; --db-sec-glow: color-mix(in srgb, #ff6f7f 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #5fc3e8; --db-sec-glow: color-mix(in srgb, #5fc3e8 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #e8a06f; --db-sec-glow: color-mix(in srgb, #e8a06f 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #f0c25a; --db-sec-glow: color-mix(in srgb, #f0c25a 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #ff8fb0; --db-sec-glow: color-mix(in srgb, #ff8fb0 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #a99cf0; --db-sec-glow: color-mix(in srgb, #a99cf0 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #ff77b8; --db-sec-glow: color-mix(in srgb, #ff77b8 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="pm"] { --db-sec-hue: #d98fcd; --db-sec-glow: color-mix(in srgb, #d98fcd 16%, transparent); }
+.apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="skills"] { --db-sec-hue: #d9a06f; --db-sec-glow: color-mix(in srgb, #d9a06f 16%, transparent); }
+
+/* Gelato flavors — light parlor: the same identities deepened to survive
+   the strawberry-milk trays (≥3.5:1 on #fbcfe4). */
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #c92a60; --db-sec-glow: color-mix(in srgb, #c92a60 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #b3567d; --db-sec-glow: color-mix(in srgb, #b3567d 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="sticky"] { --db-sec-hue: #a23b55; --db-sec-glow: color-mix(in srgb, #a23b55 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="alltasks"] { --db-sec-hue: #a52a4a; --db-sec-glow: color-mix(in srgb, #a52a4a 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="projects"] { --db-sec-hue: #5159b8; --db-sec-glow: color-mix(in srgb, #5159b8 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="library"] { --db-sec-hue: #8b4bb4; --db-sec-glow: color-mix(in srgb, #8b4bb4 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="notes"] { --db-sec-hue: #93387a; --db-sec-glow: color-mix(in srgb, #93387a 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="folder"] { --db-sec-hue: #66883f; --db-sec-glow: color-mix(in srgb, #66883f 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="weread"] { --db-sec-hue: #177e70; --db-sec-glow: color-mix(in srgb, #177e70 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="ticktick"] { --db-sec-hue: #4266b8; --db-sec-glow: color-mix(in srgb, #4266b8 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="calendar"] { --db-sec-hue: #c05f33; --db-sec-glow: color-mix(in srgb, #c05f33 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="heatmap"] { --db-sec-hue: #b52247; --db-sec-glow: color-mix(in srgb, #b52247 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="dataview"] { --db-sec-hue: #2e8faf; --db-sec-glow: color-mix(in srgb, #2e8faf 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="web"] { --db-sec-hue: #a2653b; --db-sec-glow: color-mix(in srgb, #a2653b 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="rss"] { --db-sec-hue: #b0761c; --db-sec-glow: color-mix(in srgb, #b0761c 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="images"] { --db-sec-hue: #d14d72; --db-sec-glow: color-mix(in srgb, #d14d72 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="videos"] { --db-sec-hue: #7a68c9; --db-sec-glow: color-mix(in srgb, #7a68c9 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="pipeline"] { --db-sec-hue: #cf3889; --db-sec-glow: color-mix(in srgb, #cf3889 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="pm"] { --db-sec-hue: #7c3b70; --db-sec-glow: color-mix(in srgb, #7c3b70 14%, transparent); }
+.theme-light .apex-dashboard-root[data-theme="blossom"] .dashboard-section-row[data-section-type="skills"] { --db-sec-hue: #8a5433; --db-sec-glow: color-mix(in srgb, #8a5433 14%, transparent); }
 
 /* ===== PM section (项目管理) — dashboard-pmsec-* =====
    Project cards from vault notes (frontmatter type: project): metadata
