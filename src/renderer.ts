@@ -3,7 +3,7 @@ import { extractCardParts } from './parser';
 import { Menu, App, Component, MarkdownRenderer, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
-import { t, getLanguage } from './i18n';
+import { t, getLanguage, getLocale } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
 import { getMediaTagService } from './media-tags';
@@ -252,7 +252,7 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 	const monday = new Date(now);
 	monday.setDate(now.getDate() + mondayOffset);
 
-	const lang = getLanguage() === 'zh' ? 'zh-CN' : 'en';
+	const lang = getLocale();
 	const accentLight = isAccentLight();
 
 	for (let i = 0; i < 7; i++) {
@@ -864,7 +864,7 @@ function renderSidebarWeatherContent(el: HTMLElement, data: import('./types').We
 		for (let i = 0; i < count; i++) {
 			const day = forecast.createDiv({ cls: 'dashboard-sidebar-weather-fday' });
 			const d = new Date(data.dailyDates[i]! + 'T00:00:00');
-			const dayName = d.toLocaleDateString(getLanguage() === 'zh' ? 'zh-CN' : 'en', { weekday: 'short' });
+			const dayName = d.toLocaleDateString(getLocale(), { weekday: 'short' });
 			day.createDiv({ cls: 'dashboard-sidebar-weather-fday-name', text: i === 0 ? t('weather.today') ?? 'Today' : dayName });
 			day.createDiv({ cls: 'dashboard-sidebar-weather-fday-icon', text: getWeatherEmoji(data.dailyCodes[i]!) });
 			const temps = day.createDiv({ cls: 'dashboard-sidebar-weather-fday-temps' });
@@ -2015,8 +2015,11 @@ export function invalidateScanningSectionSignatures(): void {
  *  from vault state: its libraryConfig plus the path, mtime, and ctime of
  *  every in-scope markdown file. Frontmatter/tag changes ride mtime (any
  *  content write bumps it). An equal signature means a rebuild would be
- *  byte-identical, so the DOM swap can be skipped without visible loss. */
-function scanningSectionSignature(column: DashboardColumn, app: App): string {
+ *  byte-identical, so the DOM swap can be skipped without visible loss.
+ *  `mdFiles` is the pass-wide vault listing (one getMarkdownFiles() for every
+ *  section instead of one per section — noticeable on phones with several
+ *  scanning sections and a large vault). */
+function scanningSectionSignature(column: DashboardColumn, app: App, mdFiles: TFile[]): string {
 	const cfg = column.libraryConfig;
 	const folders = (cfg?.folders ?? [])
 		.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
@@ -2038,7 +2041,7 @@ function scanningSectionSignature(column: DashboardColumn, app: App): string {
 	]);
 	const scopeRoots = [pipelineRoot, pmRoot].filter((root): root is string => root !== null && root.length > 0);
 	const parts: string[] = [];
-	for (const file of app.vault.getMarkdownFiles()) {
+	for (const file of mdFiles) {
 		if (folders.length > 0) {
 			const lp = file.path.toLowerCase();
 			if (!folders.some(f => lp.startsWith(f.toLowerCase() + '/'))) continue;
@@ -2074,6 +2077,7 @@ export function refreshScanningSections(
 	signatureScope?: string,
 ): number {
 	activeHoverParent = hoverParent;
+	const mdFiles = app.vault.getMarkdownFiles();
 	let refreshed = 0;
 	for (const column of data.columns) {
 		if (!SCANNING_SECTION_TYPES.has(getSectionType(column))) continue;
@@ -2084,7 +2088,7 @@ export function refreshScanningSections(
 		// last one (out-of-scope edit, write inside an excluded folder, non-md
 		// churn under a scan folder): rebuilding would flash identical content.
 		const key = `${signatureScope ?? ''}|${data.columns.indexOf(column)}:${column.name}`;
-		const signature = scanningSectionSignature(column, app);
+		const signature = scanningSectionSignature(column, app, mdFiles);
 		if (scanningSectionSignatures.get(key) === signature) continue;
 		scanningSectionSignatures.set(key, signature);
 		const newEl = renderSection(column, callbacks, app, data, settings);
@@ -4629,7 +4633,7 @@ function renderWeatherContent(el: HTMLElement, data: import('./types').WeatherDa
 		for (let i = 0; i < count; i++) {
 			const day = forecast.createDiv({ cls: 'dashboard-weather-day' });
 			const d = new Date(data.dailyDates[i]! + 'T00:00:00');
-			const dayName = d.toLocaleDateString(getLanguage() === 'zh' ? 'zh-CN' : 'en', { weekday: 'short' });
+			const dayName = d.toLocaleDateString(getLocale(), { weekday: 'short' });
 			day.createDiv({ cls: 'dashboard-weather-day-name', text: dayName });
 			day.createDiv({ cls: 'dashboard-weather-day-icon', text: getWeatherEmoji(data.dailyCodes[i]!) });
 			day.createDiv({ cls: 'dashboard-weather-day-temps', text: `${Math.round(data.dailyMax[i]!)}\u00B0 / ${Math.round(data.dailyMin[i]!)}\u00B0` });

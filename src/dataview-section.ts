@@ -2,7 +2,7 @@ import { App, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { DashboardColumn, DataviewConfig, TrackerDataPoint } from './types';
 import type { DqlLink, DqlValue, QueryResult, ResultRow } from './dql/types';
-import { getLanguage, t } from './i18n';
+import { t, getLocale } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { toggleTaskInFile } from './alltasks-scan';
 import { buildPages, invalidatePath } from './dql/page-builder';
@@ -1047,7 +1047,7 @@ function renderDataviewYearGrid(
 function computeDataviewMonthLabels(weekCols: Array<Array<TrackerDataPoint | null>>): Array<string | null> {
 	const labels: Array<string | null> = [];
 	let lastMonth = '';
-	const locale = getLanguage() === 'zh' ? 'zh-CN' : 'en-US';
+	const locale = getLocale();
 	for (const col of weekCols) {
 		const firstPoint = col.find((p): p is TrackerDataPoint => p !== null);
 		const monthKey = firstPoint ? firstPoint.date.slice(0, 7) : '';

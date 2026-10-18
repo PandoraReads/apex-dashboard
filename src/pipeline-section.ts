@@ -57,6 +57,10 @@ const movesInFlight = new Set<TFile>();
  *  double click time to claim the gesture for rename instead. */
 const TITLE_OPEN_DELAY_MS = 300;
 
+/** Pointer travel (px) before a skill-button press claims itself as a drag
+ *  instead of a click. */
+const SKILL_DRAG_THRESHOLD_PX = 5;
+
 export function renderPipelineSection(
 	el: HTMLElement,
 	column: DashboardColumn,
@@ -267,7 +271,7 @@ function renderStageColumn(
 
 	const cardsHost = col.createDiv({ cls: 'dashboard-pipeline-cards' });
 	for (const item of items) {
-		cardsHost.appendChild(renderPipelineCard(item, stage, cfg, app, callbacks, hoverParent));
+		cardsHost.appendChild(renderPipelineCard(item, stage, cfg, app, callbacks, hoverParent, columnName));
 	}
 
 	attachColumnDrop(col, stage, cfg, app);
@@ -405,6 +409,7 @@ function renderPipelineCard(
 	app: App,
 	callbacks: RenderCallbacks,
 	hoverParent: HoverParent | null,
+	columnName: string,
 ): HTMLElement {
 	const card = createDiv({ cls: 'dashboard-pipeline-card' });
 	card.dataset.path = item.file.path;
@@ -531,7 +536,7 @@ function renderPipelineCard(
 		// No `title` (same double-popup reason as the stage-scope buttons).
 		const btn = foot.createEl('button', {
 			cls: 'dashboard-pipeline-skill-btn',
-			attr: { type: 'button', 'aria-label': skill.label },
+			attr: { type: 'button', 'aria-label': skill.label, 'data-skill-id': skill.id },
 		});
 		setIcon(btn, skill.icon || 'sparkles');
 		paintSkillButton(btn, skill);
@@ -540,6 +545,7 @@ function renderPipelineCard(
 			e.preventDefault();
 			dispatchSkill(app, skill, cardSkillVars(item, cfg), cfg);
 		});
+		if (!Platform.isMobile) attachSkillButtonReorder(btn, foot, cfg, stage, columnName);
 	}
 
 	if (expandedCards.has(item.file.path)) void renderCardTasks(card, item, app);
@@ -598,6 +604,87 @@ async function renderCardTasks(card: HTMLElement, item: PipelineItem, app: App):
 			badge.title = t('pipeline.taskDueHint');
 		}
 	}
+}
+
+/** Drag-to-reorder for card-scope skill buttons (desktop, mouse). A short
+ *  travel threshold separates drag from click; while dragging, the button
+ *  live-swaps with the sibling under the pointer so the foot row always shows
+ *  the arrangement a release would commit. On drop the new order is emitted
+ *  as a dashboard-pipeline-skill-order event (view.ts persists it into
+ *  pipelineConfig.skills — the same array the config modal edits — and
+ *  refreshes the section, so every card's foot updates together). */
+function attachSkillButtonReorder(
+	btn: HTMLElement,
+	foot: HTMLElement,
+	cfg: PipelineConfig,
+	stage: PipelineStage,
+	columnName: string,
+): void {
+	let suppressClick = false;
+	// Capture-phase guard eats the click that follows a completed drag before
+	// the bubble-phase dispatch listener above can open the prompt modal.
+	btn.addEventListener('click', (e) => {
+		if (!suppressClick) return;
+		suppressClick = false;
+		e.stopPropagation();
+		e.preventDefault();
+	}, true);
+
+	btn.addEventListener('pointerdown', (e) => {
+		if (e.pointerType !== 'mouse' || e.button !== 0) return;
+		const startX = e.clientX;
+		let dragging = false;
+		const siblings = (): HTMLElement[] =>
+			Array.from(foot.querySelectorAll(':scope > .dashboard-pipeline-skill-btn'));
+		const ids = (): string[] =>
+			siblings().map(el => el.dataset.skillId).filter((id): id is string => !!id);
+		const idsAtStart = ids();
+
+		const onMove = (ev: PointerEvent): void => {
+			if (!dragging) {
+				if (Math.abs(ev.clientX - startX) < SKILL_DRAG_THRESHOLD_PX) return;
+				dragging = true;
+				suppressClick = true;
+				btn.addClass('dashboard-pipeline-skill-btn--reordering');
+				btn.setPointerCapture(e.pointerId);
+			}
+			ev.preventDefault();
+			// Live-swap with the sibling whose bounds the pointer crossed —
+			// before it when left of center, after it otherwise.
+			for (const sib of siblings()) {
+				if (sib === btn) continue;
+				const r = sib.getBoundingClientRect();
+				if (ev.clientX >= r.left && ev.clientX <= r.right) {
+					const before = ev.clientX < r.left + r.width / 2;
+					foot.insertBefore(btn, before ? sib : sib.nextSibling);
+					break;
+				}
+			}
+		};
+		const finish = (ev: PointerEvent): void => {
+			btn.removeEventListener('pointermove', onMove);
+			btn.removeEventListener('pointerup', finish);
+			btn.removeEventListener('pointercancel', finish);
+			if (!dragging) return;
+			btn.removeClass('dashboard-pipeline-skill-btn--reordering');
+			// pointercancel aborts the gesture without a follow-up click —
+			// re-arm the click guard or it would eat the next real click.
+			if (ev.type === 'pointercancel') {
+				suppressClick = false;
+				return;
+			}
+			const orderedIds = ids();
+			// Nothing moved, or too few buttons to reorder: no config write.
+			if (orderedIds.length < 2 || orderedIds.join('\u0000') === idsAtStart.join('\u0000')) return;
+			btn.dispatchEvent(new CustomEvent('dashboard-pipeline-skill-order', {
+				detail: { columnName, stageValue: stage.value, scope: 'card', orderedIds },
+				bubbles: true,
+			}));
+		};
+		btn.addEventListener('pointermove', onMove);
+		btn.addEventListener('pointerup', finish);
+		btn.addEventListener('pointercancel', finish);
+	});
 }
 
 /** Make a card draggable (desktop). Tags the drag with the shared custom MIME

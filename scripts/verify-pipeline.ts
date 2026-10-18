@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import type { App, TFile } from 'obsidian';
-import type { DashboardData, PipelineConfig, PipelineStage } from '../src/types';
+import type { DashboardData, PipelineConfig, PipelineSkill, PipelineStage } from '../src/types';
 import {
 	cardChips,
 	cardSkillVars,
@@ -25,6 +25,7 @@ import {
 	resolvePipelineStage,
 	stageFolderPath,
 	stageSkillVars,
+reorderSkillSubset,
 type PipelineItem,
 } from '../src/pipeline-model';
 import { parse, serialize } from '../src/parser';
@@ -325,4 +326,32 @@ function main(): void {
 	assert.ok(serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2(), statusField: '状态' } }] } as unknown as DashboardData).includes('statusField: "状态"'), 'non-default field persists');
 }
 
+/** reorderSkillSubset: card-scope skill drag order persists through the skills
+ *  array without disturbing other scopes/stages; malformed payloads no-op. */
+function verifySkillReorder(): void {
+	const mk = (id: string, stage: string, scope: 'stage' | 'card'): PipelineSkill =>
+		({ id, label: id, icon: 'sparkles', agent: 'claudian', stage, scope, skillName: '', promptTemplate: '' });
+	const skills = [
+		mk('a', 'idea', 'card'),
+		mk('b', 'idea', 'stage'),
+		mk('c', 'idea', 'card'),
+		mk('d', 'draft', 'card'),
+		mk('e', 'idea', 'card'),
+	];
+	// Drag e before a (idea/card subset a,c,e -> e,a,c); b and d untouched.
+	const reordered = reorderSkillSubset(skills, 'idea', 'card', ['e', 'a', 'c']);
+	assert.deepEqual(reordered.map(s => s.id), ['e', 'b', 'a', 'd', 'c'], 'subset refilled in drag order, others stable');
+	// No-op order returns an equal (but new) array.
+	const same = reorderSkillSubset(skills, 'idea', 'card', ['a', 'c', 'e']);
+	assert.deepEqual(same.map(s => s.id), ['a', 'b', 'c', 'd', 'e']);
+	// Malformed: wrong length, foreign id, duplicate — all no-ops.
+	assert.deepEqual(reorderSkillSubset(skills, 'idea', 'card', ['a', 'c']).map(s => s.id), ['a', 'b', 'c', 'd', 'e'], 'wrong length');
+	assert.deepEqual(reorderSkillSubset(skills, 'idea', 'card', ['a', 'c', 'd']).map(s => s.id), ['a', 'b', 'c', 'd', 'e'], 'foreign id');
+	assert.deepEqual(reorderSkillSubset(skills, 'idea', 'card', ['a', 'a', 'c']).map(s => s.id), ['a', 'b', 'c', 'd', 'e'], 'duplicate id');
+	// Stage-scope subset reorders independently.
+	assert.deepEqual(reorderSkillSubset([...skills, mk('f', 'idea', 'stage')], 'idea', 'stage', ['f', 'b']).map(s => s.id), ['a', 'f', 'c', 'd', 'e', 'b']);
+	console.log('verify-pipeline: skill reorder OK');
+}
+
 main();
+verifySkillReorder();

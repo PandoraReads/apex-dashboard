@@ -194,13 +194,15 @@ export default class DashboardPlugin extends Plugin {
 			},
 		});
 
-		// Toggle zh/en. Registered as a normal Obsidian command so the
-		// quick-command bar can bind it like any other.
+		// Cycle en → zh → zh-TW → en. Registered as a normal Obsidian command
+		// so the quick-command bar can bind it like any other.
 		this.addCommand({
 			id: 'toggle-language',
 			name: t('main.toggleLanguage'),
 			callback: async () => {
-				const lang: Language = this.settings.language === 'zh' ? 'en' : 'zh';
+				const lang: Language = this.settings.language === 'en'
+					? 'zh'
+					: this.settings.language === 'zh' ? 'zh-TW' : 'en';
 				this.settings = { ...this.settings, language: lang };
 				setLanguage(lang);
 				await this.saveSettings();

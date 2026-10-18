@@ -412,7 +412,7 @@ function parseIso(iso: string): Date {
 
 /** Compact day label for bar aria-labels: zh "8月24日", else "Aug 24". */
 function monthDayLabel(d: Date): string {
-	return getLanguage() === 'zh'
+	return getLanguage() !== 'en'
 		? `${monthAbbr(d.getMonth())}${d.getDate()}日`
 		: `${monthAbbr(d.getMonth())} ${d.getDate()}`;
 }

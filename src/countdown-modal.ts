@@ -183,8 +183,8 @@ export class CountdownSettingsModal extends Modal {
 		const viewYear = { value: selectedYear };
 		const viewMonth = { value: selectedMonth };
 		const lang = getLanguage();
-		const dayNames = lang === 'zh' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-		const monthNames = lang === 'zh'
+		const dayNames = lang !== 'en' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+		const monthNames = lang !== 'en'
 			? ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
 			: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

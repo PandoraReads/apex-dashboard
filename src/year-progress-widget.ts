@@ -9,7 +9,7 @@ import { applyWidgetBackground, attachBackgroundConfigButton } from './widget-ba
  * sidebar re-renders frequently enough that it never goes stale).
  */
 export function renderSidebarYearProgress(container: HTMLElement, bg?: import('./types').WidgetBackground, app?: import('obsidian').App, onBgChange?: (bg: import('./types').WidgetBackground | undefined) => void): void {
-	const isZh = getLanguage() === 'zh';
+	const isZh = getLanguage() !== 'en';
 	const now = new Date();
 	const year = now.getFullYear();
 

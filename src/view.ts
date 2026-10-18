@@ -75,7 +75,7 @@ import { createPomodoroMiniPanel, type PomodoroMiniPanel } from './pomodoro-mini
 import { createReadingMiniTimer, type ReadingMiniTimer } from './reading-mini-timer';
 import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
-import { parseNoteDue } from './pipeline-model';
+import { parseNoteDue, reorderSkillSubset } from './pipeline-model';
 import { pmKeyDate } from './pm-model';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
@@ -624,11 +624,17 @@ export class DashboardView extends ItemView implements HoverParent {
 			// Section nav rail (right-edge dashes): one per section row, click
 			// to center it. Hidden under two sections; the rail's own DOM order
 			// matches the rendered rows (which match data.columns order).
-			renderSectionRail(
-				container,
-				kanban.querySelectorAll('.dashboard-section-row').length,
-				data.columns.map(col => col.name),
-			);
+			// Phones skip the rail entirely (Rae): the touch rail had no reveal
+			// gesture and its capture-phase scroll listener (per-frame
+			// getBoundingClientRect across every section row) was a measurable
+			// scroll-jank source on mobile hardware.
+			if (!Platform.isMobile) {
+				renderSectionRail(
+					container,
+					kanban.querySelectorAll('.dashboard-section-row').length,
+					data.columns.map(col => col.name),
+				);
+			}
 		}
 		// The immersive grid owns section geometry; its section grip becomes a
 		// whole-tile reorder handle (setupImmersiveDnD), so the side/stacked
@@ -859,6 +865,28 @@ export class DashboardView extends ItemView implements HoverParent {
 				stages: config.stages.map(stage => stage.value === stageValue ? { ...stage, width } : stage),
 			};
 			void this.sync.updatePipelineConfig(columnName, next);
+		}) as EventListener);
+
+		// Pipeline skill-button reorder (dragged on a card's foot): persist the
+		// new arrangement into pipelineConfig.skills and refresh in place so
+		// every card's foot row picks it up together.
+		board.addEventListener('dashboard-pipeline-skill-order', ((e: CustomEvent) => {
+			const { columnName, stageValue, scope, orderedIds } = e.detail as {
+				columnName: string;
+				stageValue: string;
+				scope: 'stage' | 'card';
+				orderedIds: string[];
+			};
+			const col = this.data?.columns.find(c => c.name === columnName);
+			const config = col?.pipelineConfig;
+			if (!config || !Array.isArray(orderedIds)) return;
+			const next = {
+				...config,
+				skills: reorderSkillSubset(config.skills, stageValue, scope, orderedIds),
+			};
+			void this.sync.updatePipelineConfig(columnName, next).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
 		}) as EventListener);
 
 		// PM board edits land straight on the project note — refresh every pm

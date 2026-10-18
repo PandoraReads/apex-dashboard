@@ -1,5 +1,5 @@
 import type { App, TFile } from 'obsidian';
-import type { PipelineConfig, PipelineStage } from './types';
+import type { PipelineConfig, PipelineSkill, PipelineStage } from './types';
 import { isUnderExcludedFolder, normalizeExcludeFolders } from './exclude-folders';
 
 /**
@@ -283,6 +283,33 @@ export function stageSkillVars(stage: PipelineStage, config: PipelineConfig): Re
 		stage: stage.label || stage.value,
 		folder: normalizeFolderPath(config.rootFolder),
 	};
+}
+
+/** Rewrite the skills array so the subset matching (stage, scope) appears in
+ *  `orderedIds` (PipelineSkill.id, new arrangement) while every other skill
+ *  keeps its relative position — the subset's slots are refilled in sequence,
+ *  so stage-scope entries elsewhere never move. A malformed payload (wrong
+ *  set, duplicates) returns the array unchanged: a scrambled drag must not
+ *  scramble the config. Pure. */
+export function reorderSkillSubset(
+	skills: readonly PipelineSkill[],
+	stageValue: string,
+	scope: 'stage' | 'card',
+	orderedIds: readonly string[],
+): PipelineSkill[] {
+	const subset = skills.filter(skill => skill.stage === stageValue && skill.scope === scope);
+	if (orderedIds.length !== subset.length) return [...skills];
+	const subsetIds = new Set(subset.map(skill => skill.id));
+	const seen = new Set<string>();
+	for (const id of orderedIds) {
+		if (!subsetIds.has(id) || seen.has(id)) return [...skills];
+		seen.add(id);
+	}
+	const byId = new Map(subset.map(skill => [skill.id, skill]));
+	let rank = 0;
+	return skills.map(skill =>
+		subsetIds.has(skill.id) ? byId.get(orderedIds[rank++]!)! : skill,
+	);
 }
 
 /** Seed config for a pipeline section opened for the first time. Labels are

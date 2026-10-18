@@ -323,6 +323,7 @@ export class DashboardSettingTab extends PluginSettingTab {
 				.addOptions({
 					en: t('settings.languageEn'),
 					zh: t('settings.languageZh'),
+					'zh-TW': t('settings.languageZhTw'),
 				})
 				.setValue(this.plugin.settings.language)
 				.onChange(async (value) => {

@@ -2138,14 +2138,14 @@
 
 /* --- Workspace switcher (banner top-left corner) ---
    Sits in the dead strip ABOVE the stats content: the left stat column's
-   hero number starts at y=18 (panel padding 10px + 8px hero offset), so a
-   compact 14px-tall pill row at top:2 ends exactly at its top edge — the
+   hero number starts at y=18 (panel padding 10px + 8px hero offset), so an
+   18px-tall pill row at top:0 ends exactly at its top edge — the
    numbers neither move nor get covered. nowrap so a long row extends right
    along the same strip instead of wrapping down over the content.
    Faint at rest (barely-there), full opacity on hover/focus. */
 .dashboard-workspace-switcher {
 	position: absolute;
-	top: 2px;
+	top: 0;
 	left: 8px;
 	display: flex;
 	align-items: center;
@@ -2163,9 +2163,9 @@
 }
 
 .dashboard-workspace-btn {
-	min-width: 14px;
-	height: 14px;
-	padding: 0 3px;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -2173,7 +2173,7 @@
 	border: 1px solid rgba(255, 255, 255, 0.22);
 	border-radius: var(--db-radius-sm, 6px);
 	color: rgba(255, 255, 255, 0.78);
-	font-size: 0.5em;
+	font-size: 0.6em;
 	line-height: 1;
 	cursor: pointer;
 	outline: none;
@@ -2195,7 +2195,7 @@
 
 .dashboard-workspace-add-btn {
 	padding: 0;
-	width: 14px;
+	width: 18px;
 }
 
 /* --- Banner collapsed state (desktop only) --- */
@@ -13721,6 +13721,17 @@
 		overflow-x: hidden;
 	}
 
+	/* Release paint containment on phones. The base rule's contain:paint (kept
+	   for the immersive poster layer) makes the root a containing block for
+	   FIXED descendants — on phones the ROOT is the scroller, so the fixed
+	   scroll-top button and the in-root stats overlays rode inside the
+	   scrolled layer and drifted off-screen (regression since 3.7.3). Phones
+	   never render the immersive poster, so fixed descendants can anchor to
+	   the viewport again here. */
+	.apex-dashboard-root {
+		contain: none;
+	}
+
 	/* Banner: compact */
 	.dashboard-banner {
 		height: 90px;
@@ -13781,13 +13792,13 @@
 	}
 
 	.dashboard-workspace-btn {
-		min-width: 16px;
-		height: 16px;
-		font-size: 0.55em;
+		min-width: 22px;
+		height: 22px;
+		font-size: 0.65em;
 	}
 
 	.dashboard-workspace-add-btn {
-		width: 16px;
+		width: 22px;
 	}
 
 	.dashboard-mobile-action-btn {
@@ -25453,6 +25464,23 @@ button.dashboard-pipeline-skill-btn svg,
 button.dashboard-pipeline-col-add svg {
 	width: 13px;
 	height: 13px;
+}
+
+/* Card-scope skill buttons are drag-reorderable (pointer drag, desktop):
+   the dragged button rides with the pointer while its siblings live-swap
+   around it. */
+button.dashboard-pipeline-skill-btn {
+	cursor: grab;
+}
+
+button.dashboard-pipeline-skill-btn--reordering {
+	cursor: grabbing;
+	/* Lifted + accent ring so the moving button reads as "in hand". */
+	transform: scale(1.12);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-pipe-accent, var(--db-accent, #6366f1)) 55%, transparent);
+	z-index: 2;
+	position: relative;
+	transition: none;
 }
 
 .dashboard-pipeline-cards {

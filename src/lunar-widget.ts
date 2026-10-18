@@ -65,7 +65,7 @@ export function renderSidebarLunarWidget(
 		return;
 	}
 	const lang = getLanguage();
-	const isZh = lang === 'zh';
+	const isZh = lang !== 'en';
 
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-lunar' });
 

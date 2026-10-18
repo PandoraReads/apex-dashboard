@@ -1,7 +1,7 @@
 import { App, Menu, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
-import { t, getLanguage } from './i18n';
+import { t, getLanguage, getLocale } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { showConfirmDialog } from './confirm-dialog';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
@@ -313,7 +313,7 @@ function formatDate(ts: number): string {
 		return t('recent.hoursAgo', { count: diffH });
 	}
 	if (diffDays < 30) return t('recent.daysAgo', { count: diffDays });
-	const lang = getLanguage() === 'zh' ? 'zh-CN' : 'en';
+	const lang = getLocale();
 	return d.toLocaleDateString(lang, { month: 'short', day: 'numeric' });
 }
 
@@ -381,7 +381,7 @@ function showCalendarPopup(
 	const viewYear = { value: dp[0] && Number.isFinite(dp[0]) ? dp[0] : now.getFullYear() };
 	const viewMonth = { value: dp[1] && Number.isFinite(dp[1]) ? (dp[1] - 1) : now.getMonth() };
 	const lang = getLanguage();
-	const dayNames = lang === 'zh' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+	const dayNames = lang !== 'en' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 	const calNav = popup.createDiv({ cls: 'dashboard-task-reminder-calendar-nav' });
 	const prevBtn = calNav.createEl('button', { text: '<' });
