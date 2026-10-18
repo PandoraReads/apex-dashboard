@@ -254,6 +254,27 @@ async function main(): Promise<void> {
 		assert.equal(findByClass(hostMany, 'dashboard-pipeline-card').length, 25, 'pill expands the column in place');
 		assert.equal(findByClass(hostMany, 'dashboard-pipeline-load-more').length, 0, 'pill gone once everything renders');
 	}
+
+	// --- Gesture ownership: a press that begins on a button must not start
+	// the card's native drag (the skill buttons run their own pointer drag;
+	// without the suppression the whole card drags instead — Rae's report).
+	{
+		const hostG = new El('div');
+		renderPipelineSection(hostG as unknown as HTMLElement, pipelineColumn(config), app, callbacks, null);
+		const draftCard = findByClass(hostG, 'dashboard-pipeline-card').find(c => (c.textContent ?? '').includes('流量密码'))!;
+		const skillBtn = findByClass(draftCard, 'dashboard-pipeline-skill-btn')[0]!;
+		const title = findByClass(draftCard, 'dashboard-pipeline-card-title')[0]!;
+		let prevented = 0;
+		const dragFrom = (pressed: El): void => {
+			pressed.dispatchEvent({ type: 'pointerdown', target: pressed });
+			draftCard.dispatchEvent({ type: 'dragstart', target: draftCard, preventDefault: () => { prevented += 1; } });
+			draftCard.dispatchEvent({ type: 'pointerup', target: draftCard });
+		};
+		dragFrom(skillBtn);
+		assert.equal(prevented, 1, 'dragstart from a button press is cancelled');
+		dragFrom(title);
+		assert.equal(prevented, 1, 'dragstart from the card body still drags the card');
+	}
 }
 
 void main();

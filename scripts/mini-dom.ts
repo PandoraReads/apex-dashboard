@@ -272,6 +272,11 @@ export class El {
 		let stopped = false;
 		const full = Object.assign({
 			stopPropagation: () => { stopped = true; },
+			// Same as stopPropagation here: halt the walk AND the remaining
+			// same-element listeners (the real DOM distinguishes them; code
+			// that needs to drown later same-target listeners calls the
+			// immediate variant).
+			stopImmediatePropagation: () => { stopped = true; },
 			preventDefault: () => {},
 		}, ev);
 		// Native DOM event instances (Node 19+ ships CustomEvent) expose

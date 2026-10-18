@@ -584,6 +584,28 @@ function renderPipelineCard(
 	if (expandedCards.has(item.file.path)) void renderCardTasks(card, item, app);
 
 	if (!Platform.isMobile) {
+		// A gesture that begins on any BUTTON inside the card belongs to that
+		// button — its click, or the skill buttons' own pointer reorder-drag.
+		// The card's native HTML5 drag would otherwise claim the move (dragstart
+		// fires on the CARD, the drag source, so the decision rides a
+		// pointerdown flag) and drag the whole card out from under the button.
+		let buttonGesture = false;
+		card.addEventListener('pointerdown', (e) => {
+			buttonGesture = !!(e.target as HTMLElement | null)?.closest?.('button');
+		}, true);
+		const endButtonGesture = (): void => { buttonGesture = false; };
+		card.addEventListener('pointerup', endButtonGesture, true);
+		card.addEventListener('pointercancel', endButtonGesture, true);
+		card.addEventListener('dragstart', (e) => {
+			if (!buttonGesture) return;
+			e.preventDefault();
+			// IMMEDIATE, and registered before the card's own dragstart wiring:
+			// at the target element capture/bubble both run in registration
+			// order, so plain stopPropagation would let the card's dragstart
+			// listener still run (drag state + dragging class, with no dragend
+			// ever arriving to clean them up).
+			e.stopImmediatePropagation();
+		}, true);
 		attachCardDrag(card, item);
 	}
 	return card;
@@ -663,8 +685,16 @@ function attachSkillButtonReorder(
 		e.preventDefault();
 	}, true);
 
+	// Straggler cleanup: a press that left the button before the drag threshold
+	// never sees a pointerup ON the button, so its move/up listeners survive.
+	// The next pointerdown sweeps them before arming a fresh gesture (two live
+	// onMove closures would double-fire the reorder event).
+	let stragglers: Array<() => void> = [];
+
 	btn.addEventListener('pointerdown', (e) => {
 		if (e.pointerType !== 'mouse' || e.button !== 0) return;
+		for (const off of stragglers) off();
+		stragglers = [];
 		const startX = e.clientX;
 		let dragging = false;
 		const siblings = (): HTMLElement[] =>
@@ -698,6 +728,7 @@ function attachSkillButtonReorder(
 			btn.removeEventListener('pointermove', onMove);
 			btn.removeEventListener('pointerup', finish);
 			btn.removeEventListener('pointercancel', finish);
+			stragglers = [];
 			if (!dragging) return;
 			btn.removeClass('dashboard-pipeline-skill-btn--reordering');
 			// pointercancel aborts the gesture without a follow-up click —
@@ -717,6 +748,11 @@ function attachSkillButtonReorder(
 		btn.addEventListener('pointermove', onMove);
 		btn.addEventListener('pointerup', finish);
 		btn.addEventListener('pointercancel', finish);
+		stragglers = [
+			() => btn.removeEventListener('pointermove', onMove),
+			() => btn.removeEventListener('pointerup', finish),
+			() => btn.removeEventListener('pointercancel', finish),
+		];
 	});
 }
 

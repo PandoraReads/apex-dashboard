@@ -283,6 +283,29 @@ function renderProjectCard(
 	const card = list.createDiv({ cls: 'dashboard-pmsec-card', attr: { draggable: 'true' } });
 	card.setAttribute('data-path', project.file.path);
 
+	// Gesture ownership (pipeline idiom): a press that begins on any BUTTON
+	// belongs to that button — the card's native HTML5 drag must not claim the
+	// move and drag the whole project card out from under the button press.
+	{
+		let buttonGesture = false;
+		card.addEventListener('pointerdown', (e) => {
+			buttonGesture = !!(e.target as HTMLElement | null)?.closest?.('button');
+		}, true);
+		const endButtonGesture = (): void => { buttonGesture = false; };
+		card.addEventListener('pointerup', endButtonGesture, true);
+		card.addEventListener('pointercancel', endButtonGesture, true);
+		card.addEventListener('dragstart', (e) => {
+			if (!buttonGesture) return;
+			e.preventDefault();
+			// IMMEDIATE, and registered before the card's own dragstart wiring:
+			// at the target element capture/bubble both run in registration
+			// order, so plain stopPropagation would let the card's dragstart
+			// listener still run (drag state + dragging class, with no dragend
+			// ever arriving to clean them up).
+			e.stopImmediatePropagation();
+		}, true);
+	}
+
 	// Drag to reorder: payload = note path; insertion (before/after) is
 	// decided on the target card by pointer position.
 	card.addEventListener('dragstart', ev => {
