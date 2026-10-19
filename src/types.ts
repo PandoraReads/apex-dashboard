@@ -1228,6 +1228,28 @@ export interface SkillsSectionConfig {
 	groupView?: 'groups' | 'kanban';
 	/** The header "new skill" button's one-time dispatch config. */
 	createSkill?: SkillCreateConfig;
+	/** User-configured launch buttons per skill name (skillName → ordered
+	 *  defs). Rendered after the home-store auto buttons — the only launch
+	 *  affordance for custom-folder skills, whose stores bind no agent. */
+	cardButtons?: Record<string, SkillCardButton[]>;
+}
+
+/** One user-configured launch button on a skill-library card: free choice
+ *  of agent (and optional prompt template), independent of which folder
+ *  the skill is installed in. */
+export interface SkillCardButton {
+	id: string;
+	/** Button caption; empty = the agent adapter's label. */
+	label: string;
+	/** Lucide icon name; empty = the agent's default icon. */
+	icon: string;
+	/** Agent adapter that receives the prompt. */
+	agent: AgentTarget;
+	/** Optional prompt template ({skill} {input}). Empty = plain skill
+	 *  invocation of the card's skill name. */
+	promptTemplate: string;
+	/** Send immediately instead of opening the confirm dialog. */
+	directSend?: boolean;
 }
 
 export interface DashboardColumn {

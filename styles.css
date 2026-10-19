@@ -11154,9 +11154,13 @@
 	padding: 12px;
 	box-sizing: border-box;
 	flex: 0 0 100%;
-	/* At least 1.5x the button height of breathing room below, so the button
-	   lifts clear of the Obsidian mobile native bottom bar when scrolled to the end. */
-	margin-bottom: 60px;
+	/* Desktop bottom breathing room (Rae, 2026-10-19): with only 60px the
+	   last section could not scroll clear of the workspace's bottom edge —
+	   a bottom-docked Claudian chat window sits over it and over this
+	   button. ~200px lifts the scrolled-to-end content above that band.
+	   Phones keep their own media-block clearance (native bottom bar +
+	   safe-area); immersive layout overrides to 0 (grid tile geometry). */
+	margin-bottom: 200px;
 	background: var(--db-bg-add-section);
 	border: 2px dashed var(--db-border-add-section);
 	border-radius: var(--db-radius-lg);

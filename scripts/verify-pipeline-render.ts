@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { Modal } from 'obsidian';
+import { Modal, Notice } from 'obsidian';
 import { El, findByClass, findTag } from './mini-dom';
 import type { App, TFile } from 'obsidian';
 import type { DashboardColumn, PipelineConfig, RenderCallbacks } from '../src/types';
@@ -20,7 +20,10 @@ import { renderPipelineSection } from '../src/pipeline-section';
 (globalThis as { window?: unknown }).window = globalThis;
 
 function fakeFile(path: string, mtime: number): TFile {
-	return { path, basename: path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, ''), stat: { mtime } } as unknown as TFile;
+	// `name` (filename with extension) matters to the archive flow — the
+	// target path is built from it, exactly like a real TFile.
+	const filename = path.slice(path.lastIndexOf('/') + 1);
+	return { path, name: filename, basename: filename.replace(/\.md$/, ''), stat: { mtime } } as unknown as TFile;
 }
 
 function makeApp(entries: Array<{ file: TFile; fm: Record<string, unknown> }>): App {
@@ -274,6 +277,119 @@ async function main(): Promise<void> {
 		assert.equal(prevented, 1, 'dragstart from a button press is cancelled');
 		dragFrom(title);
 		assert.equal(prevented, 1, 'dragstart from the card body still drags the card');
+	}
+
+	// --- Archive (move-first, verified): the file must physically land in
+	// the archive folder BEFORE the status stamp. Three shapes: a clean
+	// move; an iCloud-style silent rename no-op that the verify+retry heals;
+	// and a rename that never lands — status must NOT be stamped so the
+	// card stays on the board and the archive can simply be retried.
+	{
+		const wait = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+		interface ArchiveDrive {
+			app: App;
+			files: Map<string, TFile>;
+			fm: Map<string, Record<string, unknown>>;
+			renames: number;
+		}
+		const makeDrive = (silentNoOps: number): ArchiveDrive => {
+			const files = new Map<string, TFile>();
+			const fm = new Map<string, Record<string, unknown>>();
+			const drive: ArchiveDrive = { app: null as unknown as App, files, fm, renames: 0 };
+			let noOps = silentNoOps;
+			files.set('内容创作/01-选题/对标拆解.md', fakeFile('内容创作/01-选题/对标拆解.md', 100));
+			fm.set('内容创作/01-选题/对标拆解.md', { status: 'idea' });
+			const folders = new Set<string>();
+			drive.app = {
+				vault: {
+					getMarkdownFiles: () => [...files.values()],
+					getAbstractFileByPath: (p: string) => files.get(p) ?? (folders.has(p) ? ({ path: p } as TFile) : null),
+					createFolder: async (p: string) => { folders.add(p); },
+				},
+				metadataCache: {
+					getFileCache: (f: TFile) => {
+						const front = fm.get(f.path);
+						return front ? { frontmatter: front } : null;
+					},
+				},
+				fileManager: {
+					processFrontMatter: async (f: TFile, fn: (fm: Record<string, unknown>) => void) => {
+						const front = fm.get(f.path) ?? {};
+						fn(front);
+						fm.set(f.path, front);
+					},
+					// Real Obsidian mutates the TFile in place on rename; the
+					// silentNoOps counter swallows the first N calls whole
+					// (resolve, no effect) to mimic the iCloud failure.
+					renameFile: async (f: TFile, to: string) => {
+						drive.renames += 1;
+						if (noOps > 0) { noOps -= 1; return; }
+						const old = f.path;
+						(f as unknown as { path: string }).path = to;
+						files.delete(old);
+						files.set(to, f);
+					},
+					trashFile: async () => {},
+				},
+				plugins: { plugins: {} },
+			} as unknown as App;
+			return drive;
+		};
+		const archiveCfg = { ...config, archiveFolder: '00_inbox/09-archive/内容生产' };
+		// The stub records every toast; the real obsidian.d.ts doesn't type it.
+		const noticeTexts = (): string[] => (Notice as unknown as { messages: string[] }).messages;
+		const clickArchive = (host: El): void => {
+			const card = findByClass(host, 'dashboard-pipeline-card').find(c => (c.textContent ?? '').includes('对标拆解'))!;
+			findByClass(card, 'dashboard-pipeline-archive-btn')[0]!.click();
+		};
+		const original = '内容创作/01-选题/对标拆解.md';
+		const target = '00_inbox/09-archive/内容生产/对标拆解.md';
+
+		// A — clean move: file lands, status stamped exactly once.
+		{
+			const drive = makeDrive(0);
+			const hostA = new El('div');
+			renderPipelineSection(hostA as unknown as HTMLElement, pipelineColumn(archiveCfg), drive.app, callbacks, null);
+			noticeTexts().length = 0;
+			clickArchive(hostA);
+			await wait(20);
+			assert.ok(drive.files.has(target) && !drive.files.has(original), 'clean archive moves the file');
+			assert.equal(drive.fm.get(target)!.status, 'archived', 'status stamped after the move');
+			assert.ok(noticeTexts().some(m => m.includes('已归档')), 'success notice shown');
+		}
+
+		// B — one silent no-op: the verify+retry heals it; end state identical.
+		{
+			const drive = makeDrive(1);
+			const hostB = new El('div');
+			renderPipelineSection(hostB as unknown as HTMLElement, pipelineColumn(archiveCfg), drive.app, callbacks, null);
+			noticeTexts().length = 0;
+			clickArchive(hostB);
+			await wait(20);
+			assert.ok(!drive.files.has(target), 'no move before the retry wait');
+			assert.equal(drive.fm.get(original)!.status, 'idea', 'status untouched while the move is unverified');
+			await wait(320);
+			assert.ok(drive.files.has(target), 'retry lands the file in the archive folder');
+			assert.equal(drive.fm.get(target)!.status, 'archived', 'status stamped once the move held');
+			assert.equal(drive.renames, 2, 'exactly one verify retry fired');
+		}
+
+		// C — rename never lands: loud failure, status NOT stamped, file
+		// stays put — the card remains on the board for a plain retry.
+		{
+			const drive = makeDrive(99);
+			const hostC = new El('div');
+			renderPipelineSection(hostC as unknown as HTMLElement, pipelineColumn(archiveCfg), drive.app, callbacks, null);
+			noticeTexts().length = 0;
+			clickArchive(hostC);
+			await wait(20);
+			assert.ok(!drive.files.has(target), 'file never moved');
+			await wait(340);
+			assert.ok(drive.files.has(original), 'file stays at its original path');
+			assert.equal(drive.fm.get(original)!.status, 'idea', 'status never stamped on a failed move');
+			assert.ok(noticeTexts().some(m => m.includes('未能移入')), 'loud move-failure notice');
+			assert.ok(!noticeTexts().some(m => m.includes('已归档')), 'no false success notice');
+		}
 	}
 }
 

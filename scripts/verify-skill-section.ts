@@ -166,6 +166,12 @@ async function main(): Promise<void> {
 		assignments: { 'my-skill': 'g-b' },
 		groupView: 'kanban',
 		createSkill: { agent: 'claudian', skillName: 'skill-creator', promptTemplate: '帮我做一个{input}', directSend: true },
+		cardButtons: {
+			'my-skill': [
+				{ id: 'sb_1', label: '', icon: '', agent: 'claudian', promptTemplate: '' },
+				{ id: 'sb_2', label: '配音', icon: 'mic', agent: 'codex', promptTemplate: '用 {skill} 处理 {input}', directSend: true },
+			],
+		},
 	};
 	const dataWith = (skillsConfig: SkillsSectionConfig | undefined): DashboardData => {
 		const base = parse(generateDefaultMarkdown());
@@ -195,6 +201,15 @@ async function main(): Promise<void> {
 	const noStores = serialize(dataWith({ stores: [] }));
 	assert.ok(noStores.includes('stores: []'), 'empty stores persist as []');
 	assert.deepEqual(parse(noStores).columns[0]!.skillsConfig!.stores, [], 'empty stores parse back empty');
+
+	// cardButtons: a skill whose list went back to empty drops out of the
+	// map entirely (config-modal round trip must stay idempotent).
+	const pruned = serialize(dataWith({ cardButtons: { 'my-skill': [], 'kept': [{ id: 'sb_1', label: '', icon: '', agent: 'workbuddy', promptTemplate: '' }] } }));
+	assert.ok(pruned.includes('cardButtons:'), 'cardButtons serialize');
+	assert.ok(pruned.includes('"kept"') && !pruned.includes('"my-skill"'), 'empty per-skill lists are pruned');
+	assert.deepEqual(parse(pruned).columns[0]!.skillsConfig!.cardButtons, {
+		kept: [{ id: 'sb_1', label: '', icon: '', agent: 'workbuddy', promptTemplate: '' }],
+	}, 'cardButtons parse back');
 	console.log('1 parser round-trip: ok');
 }
 
@@ -616,6 +631,105 @@ async function main(): Promise<void> {
 	await flush();
 	assert.equal(prefsDetail!.prefs.assignments!.gamma, 'g-code', 'picker routes the assignment through prefs');
 	console.log('3d group picker: ok');
+}
+
+// ── 3e. Custom launch buttons on skill cards ────────────────────────────
+
+{
+	// AgentPromptModal sizes itself through window.innerWidth.
+	(globalThis as unknown as Record<string, unknown>).window = globalThis;
+	const { fs, tree } = makeFakeFs('/h');
+	// A CUSTOM-folder skill (binds no agent → no auto button) plus a
+	// home-store skill that gets an EXTRA user button on top of its auto one.
+	addSkill(tree, '/h/extra/pandora-voiceover', 'pandora-voiceover', '克隆配音');
+	addSkill(tree, '/h/.claude/skills/baoyu', 'baoyu', 'b');
+	const column: DashboardColumn = {
+		name: 'S', color: '6366f1', sectionType: 'skills', cards: [],
+		skillsConfig: {
+			cardButtons: {
+				'pandora-voiceover': [
+					{ id: 'sb_1', label: '', icon: '', agent: 'claudian', promptTemplate: '' },
+					{ id: 'sb_2', label: '配音', icon: 'mic', agent: 'codex', promptTemplate: '用 {skill} 处理', directSend: true },
+				],
+				'baoyu': [
+					{ id: 'sb_3', label: '去配音', icon: 'mic', agent: 'claudian', promptTemplate: '' },
+				],
+			},
+		},
+	};
+	const host = await renderSkills(column, { fs, foldersCsv: '/h/extra' });
+
+	// Custom-folder skill: two user buttons, no auto button.
+	const pv = cardByName(host, 'pandora-voiceover')!;
+	assert.ok(pv, 'custom-folder skill card renders');
+	assert.equal(findByClass(pv, 'dashboard-skillsec-launch').length, 2, 'custom-folder skill carries its user buttons');
+	const captions = findByClass(pv, 'dashboard-skillsec-launch-label').map(el => el.textContent);
+	assert.deepEqual(captions, ['Claudian', '配音'], 'blank label falls back to the agent name, custom label passes through');
+
+	// Home-store skill: auto Claude button + the extra user button.
+	const baoyu = cardByName(host, 'baoyu')!;
+	assert.equal(findByClass(baoyu, 'dashboard-skillsec-launch').length, 2, 'auto button + user button stack');
+
+	// Click a confirm-mode button → the shared prompt modal opens.
+	const spyModal = (Modal as unknown as { last: { contentEl: El; onOpen(): void } | null });
+	spyModal.last = null;
+	findByClass(pv, 'dashboard-skillsec-launch')[0]!.click();
+	await flush();
+	const promptModal = spyModal.last as unknown as { contentEl: El; onOpen(): void };
+	assert.ok(promptModal, 'custom button opens the confirm modal');
+	promptModal.onOpen();
+	assert.ok(promptModal.contentEl.textContent.includes('pandora-voiceover'), 'modal headed by the skill name');
+
+	// directSend button: no modal; the missing Claudian bridge surfaces as
+	// an error Notice (the stub app has no realclaudian plugin).
+	spyModal.last = null;
+	(Notice as unknown as { messages: string[] }).messages.length = 0;
+	findByClass(pv, 'dashboard-skillsec-launch--custom')[1]!.click();
+	await flush();
+	await flush();
+	assert.ok(!spyModal.last, 'directSend button skips the confirm modal');
+	assert.ok((Notice as unknown as { messages: string[] }).messages.length > 0, 'direct send reports through a Notice');
+
+	// Card menu → 配置调用按钮… → editor opens pre-filled; add a row,
+	// save → prefs event carries the merged cardButtons map.
+	let prefsDetail: { columnName: string; prefs: Partial<SkillsSectionConfig> } | null = null;
+	host.addEventListener('dashboard-skills-prefs', ev => {
+		prefsDetail = (ev as CustomEvent).detail;
+	});
+	const menuBtn = findByClass(pv, 'dashboard-skillsec-menu')[0]!;
+	menuBtn.click();
+	type StubMenu = { items: Array<{ title: string; click(): void }> };
+	const menu = (Menu as unknown as { last: Menu | null }).last as unknown as StubMenu;
+	const buttonsItem = menu.items.find(i => i.title === '配置调用按钮…');
+	assert.ok(buttonsItem, 'configure-launch-buttons menu item present');
+	buttonsItem!.click();
+	await flush();
+
+	const editor = (Modal as unknown as { last: Modal }).last as unknown as { contentEl: El; onOpen(): void };
+	editor.onOpen();
+	assert.equal(findByClass(editor.contentEl, 'dashboard-pipeline-cfg-skill').length, 2, 'existing buttons prefill the editor');
+	// Both the row-add and the footer save carry --confirm (widget-config
+	// idiom) — tell them apart by caption.
+	const addRowBtn = findByClass(editor.contentEl, 'dashboard-modal-btn')
+		.find(el => el.textContent === '添加按钮')!;
+	const saveBtn = findByClass(editor.contentEl, 'dashboard-modal-btn')
+		.find(el => el.textContent === '保存')!;
+	assert.ok(addRowBtn && saveBtn, 'add + save buttons render');
+	addRowBtn.click();
+	assert.equal(findByClass(editor.contentEl, 'dashboard-pipeline-cfg-skill').length, 3, 'add button appends a row');
+	// Each row contributes TWO inputs (label, then template) — the new
+	// row's label is therefore second-to-last.
+	const labelInputs = findByClass(editor.contentEl, 'dashboard-modal-input');
+	const newLabel = labelInputs[labelInputs.length - 2] as unknown as El & { value: string; dispatchEvent(ev: unknown): void };
+	newLabel.value = '第三按钮';
+	newLabel.dispatchEvent({ type: 'input', target: newLabel });
+	saveBtn.click();
+	const saved = prefsDetail as unknown as { prefs: Partial<SkillsSectionConfig> };
+	assert.ok(saved, 'saving the editor routes through the prefs event');
+	assert.equal(saved.prefs.cardButtons!['pandora-voiceover']!.length, 3, 'new button joins the skill\'s list');
+	assert.equal(saved.prefs.cardButtons!['pandora-voiceover']![2]!.label, '第三按钮', 'edited label persists');
+	assert.equal(saved.prefs.cardButtons!['baoyu']!.length, 1, 'other skills\' buttons ride along untouched');
+	console.log('3e custom launch buttons: ok');
 }
 
 // ── 4. Import modal ─────────────────────────────────────────────────────

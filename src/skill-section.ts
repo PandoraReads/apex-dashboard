@@ -16,7 +16,7 @@
  */
 
 import { App, Menu, Notice, setIcon } from 'obsidian';
-import type { DashboardColumn, DashboardSettings, SkillsSectionConfig, SkillSectionGroup } from './types';
+import type { DashboardColumn, DashboardSettings, SkillsSectionConfig, SkillCardButton, SkillSectionGroup } from './types';
 import { t } from './i18n';
 import {
 	copySkillPath, desktopSkillFs, effectiveSkillGroups, getSkillLibraryStore, groupSkillEntries,
@@ -25,6 +25,8 @@ import {
 	type SkillLibraryStore, type SkillStoreDef,
 } from './skill-store';
 import { AgentPromptModal } from './agent-prompt-modal';
+import { fireSkillDirect } from './skill-widget';
+import { SkillCardButtonsModal, agentButtonIcon, agentButtonLabel } from './skill-card-buttons-modal';
 import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 import { createToolbarDropdown, type ToolbarDropdownItem } from './toolbar-dropdown';
 import { renderPagination } from './library-section';
@@ -172,6 +174,14 @@ export function renderSkillSection(
 		const next = { ...(config.assignments ?? {}) };
 		next[skillName] = groupId ?? UNGROUPED_ASSIGNMENT;
 		savePrefs({ assignments: next });
+	}
+
+	/** Persist a skill's custom launch buttons (empty list = none saved). */
+	function saveCardButtons(skillName: string, buttons: SkillCardButton[]): void {
+		const next = { ...(config.cardButtons ?? {}) };
+		if (buttons.length > 0) next[skillName] = buttons;
+		else delete next[skillName];
+		savePrefs({ cardButtons: next });
 	}
 
 	function buildToolbar(): void {
@@ -554,7 +564,8 @@ export function renderSkillSection(
 		// Launch buttons: one per home store the skill is installed in — the
 		// button set itself reflects availability (a codex-only skill never
 		// offers a Claude send). Custom-folder instances feed every agent's
-		// picker, so they add no dedicated button.
+		// picker, so they add no dedicated button; the user-configured
+		// cardButtons below are their (and anyone's) launch affordance.
 		const actions = card.createDiv({ cls: 'dashboard-skillsec-actions' });
 		if (desktop) {
 			for (const instance of group.instances) {
@@ -569,6 +580,27 @@ export function renderSkillSection(
 				btn.addEventListener('click', ev => {
 					ev.stopPropagation();
 					new AgentPromptModal(app, { label: group.name, skillName: group.name, promptTemplate: '' }, agent, {}).open();
+				});
+			}
+			// User-configured buttons (any agent, optional prompt template) —
+			// the launch path for custom-folder skills. Same chip look as the
+			// auto buttons; directSend skips the confirm dialog.
+			for (const custom of config.cardButtons?.[group.name] ?? []) {
+				const caption = custom.label || agentButtonLabel(custom.agent);
+				const btn = actions.createEl('button', {
+					cls: 'dashboard-skillsec-launch dashboard-skillsec-launch--custom',
+					attr: { type: 'button', 'aria-label': caption, title: caption },
+				});
+				setIcon(btn, agentButtonIcon(custom.agent, custom.icon));
+				btn.createSpan({ cls: 'dashboard-skillsec-launch-label', text: caption });
+				btn.addEventListener('click', ev => {
+					ev.stopPropagation();
+					const spec = { label: caption, skillName: group.name, promptTemplate: custom.promptTemplate };
+					if (custom.directSend) {
+						fireSkillDirect(app, spec, custom.agent);
+						return;
+					}
+					new AgentPromptModal(app, spec, custom.agent, {}).open();
 				});
 			}
 		}
@@ -617,6 +649,10 @@ export function renderSkillSection(
 			.setIcon('folder-input')
 			.onClick(() => openGroupPicker(group)));
 		menu.addItem(item => item
+			.setTitle(t('skills.cardButtons'))
+			.setIcon('mouse-pointer-click')
+			.onClick(() => openCardButtons(group)));
+		menu.addItem(item => item
 			.setTitle(t('skills.detail'))
 			.setIcon('info')
 			.onClick(() => openDetail(group)));
@@ -649,6 +685,12 @@ export function renderSkillSection(
 	function openGroupPicker(group: SkillGroup): void {
 		new SkillGroupPickerModal(app, groups, resolveSkillGroup(group.name, groups, config.assignments)?.id ?? null, pick => {
 			assignGroup(group.name, pick);
+		}).open();
+	}
+
+	function openCardButtons(group: SkillGroup): void {
+		new SkillCardButtonsModal(app, group.name, config.cardButtons?.[group.name], buttons => {
+			saveCardButtons(group.name, buttons);
 		}).open();
 	}
 

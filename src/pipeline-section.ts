@@ -397,9 +397,28 @@ function beginCardTitleEdit(titleEl: HTMLElement, file: TFile, app: App): void {
 
 /** Cards whose checklist is expanded (survives refreshes until collapsed). */
 
-/** Archive one item: stamp the status `archived` (matches no stage, so the
- *  card leaves the board wherever the folder lives) and move the file into
- *  the section's configured archive folder. */
+/** Rename a vault file and VERIFY it landed. On iCloud-synced vaults a
+ *  renameFile call can resolve without the file ever reaching its
+ *  destination (observed 2026-10: archive stamped the status but the note
+ *  stayed in its stage folder, four times). Success = the TFile's path
+ *  moved (Obsidian mutates it in place) OR the target resolves in the
+ *  vault index; when neither holds, wait a beat and try once more.
+ *  False = gave up — callers must not treat the file as moved. */
+async function renameWithVerify(app: App, file: TFile, newPath: string): Promise<boolean> {
+	const landed = (): boolean => file.path === newPath || !!app.vault.getAbstractFileByPath(newPath);
+	await app.fileManager.renameFile(file, newPath);
+	if (landed()) return true;
+	await new Promise(resolve => setTimeout(resolve, 300));
+	if (file.path !== newPath) await app.fileManager.renameFile(file, newPath);
+	return landed();
+}
+
+/** Archive one item: MOVE the file into the section's archive folder first
+ *  (verified), then stamp the status `archived` (matches no stage, so the
+ *  card leaves the board wherever the folder lives). Move-first keeps a
+ *  flaky rename retryable — the status is only written once the note is
+ *  actually filed, so a failed move leaves the card on the board instead of
+ *  stranding an invisible half-archived note in a stage folder. */
 async function archivePipelineItem(app: App, item: PipelineItem, cfg: PipelineConfig): Promise<void> {
 	const folder = normalizeFolderPath(cfg.archiveFolder ?? '');
 	if (!folder) {
@@ -409,20 +428,27 @@ async function archivePipelineItem(app: App, item: PipelineItem, cfg: PipelineCo
 	if (movesInFlight.has(item.file)) return;
 	const newPath = `${folder}/${item.file.name}`;
 	if (item.file.path === newPath) {
-		// Already filed: just make sure it leaves the board.
-	}
-	else if (app.vault.getAbstractFileByPath(newPath)) {
+		// Already filed: just make sure the board drops it (stamp below).
+	} else if (app.vault.getAbstractFileByPath(newPath)) {
 		new Notice(t('pipeline.moveNameConflict', { name: item.file.basename, folder }));
 		return;
 	}
 	movesInFlight.add(item.file);
 	try {
-		await app.fileManager.processFrontMatter(item.file, (fm: Record<string, unknown>) => {
-			fm[cfg.statusField] = 'archived';
-		});
 		if (item.file.path !== newPath) {
 			if (!app.vault.getAbstractFileByPath(folder)) await app.vault.createFolder(folder);
-			await app.fileManager.renameFile(item.file, newPath);
+			if (!(await renameWithVerify(app, item.file, newPath))) {
+				new Notice(t('pipeline.archiveMoveFailed', { folder }));
+				return;
+			}
+		}
+		try {
+			await app.fileManager.processFrontMatter(item.file, (fm: Record<string, unknown>) => {
+				fm[cfg.statusField] = 'archived';
+			});
+		} catch (stampErr) {
+			console.error('[Dashboard] pipeline archive stamp failed:', stampErr);
+			new Notice(t('pipeline.archiveStampFailed', { folder }));
 		}
 		expandedCards.delete(item.file.path);
 		new Notice(t('pipeline.archived', { name: item.file.basename, folder }));
@@ -866,8 +892,11 @@ async function movePipelineItem(
 			if (app.vault.getAbstractFileByPath(newPath)) {
 				new Notice(t('pipeline.moveNameConflict', { name: file.basename, folder }));
 			} else {
-				// renameFile respects "auto-update internal links".
-				await app.fileManager.renameFile(file, newPath);
+				// renameFile respects "auto-update internal links"; the verify
+				// + retry covers silent iCloud no-ops (see renameWithVerify).
+				if (!(await renameWithVerify(app, file, newPath))) {
+					new Notice(t('pipeline.moveFailed'));
+				}
 			}
 		}
 		new Notice(t('pipeline.moved', { name: file.basename, stage: stage.label }));

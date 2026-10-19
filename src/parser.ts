@@ -32,6 +32,7 @@ import type {
 	PmSkill,
 	SkillCreateConfig,
 	SkillSectionGroup,
+	SkillCardButton,
 	AgentTarget,
 	CountdownConfig,
 	ImmersiveItem,
@@ -578,7 +579,8 @@ export function serialize(data: DashboardData): string {
 				&& sc.groups === undefined
 				&& !(sc.assignments && Object.keys(sc.assignments).length > 0)
 				&& !sc.groupView
-				&& !sc.createSkill) continue;
+				&& !sc.createSkill
+				&& !(sc.cardButtons && Object.keys(sc.cardButtons).length > 0)) continue;
 			lines.push('    skills:');
 			if (hasSubstores) {
 				lines.push(`      stores: [${stores.map(id => JSON.stringify(id)).join(', ')}]`);
@@ -636,6 +638,24 @@ export function serialize(data: DashboardData): string {
 				}
 				if (cs.directSend) {
 					lines.push('        directSend: true');
+				}
+			}
+			// cardButtons: per-skill custom launch buttons; skills whose list
+			// went back to empty drop out of the map entirely.
+			const cardButtons = Object.entries(sc.cardButtons ?? {})
+				.filter(([, list]) => list.length > 0);
+			if (cardButtons.length > 0) {
+				lines.push('      cardButtons:');
+				for (const [skill, list] of cardButtons) {
+					lines.push(`        ${JSON.stringify(skill)}:`);
+					for (const button of list) {
+						lines.push(`          - id: ${JSON.stringify(button.id)}`);
+						lines.push(`            label: ${JSON.stringify(button.label)}`);
+						if (button.icon) lines.push(`            icon: ${JSON.stringify(button.icon)}`);
+						lines.push(`            agent: ${button.agent}`);
+						if (button.promptTemplate) lines.push(`            promptTemplate: ${JSON.stringify(button.promptTemplate)}`);
+						if (button.directSend) lines.push('            directSend: true');
+					}
 				}
 			}
 		}
@@ -1735,7 +1755,38 @@ function parseSkillsConfig(raw: Record<string, unknown>): SkillsSectionConfig {
 		...(Object.keys(assignments).length > 0 ? { assignments } : {}),
 		...(raw.groupView === 'groups' || raw.groupView === 'kanban' ? { groupView: raw.groupView } : {}),
 		...parseSkillCreateConfig(raw.createSkill),
+		...parseCardButtons(raw.cardButtons),
 	};
+}
+
+/** Per-skill custom launch buttons: { skill: [{id,label,icon,agent,
+ *  promptTemplate,directSend}] }. Rows with an unknown agent or a blank id
+ *  are dropped (a hand-edited file must not produce dead buttons). */
+function parseCardButtons(raw: unknown): { cardButtons?: Record<string, SkillCardButton[]> } {
+	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+	const out: Record<string, SkillCardButton[]> = {};
+	for (const [skillName, value] of Object.entries(raw as Record<string, unknown>)) {
+		const cleanName = skillName.trim();
+		if (!cleanName || !Array.isArray(value)) continue;
+		const buttons: SkillCardButton[] = [];
+		for (const entry of value) {
+			if (typeof entry !== 'object' || entry === null) continue;
+			const rec = entry as Record<string, unknown>;
+			const agent = str(rec.agent ?? '');
+			const id = str(rec.id ?? '').trim();
+			if (!SKILL_AGENTS.has(agent) || !id) continue;
+			buttons.push({
+				id,
+				label: str(rec.label ?? ''),
+				icon: str(rec.icon ?? ''),
+				agent: agent as SkillCardButton['agent'],
+				promptTemplate: str(rec.promptTemplate ?? ''),
+				...(rec.directSend === true ? { directSend: true } : {}),
+			});
+		}
+		if (buttons.length > 0) out[cleanName] = buttons;
+	}
+	return Object.keys(out).length > 0 ? { cardButtons: out } : {};
 }
 
 /** Localized default PM stages: seeded by parsePmConfig when a pm section
