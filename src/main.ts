@@ -1,5 +1,5 @@
 import { Notice, Platform, Plugin, TAbstractFile, TFile } from 'obsidian';
-import { DEFAULT_SETTINGS, type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
+import { DEFAULT_SETTINGS, FIRST_INSTALL_WIDGET_BACKGROUNDS, type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
 import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
@@ -393,18 +393,9 @@ export default class DashboardPlugin extends Plugin {
 				// master toggle above only shows the bar itself).
 				quickCaptureEnabled: true,
 				widgetHabitEnabled: true,
-				quickActionsBackground: {
-					image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg',
-					opacity: 100, dim: 0, blur: 0, foreground: 'light',
-				},
-				habitBackground: {
-					image: 'https://images.pexels.com/photos/4958013/pexels-photo-4958013.jpeg',
-					opacity: 100, dim: 30, blur: 0, foreground: 'light',
-				},
-				musicBackground: {
-					image: 'https://images.pexels.com/photos/22710827/pexels-photo-22710827.jpeg',
-					opacity: 95, dim: 0, blur: 0, foreground: '#f4ebeb',
-				},
+				quickActionsBackground: FIRST_INSTALL_WIDGET_BACKGROUNDS.quickActions,
+				habitBackground: FIRST_INSTALL_WIDGET_BACKGROUNDS.habit,
+				musicBackground: FIRST_INSTALL_WIDGET_BACKGROUNDS.music,
 				countdownEnabled: true,
 				countdowns: [
 					{

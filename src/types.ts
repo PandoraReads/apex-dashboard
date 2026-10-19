@@ -491,9 +491,11 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickNoteGuideShownVersion: '',
 	dataviewGuideShownVersion: '',
 	countdownEnabled: false,
-	habitBackground: { image: 'https://images.pexels.com/photos/4958013/pexels-photo-4958013.jpeg', opacity: 100, dim: 40, blur: 0, foreground: 'light' },
-	quickActionsBackground: { image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
-	musicBackground: { image: 'https://images.pexels.com/photos/22710827/pexels-photo-22710827.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
+	// Deliberately no widget background presets here. Clearing a card
+	// background writes `undefined`, which JSON.stringify drops from
+	// data.json; a non-empty default would resurrect on the next load and the
+	// "clear" could never stick. First-install presets live in
+	// FIRST_INSTALL_WIDGET_BACKGROUNDS and are applied once in main.ts.
 	countdowns: [
 		// Rae's default: the year-end countdown ships pre-seeded (also the
 		// tile new immersive boards carry).
@@ -519,6 +521,25 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	backupPeriod: 'daily',
 	backupMaxCount: 10,
 };
+
+/** Widget card backgrounds shipped with a fresh install only (the author's
+ *  photo picks). Kept OUT of DEFAULT_SETTINGS on purpose: a cleared
+ *  background persists as a missing key, so a value there would come back on
+ *  every plugin load. Applied by main.ts when `loadData()` returned null. */
+export const FIRST_INSTALL_WIDGET_BACKGROUNDS = {
+	quickActions: {
+		image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg',
+		opacity: 100, dim: 0, blur: 0, foreground: 'light',
+	},
+	habit: {
+		image: 'https://images.pexels.com/photos/4958013/pexels-photo-4958013.jpeg',
+		opacity: 100, dim: 30, blur: 0, foreground: 'light',
+	},
+	music: {
+		image: 'https://images.pexels.com/photos/22710827/pexels-photo-22710827.jpeg',
+		opacity: 95, dim: 0, blur: 0, foreground: '#f4ebeb',
+	},
+} satisfies Record<string, WidgetBackground>;
 
 export interface QuoteItem {
 	quote: string;
