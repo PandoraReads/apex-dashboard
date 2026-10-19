@@ -279,6 +279,76 @@ async function main(): Promise<void> {
 		assert.equal(prevented, 1, 'dragstart from the card body still drags the card');
 	}
 
+	// --- Card-skill reorder gesture: move/up ride the DOCUMENT (capture),
+	//     not the button. The button-local version died at lostpointercapture —
+	//     the card's canceled dragstart still releases pointer capture, and a
+	//     22px button can't host a cross-button drag anyway (Rae's "still
+	//     cannot reorder" report, verified against real Chromium).
+	{
+		const docListeners = new Map<string, Array<(ev: unknown) => void>>();
+		const docShim = {
+			body: new El('body'),
+			addEventListener: (type: string, fn: (ev: unknown) => void): void => {
+				const list = docListeners.get(type) ?? [];
+				list.push(fn);
+				docListeners.set(type, list);
+			},
+			removeEventListener: (type: string, fn: (ev: unknown) => void): void => {
+				const list = docListeners.get(type);
+				if (!list) return;
+				const i = list.indexOf(fn);
+				if (i >= 0) list.splice(i, 1);
+			},
+		};
+		(globalThis as Record<string, unknown>).activeDocument = docShim;
+		const docDispatch = (type: string, ev: Record<string, unknown>): void => {
+			for (const fn of [...(docListeners.get(type) ?? [])]) fn({ type, preventDefault: () => {}, ...ev });
+		};
+
+		const reorderCfg: PipelineConfig = {
+			...config,
+			skills: [
+				{ id: 'r1', label: '甲', icon: 'sparkles', agent: 'claudian', stage: 'idea', scope: 'card', skillName: 'a', promptTemplate: '' },
+				{ id: 'r2', label: '乙', icon: 'sparkles', agent: 'claudian', stage: 'idea', scope: 'card', skillName: 'b', promptTemplate: '' },
+			],
+		};
+		const hostR = new El('div');
+		let orderEvent: { orderedIds?: string[] } | null = null;
+		hostR.addEventListener('dashboard-pipeline-skill-order', (ev: unknown) => {
+			orderEvent = (ev as { detail: { orderedIds: string[] } }).detail;
+		});
+		renderPipelineSection(hostR as unknown as HTMLElement, pipelineColumn(reorderCfg), app, callbacks, null);
+		const ideaCard = findByClass(hostR, 'dashboard-pipeline-card').find(c => (c.textContent ?? '').includes('对标拆解'))!;
+		const foot = findByClass(ideaCard, 'dashboard-pipeline-card-foot')[0]!;
+		const btns = findByClass(foot, 'dashboard-pipeline-skill-btn');
+		assert.equal(btns.length, 2, 'two card-scope skill buttons on the idea card');
+		// Positioned boxes (own-property overrides of the zero-geometry shim):
+		// btn0 [0..40], btn1 [40..80], same 22px-tall row.
+		btns[0]!.getBoundingClientRect = () => ({ top: 0, right: 40, bottom: 22, left: 0, width: 40, height: 22 });
+		btns[1]!.getBoundingClientRect = () => ({ top: 0, right: 80, bottom: 22, left: 40, width: 40, height: 22 });
+
+		// Press btn0 at x=20; a DOCUMENT-level move to x=70 (right half of
+		// btn1 — off the pressed button entirely) crosses the threshold and
+		// live-swaps; a document-level pointerup commits the order.
+		btns[0]!.dispatchEvent({ type: 'pointerdown', pointerType: 'mouse', button: 0, clientX: 20, target: btns[0]! });
+		docDispatch('pointermove', { clientX: 70 });
+		assert.deepEqual(
+			findByClass(foot, 'dashboard-pipeline-skill-btn').map(b => b.dataset.skillId),
+			['r2', 'r1'],
+			'live-swap drags the pressed button past its sibling',
+		);
+		docDispatch('pointerup', { clientX: 70 });
+		const committed = orderEvent as { orderedIds?: string[] } | null;
+		assert.ok(committed, 'document-level pointerup emits the reorder event');
+		assert.deepEqual(committed!.orderedIds, ['r2', 'r1'], 'event carries the new arrangement');
+		// Gesture teardown: stray doc events after the up fire nothing new.
+		let second = false;
+		hostR.addEventListener('dashboard-pipeline-skill-order', () => { second = true; });
+		docDispatch('pointermove', { clientX: 10 });
+		docDispatch('pointerup', { clientX: 10 });
+		assert.ok(!second, 'document listeners detach after the gesture');
+	}
+
 	// --- Archive (move-first, verified): the file must physically land in
 	// the archive folder BEFORE the status stamp. Three shapes: a clean
 	// move; an iCloud-style silent rename no-op that the verify+retry heals;

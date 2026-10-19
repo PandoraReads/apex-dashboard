@@ -25718,9 +25718,33 @@ button.dashboard-pipeline-skill-btn--reordering {
 	flex: 0 0 auto;
 }
 
+/* Agent select: a FIXED narrow slot (Rae, 2026-10-19) riding the skill-name
+ * row. A free-width select sizes to its widest option — the coming-soon
+ * "ZCode（即将上线）" entry blew it out and wrapped the whole row. 92px fits
+ * every normal agent label; the greyed coming-soon text clips, which is
+ * fine for a placeholder entry. */
+.dashboard-pipeline-cfg-select--agent {
+	width: 92px;
+	min-width: 0;
+	flex: 0 0 92px;
+}
+
 .dashboard-pipeline-cfg-textarea {
-	width: 100%;
+	/* Flexes beside the expand button (full-prompt popup); width:auto keeps
+	   the old 100% from fighting the row's flex layout. */
+	flex: 1;
+	min-width: 0;
+	width: auto;
 	resize: vertical;
+}
+
+/* Tall read-and-edit textarea inside the full-prompt popup. */
+.dashboard-large-text {
+	width: 100%;
+	min-height: 320px;
+	resize: vertical;
+	font-size: 0.85em;
+	line-height: 1.5;
 }
 
 .dashboard-pipeline-cfg-color {

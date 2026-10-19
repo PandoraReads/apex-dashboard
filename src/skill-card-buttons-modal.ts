@@ -14,6 +14,7 @@ import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { IconPickerModal } from './icon-picker-modal';
 import { agentTargets, agentPickerOption, getAgentAdapter } from './agent-dispatch';
+import { LargeTextModal } from './large-text-modal';
 
 /** Default icon per agent target — the launch-button glyph on the card. */
 const AGENT_ICON: Record<string, string> = {
@@ -145,6 +146,19 @@ export class SkillCardButtonsModal extends Modal {
 			});
 			tpl.value = button.promptTemplate;
 			tpl.addEventListener('input', () => this.patchRow(index, { promptTemplate: tpl.value }));
+			// Long prompts: expand into a tall popup editor (pipeline-config
+			// idiom) — a single-line input can't even be scrolled readably.
+			const expandBtn = row.createEl('button', {
+				cls: 'dashboard-pipeline-cfg-icon-btn dashboard-pipeline-cfg-prompt-expand',
+				attr: { type: 'button', 'aria-label': t('pipeline.cfgPromptView'), title: t('pipeline.cfgPromptView') },
+			});
+			setIcon(expandBtn, 'maximize-2');
+			expandBtn.addEventListener('click', () => {
+				new LargeTextModal(this.app, t('pipeline.cfgPromptView'), tpl.value, value => {
+					this.patchRow(index, { promptTemplate: value });
+					tpl.value = value;
+				}).open();
+			});
 
 			// Direct send: skip the confirm dialog entirely.
 			const directRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });

@@ -144,6 +144,50 @@ function main(): void {
 	inputs3[1]!.dispatchEvent({ type: 'input' });
 	buttonByText(root3, '保存').click();
 	assert.equal(saved3[0]!.skills.length, 0, 'unlabeled row dropped, name alone does not resurrect it');
+
+	// ── Skill row layout: agent select rides the NAME row as a narrow slot;
+	//    the prompt expand button opens the full-text popup and edits stream
+	//    back (Rae, 2026-10-19) ──
+	const saved4: PipelineConfig[] = [];
+	const modal4 = new PipelineConfigModal(stubApp as never, {
+		rootFolder: '内容创作',
+		statusField: 'status',
+		stages: [{ value: 'idea', label: '选题', color: '#f59e0b' }],
+		skills: [{
+			id: 'e1', label: '长提示词', icon: 'sparkles', agent: 'codex', stage: 'idea', scope: 'card',
+			skillName: 'demo', promptTemplate: '读取文件', directSend: false,
+		}],
+	}, config => saved4.push(config));
+	modal4.onOpen();
+	const root4 = modal4.contentEl as unknown as El;
+	const skillCard = findByClass(root4, 'dashboard-pipeline-cfg-skill')[0]!;
+	const nameRow = findByClass(skillCard, 'dashboard-pipeline-cfg-name-row')[0]!;
+	const agentSelNarrow = findTag(nameRow, 'select')[0] as unknown as El & { value: string; dispatchEvent(ev: unknown): void };
+	assert.ok(agentSelNarrow, 'agent select sits on the skill-name row');
+	assert.ok((agentSelNarrow.className ?? '').includes('dashboard-pipeline-cfg-select--agent'), 'narrow agent slot class applied');
+	// (mini-dom selects don't derive .value from selected options — the
+	// prefill is covered by the earlier zcode block; here we just drive a
+	// change through the narrow slot.)
+	agentSelNarrow.value = 'claudian';
+	agentSelNarrow.dispatchEvent({ type: 'change', target: agentSelNarrow });
+
+	// Expand → tall popup textarea carries the full text; edits stream back
+	// into the row state and the inline textarea.
+	const expandBtn = findByClass(skillCard, 'dashboard-pipeline-cfg-prompt-expand')[0]!;
+	assert.ok(expandBtn, 'prompt expand button rendered');
+	expandBtn.click();
+	const peek = (Modal as unknown as { last: Modal }).last as unknown as { contentEl: El; onOpen(): void };
+	peek.onOpen();
+	const peekArea = findByClass(peek.contentEl, 'dashboard-large-text')[0] as unknown as El & { value: string; dispatchEvent(ev: unknown): void };
+	assert.equal(peekArea.value, '读取文件', 'popup prefills with the whole template');
+	peekArea.value = '读取文件并生成小红书图文文案';
+	peekArea.dispatchEvent({ type: 'input', target: peekArea });
+	const inlineArea = findTag(skillCard, 'textarea')[0] as unknown as El & { value: string };
+	assert.equal(inlineArea.value, '读取文件并生成小红书图文文案', 'inline textarea mirrors the popup edit live');
+
+	buttonByText(root4, '保存').click();
+	assert.equal(saved4[0]!.skills[0]!.agent, 'claudian', 'agent change from the narrow select persists');
+	assert.equal(saved4[0]!.skills[0]!.promptTemplate, '读取文件并生成小红书图文文案', 'popup edit persists through save');
 }
 
 main();

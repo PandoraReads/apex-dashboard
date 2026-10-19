@@ -693,7 +693,14 @@ async function renderCardTasks(card: HTMLElement, item: PipelineItem, app: App):
  *  the arrangement a release would commit. On drop the new order is emitted
  *  as a dashboard-pipeline-skill-order event (view.ts persists it into
  *  pipelineConfig.skills — the same array the config modal edits — and
- *  refreshes the section, so every card's foot updates together). */
+ *  refreshes the section, so every card's foot updates together).
+ *
+ *  The move/up listeners ride the DOCUMENT (capture), never the button: the
+ *  card is HTML5-draggable and the card-level dragstart guard cancels the
+ *  native drag, but Chromium still fires lostpointercapture on the attempt —
+ *  button-local pointermove/pointerup die the moment the pointer leaves the
+ *  22px button, which is exactly what a cross-button reorder needs (the
+ *  2026-10 "cannot reorder" report). Document capture survives all of it. */
 function attachSkillButtonReorder(
 	btn: HTMLElement,
 	foot: HTMLElement,
@@ -711,16 +718,9 @@ function attachSkillButtonReorder(
 		e.preventDefault();
 	}, true);
 
-	// Straggler cleanup: a press that left the button before the drag threshold
-	// never sees a pointerup ON the button, so its move/up listeners survive.
-	// The next pointerdown sweeps them before arming a fresh gesture (two live
-	// onMove closures would double-fire the reorder event).
-	let stragglers: Array<() => void> = [];
-
 	btn.addEventListener('pointerdown', (e) => {
 		if (e.pointerType !== 'mouse' || e.button !== 0) return;
-		for (const off of stragglers) off();
-		stragglers = [];
+		const doc = activeDocument;
 		const startX = e.clientX;
 		let dragging = false;
 		const siblings = (): HTMLElement[] =>
@@ -735,7 +735,9 @@ function attachSkillButtonReorder(
 				dragging = true;
 				suppressClick = true;
 				btn.addClass('dashboard-pipeline-skill-btn--reordering');
-				btn.setPointerCapture(e.pointerId);
+				// Kill any selection the press started (no pointer capture is
+				// taken — see the doc comment: a dragstart attempt releases it).
+				doc.getSelection?.()?.removeAllRanges?.();
 			}
 			ev.preventDefault();
 			// Live-swap with the sibling whose bounds the pointer crossed —
@@ -751,10 +753,9 @@ function attachSkillButtonReorder(
 			}
 		};
 		const finish = (ev: PointerEvent): void => {
-			btn.removeEventListener('pointermove', onMove);
-			btn.removeEventListener('pointerup', finish);
-			btn.removeEventListener('pointercancel', finish);
-			stragglers = [];
+			doc.removeEventListener('pointermove', onMove, true);
+			doc.removeEventListener('pointerup', finish, true);
+			doc.removeEventListener('pointercancel', finish, true);
 			if (!dragging) return;
 			btn.removeClass('dashboard-pipeline-skill-btn--reordering');
 			// pointercancel aborts the gesture without a follow-up click —
@@ -763,6 +764,15 @@ function attachSkillButtonReorder(
 				suppressClick = false;
 				return;
 			}
+			// The release lands wherever the pointer is — often ANOTHER skill
+			// button, whose plain click would open that skill's modal. Swallow
+			// the one follow-up click whole (immersive endSession idiom).
+			const swallow = (click: Event): void => {
+				click.preventDefault();
+				click.stopPropagation();
+			};
+			doc.addEventListener('click', swallow, true);
+			window.setTimeout(() => doc.removeEventListener('click', swallow, true), 300);
 			const orderedIds = ids();
 			// Nothing moved, or too few buttons to reorder: no config write.
 			if (orderedIds.length < 2 || orderedIds.join('\u0000') === idsAtStart.join('\u0000')) return;
@@ -771,14 +781,9 @@ function attachSkillButtonReorder(
 				bubbles: true,
 			}));
 		};
-		btn.addEventListener('pointermove', onMove);
-		btn.addEventListener('pointerup', finish);
-		btn.addEventListener('pointercancel', finish);
-		stragglers = [
-			() => btn.removeEventListener('pointermove', onMove),
-			() => btn.removeEventListener('pointerup', finish),
-			() => btn.removeEventListener('pointercancel', finish),
-		];
+		doc.addEventListener('pointermove', onMove, true);
+		doc.addEventListener('pointerup', finish, true);
+		doc.addEventListener('pointercancel', finish, true);
 	});
 }
 

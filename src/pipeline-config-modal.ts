@@ -7,6 +7,7 @@ import { attachPathPicker } from './path-picker-modal';
 import { IconPickerModal } from './icon-picker-modal';
 import { agentTargets, agentPickerOption, isValidSkillName } from './agent-dispatch';
 import { attachSkillPicker } from './skill-registry';
+import { LargeTextModal } from './large-text-modal';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 import { normalizeExcludeFolders } from './exclude-folders';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
@@ -338,25 +339,14 @@ export class PipelineConfigModal extends Modal {
 				this.patchSkill(index, { scope: scopeSel.value === 'stage' ? 'stage' : 'card' });
 			});
 
-			const agentSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
-			for (const target of agentTargets()) {
-				const pick = agentPickerOption(target);
-				const opt = agentSel.createEl('option', {
-					text: pick.label,
-					attr: { value: target },
-				});
-				opt.disabled = pick.disabled;
-				opt.selected = target === skill.agent;
-			}
-			agentSel.addEventListener('change', () => {
-				this.patchSkill(index, { agent: agentSel.value as AgentTarget });
-			});
-
 			this.attachRemove(top, () => {
 				this.skills = this.skills.filter((_, i) => i !== index);
 				this.renderSkills();
 			});
 
+			// Skill name + agent share one row: the agent select is a fixed
+			// narrow slot (it used to ride the label row, where the coming-
+			// soon option text blew it out and forced an ugly wrap).
 			const mid = card.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
 			const nameRow = mid.createDiv({ cls: 'dashboard-pipeline-cfg-name-row' });
 			const nameInput = nameRow.createEl('input', {
@@ -371,6 +361,19 @@ export class PipelineConfigModal extends Modal {
 					getAgent: () => this.skills[index]?.agent ?? 'claudian',
 				}, name => { this.patchSkill(index, { skillName: name }); });
 			}
+			const agentSel = nameRow.createEl('select', { cls: 'dashboard-pipeline-cfg-select dashboard-pipeline-cfg-select--agent' });
+			for (const target of agentTargets()) {
+				const pick = agentPickerOption(target);
+				const opt = agentSel.createEl('option', {
+					text: pick.label,
+					attr: { value: target },
+				});
+				opt.disabled = pick.disabled;
+				opt.selected = target === skill.agent;
+			}
+			agentSel.addEventListener('change', () => {
+				this.patchSkill(index, { agent: agentSel.value as AgentTarget });
+			});
 			mid.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgSkillNameHint') });
 			// Supplemental input needs no per-skill config: the preview modal
 			// always carries its own input box (default hint).
@@ -382,6 +385,20 @@ export class PipelineConfigModal extends Modal {
 			});
 			tpl.value = skill.promptTemplate;
 			tpl.addEventListener('input', () => { this.patchSkill(index, { promptTemplate: tpl.value }); });
+			// Long prompts: the two-line field stays for quick edits, this
+			// button opens the whole text in a tall popup (Rae: scrolling a
+			// two-row textarea is unreadable).
+			const expandBtn = bottom.createEl('button', {
+				cls: 'dashboard-pipeline-cfg-icon-btn dashboard-pipeline-cfg-prompt-expand',
+				attr: { type: 'button', 'aria-label': t('pipeline.cfgPromptView'), title: t('pipeline.cfgPromptView') },
+			});
+			setIcon(expandBtn, 'maximize-2');
+			expandBtn.addEventListener('click', () => {
+				new LargeTextModal(this.app, t('pipeline.cfgPromptView'), tpl.value, value => {
+					this.patchSkill(index, { promptTemplate: value });
+					tpl.value = value;
+				}).open();
+			});
 			bottom.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgSkillTemplateHint') });
 
 			// Per-skill direct send (replaces the old section-wide toggle):
