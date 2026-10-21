@@ -1860,6 +1860,16 @@ function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 		: [])];
 	const sortModeRaw = str(raw.sortMode ?? '');
 	const sortMode = sortModeRaw === 'name' || sortModeRaw === 'milestone' || sortModeRaw === 'keyDate' ? sortModeRaw : undefined;
+	const ganttSources: NonNullable<PmConfig['ganttSources']> = [];
+	if (Array.isArray(raw.ganttSources)) {
+		for (const value of raw.ganttSources as unknown[]) {
+			if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+			const source = value as Record<string, unknown>;
+			if (typeof source.path !== 'string' || typeof source.chartId !== 'string') continue;
+			ganttSources.push({ path: source.path, chartId: source.chartId,
+				...(source.kind === 'project' || source.kind === 'chart' ? { kind: source.kind } : {}) });
+		}
+	}
 	return {
 		rootFolder: str(raw.rootFolder ?? '').trim(),
 		...(raw.viewMode === 'gantt' ? { viewMode: 'gantt' as const } : {}),
@@ -1867,7 +1877,7 @@ function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 		...(['projects', 'todos', 'milestones', 'all'].includes(str(raw.ganttFilter)) ? { ganttFilter: raw.ganttFilter as PmConfig['ganttFilter'] } : {}),
 		...(str(raw.ganttProjectPath ?? '').trim() ? { ganttProjectPath: str(raw.ganttProjectPath).trim() } : {}),
 		...(Array.isArray(raw.ganttCollapsed) ? { ganttCollapsed: raw.ganttCollapsed.filter((v): v is string => typeof v === 'string') } : {}),
-		...(Array.isArray(raw.ganttSources) ? { ganttSources: raw.ganttSources.filter((v): v is { path: string; chartId: string; kind?: 'project' | 'chart' } => !!v && typeof v === 'object' && typeof v.path === 'string' && typeof v.chartId === 'string').map(v => ({ path: v.path, chartId: v.chartId, ...(v.kind === 'project' || v.kind === 'chart' ? { kind: v.kind } : {}) })) } : {}),
+		...(Array.isArray(raw.ganttSources) ? { ganttSources } : {}),
 		stages: stages.length > 0 ? stages : defaultPmStages(),
 		...(str(raw.workNoteTemplate ?? '').trim() ? { workNoteTemplate: str(raw.workNoteTemplate).trim() } : {}),
 		...(str(raw.archiveFolder ?? '').trim() ? { archiveFolder: str(raw.archiveFolder).trim() } : {}),

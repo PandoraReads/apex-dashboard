@@ -78,6 +78,7 @@ export function parseSkillDocName(content: string, fallback: string): string {
 }
 
 type ListEntry = { path: string; name: string; isDir: boolean };
+type DesktopRequire = (name: string) => unknown;
 
 /** Generic one-level scan of a skills directory: skill folders with a
  *  SKILL.md inside (name from frontmatter, folder as fallback) plus bare
@@ -150,7 +151,7 @@ export function expandHomePath(path: string, home: string): string {
  *  CSV). Empty input or non-desktop returns []. */
 export async function discoverFolderSkills(foldersCsv: string): Promise<string[]> {
 	if (!foldersCsv.trim() || !Platform.isDesktop) return [];
-	const nodeRequire = (window as { require?: NodeRequire }).require ?? (window as unknown as { require?: NodeRequire }).require;
+	const nodeRequire = (window as unknown as { require?: DesktopRequire }).require;
 	if (!nodeRequire) return [];
 	let fs: typeof import('fs');
 	let home: string;

@@ -93,7 +93,7 @@ export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup
 		} else if (!compact) lane.createSpan({ cls: 'dashboard-gantt-unscheduled', text: t('gantt.unscheduled') });
 		if (deadline && deadline !== end) marker(lane, deadline, 'is-deadline', t('gantt.due'));
 		if (!el) return;
-		if (compact) { el.style.top = `${8 + (compactIndex % 10) * 5}px`; el.style.height = '4px'; el.style.pointerEvents = 'none'; return; }
+		if (compact) { el.setCssProps({ top: `${8 + (compactIndex % 10) * 5}px`, height: '4px', pointerEvents: 'none' }); return; }
 		el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-label', title);
 		el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); edit(row); } });
 		if (task.checked) el.addClass('is-done');
@@ -103,10 +103,10 @@ export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup
 			let delta = 0;
 			startGuardedDrag(e, {
 				cursor: edge ? 'ew-resize' : 'grabbing',
-				onCancel: () => { el!.style.transform = ''; },
-				onMove: ev => { delta = Math.round((ev.clientX - press) / px); el!.style.transform = `translateX(${delta * px}px)`; },
+				onCancel: () => { el.setCssProps({ transform: '' }); },
+				onMove: ev => { delta = Math.round((ev.clientX - press) / px); el.setCssProps({ transform: `translateX(${delta * px}px)` }); },
 				onUp: () => {
-					el!.style.transform = '';
+					el.setCssProps({ transform: '' });
 					if (!delta) { if (!edge) edit(row); return; }
 					const patch = start && end ? edge === 'start' ? { start: shiftDay(start, delta) } : edge === 'end' ? { end: shiftDay(end, delta) }
 						: { start: shiftDay(start, delta), end: shiftDay(end, delta) }

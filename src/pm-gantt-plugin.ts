@@ -20,7 +20,8 @@ async function addToWorkspace(plugin: DashboardPlugin, source: string, chartId: 
 			count++;
 			menu.addItem(item => item.setTitle(`${plugin.settings.workspaceNames?.[index] || path} → ${column.name}`).onClick(() => {
 				void plugin.app.fileManager.processFrontMatter(file, fm => {
-					const columns = fm.columns as Array<Record<string, unknown>> | undefined;
+					const frontmatter = fm as Record<string, unknown>;
+					const columns = Array.isArray(frontmatter.columns) ? frontmatter.columns as Array<Record<string, unknown>> : undefined;
 					const target = columns?.find(c => c.name === column.name);
 					if (!target) throw new Error(t('gantt.noTarget'));
 					const pm = (target.pm || {}) as Record<string, unknown>;
@@ -88,8 +89,9 @@ export function registerGanttFeatures(plugin: DashboardPlugin): void {
 					const fm = parseNoteFrontmatter(await plugin.app.vault.cachedRead(workspace));
 					if (renameGanttReferences(fm, oldPath, file.path) === fm) continue;
 					await plugin.app.fileManager.processFrontMatter(workspace, current => {
-						const next = renameGanttReferences(current, oldPath, file.path);
-						if (next !== current) current.columns = next.columns;
+						const currentRecord = current as Record<string, unknown>;
+						const next = renameGanttReferences(currentRecord, oldPath, file.path);
+						if (next !== currentRecord) currentRecord.columns = next.columns;
 					});
 				} catch (error) { new Notice(error instanceof Error ? error.message : String(error)); }
 			}

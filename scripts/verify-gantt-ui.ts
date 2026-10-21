@@ -65,7 +65,7 @@ bar.dispatchEvent({ type: 'pointerdown', button: 0, clientX: 100 });
 const cancelledShield = findByClass(body, 'dashboard-drag-shield')[0]!;
 cancelledShield.dispatchEvent({ type: 'pointermove', clientX: 130 });
 cancelledShield.dispatchEvent({ type: 'pointercancel' });
-assert.equal(bar.style.transform, '', 'cancelled drags must restore the original position');
+assert.equal((bar as unknown as { cssProps?: Record<string, string> }).cssProps?.transform, '', 'cancelled drags must restore the original position');
 assert.equal(changes.length, 2, 'cancelled drags must not save');
 const folded = new El('div');
 renderGanttChart(folded as never, {} as App, [group], 'week', ['A'], () => {});
