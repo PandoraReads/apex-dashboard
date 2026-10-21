@@ -38,6 +38,17 @@ export function updateSchedule(content: string, task: PipelineTask, patch: Sched
 }
 
 export function locateScheduleTask(content: string, task: PipelineTask): number {
+	// Parsed board tasks retain their source line. Prefer that exact row so
+	// legacy notes with duplicate task text remain independently editable.
+	if (Number.isInteger(task.line)) {
+		const lines = content.split('\n');
+		const raw = lines[task.line];
+		const current = raw ? parseTasks(raw)[0] : undefined;
+		if (current && current.text === task.text && current.checked === task.checked
+			&& current.start === task.start && current.end === task.end
+			&& current.due === task.due && current.scheduled === task.scheduled
+			&& (!task.id || current.id === task.id)) return task.line;
+	}
 	const candidates = parseTasks(content).filter(current => task.id ? current.id === task.id : current.text === task.text
 		&& current.checked === task.checked && current.start === task.start && current.end === task.end
 		&& current.due === task.due && current.scheduled === task.scheduled);

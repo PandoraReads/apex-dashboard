@@ -377,11 +377,11 @@ export function insertProjectTask(content: string, section: 'milestone' | 'todo'
 		const next = [...lines];
 		while (next.length > 0 && next[next.length - 1]!.trim() === '') next.pop();
 		if (next.length > 0) next.push('');
-		next.push(headingTitle, `- [ ] ${clean}`);
+		next.push(headingTitle, `- [ ] ${clean} ^apex-${crypto.randomUUID()}`);
 		return next.join('\n');
 	}
 	if (insertAt === -1) insertAt = lines.length;
-	const next = [...lines.slice(0, insertAt), `- [ ] ${clean}`, ...lines.slice(insertAt)];
+	const next = [...lines.slice(0, insertAt), `- [ ] ${clean} ^apex-${crypto.randomUUID()}`, ...lines.slice(insertAt)];
 	return next.join('\n');
 }
 

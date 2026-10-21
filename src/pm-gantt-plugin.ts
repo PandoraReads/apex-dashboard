@@ -2,7 +2,7 @@ import { renameGanttReferences } from './pm-gantt-rename';
 import { parseNoteFrontmatter } from './pm-model';
 import { MarkdownRenderChild, Menu, Notice, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
-import { parseGanttBlocks, updateGanttBlock } from './pm-gantt-source';
+import { editGanttTask, parseGanttBlocks, updateGanttBlock } from './pm-gantt-source';
 import { renderGanttChart, type GanttScale, type GanttGroup } from './pm-gantt-chart';
 import { PmTimelineModal } from './pm-timeline-modal';
 import { parse } from './parser';
@@ -59,9 +59,11 @@ class GanttEmbed extends MarkdownRenderChild {
 			controls.createEl('button', { text: t('gantt.addTo') }).addEventListener('click', event => { void addToWorkspace(this.plugin, file.path, block.id, event).catch((e: unknown) => new Notice(String(e))); });
 			for (const scale of ['day', 'week', 'month'] as const) controls.createEl('button', { text: t(`gantt.${scale}`) }).addEventListener('click', () => { this.scale = scale; void this.render(); });
 			const group: GanttGroup = { key: block.id, title: block.title, file,
-				rows: block.tasks.map(task => ({ task, group: task.group, milestone: task.kind === 'milestone', save: async patch => { await this.plugin.app.vault.process(file, c => updateGanttBlock(c, block.id, task.id!, patch, task)); notifyPmChanged(); } })),
+				rows: block.tasks.map(task => ({ task, group: task.group, milestone: task.kind === 'milestone', save: async patch => { await this.plugin.app.vault.process(file, c => updateGanttBlock(c, block.id, task.id!, patch, task)); notifyPmChanged(); }, toggle: async () => { await this.plugin.app.vault.process(file, c => editGanttTask(c, block.id, task.id!, { checked: !task.checked })); notifyPmChanged(); } })),
 				onOpen: () => new PmTimelineModal(this.plugin.app, file, block.id, notifyPmChanged).open() };
 			renderGanttChart(this.containerEl, this.plugin.app, [group], this.scale, this.collapsed, key => {
+				this.collapsed = this.collapsed.includes(key) ? this.collapsed.filter(k => k !== key) : [...this.collapsed, key]; void this.render();
+			}, 'all', undefined, key => {
 				this.collapsed = this.collapsed.includes(key) ? this.collapsed.filter(k => k !== key) : [...this.collapsed, key]; void this.render();
 			});
 		} catch (error) { if (generation === this.generation) { this.containerEl.empty(); this.containerEl.createDiv({ cls: 'dashboard-gantt-error', text: error instanceof Error ? error.message : String(error) }); } }

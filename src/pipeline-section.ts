@@ -46,8 +46,12 @@ interface PipelineDragState {
 	file: TFile | null;
 	cardEl: HTMLElement | null;
 	stageValue: string | null;
+	cardsHost: HTMLElement | null;
+	originalNextSibling: ChildNode | null;
+	committedOrder: boolean;
+	handledDrop: boolean;
 }
-const dragState: PipelineDragState = { file: null, cardEl: null, stageValue: null };
+const dragState: PipelineDragState = { file: null, cardEl: null, stageValue: null, cardsHost: null, originalNextSibling: null, committedOrder: false, handledDrop: false };
 
 /** Files with a pipeline move still awaiting its write (frontmatter update or
  *  folder rename). A second drop inside that window would read pre-write
@@ -797,6 +801,10 @@ function attachCardDrag(card: HTMLElement, item: PipelineItem, stage: PipelineSt
 		dragState.file = item.file;
 		dragState.cardEl = card;
 		dragState.stageValue = stage.value;
+		dragState.cardsHost = card.parentElement;
+		dragState.originalNextSibling = card.nextSibling;
+		dragState.committedOrder = false;
+		dragState.handledDrop = false;
 		card.addClass('dashboard-pipeline-card--dragging');
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
@@ -806,9 +814,16 @@ function attachCardDrag(card: HTMLElement, item: PipelineItem, stage: PipelineSt
 		}
 	});
 	card.addEventListener('dragend', () => {
+		if (!dragState.committedOrder && !dragState.handledDrop && dragState.cardEl === card && dragState.cardsHost) {
+			dragState.cardsHost.insertBefore(card, dragState.originalNextSibling?.parentNode === dragState.cardsHost ? dragState.originalNextSibling : null);
+		}
 		dragState.file = null;
 		dragState.cardEl = null;
 		dragState.stageValue = null;
+		dragState.cardsHost = null;
+		dragState.originalNextSibling = null;
+		dragState.committedOrder = false;
+		dragState.handledDrop = false;
 		card.removeClass('dashboard-pipeline-card--dragging');
 		activeDocument.querySelectorAll('.dashboard-pipeline-col--drag-over')
 			.forEach(el => (el as HTMLElement).removeClass('dashboard-pipeline-col--drag-over'));
@@ -836,7 +851,7 @@ function attachColumnDrop(col: HTMLElement, cardsHost: HTMLElement, stage: Pipel
 		e.stopPropagation();
 		e.dataTransfer.dropEffect = 'move';
 		col.addClass('dashboard-pipeline-col--drag-over');
-		if (cfg.sortBy === 'manual' && dragState.cardEl && dragState.stageValue === stage.value) {
+		if (cfg.sortBy === 'manual' && dragState.cardEl && dragState.cardsHost === cardsHost && dragState.stageValue === stage.value) {
 			const target = (e.target as HTMLElement | null)?.closest?.('.dashboard-pipeline-card') as HTMLElement | null;
 			if (target && target !== dragState.cardEl && cardsHost.contains(target)) {
 				const rect = target.getBoundingClientRect();
@@ -856,16 +871,18 @@ function attachColumnDrop(col: HTMLElement, cardsHost: HTMLElement, stage: Pipel
 	});
 	col.addEventListener('drop', (e) => {
 		if (!dragState.file || !dragState.cardEl) return;
+		dragState.handledDrop = true;
 		e.preventDefault();
 		e.stopPropagation();
 		col.removeClass('dashboard-pipeline-col--drag-over');
 		clearPipelineDropPosition(cardsHost);
-		if (cfg.sortBy === 'manual' && dragState.file && dragState.stageValue === stage.value) {
+		if (cfg.sortBy === 'manual' && dragState.file && dragState.cardsHost === cardsHost && dragState.stageValue === stage.value) {
 			const visible = Array.from(cardsHost.querySelectorAll(':scope > .dashboard-pipeline-card')) as HTMLElement[];
 			const visiblePaths = visible.map(card => card.dataset.path || '').filter(Boolean);
 			const visibleSet = new Set(visiblePaths);
 			const orderedPaths = [...visiblePaths, ...items.map(item => item.file.path).filter(path => !visibleSet.has(path))];
 			col.dispatchEvent(new CustomEvent('dashboard-pipeline-manual-order', { detail: { columnName, stageValue: stage.value, orderedPaths }, bubbles: true }));
+			dragState.committedOrder = true;
 			return;
 		}
 		void movePipelineItem(app, dragState.file, stage, cfg, dragState.cardEl, col);
