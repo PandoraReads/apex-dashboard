@@ -25423,6 +25423,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	overflow: hidden;
 }
 
+/* The pipeline body sets display:flex after the generic collapsed rule, so
+   explicitly hide it when the whole workflow section is folded. */
+.dashboard-section-row--collapsed[data-section-type="pipeline"] > .dashboard-pipeline {
+	display: none;
+}
+
 .dashboard-pipeline-board {
 	display: flex;
 	gap: 10px;
@@ -25434,7 +25440,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* Trello geometry, lighter spirit: a translucent stage wash with a hair
 	   outline instead of an opaque slab — the section background breathes
 	   through, dark themes stop reading as heavy black panels. */
-	min-width: 272px;
+	min-width: 160px;
 	width: 272px;
 	display: flex;
 	flex-direction: column;
@@ -25603,6 +25609,25 @@ button.dashboard-pipeline-skill-btn--reordering {
 .dashboard-pipeline-card--dragging {
 	opacity: 0.45;
 }
+
+/* Manual sorting shows the exact insertion side, matching the checklist's
+   drop-above/drop-below cue while the card is moved live under the pointer. */
+.dashboard-pipeline-card--drop-above::before,
+.dashboard-pipeline-card--drop-below::after {
+	content: '';
+	position: absolute;
+	left: 7px;
+	right: 7px;
+	height: 3px;
+	border-radius: 3px;
+	background: var(--db-accent, var(--interactive-accent));
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
+	z-index: 2;
+	pointer-events: none;
+}
+
+.dashboard-pipeline-card--drop-above::before { top: -5px; }
+.dashboard-pipeline-card--drop-below::after { bottom: -5px; }
 
 .dashboard-pipeline-card-title {
 	font-size: 0.78em;
@@ -25867,18 +25892,34 @@ button.dashboard-pipeline-cfg-icon-btn svg {
 .dashboard-pipeline-col-resize {
 	position: absolute;
 	top: 0;
-	right: 0;
-	width: 6px;
+	right: -3px;
+	width: 12px;
 	height: 100%;
 	cursor: col-resize;
 	border-radius: 0 var(--db-radius-md, 10px) var(--db-radius-md, 10px) 0;
 	touch-action: none;
+	z-index: 8;
+}
+
+.dashboard-pipeline-col-resize::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 5px;
+	width: 2px;
+	border-radius: 2px;
+	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 25%, transparent);
+	transition: background 0.15s ease, width 0.15s ease;
 }
 
 .dashboard-pipeline-col-resize:hover,
 .dashboard-pipeline-col-resize:active {
-	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 30%, transparent);
+	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 8%, transparent);
 }
+
+.dashboard-pipeline-col-resize:hover::after,
+.dashboard-pipeline-col-resize:active::after { width: 4px; left: 4px; background: var(--db-pipe-accent, #6366f1); }
 
 /* Stage-scope item checklist in the prompt modal. */
 .dashboard-skill-scope {
@@ -29160,6 +29201,12 @@ button.dashboard-capturebar-glyph:hover {
 	flex-shrink: 0;
 }
 
+.dashboard-pmsec-view-modes {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
 .dashboard-pmsec-group-toggle.active {
 	color: var(--db-accent, var(--interactive-accent));
 	border-color: var(--db-accent, var(--interactive-accent));
@@ -29307,6 +29354,37 @@ button.dashboard-capturebar-glyph:hover {
 	justify-content: flex-end;
 }
 
+.dashboard-pmsec-toolbar--gantt {
+	justify-content: flex-start;
+	flex-wrap: wrap;
+	row-gap: 6px;
+}
+
+.dashboard-pmsec-toolbar--gantt .dashboard-gantt-controls {
+	display: contents;
+}
+
+.dashboard-pmsec-toolbar--gantt .dashboard-gantt-control-group {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.dashboard-pmsec-toolbar--gantt .dashboard-gantt-toolbar-spacer {
+	flex: 1 1 12px;
+	min-width: 12px;
+}
+
+.dashboard-pmsec-toolbar--gantt .dashboard-gantt-control-group button {
+	white-space: nowrap;
+}
+
+.dashboard-pmsec-toolbar--gantt .dashboard-gantt-control-group .active {
+	color: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}
+
 .dashboard-pmsec-toolbar .dashboard-pmsec-count {
 	flex-shrink: 0;
 	margin-left: 0;
@@ -29429,3 +29507,335 @@ button.dashboard-capturebar-glyph:hover {
 	width: 14px;
 	height: 14px;
 }
+
+/* Immersive editing gates layout operations while keeping content interactive. */
+.dashboard-imm-edit-btn.active { color: var(--db-accent, var(--interactive-accent)); background: var(--background-modifier-active-hover); }
+.dashboard-imm--locked .dashboard-imm-resize-h,
+.dashboard-imm--locked .dashboard-imm-resize-v,
+.dashboard-imm--locked .dashboard-imm-resize-handle,
+.dashboard-imm--locked .dashboard-imm-widget-del,
+.dashboard-imm--locked .dashboard-imm-add-btn,
+.dashboard-imm--locked .dashboard-section-grip,
+.dashboard-imm--locked .dashboard-section-delete-btn,
+.dashboard-imm--locked .dashboard-card-btn--danger,
+.dashboard-imm--locked .dashboard-card-resize-handle,
+.dashboard-imm--locked .dashboard-section-resize-handle { display: none !important; }
+.dashboard-pmsec-schedule {
+	flex: 0 0 28px;
+	width: 28px;
+	height: 26px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px;
+	font-size: 11px;
+}
+.dashboard-pmsec-schedule svg { width: 15px; height: 15px; }
+.dashboard-gantt-schedule-modal { width: min(460px, calc(100vw - 48px)); box-sizing: border-box; }
+.dashboard-gantt-schedule-modal > .dashboard-gantt-mode-select { display: block; width: 100%; min-width: 0; box-sizing: border-box; white-space: nowrap; }
+.dashboard-gantt-date-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 10px; margin: 12px 0; }
+.dashboard-gantt-date-row > .dashboard-modal-input { min-width: 0; box-sizing: border-box; }
+.dashboard-gantt-error { color: var(--db-danger, var(--text-error)); }
+
+.dashboard-gantt-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 0; }
+.dashboard-gantt-controls .active { color: var(--db-accent, var(--interactive-accent)); }
+.dashboard-gantt-host { min-height: 120px; min-width: 0; flex: 1; overflow: hidden; }
+.dashboard-gantt-scroll {
+	overflow: auto;
+	max-height: 100%;
+	min-height: 120px;
+	padding: 10px;
+	border: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 15%, var(--db-border, var(--background-modifier-border)));
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 3%, var(--db-bg-section, var(--background-primary)));
+	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--db-text, var(--text-normal)) 3%, transparent);
+}
+.dashboard-gantt-embed .dashboard-gantt-scroll { max-height: 550px; }
+.dashboard-gantt-canvas { position: relative; min-width: 100%; }
+.dashboard-gantt-row {
+	display: grid;
+	grid-template-columns: var(--gantt-label, 220px) 1fr;
+	min-height: 40px;
+	border-bottom: 1px solid color-mix(in srgb, var(--db-border, var(--background-modifier-border)) 65%, transparent);
+}
+.dashboard-gantt-axis {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	min-height: 48px;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 8%, var(--db-bg-card, var(--background-primary)));
+	border-bottom: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 22%, var(--db-border, var(--background-modifier-border)));
+}
+.dashboard-gantt-label {
+	position: sticky;
+	left: 0;
+	z-index: 3;
+	background: var(--db-bg-card, var(--background-primary));
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 6px 10px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	border: 0;
+	border-right: 1px solid var(--db-border, var(--background-modifier-border));
+	border-radius: 0;
+	box-shadow: none;
+	font-size: 12px;
+}
+.dashboard-gantt-axis .dashboard-gantt-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .02em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-gantt-project {
+	min-height: 66px;
+	margin-top: 8px;
+	border-top: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
+}
+.dashboard-gantt-project .dashboard-gantt-label {
+	flex-wrap: wrap;
+	align-content: center;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 9%, var(--db-bg-card, var(--background-primary)));
+	border-left: 3px solid var(--db-accent, var(--interactive-accent));
+	font-weight: 700;
+}
+.dashboard-gantt-label button { padding: 3px 5px; height: auto; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; border-radius: 6px; background: transparent; color: inherit; box-shadow: none; }
+.dashboard-gantt-project .dashboard-gantt-label button:not(:hover) { background: transparent; }
+.dashboard-gantt-project .dashboard-gantt-label button:nth-of-type(2) { font-weight: 700; }
+.dashboard-gantt-project .dashboard-gantt-label button.dashboard-gantt-add-btn {
+	width: 25px;
+	height: 24px;
+	max-width: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px;
+	border: 1px solid var(--db-border, var(--background-modifier-border));
+	border-radius: 6px;
+	color: var(--db-text-muted, var(--text-muted));
+	background: var(--db-bg-section, var(--background-primary));
+	cursor: pointer;
+}
+.dashboard-gantt-project .dashboard-gantt-label button.dashboard-gantt-add-btn svg { width: 14px; height: 14px; }
+.dashboard-gantt-project .dashboard-gantt-label button.dashboard-gantt-add-btn:hover {
+	color: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+	background: var(--db-bg-modal, var(--background-primary));
+}
+.dashboard-gantt-source { font-size: 10px; width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--db-text-faint, var(--text-faint)); }
+.dashboard-gantt-subgroup {
+	min-height: 32px !important;
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 4%, transparent);
+	border-bottom-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 10%, transparent);
+}
+.dashboard-gantt-subgroup .dashboard-gantt-label {
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: .035em;
+	color: var(--db-text-muted, var(--text-muted));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 5%, var(--db-bg-card, var(--background-primary)));
+}
+.dashboard-gantt-row:not(.dashboard-gantt-axis):not(.dashboard-gantt-project):not(.dashboard-gantt-subgroup) {
+	background: color-mix(in srgb, var(--db-bg-card, var(--background-primary)) 70%, transparent);
+}
+.dashboard-gantt-row:not(.dashboard-gantt-axis):not(.dashboard-gantt-project):not(.dashboard-gantt-subgroup) .dashboard-gantt-label {
+	font-size: 11px;
+	transition: background .15s ease, color .15s ease;
+}
+.dashboard-gantt-row:not(.dashboard-gantt-axis):not(.dashboard-gantt-project):not(.dashboard-gantt-subgroup):hover .dashboard-gantt-label {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 7%, var(--db-bg-card, var(--background-primary)));
+}
+.dashboard-gantt-task { padding-left: 22px; text-align: left; justify-content: start; }
+.dashboard-gantt-task.is-done { text-decoration: line-through; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-gantt-task.is-overrun { color: var(--db-danger, var(--text-error)); }
+.dashboard-gantt-lane {
+	position: relative;
+	min-width: 0;
+	background-image: none;
+}
+.dashboard-gantt-axis .dashboard-gantt-lane { background-color: color-mix(in srgb, var(--db-bg-card, var(--background-primary)) 65%, transparent); }
+.dashboard-gantt-tick { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 600; white-space: nowrap; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-gantt-bar {
+	position: absolute;
+	height: 20px;
+	top: 9px;
+	border-radius: 4px;
+	background: var(--db-accent, var(--interactive-accent));
+	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--db-text-inverse, #fff) 30%, transparent), 0 1px 2px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent);
+	opacity: .9;
+	cursor: grab;
+	touch-action: none;
+	transition: filter .12s ease, box-shadow .12s ease;
+}
+.dashboard-gantt-bar:hover { filter: saturate(1.12) brightness(1.04); box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 25%, transparent); }
+.dashboard-gantt-bar.is-milestone { background: var(--db-accent-light, var(--db-accent, var(--interactive-accent))); }
+.dashboard-gantt-bar.is-current { box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 40%, transparent), inset 0 1px 0 color-mix(in srgb, var(--db-text-inverse, #fff) 35%, transparent); }
+.dashboard-gantt-bar.is-done { opacity: .42; }
+.dashboard-gantt-bar.is-cycle { background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 15%, var(--db-bg-card, var(--background-primary))); border: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 22%, transparent); box-shadow: none; opacity: 1; top: 15px; height: 28px; cursor: default; }
+.dashboard-gantt-bar.is-summary { top: 24px; height: 8px; border-radius: 99px; opacity: .45; box-shadow: none; cursor: default; }
+.dashboard-gantt-marker { position: absolute; top: 13px; width: 11px; height: 11px; transform: rotate(45deg); border: 2px solid var(--db-bg-card, var(--background-primary)); border-radius: 2px; background: var(--db-accent, var(--interactive-accent)); box-shadow: 0 1px 3px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 28%, transparent); cursor: grab; touch-action: none; }
+.dashboard-gantt-marker.is-partial { background: var(--db-text-muted, var(--text-muted)); border-radius: 50%; }
+.dashboard-gantt-marker.is-deadline { background: var(--db-danger, var(--text-error)); top: 27px; width: 6px; height: 6px; pointer-events: none; }
+.dashboard-gantt-unscheduled { color: var(--db-text-muted, var(--text-muted)); font-size: 11px; position: sticky; left: calc(var(--gantt-label, 220px) + 20px); line-height: 36px; }
+.dashboard-gantt-edge { position: absolute; width: 7px; height: 100%; top: 0; cursor: ew-resize; }
+.dashboard-gantt-edge--start { left: 0; }
+.dashboard-gantt-edge--end { right: 0; }
+.dashboard-gantt-today { position: absolute; top: 0; bottom: 0; border-left: 2px dashed var(--db-accent, var(--interactive-accent)); opacity: .7; pointer-events: none; z-index: 2; }
+.dashboard-gantt-picker { display: flex; flex-direction: column; max-height: 250px; overflow: auto; margin: 12px 0; }
+.dashboard-gantt-picker button { text-align: left; flex-shrink: 0; }
+.dashboard-gantt-editor-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.dashboard-gantt-date-row[hidden] { display: none; }
+
+.dashboard-gantt-marker.is-done { opacity: .4; }
+
+/* Keep the Gantt header and sticky project navigation flat and fully opaque. */
+.dashboard-gantt-scroll { background: var(--db-bg-section, var(--background-primary)); box-shadow: none; }
+.dashboard-gantt-axis { background: var(--db-bg-modal, var(--background-primary)); }
+.dashboard-gantt-label { background: var(--db-bg-modal, var(--background-primary)); }
+.dashboard-gantt-axis .dashboard-gantt-label {
+	position: relative;
+	left: auto;
+	z-index: auto;
+	background: var(--db-bg-modal, var(--background-primary));
+	border-right: 1px solid var(--db-border, var(--background-modifier-border));
+	pointer-events: none;
+}
+.dashboard-gantt-project .dashboard-gantt-label {
+	background: var(--db-bg-modal, var(--background-primary));
+	border-left-color: var(--db-accent, var(--interactive-accent));
+}
+.dashboard-gantt-subgroup { background: var(--db-bg-section, var(--background-primary)); }
+.dashboard-gantt-subgroup .dashboard-gantt-label { background: var(--db-bg-modal, var(--background-primary)); }
+.dashboard-gantt-row:not(.dashboard-gantt-axis):not(.dashboard-gantt-project):not(.dashboard-gantt-subgroup) { background: var(--db-bg-section, var(--background-primary)); }
+.dashboard-gantt-row:not(.dashboard-gantt-axis):not(.dashboard-gantt-project):not(.dashboard-gantt-subgroup) .dashboard-gantt-label,
+.dashboard-gantt-row:not(.dashboard-gantt-axis):not(.dashboard-gantt-project):not(.dashboard-gantt-subgroup):hover .dashboard-gantt-label { background: var(--db-bg-modal, var(--background-primary)); }
+.dashboard-gantt-axis .dashboard-gantt-lane { background-color: var(--db-bg-modal, var(--background-primary)); }
+.dashboard-gantt-bar {
+	background: var(--db-accent, var(--interactive-accent));
+	filter: saturate(1.25);
+	opacity: 1;
+	box-shadow: none;
+}
+.dashboard-gantt-bar.is-milestone { background: var(--db-accent-light, var(--db-accent, var(--interactive-accent))); filter: saturate(1.35); }
+.dashboard-gantt-bar.is-current { box-shadow: 0 0 0 2px var(--db-accent, var(--interactive-accent)); }
+.dashboard-gantt-bar.is-done { opacity: 1; filter: saturate(.55); }
+.dashboard-gantt-bar.is-cycle {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 30%, var(--db-bg-modal, var(--background-primary)));
+	border: 1px solid color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, var(--db-bg-modal, var(--background-primary)));
+}
+.dashboard-gantt-bar.is-summary { opacity: 1; background: var(--db-accent, var(--interactive-accent)); }
+.dashboard-gantt-marker { background: var(--db-accent, var(--interactive-accent)); box-shadow: none; }
+.dashboard-gantt-marker.is-done { opacity: 1; filter: saturate(.55); }
+.dashboard-gantt-marker { border-color: var(--db-bg-modal, var(--background-primary)); }
+.dashboard-gantt-project-filter::after { content: ''; }
+
+/* Compact project navigation: title, then expandable kind cards with add actions. */
+.dashboard-gantt-project .dashboard-gantt-label {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+	gap: 6px;
+	padding: 7px 8px;
+	white-space: normal;
+	text-overflow: clip;
+}
+.dashboard-gantt-project-title-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.dashboard-gantt-project-title-row .dashboard-gantt-project-collapse { flex: 0 0 18px; padding: 0; text-align: center; }
+.dashboard-gantt-project-title-row .dashboard-gantt-project-name { flex: 1 1 auto; min-width: 0; max-width: none; padding: 2px 3px; text-align: left; font-weight: 700; }
+.dashboard-gantt-project-title-row .dashboard-gantt-remove-source { flex: 0 0 20px; padding: 0; color: var(--db-text-faint, var(--text-faint)); }
+.dashboard-gantt-project-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; width: 100%; }
+.dashboard-gantt-kind-card { display: flex; align-items: center; min-width: 0; border: 1px solid var(--db-border, var(--background-modifier-border)); border-radius: 6px; background: var(--db-bg-section, var(--background-primary)); }
+.dashboard-gantt-kind-card.is-open { border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 55%, var(--db-border, var(--background-modifier-border))); }
+.dashboard-gantt-project .dashboard-gantt-label .dashboard-gantt-kind-toggle {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 3px;
+	min-width: 0;
+	max-width: none;
+	padding: 4px 5px;
+	font-size: 10px;
+	font-weight: 600;
+	text-align: left;
+}
+.dashboard-gantt-kind-count { flex: 0 0 auto; font-size: 9px; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-gantt-project .dashboard-gantt-label .dashboard-gantt-kind-add {
+	flex: 0 0 23px;
+	width: 23px;
+	height: 24px;
+	max-width: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2px;
+	border-left: 1px solid var(--db-border, var(--background-modifier-border));
+	border-radius: 0 5px 5px 0;
+	color: var(--db-accent, var(--interactive-accent));
+	cursor: pointer;
+}
+.dashboard-gantt-kind-add svg { width: 13px; height: 13px; }
+
+/* Weekly color blocks use a stable repeating palette derived from the active
+   dashboard accent. Tasks and milestones share the same calendar-week color. */
+.dashboard-gantt-canvas {
+	--gantt-week-0: color-mix(in srgb, color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, #168aad) 18%, var(--db-bg-modal, var(--background-primary)));
+	--gantt-week-1: color-mix(in srgb, color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, #4361ee) 18%, var(--db-bg-modal, var(--background-primary)));
+	--gantt-week-2: color-mix(in srgb, color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, #7b2cbf) 18%, var(--db-bg-modal, var(--background-primary)));
+	--gantt-week-3: color-mix(in srgb, color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, #c91876) 18%, var(--db-bg-modal, var(--background-primary)));
+	--gantt-week-4: color-mix(in srgb, color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, #e76f00) 18%, var(--db-bg-modal, var(--background-primary)));
+	--gantt-week-5: color-mix(in srgb, color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 38%, #2a9d62) 18%, var(--db-bg-modal, var(--background-primary)));
+}
+.dashboard-gantt-bar,
+.dashboard-gantt-bar.is-cycle,
+.dashboard-gantt-bar.is-summary,
+.dashboard-gantt-bar.is-milestone {
+	background: transparent;
+	border: 0;
+	box-shadow: none;
+	filter: none;
+	opacity: 1;
+}
+.dashboard-gantt-bar { filter: none; opacity: 1; }
+.dashboard-gantt-week-segment { position: absolute; top: 0; bottom: 0; border-radius: 3px; pointer-events: none; }
+.dashboard-gantt-week-0 { background: var(--gantt-week-0); }
+.dashboard-gantt-week-1 { background: var(--gantt-week-1); }
+.dashboard-gantt-week-2 { background: var(--gantt-week-2); }
+.dashboard-gantt-week-3 { background: var(--gantt-week-3); }
+.dashboard-gantt-week-4 { background: var(--gantt-week-4); }
+.dashboard-gantt-week-5 { background: var(--gantt-week-5); }
+
+/* Color the date axis with the same repeating week palette as the task bars. */
+.dashboard-gantt-axis .dashboard-gantt-lane { position: relative; overflow: hidden; }
+.dashboard-gantt-axis-week-band {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	border-radius: 4px;
+}
+.dashboard-gantt-axis .dashboard-gantt-tick { z-index: 1; }
+.dashboard-gantt-axis .dashboard-gantt-tick {
+	padding: 1px 2px;
+	border-radius: 3px;
+	color: var(--db-text, var(--text-normal));
+	font-weight: 700;
+	background: transparent;
+	text-shadow: none;
+}
+
+/* Give the schedule dialog one measured width at both the Obsidian shell and card. */
+.dashboard-gantt-schedule-shell { width: min(500px, calc(100vw - 40px)); box-sizing: border-box; }
+.dashboard-gantt-schedule-content { width: 100%; min-width: 0; box-sizing: border-box; }
+.dashboard-gantt-schedule-content .dashboard-gantt-schedule-modal { width: 100%; max-width: 100%; min-width: 0; margin: 0; }
+
+/* Todo completion and milestone identity in the expanded task list. */
+.dashboard-gantt-task-label { display: flex; flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+.dashboard-gantt-task-label .dashboard-gantt-task-checkbox { flex: 0 0 15px; width: 15px; height: 15px; margin: 0; accent-color: var(--db-accent, var(--interactive-accent)); }
+.dashboard-gantt-task-label .dashboard-gantt-task { flex: 1 1 auto; min-width: 0; max-width: none; padding: 2px 0; text-align: left; justify-content: flex-start; }
+.dashboard-gantt-task-label .dashboard-gantt-task.is-done { text-decoration: line-through; color: var(--db-text-muted, var(--text-muted)); }
+.dashboard-gantt-milestone-icon { flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--db-accent, var(--interactive-accent)); }
+.dashboard-gantt-milestone-icon svg { width: 15px; height: 15px; }

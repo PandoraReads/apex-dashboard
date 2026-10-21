@@ -60,6 +60,7 @@ function openWorkspaceMenu(plugin: DashboardPlugin, file: string, name: string, 
 		menu.addSeparator();
 		const activeView = plugin.getActiveDashboardView();
 		const current = activeView?.getBoardData()?.layout ?? plugin.settings.layoutMode;
+		if (current === 'immersive') menu.addItem(item => item.setTitle(t('gantt.background')).setIcon('image').onClick(() => activeView?.editBackground()));
 		for (const mode of ['side', 'stacked', 'immersive'] as const) {
 			menu.addItem(item => {
 				item

@@ -1,3 +1,5 @@
+import { locateScheduleTask } from './pm-schedule';
+import { PmScheduleModal, projectScheduleSave } from './pm-schedule-modal';
 import { App, Modal, Notice, TFile, setIcon } from 'obsidian';
 import type { PmConfig, PmSkill } from './types';
 import { t } from './i18n';
@@ -524,9 +526,15 @@ export class PmBoardModal extends Modal {
 					if (label) label.textContent = `${t('pm.board.milestones')} ${completed}/${tasks.length}`;
 					banner?.querySelectorAll('.dashboard-pmsec-step')[tasks.indexOf(task)]?.classList.toggle('is-done', box.checked);
 				}
-				void this.toggleTask(task.line);
+				void this.toggleTask(task);
 			});
 			const label = item.createDiv({ cls: 'dashboard-pmsec-check-text', text: task.text });
+			const schedule = item.createEl('button', { cls: 'dashboard-pmsec-schedule', attr: { type: 'button', 'aria-label': t('gantt.schedule'), title: t('gantt.schedule') } });
+			setIcon(schedule, 'calendar-range');
+			schedule.addEventListener('click', () => new PmScheduleModal(this.app, task, section === 'milestone', projectScheduleSave(this.app, this.projectFile, task, () => {
+				notifyPmChanged(); this.onChanged?.(); void this.renderBody();
+			})).open());
+
 			if (task.due) label.createSpan({ cls: 'dashboard-pmsec-check-due', text: task.due });
 			label.setCssProps({ cursor: 'text' });
 			// Double-click edits in place (the card-title idiom): the [due::]
@@ -550,7 +558,7 @@ export class PmBoardModal extends Modal {
 				const finish = (save: boolean): void => {
 					const newText = input.value.trim();
 					if (save && newText && newText !== currentText) {
-						void this.renameTask(task.line, newText);
+						void this.renameTask(task, newText);
 					} else {
 						restore();
 					}
@@ -571,7 +579,7 @@ export class PmBoardModal extends Modal {
 				attr: { type: 'button', 'aria-label': t('common.delete') },
 			});
 			setIcon(del, 'trash-2');
-			del.addEventListener('click', () => { void this.removeTask(task.line); });
+			del.addEventListener('click', () => { void this.removeTask(task); });
 		}
 		const addRow = sec.createDiv({ cls: 'dashboard-pmsec-add-row' });
 		const input = addRow.createEl('input', { cls: 'dashboard-modal-input', attr: { type: 'text', placeholder: t(section === 'milestone' ? 'pm.addMilestone' : 'pm.addTodo') } });
@@ -610,31 +618,27 @@ export class PmBoardModal extends Modal {
 
 	/** Structural checklist edits: read → transform → write → re-render. */
 	private async mutateFile(transform: (content: string) => string): Promise<void> {
-		const content = await this.app.vault.read(this.projectFile);
-		await this.app.vault.modify(this.projectFile, transform(content));
-		notifyPmChanged();
-		this.onChanged?.();
-		await this.renderBody();
+		try {
+			await this.app.vault.process(this.projectFile, transform);
+			notifyPmChanged(); this.onChanged?.(); await this.renderBody();
+		} catch (error) { new Notice(error instanceof Error ? error.message : String(error)); await this.renderBody(); }
 	}
 
-	private async toggleTask(line: number): Promise<void> {
-		const content = await this.app.vault.read(this.projectFile);
-		await this.app.vault.modify(this.projectFile, toggleTaskLine(content, line));
-		notifyPmChanged();
-		this.onChanged?.();
+	private async toggleTask(task: PipelineTask): Promise<void> {
+		await this.mutateFile(content => toggleTaskLine(content, locateScheduleTask(content, task)));
 	}
 
 	private async addTask(section: 'milestone' | 'todo', text: string): Promise<void> {
 		await this.mutateFile(content => insertProjectTask(content, section, text));
 	}
 
-	private async removeTask(line: number): Promise<void> {
-		await this.mutateFile(content => removeProjectTask(content, line));
+	private async removeTask(task: PipelineTask): Promise<void> {
+		await this.mutateFile(content => removeProjectTask(content, locateScheduleTask(content, task)));
 	}
 
 	/** Inline rename of one checklist task (keeps the checkbox + markers). */
-	private async renameTask(line: number, text: string): Promise<void> {
-		await this.mutateFile(content => renameProjectTask(content, line, text));
+	private async renameTask(task: PipelineTask, text: string): Promise<void> {
+		await this.mutateFile(content => renameProjectTask(content, locateScheduleTask(content, task), text));
 	}
 
 	/** Commit a checklist's post-drag DOM order: the rows' original line
@@ -647,7 +651,10 @@ export class PmBoardModal extends Modal {
 			.map(Number);
 		const before = tasks.map(task => task.line);
 		if (lines.length !== before.length || lines.every((line, i) => line === before[i])) return;
-		void this.mutateFile(content => reorderProjectTasks(content, lines));
+		void this.mutateFile(content => {
+			const ordered = lines.map(line => tasks.find(task => task.line === line)!);
+			return reorderProjectTasks(content, ordered.map(task => locateScheduleTask(content, task)));
+		});
 	}
 
 	private filesSection(host: HTMLElement, frontmatter: Record<string, unknown>): void {

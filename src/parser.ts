@@ -109,6 +109,7 @@ export function parse(markdown: string): DashboardData {
 	if (hiddenPresets) data.hiddenPresets = hiddenPresets;
 	const immersive = parseImmersiveItems(frontmatter);
 	if (immersive) data.immersive = immersive;
+	if (frontmatter.immersiveEditable === false) data.immersiveEditable = false;
 	return data;
 }
 
@@ -231,6 +232,7 @@ export function serialize(data: DashboardData): string {
 	// IS the version marker — legacy `h` entries (coarse 92px rows from the
 	// first private build) migrate once at parse and never come back, so a
 	// small cap can never be re-inflated by a later load.
+	if (data.immersiveEditable === false) lines.push('immersiveEditable: false');
 	if (data.immersive && data.immersive.length > 0) {
 		lines.push('immersive:');
 		for (const tile of data.immersive) {
@@ -535,6 +537,7 @@ export function serialize(data: DashboardData): string {
 			if (pc.sortBy) {
 				lines.push(`      sortBy: ${pc.sortBy}`);
 			}
+			if (pc.stageOrder && Object.keys(pc.stageOrder).length) lines.push(`      stageOrder: ${JSON.stringify(pc.stageOrder)}`);
 			if (pc.filterFields && pc.filterFields.length > 0) {
 				lines.push('      filterFields:');
 				for (const f of pc.filterFields) lines.push(`        - ${JSON.stringify(f)}`);
@@ -662,6 +665,12 @@ export function serialize(data: DashboardData): string {
 		if (col.pmConfig) {
 			const mc = col.pmConfig;
 			lines.push('    pm:');
+			if (mc.viewMode === 'gantt') lines.push('      viewMode: gantt');
+			if (mc.ganttScale) lines.push(`      ganttScale: ${mc.ganttScale}`);
+			if (mc.ganttFilter && mc.ganttFilter !== 'all') lines.push(`      ganttFilter: ${mc.ganttFilter}`);
+			if (mc.ganttProjectPath) lines.push(`      ganttProjectPath: ${JSON.stringify(mc.ganttProjectPath)}`);
+			if (mc.ganttCollapsed?.length) lines.push(`      ganttCollapsed: ${JSON.stringify(mc.ganttCollapsed)}`);
+			if (mc.ganttSources?.length) lines.push(`      ganttSources: ${JSON.stringify(mc.ganttSources)}`);
 			lines.push(`      rootFolder: ${JSON.stringify(mc.rootFolder ?? '')}`);
 			// Stages equal to the localized defaults are omitted so files
 			// stay clean and round-trips stay idempotent.
@@ -1634,7 +1643,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 			const color = str(rec.color ?? '').trim();
 			const folder = str(rec.folder ?? '').trim().replace(/^\/+|\/+$/g, '');
 			const widthRaw = typeof rec.width === 'number' ? rec.width : undefined;
-			const width = widthRaw != null && widthRaw >= 200 && widthRaw <= 460 ? Math.round(widthRaw) : undefined;
+			const width = widthRaw != null && widthRaw >= 160 && widthRaw <= 460 ? Math.round(widthRaw) : undefined;
 			stages.push({
 				label: label || value,
 				value,
@@ -1653,7 +1662,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 			const stage = str(rec.stage ?? '').trim();
 			if (!label || !stage) continue;
 			// Unknown agent targets fall back to Claudian for older or hand-edited files.
-			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' || rec.agent === 'zcode' || rec.agent === 'workbuddy' ? rec.agent : 'claudian';
+			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' || rec.agent === 'zcode' || rec.agent === 'workbuddy' || rec.agent === 'grokbot' ? rec.agent : 'claudian';
 			const scope = rec.scope === 'stage' ? 'stage' : 'card';
 			skills.push({
 				id: str(rec.id ?? '').trim() || `sk_${skills.length + 1}_${Math.random().toString(36).slice(2, 8)}`,
@@ -1678,7 +1687,13 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 	const filterDim = filterDimRaw || undefined;
 	const filterValue = str((raw.filter as Record<string, unknown> | undefined)?.value ?? '').trim();
 	const sortByRaw = str(raw.sortBy ?? '').trim();
-	const sortBy = sortByRaw === 'ctime' || sortByRaw === 'platform' ? sortByRaw : undefined;
+	const sortBy = sortByRaw === 'ctime' || sortByRaw === 'platform' || sortByRaw === 'name' || sortByRaw === 'manual' ? sortByRaw : undefined;
+	const stageOrder: Record<string, string[]> = {};
+	if (raw.stageOrder && typeof raw.stageOrder === 'object' && !Array.isArray(raw.stageOrder)) {
+		for (const [key, value] of Object.entries(raw.stageOrder as Record<string, unknown>)) {
+			if (Array.isArray(value)) stageOrder[key] = [...new Set(value.filter((v): v is string => typeof v === 'string'))];
+		}
+	}
 	const excludeFolders = (Array.isArray(raw.excludeFolders) ? raw.excludeFolders : [])
 		.map((f: unknown) => str(f).trim().replace(/^\/+|\/+$/g, ''))
 		.filter((f: string) => f.length > 0);
@@ -1695,6 +1710,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 		skills,
 		...(boardStyle ? { boardStyle } : {}),
 		...(sortBy ? { sortBy } : {}),
+		...(Object.keys(stageOrder).length ? { stageOrder } : {}),
 		...(filterFields.length > 0 ? { filterFields } : {}),
 		...(filterDim ? { filter: { dim: filterDim, ...(filterValue ? { value: filterValue } : {}) } } : {}),
 		...(templatePath ? { templatePath } : {}),
@@ -1799,7 +1815,7 @@ export function defaultPmStages(): PmStage[] {
 	].map(label => ({ label }));
 }
 
-const PM_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy']);
+const PM_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot']);
 
 function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 	const pinned = [...new Set(Array.isArray(raw.pinned)
@@ -1846,6 +1862,12 @@ function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 	const sortMode = sortModeRaw === 'name' || sortModeRaw === 'milestone' || sortModeRaw === 'keyDate' ? sortModeRaw : undefined;
 	return {
 		rootFolder: str(raw.rootFolder ?? '').trim(),
+		...(raw.viewMode === 'gantt' ? { viewMode: 'gantt' as const } : {}),
+		...(['day', 'week', 'month'].includes(str(raw.ganttScale)) ? { ganttScale: raw.ganttScale as PmConfig['ganttScale'] } : {}),
+		...(['projects', 'todos', 'milestones', 'all'].includes(str(raw.ganttFilter)) ? { ganttFilter: raw.ganttFilter as PmConfig['ganttFilter'] } : {}),
+		...(str(raw.ganttProjectPath ?? '').trim() ? { ganttProjectPath: str(raw.ganttProjectPath).trim() } : {}),
+		...(Array.isArray(raw.ganttCollapsed) ? { ganttCollapsed: raw.ganttCollapsed.filter((v): v is string => typeof v === 'string') } : {}),
+		...(Array.isArray(raw.ganttSources) ? { ganttSources: raw.ganttSources.filter((v): v is { path: string; chartId: string; kind?: 'project' | 'chart' } => !!v && typeof v === 'object' && typeof v.path === 'string' && typeof v.chartId === 'string').map(v => ({ path: v.path, chartId: v.chartId, ...(v.kind === 'project' || v.kind === 'chart' ? { kind: v.kind } : {}) })) } : {}),
 		stages: stages.length > 0 ? stages : defaultPmStages(),
 		...(str(raw.workNoteTemplate ?? '').trim() ? { workNoteTemplate: str(raw.workNoteTemplate).trim() } : {}),
 		...(str(raw.archiveFolder ?? '').trim() ? { archiveFolder: str(raw.archiveFolder).trim() } : {}),
@@ -1858,7 +1880,7 @@ function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 	};
 }
 
-const SKILL_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy']);
+const SKILL_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot']);
 
 function parseSkillCreateConfig(raw: unknown): { createSkill?: SkillCreateConfig } {
 	if (typeof raw !== 'object' || raw === null) return {};

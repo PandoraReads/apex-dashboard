@@ -116,6 +116,7 @@ const VAULT_SKILL_DIRS: Record<AgentTarget, string[]> = {
 	// WorkBuddy keeps its user skills OUTSIDE the vault (~/.workbuddy/skills,
 	// scanned by the picker below), so it has no in-vault convention folders.
 	workbuddy: [],
+	grokbot: [],
 };
 
 /** In-vault discovery via the public DataAdapter (works on mobile too). */

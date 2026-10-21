@@ -14,6 +14,7 @@ interface GuideFeature {
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
 	{ icon: 'languages', textKey: 'announce.featureZhtw' },
 	{ icon: 'palette', textKey: 'announce.featureBarbie' },
+	{ icon: 'chart-gantt', textKey: 'announce.featureGantt' },
 ];
 
 /**

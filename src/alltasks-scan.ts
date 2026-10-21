@@ -107,7 +107,7 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 		if (!m) continue;
 		const [, , mark, rest] = m;
 		let text = rest ?? '';
-		text = text.replace(COLLAPSED_REGEX, '');
+		text = text.replace(COLLAPSED_REGEX, '').replace(/\s+\^[A-Za-z0-9-]+\s*$/, '');
 
 		let reminder: string | undefined;
 		const rm = text.match(REMINDER_REGEX);

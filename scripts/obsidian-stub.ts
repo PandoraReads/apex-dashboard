@@ -13,6 +13,7 @@ export class Modal {
 	app: unknown;
 	contentEl: El;
 	containerEl: El;
+	modalEl: El;
 	/** Most recently OPENED modal instance (same pattern as Menu.last) — lets
 	 *  verification scripts capture modals a UI under test spawns internally. */
 	static last: Modal | null = null;
@@ -21,6 +22,7 @@ export class Modal {
 		this.app = app;
 		this.contentEl = new El('div');
 		this.containerEl = new El('div');
+		this.modalEl = new El('div');
 	}
 
 	open(): void { Modal.last = this; }

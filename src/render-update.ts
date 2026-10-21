@@ -24,6 +24,7 @@ export function planDashboardUpdate(
 ): DashboardRenderPlan {
 	if (!previous || source === 'external') return { kind: 'full' };
 	// A per-workspace layout flip rebuilds the whole board shell.
+	if (previous.immersiveEditable !== next.immersiveEditable) return { kind: 'full' };
 	if (previous.layout !== next.layout) return { kind: 'full' };
 	if (!sameValue(previous.banner, next.banner)) return { kind: 'full' };
 	if (!sameValue(previous.quickActions, next.quickActions)) return { kind: 'full' };

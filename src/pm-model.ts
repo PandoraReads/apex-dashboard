@@ -323,7 +323,11 @@ export function parseProjectBody(content: string): PmBodySections {
 	const todos: PipelineTask[] = [];
 	const lines = content.split('\n');
 	let current: 'milestone' | 'todo' | null = null;
+	let fence: string | null = null;
 	for (let i = 0; i < lines.length; i++) {
+		const marker = lines[i]!.match(/^\s*(`{3,}|~{3,})/);
+		if (marker) { if (!fence) fence = marker[1]![0]!; else if (fence === marker[1]![0]) fence = null; continue; }
+		if (fence) continue;
 		const headingMatch = lines[i]!.match(/^##\s+(.*)$/);
 		if (headingMatch) {
 			const title = headingMatch[1]!.trim();
@@ -353,7 +357,11 @@ export function insertProjectTask(content: string, section: 'milestone' | 'todo'
 	const lines = content.split('\n');
 	let insertAt = -1;
 	let inSection = false;
+	let fence: string | null = null;
 	for (let i = 0; i < lines.length; i++) {
+		const marker = lines[i]!.match(/^\s*(`{3,}|~{3,})/);
+		if (marker) { if (!fence) fence = marker[1]![0]!; else if (fence === marker[1]![0]) fence = null; continue; }
+		if (fence) continue;
 		const headingMatch = lines[i]!.match(/^##\s+(.*)$/);
 		if (headingMatch) {
 			if (inSection) {
@@ -397,8 +405,10 @@ export function renameProjectTask(content: string, line: number, text: string): 
 	const lines = content.split('\n');
 	const match = lines[line]?.match(/^(\s*)- \[( |x|X)\] (.*)$/);
 	if (!match || !clean) return content;
-	const marker = match[3]!.match(/\[(?:due|scheduled|start)::\s*[^\]]*\]/i)?.[0] ?? '';
-	lines[line] = `${match[1]!}- [${match[2]!}] ${clean}${marker ? ` ${marker}` : ''}`;
+	const markers = [...match[3]!.matchAll(/\[(?:due|scheduled|start|end)::\s*[^\]]*\]/gi)].map(m => m[0]);
+	const id = match[3]!.match(/\s+\^[A-Za-z0-9-]+\s*$/)?.[0].trim();
+	const suffix = [...markers, ...(id ? [id] : [])].join(' ');
+	lines[line] = `${match[1]!}- [${match[2]!}] ${clean}${suffix ? ` ${suffix}` : ''}`;
 	return lines.join('\n');
 }
 

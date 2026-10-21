@@ -31,6 +31,7 @@ import { createNoteWithProps } from './library-new-note';
 import { PipelineDueModal } from './pipeline-due-modal';
 import { showPromptDialog } from './prompt-dialog';
 import { showConfirmDialog } from './confirm-dialog';
+import { startGuardedDrag } from './drag-guard';
 
 /**
  * Pipeline board: one column per workflow stage, one card per note, grouped
@@ -44,8 +45,9 @@ import { showConfirmDialog } from './confirm-dialog';
 interface PipelineDragState {
 	file: TFile | null;
 	cardEl: HTMLElement | null;
+	stageValue: string | null;
 }
-const dragState: PipelineDragState = { file: null, cardEl: null };
+const dragState: PipelineDragState = { file: null, cardEl: null, stageValue: null };
 
 /** Files with a pipeline move still awaiting its write (frontmatter update or
  *  folder rename). A second drop inside that window would read pre-write
@@ -55,7 +57,7 @@ const movesInFlight = new Set<TFile>();
 
 /** How long a title single click waits before opening the note, giving a
  *  double click time to claim the gesture for rename instead. */
-const TITLE_OPEN_DELAY_MS = 300;
+const TITLE_OPEN_DELAY_MS = 750;
 
 /** Pointer travel (px) before a skill-button press claims itself as a drag
  *  instead of a click. */
@@ -236,7 +238,7 @@ function renderStageColumn(
 	col.style.setProperty('--db-pipe-accent', stage.color);
 	// Manual column width (drag the right edge); falls back to the CSS
 	// default (Trello list width) when never dragged.
-	if (typeof stage.width === 'number' && stage.width >= 200 && stage.width <= 460) {
+	if (typeof stage.width === 'number' && stage.width >= 160 && stage.width <= 460) {
 		col.style.width = `${Math.round(stage.width)}px`;
 	}
 
@@ -307,7 +309,7 @@ function renderStageColumn(
 	};
 	renderCards();
 
-	attachColumnDrop(col, stage, cfg, app);
+	attachColumnDrop(col, cardsHost, stage, cfg, app, columnName, items);
 	if (!Platform.isMobile) attachColumnWidthHandle(col, columnName, stage);
 }
 
@@ -317,29 +319,28 @@ function renderStageColumn(
 function attachColumnWidthHandle(col: HTMLElement, columnName: string, stage: PipelineStage): void {
 	const handle = col.createDiv({ cls: 'dashboard-pipeline-col-resize' });
 	handle.setAttribute('role', 'separator');
+	handle.setAttribute('aria-orientation', 'vertical');
+	handle.setAttribute('aria-label', t('pipeline.resizeHint'));
 	handle.title = t('pipeline.resizeHint');
 	handle.addEventListener('pointerdown', (e) => {
-		e.preventDefault();
-		e.stopPropagation();
+		if (e.button !== 0) return;
 		const startX = e.clientX;
 		const startWidth = col.getBoundingClientRect().width;
-		handle.setPointerCapture(e.pointerId);
-		const onMove = (ev: PointerEvent): void => {
-			const next = Math.min(460, Math.max(200, startWidth + (ev.clientX - startX)));
+		startGuardedDrag(e, {
+			cursor: 'col-resize',
+			onCancel: () => { col.style.width = `${Math.round(startWidth)}px`; },
+			onMove: (ev) => {
+			const next = Math.min(460, Math.max(160, startWidth + (ev.clientX - startX)));
 			col.style.width = `${Math.round(next)}px`;
-		};
-		const onUp = (ev: PointerEvent): void => {
-			handle.releasePointerCapture(ev.pointerId);
-			handle.removeEventListener('pointermove', onMove);
-			handle.removeEventListener('pointerup', onUp);
-			const finalWidth = Math.round(Math.min(460, Math.max(200, startWidth + (ev.clientX - startX))));
+			},
+			onUp: (ev) => {
+				const finalWidth = Math.round(Math.min(460, Math.max(160, startWidth + (ev.clientX - startX))));
 			col.dispatchEvent(new CustomEvent('dashboard-pipeline-col-width', {
 				detail: { columnName, stageValue: stage.value, width: finalWidth },
 				bubbles: true,
 			}));
-		};
-		handle.addEventListener('pointermove', onMove);
-		handle.addEventListener('pointerup', onUp);
+			},
+		});
 	});
 }
 
@@ -632,7 +633,7 @@ function renderPipelineCard(
 			// ever arriving to clean them up).
 			e.stopImmediatePropagation();
 		}, true);
-		attachCardDrag(card, item);
+		attachCardDrag(card, item, stage);
 	}
 	return card;
 }
@@ -789,12 +790,13 @@ function attachSkillButtonReorder(
 
 /** Make a card draggable (desktop). Tags the drag with the shared custom MIME
  *  type so foreign drop targets (dnd.ts) recognize and decline it. */
-function attachCardDrag(card: HTMLElement, item: PipelineItem): void {
+function attachCardDrag(card: HTMLElement, item: PipelineItem, stage: PipelineStage): void {
 	card.setAttribute('draggable', 'true');
 	card.title = t('pipeline.dragHint');
 	card.addEventListener('dragstart', (e) => {
 		dragState.file = item.file;
 		dragState.cardEl = card;
+		dragState.stageValue = stage.value;
 		card.addClass('dashboard-pipeline-card--dragging');
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
@@ -806,17 +808,26 @@ function attachCardDrag(card: HTMLElement, item: PipelineItem): void {
 	card.addEventListener('dragend', () => {
 		dragState.file = null;
 		dragState.cardEl = null;
+		dragState.stageValue = null;
 		card.removeClass('dashboard-pipeline-card--dragging');
 		activeDocument.querySelectorAll('.dashboard-pipeline-col--drag-over')
 			.forEach(el => (el as HTMLElement).removeClass('dashboard-pipeline-col--drag-over'));
+		clearPipelineDropPosition(activeDocument);
 	});
+}
+
+/** Remove the insertion cue painted while a manual-order card is dragged. */
+function clearPipelineDropPosition(root: ParentNode): void {
+	for (const cls of ['dashboard-pipeline-card--drop-above', 'dashboard-pipeline-card--drop-below']) {
+		root.querySelectorAll(`.${cls}`).forEach(el => (el as HTMLElement).removeClass(cls));
+	}
 }
 
 /** Wire one column as a drop target (desktop). `stage` null marks the unfiled
  *  column, which declines drops. Drags lacking the kanban marker pass
  *  through untouched so section grips and OS file drops keep dnd.ts
  *  behavior. */
-function attachColumnDrop(col: HTMLElement, stage: PipelineStage, cfg: PipelineConfig, app: App): void {
+function attachColumnDrop(col: HTMLElement, cardsHost: HTMLElement, stage: PipelineStage, cfg: PipelineConfig, app: App, columnName: string, items: PipelineItem[]): void {
 	col.addEventListener('dragover', (e) => {
 		if (!e.dataTransfer || !e.dataTransfer.types.includes(KANBAN_FILE_DRAG_TYPE)) return;
 		// Claim the event so the enclosing section row in dnd.ts doesn't
@@ -825,11 +836,22 @@ function attachColumnDrop(col: HTMLElement, stage: PipelineStage, cfg: PipelineC
 		e.stopPropagation();
 		e.dataTransfer.dropEffect = 'move';
 		col.addClass('dashboard-pipeline-col--drag-over');
+		if (cfg.sortBy === 'manual' && dragState.cardEl && dragState.stageValue === stage.value) {
+			const target = (e.target as HTMLElement | null)?.closest?.('.dashboard-pipeline-card') as HTMLElement | null;
+			if (target && target !== dragState.cardEl && cardsHost.contains(target)) {
+				const rect = target.getBoundingClientRect();
+				const before = e.clientY < rect.top + rect.height / 2;
+				clearPipelineDropPosition(cardsHost);
+				target.addClass(before ? 'dashboard-pipeline-card--drop-above' : 'dashboard-pipeline-card--drop-below');
+				cardsHost.insertBefore(dragState.cardEl, before ? target : target.nextSibling);
+			}
+		}
 	});
 	col.addEventListener('dragleave', (e) => {
 		const rect = col.getBoundingClientRect();
 		if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
 			col.removeClass('dashboard-pipeline-col--drag-over');
+			clearPipelineDropPosition(cardsHost);
 		}
 	});
 	col.addEventListener('drop', (e) => {
@@ -837,6 +859,15 @@ function attachColumnDrop(col: HTMLElement, stage: PipelineStage, cfg: PipelineC
 		e.preventDefault();
 		e.stopPropagation();
 		col.removeClass('dashboard-pipeline-col--drag-over');
+		clearPipelineDropPosition(cardsHost);
+		if (cfg.sortBy === 'manual' && dragState.file && dragState.stageValue === stage.value) {
+			const visible = Array.from(cardsHost.querySelectorAll(':scope > .dashboard-pipeline-card')) as HTMLElement[];
+			const visiblePaths = visible.map(card => card.dataset.path || '').filter(Boolean);
+			const visibleSet = new Set(visiblePaths);
+			const orderedPaths = [...visiblePaths, ...items.map(item => item.file.path).filter(path => !visibleSet.has(path))];
+			col.dispatchEvent(new CustomEvent('dashboard-pipeline-manual-order', { detail: { columnName, stageValue: stage.value, orderedPaths }, bubbles: true }));
+			return;
+		}
 		void movePipelineItem(app, dragState.file, stage, cfg, dragState.cardEl, col);
 	});
 }
@@ -946,7 +977,8 @@ export function dispatchSkill(
 				const prompt = buildAgentPrompt(spec, { ...vars, input: '' }, skill.agent);
 				const adapter = getAgentAdapter(skill.agent);
 				await adapter.send(app, prompt);
-				if (adapter.kind === 'deep-link') new Notice(t('agent.openedPrefill'));
+				if (adapter.kind === 'deep-link') new Notice(t('agent.openedPrefill', { agent: adapter.label }));
+				if (adapter.kind === 'clipboard-app') new Notice(t('agent.openedClipboard', { agent: adapter.label }));
 			} catch (error) {
 				if (error instanceof ClaudianBridgeError) new Notice(t(`agent.error.${error.code}`, { agent: getAgentAdapter(skill.agent).label }));
 				else new Notice(t('agent.sendFailed', { agent: getAgentAdapter(skill.agent).label, message: error instanceof Error ? error.message : String(error) }));

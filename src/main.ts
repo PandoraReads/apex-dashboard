@@ -1,3 +1,4 @@
+import { registerGanttFeatures } from './pm-gantt-plugin';
 import { Notice, Platform, Plugin, TAbstractFile, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
 import { normalizeTransition } from './album-widget';
@@ -13,8 +14,8 @@ import { ThemeStudioModal } from './theme-studio-modal';
  *  announcement pops only when the user's stored version differs from this —
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
- *  shipped with 2.5.1. */
-const ANNOUNCE_VERSION = '3.8.0';
+ *  shipped with 3.8.9. */
+const ANNOUNCE_VERSION = '3.8.9';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
@@ -122,6 +123,7 @@ export default class DashboardPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
+			registerGanttFeatures(this);
 
 			this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
 

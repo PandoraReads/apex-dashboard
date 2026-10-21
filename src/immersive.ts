@@ -204,6 +204,19 @@ const GROW_THRESHOLD_PX = 80;
  *  compare-before-write: touching a style attribute with the same value is
  *  still a mutation observers can see. */
 export function refitImmersiveGrid(grid: HTMLElement, items: readonly GridItem[], force = false): PackedItem[] {
+	if (grid.dataset.layoutLocked === 'true') {
+		const packed = planImmersive(items);
+		layoutImmersiveGrid(grid, items, packed);
+		for (const child of Array.from(grid.children)) {
+			const tile = child as HTMLElement;
+			const item = packed.find(p => p.id === tile.dataset.immId);
+			if (item) {
+				const height = `${rowsToPx(item.h)}px`;
+				tile.style.height = height; tile.style.minHeight = height; tile.style.maxHeight = height;
+			}
+		}
+		return packed;
+	}
 	// Walk in ITEMS order (the saved arrangement), not DOM order — the packer
 	// must see the user's order even right after a mount whose DOM order
 	// differs (sections render before widgets).
@@ -407,11 +420,13 @@ export function renderImmersiveRoot(opts: {
 	 *  defaults to the render snapshot. */
 	getItems?: () => readonly GridItem[];
 	onEditBanner: () => void;
+	onToggleEditing?: () => void;
 	registerCleanup: (fn: () => void) => void;
 }): ImmersiveRenderResult {
 	const { container, data, settings, app, callbacks } = opts;
 
 	const imm = container.createDiv({ cls: 'dashboard-imm' });
+	imm.toggleClass('dashboard-imm--locked', data.immersiveEditable === false);
 
 	// --- Background layer: the banner poster, full-bleed ----------------------
 	const bg = imm.createDiv({ cls: 'dashboard-imm-bg' });
@@ -548,12 +563,31 @@ export function renderImmersiveRoot(opts: {
 	const { items } = normalizeImmersive(data.immersive, presentIds, defaultSizeOf);
 	// Content-fit: measure → cap → pack → place (replaces the fixed-span pass;
 	// saved h values are height CAPS, the content decides the real size).
+	grid.dataset.layoutLocked = data.immersiveEditable === false ? 'true' : 'false';
 	refitImmersiveGrid(grid, items, true);
 	observeImmersiveGrid(grid, () => refitImmersiveGrid(grid, opts.getItems?.() ?? items), opts.registerCleanup);
 
 	// --- Corner controls: switcher keeps its banner spot, wand goes right ------
 	renderWorkspaceSwitcher(imm, opts.plugin);
-	const wand = createBannerEditButton(imm, opts.onEditBanner);
+	let wand: HTMLButtonElement;
+	const setEditingState = (editing: boolean): void => {
+		setIcon(wand, editing ? 'lock-keyhole' : 'layout-dashboard');
+		const label = t(editing ? 'gantt.lockLayout' : 'gantt.editLayout');
+		wand.setAttribute('title', label);
+		wand.setAttribute('aria-label', label);
+		wand.setAttribute('aria-pressed', String(editing));
+		wand.toggleClass('active', editing);
+	};
+	wand = createBannerEditButton(imm, () => {
+		const editing = wand.getAttribute('aria-pressed') !== 'true';
+		setEditingState(editing);
+		opts.onToggleEditing?.();
+	});
+	setEditingState(data.immersiveEditable !== false);
+	wand.addEventListener('contextmenu', e => {
+		e.preventDefault();
+		new Menu().addItem(item => item.setTitle(t('gantt.background')).setIcon('image').onClick(opts.onEditBanner)).showAtMouseEvent(e);
+	});
 	wand.addClass('dashboard-imm-edit-btn');
 
 	return { grid, items, widgetEls };
@@ -722,7 +756,7 @@ export function setupImmersiveDnD(
 	};
 
 	const onPointerDown = (e: PointerEvent): void => {
-		if (e.button !== 0) return;
+		if (e.button !== 0 || grid.dataset.layoutLocked === 'true') return;
 		const target = e.target as HTMLElement | null;
 		if (!target) return;
 		if (target.closest(DRAG_BLOCKED)) return;
@@ -958,6 +992,7 @@ export function attachImmersiveResizeHandle(
 	if (!grid) return;
 
 	const startResize = (e: PointerEvent, axis: 'x' | 'y' | 'xy'): void => {
+		if (grid.dataset.layoutLocked === 'true') return;
 		e.preventDefault();
 		e.stopPropagation();
 		if (!tile.isConnected || !grid.isConnected) return;
@@ -1166,6 +1201,7 @@ export function setupImmersiveTileMenu(
 	cleanupFns: Array<() => void>,
 ): void {
 	const handler = (e: MouseEvent) => {
+		if (grid.dataset.layoutLocked === 'true') return;
 		const target = e.target as HTMLElement | null;
 		const tile = target?.closest('[data-imm-id]') as HTMLElement | null;
 		if (!tile || !tile.dataset.immId) return;
@@ -1199,6 +1235,7 @@ export function attachImmersiveWidgetDelete(tile: HTMLElement, onRemove: (itemId
 	btn.addEventListener('pointerdown', e => e.stopPropagation());
 	btn.addEventListener('click', e => {
 		e.stopPropagation();
+		if (tile.closest('[data-layout-locked="true"]')) return;
 		const id = tile.dataset.immId;
 		if (id) onRemove(id);
 	});

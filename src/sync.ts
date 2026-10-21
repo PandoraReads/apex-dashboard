@@ -563,6 +563,12 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async updateImmersiveEditing(editable: boolean, items: import('./types').ImmersiveItem[]): Promise<void> {
+		if (!this.data) return;
+		this.data = { ...this.data, immersiveEditable: editable, immersive: items };
+		await this.writeToDisk();
+	}
+
 	async updatePmConfig(columnName: string, config: import('./types').PmConfig): Promise<void> {
 		if (!this.data) return;
 
@@ -1039,6 +1045,10 @@ export class SyncEngine {
 				...card,
 				coverImage: replace(card.coverImage),
 			})),
+			...(col.pipelineConfig?.stageOrder ? { pipelineConfig: {
+				...col.pipelineConfig,
+				stageOrder: Object.fromEntries(Object.entries(col.pipelineConfig.stageOrder).map(([stage, paths]) => [stage, paths.map(replace)])),
+			} } : {}),
 		}));
 
 		if (!changed) return;

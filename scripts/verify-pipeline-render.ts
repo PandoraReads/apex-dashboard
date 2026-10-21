@@ -91,6 +91,7 @@ async function main(): Promise<void> {
 	assert.deepEqual(titles.sort(), ['草稿', '选题']);
 	const counts = findByClass(host, 'dashboard-pipeline-col-count').map(el => el.textContent);
 	assert.deepEqual(counts.sort(), ['1', '1']);
+	assert.equal(findByClass(host, 'dashboard-pipeline-col-collapse').length, 0, 'stage columns do not have collapse controls');
 
 	// One ghost "add card" button per column (list bottom).
 	assert.equal(findByClass(host, 'dashboard-pipeline-col-add').length, 2, 'add-card at every column bottom');
@@ -106,6 +107,46 @@ async function main(): Promise<void> {
 	assert.equal(findByClass(host, 'dashboard-pipeline-todo-toggle').length, 2, 'checklist toggle per card');
 	assert.equal(findByClass(host, 'dashboard-pipeline-archive-btn').length, 2, 'archive button per card');
 	assert.ok(cards.every(c => c.getAttribute('draggable') === 'true'), 'cards draggable on desktop');
+	const resized: Array<{ stageValue: string; width: number }> = [];
+	host.addEventListener('dashboard-pipeline-col-width', (event: { detail: { stageValue: string; width: number } }) => resized.push(event.detail));
+	const resizeHandle = findByClass(cols[1]!, 'dashboard-pipeline-col-resize')[0]!;
+	const pointerDocument = { body: host, addEventListener: () => {}, removeEventListener: () => {} };
+	resizeHandle.dispatchEvent({ type: 'pointerdown', button: 0, clientX: 0, pointerId: 1, view: { document: pointerDocument } });
+	const resizeShield = findByClass(host, 'dashboard-drag-shield')[0]!;
+	resizeShield.dispatchEvent({ type: 'pointermove', clientX: 300, pointerId: 1 });
+	resizeShield.dispatchEvent({ type: 'pointerup', clientX: 300, pointerId: 1 });
+	assert.equal(cols[1]!.style.width, '300px', 'column width tracks pointer movement');
+	assert.equal(resized[0]?.width, 300, 'column width is emitted for persistence');
+	const shrinkHandle = findByClass(cols[0]!, 'dashboard-pipeline-col-resize')[0]!;
+	shrinkHandle.dispatchEvent({ type: 'pointerdown', button: 0, clientX: 200, pointerId: 2, view: { document: pointerDocument } });
+	findByClass(host, 'dashboard-drag-shield')[0]!.dispatchEvent({ type: 'pointermove', clientX: 145, pointerId: 2 });
+	findByClass(host, 'dashboard-drag-shield')[0]!.dispatchEvent({ type: 'pointerup', clientX: 145, pointerId: 2 });
+	assert.equal(resized[1]?.width, 160, 'column can shrink to the lower width limit');
+
+	const manualItems = [
+		{ file: fakeFile('内容创作/a.md', 10), fm: { status: 'idea' } },
+		{ file: fakeFile('内容创作/b.md', 20), fm: { status: 'idea' } },
+		{ file: fakeFile('内容创作/c.md', 30), fm: { status: 'idea' } },
+	];
+	const manualHost = new El('div');
+	const manualConfig: PipelineConfig = { ...config, sortBy: 'manual', stageOrder: { idea: ['内容创作/b.md', '内容创作/a.md'] } };
+	const manualApp = makeApp(manualItems);
+	const savedOrders: string[][] = [];
+	manualHost.addEventListener('dashboard-pipeline-manual-order', (event: { detail: { orderedPaths: string[] } }) => savedOrders.push(event.detail.orderedPaths));
+	renderPipelineSection(manualHost as unknown as HTMLElement, pipelineColumn(manualConfig), manualApp, callbacks, null);
+	const ideaCol = findByClass(manualHost, 'dashboard-pipeline-col').find(col => col.dataset.stage === 'idea')!;
+	const cardsHost = findByClass(ideaCol, 'dashboard-pipeline-cards')[0]!;
+	const orderBefore = Array.from(cardsHost.children).map(card => card.dataset.path);
+	assert.deepEqual(orderBefore, ['内容创作/b.md', '内容创作/a.md', '内容创作/c.md'], 'manual sort restores saved card order and appends new cards');
+	const dragCard = Array.from(cardsHost.children).find(card => card.dataset.path === '内容创作/c.md')!;
+	const firstCard = cardsHost.children[0]!;
+	const transfer = { types: ['application/x-apex-libcard'], effectAllowed: '', dropEffect: '', setData: () => {} };
+	dragCard.dispatchEvent({ type: 'dragstart', target: dragCard, dataTransfer: transfer });
+	firstCard.dispatchEvent({ type: 'dragover', target: firstCard, dataTransfer: transfer, clientY: -1, clientX: 0 });
+	assert.ok(firstCard.hasClass('dashboard-pipeline-card--drop-above'), 'manual reorder shows the insertion position above the hovered card');
+	ideaCol.dispatchEvent({ type: 'drop', target: ideaCol, dataTransfer: transfer });
+	assert.ok(!firstCard.hasClass('dashboard-pipeline-card--drop-above'), 'insertion cue clears after drop');
+	assert.deepEqual(savedOrders[0], ['内容创作/c.md', '内容创作/b.md', '内容创作/a.md'], 'manual drag emits the new in-column order for persistence');
 	const cardTitles = cards.map(c => c.textContent);
 	assert.ok(cardTitles.some(t => t.includes('对标拆解')), 'idea card rendered');
 	assert.ok(!cardTitles.some(t => t.includes('随笔')), 'statusless note not rendered');
@@ -187,7 +228,7 @@ async function main(): Promise<void> {
 
 	// Blank card click: the old accidental-open path is gone.
 	gCard.dispatchEvent({ type: 'click', target: gCard });
-	await settle(360);
+	await settle(800);
 	assert.equal(opened.length, 0, 'blank card click never opens the note');
 
 	// Double click on the title: rename claims the gesture, no open fires.
@@ -196,13 +237,13 @@ async function main(): Promise<void> {
 	const gEdit = findTag(gTitle, 'input')[0] as (El & { value: string }) | undefined;
 	assert.ok(gEdit, 'double click still starts the inline rename');
 	gEdit!.dispatchEvent({ type: 'keydown', key: 'Escape', target: gEdit! });
-	await settle(360);
+	await settle(800);
 	assert.equal(opened.length, 0, 'double click renames instead of opening');
 
 	// Single click on the title: opens once the delay grants the gesture.
 	gTitle.dispatchEvent({ type: 'click', target: gTitle, detail: 1 });
 	assert.equal(opened.length, 0, 'single click does not open synchronously');
-	await settle(360);
+	await settle(800);
 	assert.deepEqual(opened, ['内容创作/01-选题/对标拆解.md'], 'single click opens the note after the delay');
 
 	// Custom filter dimensions: config picks 栏目 → the rail lists its values
