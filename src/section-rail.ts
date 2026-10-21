@@ -143,7 +143,7 @@ export function renderSectionRail(
 			updateActive();
 		};
 		// rAF-coalesced in the app; direct in Node (verify scripts).
-		if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+		if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
 		else run();
 	};
 	host.addEventListener('scroll', scheduleUpdate, { capture: true, passive: true });

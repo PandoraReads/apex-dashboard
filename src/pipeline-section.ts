@@ -7,7 +7,6 @@ import { AgentPromptModal } from './agent-prompt-modal';
 import { buildAgentPrompt, ClaudianBridgeError, getAgentAdapter } from './agent-dispatch';
 import {
 	cardChips,
-	chipColorFor,
 	skillColorFor,
 	cardSkillVars,
 	collectPipelineItems,
@@ -413,7 +412,7 @@ async function renameWithVerify(app: App, file: TFile, newPath: string): Promise
 	const landed = (): boolean => file.path === newPath || !!app.vault.getAbstractFileByPath(newPath);
 	await app.fileManager.renameFile(file, newPath);
 	if (landed()) return true;
-	await new Promise(resolve => setTimeout(resolve, 300));
+	await new Promise(resolve => window.setTimeout(resolve, 300));
 	if (file.path !== newPath) await app.fileManager.renameFile(file, newPath);
 	return landed();
 }
@@ -877,7 +876,7 @@ function attachColumnDrop(col: HTMLElement, cardsHost: HTMLElement, stage: Pipel
 		col.removeClass('dashboard-pipeline-col--drag-over');
 		clearPipelineDropPosition(cardsHost);
 		if (cfg.sortBy === 'manual' && dragState.file && dragState.cardsHost === cardsHost && dragState.stageValue === stage.value) {
-			const visible = Array.from(cardsHost.querySelectorAll(':scope > .dashboard-pipeline-card')) as HTMLElement[];
+			const visible = Array.from(cardsHost.querySelectorAll<HTMLElement>(':scope > .dashboard-pipeline-card'));
 			const visiblePaths = visible.map(card => card.dataset.path || '').filter(Boolean);
 			const visibleSet = new Set(visiblePaths);
 			const orderedPaths = [...visiblePaths, ...items.map(item => item.file.path).filter(path => !visibleSet.has(path))];
@@ -918,7 +917,9 @@ async function movePipelineItem(
 	targetCol: HTMLElement,
 ): Promise<void> {
 	const cached: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.[cfg.statusField];
-	const sameStage = String(cached ?? '').trim().toLowerCase() === stage.value.trim().toLowerCase();
+	const cachedStatus = typeof cached === 'string' ? cached
+		: Array.isArray(cached) && cached.every(value => typeof value === 'string') ? cached.join(',') : '';
+	const sameStage = cachedStatus.trim().toLowerCase() === stage.value.trim().toLowerCase();
 	const folder = stageFolderPath(cfg, stage);
 	const newPath = folder ? `${folder}/${file.name}` : file.path;
 	if (sameStage && file.path === newPath) return;

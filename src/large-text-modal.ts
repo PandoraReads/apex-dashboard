@@ -54,7 +54,7 @@ export class LargeTextModal extends Modal {
 			attr: { type: 'button' },
 		}).addEventListener('click', () => this.close());
 		// Focus the text so reading/editing starts without an extra click.
-		setTimeout(() => area.focus(), 50);
+		window.setTimeout(() => area.focus(), 50);
 	}
 
 	onClose(): void {

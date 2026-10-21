@@ -40,6 +40,8 @@ export interface SkillStoreDef {
 	agent?: AgentTarget;
 }
 
+type DesktopRequire = (name: string) => unknown;
+
 /** The three agent home skill directories ('~' resolved at scan time). */
 export const HOME_SKILL_STORES: readonly SkillStoreDef[] = [
 	{ id: 'claude', label: 'Claude', dir: '~/.claude/skills', agent: 'claudian' },
@@ -161,7 +163,7 @@ export const SKILL_HEAD_BYTES = 4096;
  *  renderer forbids require — callers degrade to the cached snapshot. */
 export function desktopSkillFs(): SkillFs | undefined {
 	if (!Platform.isDesktop) return undefined;
-	const nodeRequire = (window as { require?: NodeRequire }).require ?? (window as unknown as { require?: NodeRequire }).require;
+	const nodeRequire = (window as unknown as { require?: DesktopRequire }).require;
 	if (!nodeRequire) return undefined;
 	try {
 		const fs = nodeRequire('fs') as typeof import('fs');
@@ -483,6 +485,8 @@ function skillShell(): SkillShell | undefined {
 type ElectronDialog = {
 	showOpenDialog?: (options: { properties: string[] }) => Promise<{ canceled: boolean; filePaths: string[] }>;
 };
+type ElectronDialogModule = { dialog?: ElectronDialog };
+type ElectronModule = { remote?: ElectronDialogModule };
 
 /** Open the native folder picker (Electron dialog) and return the chosen
  *  absolute path, or undefined on cancel/unavailable. Desktop-only; used by
@@ -491,15 +495,14 @@ type ElectronDialog = {
 export async function pickFolderPath(): Promise<string | undefined> {
 	if (!Platform.isDesktop) return undefined;
 	try {
-		const nodeRequire = (window as { require?: NodeRequire }).require
-			?? (window as unknown as { require?: NodeRequire }).require;
+		const nodeRequire = (window as unknown as { require?: DesktopRequire }).require;
 		if (!nodeRequire) return undefined;
 		let dialog: ElectronDialog | undefined;
 		try {
-			dialog = nodeRequire('@electron/remote').dialog as ElectronDialog | undefined;
+			dialog = (nodeRequire('@electron/remote') as ElectronDialogModule).dialog;
 		} catch {
 			try {
-				dialog = nodeRequire('electron').remote?.dialog as ElectronDialog | undefined;
+				dialog = (nodeRequire('electron') as ElectronModule).remote?.dialog;
 			} catch {
 				// neither @electron/remote nor electron.remote available
 			}

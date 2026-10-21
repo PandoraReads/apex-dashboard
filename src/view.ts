@@ -541,7 +541,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				onEditBanner: () => this.openBannerEditModal(data),
 				onToggleEditing: () => {
 					const grid = container.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
-					const rects = grid ? stampedRects(grid) : new Map();
+					const rects = grid ? stampedRects(grid) : new Map<string, { x: number; y: number; w: number; h: number }>();
 					const items = this.immItems.map(item => ({ ...item, ...(rects.get(item.id) ?? {}) }));
 					void this.sync.updateImmersiveEditing(this.data?.immersiveEditable === false, items);
 				},
