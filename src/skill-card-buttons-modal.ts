@@ -21,6 +21,7 @@ const AGENT_ICON: Record<string, string> = {
 	claudian: 'bot',
 	codex: 'terminal',
 	workbuddy: 'message-circle',
+	grokbot: 'bot',
 };
 
 export function agentButtonIcon(agent: string, override?: string): string {

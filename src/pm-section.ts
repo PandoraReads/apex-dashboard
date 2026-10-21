@@ -1,3 +1,4 @@
+import { renderPmGantt } from './pm-gantt-section';
 import { App, Notice, setIcon } from 'obsidian';
 import type { DashboardColumn } from './types';
 import { t } from './i18n';
@@ -54,7 +55,7 @@ export function renderPmSection(
 	// through dashboard-pm-prefs (view.ts → sync.updatePmConfig).
 	let stageFilter = '';
 	let lastProjects: readonly PmProject[] = [];
-	const savePrefs = (prefs: { sortMode?: 'name' | 'milestone' | 'keyDate' | undefined; groupView?: 'blocks' | 'kanban' | undefined }): void => {
+	const savePrefs = (prefs: Partial<NonNullable<DashboardColumn['pmConfig']>>): void => {
 		el.dispatchEvent(new CustomEvent('dashboard-pm-prefs', {
 			detail: { columnName: column.name, prefs },
 			bubbles: true,
@@ -86,11 +87,30 @@ export function renderPmSection(
 		// pills/checkmarks track the live filter (the stale-snapshot bug:
 		// picking 全部 back never fired once the captured key matched).
 		const toolbar = content.createDiv({ cls: 'dashboard-pmsec-toolbar' });
-		const countPill = toolbar.createDiv({ cls: 'dashboard-pmsec-count', text: t('pm.projectCount', { count: lastProjects.length }) });
+		const addViewButtons = (host: HTMLElement): void => {
+			const group = host.createDiv({ cls: 'dashboard-pmsec-view-modes' });
+			for (const mode of ['cards', 'gantt'] as const) {
+				const button = group.createEl('button', { cls: `dashboard-library-view-btn${(cfg.viewMode || 'cards') === mode ? ' active' : ''}`, text: t(mode === 'gantt' ? 'gantt.title' : 'gantt.cards'), attr: { 'aria-pressed': String((cfg.viewMode || 'cards') === mode) } });
+				button.addEventListener('click', () => savePrefs({ viewMode: mode }));
+			}
+		};
 		const stageItems: ToolbarDropdownItem[] = [
 			{ key: '', label: t('pm.filterAllStages'), icon: 'filter' },
 			...cfg.stages.map((stage): ToolbarDropdownItem => ({ key: `stage:${stage.label}`, label: stage.label, icon: 'circle-dot' })),
 		];
+		if (cfg.viewMode === 'gantt') {
+			toolbar.addClass('dashboard-pmsec-toolbar--gantt');
+			renderPmGantt(content, toolbar, app, lastProjects, cfg, savePrefs);
+			toolbar.createDiv({ cls: 'dashboard-pmsec-count', text: t('pm.projectCount', { count: lastProjects.length }) });
+			createToolbarDropdown(toolbar, stageFilter, stageItems, key => {
+				stageFilter = key;
+				render();
+			});
+			addViewButtons(toolbar);
+			return;
+		}
+		addViewButtons(toolbar);
+		const countPill = toolbar.createDiv({ cls: 'dashboard-pmsec-count', text: t('pm.projectCount', { count: lastProjects.length }) });
 		createToolbarDropdown(toolbar, stageFilter, stageItems, key => {
 			stageFilter = key;
 			render();

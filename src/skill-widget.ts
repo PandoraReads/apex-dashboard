@@ -16,6 +16,10 @@ export function fireSkillDirect(app: App, spec: { label: string; skillName: stri
 	}
 	void (async () => {
 		const outcome = await sendPromptWithTimeout(app, agent, prompt);
+		if (outcome === 'sent' && getAgentAdapter(agent).kind === 'clipboard-app') {
+			new Notice(t('agent.openedClipboard', { agent: getAgentAdapter(agent).label }));
+			return;
+		}
 		// 'timeout' stays silent — the in-app bridge resolves when the agent
 		// turn ends, not on accept (see AgentPromptModal's send handler).
 		if (outcome !== 'sent' && outcome !== 'timeout') {

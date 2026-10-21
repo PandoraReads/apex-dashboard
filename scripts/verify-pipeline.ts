@@ -156,7 +156,7 @@ function main(): void {
 	].join('\n');
 	const tasks = parseTasks(noteBody);
 	assert.equal(tasks.length, 3);
-	assert.deepEqual(tasks[0], { line: 1, text: '写初稿', checked: false, due: '2026-10-08 14:00' });
+	assert.deepEqual(tasks[0], { line: 1, text: '写初稿', checked: false, due: '2026-10-08 14:00', deadline: '2026-10-08 14:00' });
 	assert.equal(tasks[1]!.checked, true);
 	assert.equal(tasks[2]!.line, 4);
 	assert.ok(toggleTaskLine(noteBody, 1).split('\n')[1]!.includes('- [x]'));
@@ -179,6 +179,8 @@ function main(): void {
 	assert.deepEqual(sortStageItems([s1, s2, s3, s4], undefined).map(i => i.file.basename), ['b', 'c', 'a', 'd'], 'default mtime desc');
 	assert.deepEqual(sortStageItems([s1, s2, s3, s4], 'ctime').map(i => i.file.basename), ['c', 'd', 'b', 'a'], 'ctime desc');
 	assert.deepEqual(sortStageItems([s1, s2, s3, s4], 'platform').map(i => i.file.basename), ['c', 'b', 'a', 'd'], 'platform: grouped (bilibili < wechat), newest inside, blanks last');
+	assert.deepEqual(sortStageItems([s1, s2, s3, s4], 'name').map(i => i.file.basename), ['a', 'b', 'c', 'd'], 'filename sort uses ascending natural name order');
+	assert.deepEqual(sortStageItems([s1, s2, s3, s4], 'manual', ['d.md', 'b.md']).map(i => i.file.basename), ['d', 'b', 'c', 'a'], 'manual order preserves saved paths and appends new cards');
 
 	// --- Project dimension reads any alias (项目 / project / 相关项目). ---
 	const aliasItems: PipelineItem[] = [
@@ -276,6 +278,7 @@ function main(): void {
 					boardStyle: 'trello' as const,
 					archiveFolder: '内容创作/99-归档',
 					sortBy: 'ctime' as const,
+					stageOrder: { idea: ['内容创作/01-选题/a.md', '内容创作/01-选题/b.md'] },
 					filter: { dim: 'platform', value: '公众号' } as { dim: string; value: string },
 					filterFields: ['平台', '栏目'] as string[],
 					skills: [{
@@ -315,6 +318,7 @@ function main(): void {
 	assert.equal(parse(blushMd).columns[0]!.pipelineConfig?.boardStyle, 'blush', 'blush round-trips');
 	assert.equal(col.pipelineConfig?.archiveFolder, '内容创作/99-归档');
 	assert.equal(col.pipelineConfig?.sortBy, 'ctime');
+	assert.deepEqual(col.pipelineConfig?.stageOrder, { idea: ['内容创作/01-选题/a.md', '内容创作/01-选题/b.md'] });
 	assert.deepEqual(col.pipelineConfig?.filter, { dim: 'platform', value: '公众号' });
 	assert.deepEqual(col.pipelineConfig?.filterFields, ['平台', '栏目']);
 	// Idempotent: re-serializing the parsed data is byte-identical.

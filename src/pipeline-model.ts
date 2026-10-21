@@ -66,9 +66,14 @@ export function railValueColors(index: number, total: number): RailValueColors {
 	return { bg, ink };
 }
 
-export function sortStageItems(items: PipelineItem[], sortBy: 'ctime' | 'platform' | undefined): PipelineItem[] {
+export function sortStageItems(items: PipelineItem[], sortBy: 'ctime' | 'platform' | 'name' | 'manual' | undefined, savedOrder: readonly string[] = []): PipelineItem[] {
 	const byMtime = (a: PipelineItem, b: PipelineItem) => b.file.stat.mtime - a.file.stat.mtime;
-	if (sortBy === 'ctime') {
+	if (sortBy === 'manual') {
+		const order = new Map(savedOrder.map((path, index) => [path, index]));
+		items.sort((a, b) => (order.get(a.file.path) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.file.path) ?? Number.MAX_SAFE_INTEGER) || byMtime(a, b));
+	} else if (sortBy === 'name') {
+		items.sort((a, b) => a.file.basename.localeCompare(b.file.basename, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' }) || a.file.path.localeCompare(b.file.path, 'zh-Hans-CN'));
+	} else if (sortBy === 'ctime') {
 		items.sort((a, b) => b.file.stat.ctime - a.file.stat.ctime);
 	} else if (sortBy === 'platform') {
 		const platformOf = (item: PipelineItem): string => String(item.frontmatter['platform'] ?? '').trim();
@@ -174,7 +179,7 @@ export function collectPipelineItems(app: App, config: PipelineConfig): Pipeline
 		const stage = resolvePipelineStage(config.stages, frontmatter[config.statusField]);
 		if (stage) byStage.get(stage.value)!.push({ file, stage, frontmatter });
 	}
-	for (const list of byStage.values()) sortStageItems(list, config.sortBy);
+	for (const [stage, list] of byStage) sortStageItems(list, config.sortBy, config.stageOrder?.[stage]);
 	return { byStage };
 }
 
@@ -353,24 +358,41 @@ export interface PipelineTask {
 	/** `YYYY-MM-DD( HH:MM)` from an inline [due:: …] marker, when present —
 	 *  calendar-visible by the existing task-scan conventions. */
 	due?: string;
+	deadline?: string;
+	start?: string;
+	end?: string;
+	scheduled?: string;
+	id?: string;
 }
 
 const TASK_LINE_RE = /^(\s*)- \[( |x|X)\] (.*)$/;
 /** Inline time markers a task line may carry — due/scheduled/start all make
  *  the todo calendar-visible (calendar-task-insert); the chip shows the
  *  value, the marker itself is stripped from the display text. */
-const INLINE_DUE_RE = /\[(?:due|scheduled|start)::\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*\]/i;
 
 /** Parse a note's checkbox tasks (verbatim lines, markers stripped). */
 export function parseTasks(content: string): PipelineTask[] {
 	const out: PipelineTask[] = [];
 	const lines = content.split('\n');
+	let fence: string | null = null;
 	for (let i = 0; i < lines.length; i++) {
+		const marker = lines[i]!.match(/^\s*(`{3,}|~{3,})/);
+		if (marker) { if (!fence) fence = marker[1]![0]!; else if (fence === marker[1]![0]) fence = null; continue; }
+		if (fence) continue;
 		const match = lines[i]!.match(TASK_LINE_RE);
 		if (!match) continue;
-		const due = match[3]!.match(INLINE_DUE_RE)?.[1];
-		const text = match[3]!.replace(INLINE_DUE_RE, '').trim();
-		out.push({ line: i, text, checked: match[2] !== ' ', ...(due ? { due } : {}) });
+		const raw = match[3]!;
+		const field = (name: string): string | undefined => raw.match(new RegExp(`\\[${name}::\\s*(\\d{4}-\\d{2}-\\d{2}(?:\\s+\\d{2}:\\d{2})?)\\s*\\]`, 'i'))?.[1];
+		const deadline = field('due');
+		const start = field('start');
+		const end = field('end');
+		const scheduled = field('scheduled');
+		const due = deadline || scheduled || start;
+		const id = raw.match(/\s+\^([A-Za-z0-9-]+)\s*$/)?.[1];
+		const text = raw.replace(/\[(?:due|scheduled|start|end)::\s*[^\]]*\]/gi, '').replace(/\s+\^[A-Za-z0-9-]+\s*$/, '').trim();
+		out.push({ line: i, text, checked: match[2] !== ' ', ...(due ? { due } : {}),
+			...(deadline ? { deadline } : {}), ...(start ? { start } : {}), ...(end ? { end } : {}),
+			...(scheduled ? { scheduled } : {}), ...(id ? { id } : {}) });
 	}
 	return out;
 }

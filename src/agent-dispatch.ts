@@ -109,10 +109,10 @@ export function buildAgentPrompt(spec: AgentPromptSpec, vars: Record<string, str
 		throw new Error('Invalid skill name');
 	}
 	const tokens: Record<AgentTarget, string> = {
-		claudian: '$', copilot: '/', codex: '$', zcode: '$', workbuddy: '$',
+		claudian: '$', copilot: '/', codex: '$', zcode: '$', workbuddy: '$', grokbot: '$',
 	};
 	const alt: Record<AgentTarget, string> = {
-		claudian: '/', copilot: '$', codex: '/', zcode: '/', workbuddy: '/',
+		claudian: '/', copilot: '$', codex: '/', zcode: '/', workbuddy: '/', grokbot: '/',
 	};
 	const skillToken = skillName ? `${tokens[target] ?? '$'}${skillName}` : '';
 	const alternateSkillToken = skillName ? `${alt[target] ?? '/'}${skillName}` : '';
@@ -126,6 +126,8 @@ export function buildAgentPrompt(spec: AgentPromptSpec, vars: Record<string, str
 	if (alternateSkillToken) body = body.replaceAll(alternateSkillToken, skillToken);
 	body = body.trim();
 	if (skillToken && !body.includes(skillToken)) body = `${skillToken}\n\n${body}`;
+	// Grok Bot accepts ordinary draft text; avoid inventing a native skill-chip protocol.
+	if (target === 'grokbot' && skillToken) body = body.replaceAll(skillToken, `Use the skill "${skillName}".`);
 	return body;
 }
 
@@ -411,6 +413,23 @@ const workbuddyAdapter: AgentAdapter = {
 	},
 };
 
+/** Grok Bot has no verified prompt-receiving interface. Copy the complete
+ *  prompt, then open the app so the user can paste it into a new chat. */
+const grokBotAdapter: AgentAdapter = {
+	id: 'grokbot', label: 'Grok Bot', kind: 'clipboard-app',
+	isAvailable: () => typeof navigator !== 'undefined' && !!navigator.clipboard && macAppInstalled('Grok Bot'),
+	async send(_app: unknown, prompt: string): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(prompt);
+		} catch {
+			throw new AgentBridgeError('unsupported', 'Clipboard is unavailable');
+		}
+		if (!macSpawnOpen('Grok Bot')) {
+			throw new AgentBridgeError('missing', 'Could not launch Grok Bot — paste the copied prompt manually');
+		}
+	},
+};
+
 /** Registry keyed by AgentTarget. */
 const ADAPTERS: Record<AgentTarget, AgentAdapter> = {
 	claudian: claudianAdapter,
@@ -418,6 +437,7 @@ const ADAPTERS: Record<AgentTarget, AgentAdapter> = {
 	codex: codexAdapter,
 	zcode: zcodeAdapter,
 	workbuddy: workbuddyAdapter,
+	grokbot: grokBotAdapter,
 };
 
 export function getAgentAdapter(id: AgentTarget): AgentAdapter {

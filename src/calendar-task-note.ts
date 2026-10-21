@@ -17,6 +17,7 @@ export type CalendarTaskNoteResult = TaskInsertTarget & {
 function taskTitleOf(taskLine: string): string {
 	return taskLine
 		.replace(/^\s*-\s*\[[ xX]\]\s*/, '')
+		.replace(/\s+\^[A-Za-z0-9-]+\s*$/, '')
 		.replace(/\s*\[(?:start|end|due|scheduled|completion|priority)::[^\]]*\]/gi, '')
 		.replace(/\s+(?:⏰|📅|🛫|🛬|⏳|✅)\s+\d{4}-\d{2}-\d{2}.*$/u, '')
 		.trim();

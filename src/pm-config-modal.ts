@@ -27,6 +27,7 @@ export class PmConfigModal extends Modal {
 	private workNoteTemplate: string;
 	private archiveFolder: string;
 	private skills: PmSkill[];
+	private readonly initialConfig: PmConfig | undefined;
 	private readonly onSave: (config: PmConfig) => void;
 	/** Owning plugin; present in the app, absent in verification scripts —
 	 *  without it the skill-name picker button is simply omitted. */
@@ -37,6 +38,7 @@ export class PmConfigModal extends Modal {
 	constructor(app: App, config: PmConfig | undefined, onSave: (config: PmConfig) => void, plugin?: DashboardPlugin) {
 		super(app);
 		this.onSave = onSave;
+		this.initialConfig = config;
 		this.plugin = plugin ?? null;
 		const cfg = config ?? { rootFolder: '', stages: defaultPmStages(), skills: [] };
 		this.rootFolder = cfg.rootFolder ?? '';
@@ -266,6 +268,12 @@ export class PmConfigModal extends Modal {
 				skillName: skill.skillName.trim(),
 			}));
 		this.onSave({
+			...(this.initialConfig ? {
+				viewMode: this.initialConfig.viewMode, ganttScale: this.initialConfig.ganttScale, ganttFilter: this.initialConfig.ganttFilter, ganttProjectPath: this.initialConfig.ganttProjectPath,
+				ganttCollapsed: this.initialConfig.ganttCollapsed, ganttSources: this.initialConfig.ganttSources,
+				order: this.initialConfig.order, sortMode: this.initialConfig.sortMode,
+				groupView: this.initialConfig.groupView, pinned: this.initialConfig.pinned, excludeFolders: this.initialConfig.excludeFolders,
+			} : {}),
 			rootFolder: this.rootFolder.trim(),
 			stages,
 			...(this.workNoteTemplate.trim() ? { workNoteTemplate: this.workNoteTemplate.trim() } : {}),

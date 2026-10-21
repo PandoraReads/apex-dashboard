@@ -2048,7 +2048,7 @@ function scanningSectionSignature(column: DashboardColumn, app: App, mdFiles: TF
 		}
 		if (scopeRoots.length > 0) {
 			const lp = file.path.toLowerCase();
-			if (!scopeRoots.some(root => lp.startsWith(root + '/'))) continue;
+			if (!scopeRoots.some(root => lp.startsWith(root + '/')) && !(column.pmConfig?.ganttSources || []).some(ref => ref.path.toLowerCase() === lp)) continue;
 		}
 		if (isUnderExcludedFolder(file.path, excluded)) continue;
 		parts.push(`${file.path}|${file.stat.mtime}|${file.stat.ctime}`);
@@ -2759,16 +2759,18 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		// One fixed icon; the chosen mode appears as text beside it.
 		const sortMode = column.pipelineConfig?.sortBy ?? 'mtime';
 		if (sortMode !== 'mtime') {
-			const labelKey = sortMode === 'ctime' ? 'pipeline.sortCtime' : 'pipeline.sortPlatform';
+			const labelKey = sortMode === 'ctime' ? 'pipeline.sortCtime' : sortMode === 'platform' ? 'pipeline.sortPlatform' : sortMode === 'name' ? 'pipeline.sortName' : 'pipeline.sortManual';
 			sortBtn.createSpan({ cls: 'dashboard-pipeline-sort-label', text: t(labelKey) });
 		}
 		sortBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			const menu = new Menu();
-			const options: Array<{ value: 'mtime' | 'ctime' | 'platform'; label: string }> = [
+			const options: Array<{ value: 'mtime' | 'ctime' | 'platform' | 'name' | 'manual'; label: string }> = [
 				{ value: 'mtime', label: t('pipeline.sortMtime') },
 				{ value: 'ctime', label: t('pipeline.sortCtime') },
 				{ value: 'platform', label: t('pipeline.sortPlatform') },
+				{ value: 'name', label: t('pipeline.sortName') },
+				{ value: 'manual', label: t('pipeline.sortManual') },
 			];
 			const current = column.pipelineConfig?.sortBy ?? 'mtime';
 			for (const opt of options) {

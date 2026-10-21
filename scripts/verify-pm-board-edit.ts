@@ -47,6 +47,7 @@ const app = {
 	vault: {
 		read: async (): Promise<string> => content,
 		modify: async (_f: unknown, next: string): Promise<void> => { content = next; },
+		process: async (_f: unknown, transform: (body: string) => string): Promise<string> => { content = transform(content); return content; },
 		getFiles: (): Array<{ path: string }> => [],
 	},
 	metadataCache: {

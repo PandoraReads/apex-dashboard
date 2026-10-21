@@ -1013,7 +1013,7 @@ export interface RssConfig {
 }
 
 /** Agent targets a skill button can dispatch to. */
-export type AgentTarget = 'claudian' | 'copilot' | 'codex' | 'zcode' | 'workbuddy';
+export type AgentTarget = 'claudian' | 'copilot' | 'codex' | 'zcode' | 'workbuddy' | 'grokbot';
 
 /** One stage of a pipeline board. The stage's identity for grouping is the
  * frontmatter value stored in the section's status field. */
@@ -1027,7 +1027,7 @@ export interface PipelineStage {
 	/** Optional archive subfolder under the section root: a card dropped into
 	 * this stage (by drag or by an agent skill) also moves the file here. */
 	folder?: string;
-	/** Manual column width in px (200–460, drag the column's right edge).
+	/** Manual column width in px (160–460, drag either direction from the column's right edge).
 	 *  Undefined = the CSS default width. */
 	width?: number;
 }
@@ -1070,6 +1070,9 @@ export interface PipelineConfig {
 	statusField: string;
 	stages: PipelineStage[];
 	skills: PipelineSkill[];
+	/** Stage values whose card lists are folded in the board view. */
+	/** Saved per-stage file order used only while sortBy is `manual`. */
+	stageOrder?: Record<string, string[]>;
 	/** Folders (under or beside the root) whose notes never appear on the
 	 *  board — template stashes, archives. */
 	excludeFolders?: string[];
@@ -1088,7 +1091,7 @@ export interface PipelineConfig {
 	/** Within-stage card order: 'ctime' = newest-created first, 'platform' =
 	 *  grouped by the platform field then newest-touched; undefined = the
 	 *  default newest-touched (mtime) order. */
-	sortBy?: 'ctime' | 'platform';
+	sortBy?: 'ctime' | 'platform' | 'name' | 'manual';
 	/** Board skin. 'theme' (default) derives every surface from the plugin
 	 *  theme tokens; 'trello' (shown as 马卡龙) is the fixed pastel skin —
 	 *  stage-tinted columns, white cards, its own ink; 'solid' is the avocado duotone skin; 'blush' is the four-color rose set
@@ -1142,6 +1145,13 @@ export interface PmSkill {
  *  metadata on the card, the full editable "project board" in a modal. Work
  *  notes live in a per-project subfolder `<root>/<project name>/`. */
 export interface PmConfig {
+	viewMode?: 'cards' | 'gantt';
+	ganttScale?: 'day' | 'week' | 'month';
+	ganttFilter?: 'projects' | 'todos' | 'milestones' | 'all';
+	ganttProjectPath?: string;
+	ganttCollapsed?: string[];
+	ganttSources?: Array<{ path: string; chartId: string; kind?: 'project' | 'chart' }>;
+
 	/** Root folder scanned for project notes. Required: an unset root renders
 	 *  the unconfigured state instead of scanning the vault. */
 	rootFolder: string;
@@ -1305,6 +1315,7 @@ export interface DashboardData {
 	 *  workspace never used the immersive layout; defaults are derived on
 	 *  first entry and persisted on the first user drag. */
 	immersive?: ImmersiveItem[];
+	immersiveEditable?: boolean;
 	columns: DashboardColumn[];
 }
 

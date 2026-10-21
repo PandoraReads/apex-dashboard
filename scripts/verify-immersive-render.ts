@@ -20,7 +20,7 @@
 import { strict as assert } from 'node:assert';
 import { Menu, type App } from 'obsidian';
 import { El } from './mini-dom';
-import { renderImmersiveRoot, layoutImmersiveGrid, setupImmersiveDnD, immersiveWidgetCatalog, openImmersiveAddMenu } from '../src/immersive';
+import { renderImmersiveRoot, refitImmersiveGrid, layoutImmersiveGrid, setupImmersiveDnD, immersiveWidgetCatalog, openImmersiveAddMenu } from '../src/immersive';
 import { packImmersive, type ImmersiveItem as GridItem } from '../src/immersive-grid';
 import { registerHabitService } from '../src/habit-service';
 import type { DashboardColumn, DashboardData, DashboardSettings, RenderCallbacks } from '../src/types';
@@ -193,7 +193,9 @@ const run = (): void => {
 		assert.ok(grid, 'kanban grid exists inside the scroll region');
 		assert.equal(grid, result.grid as unknown as El);
 		assert.ok(imm.querySelector('.dashboard-workspace-switcher'), 'workspace switcher on the shell');
-		assert.ok(imm.querySelector('.dashboard-imm-edit-btn'), 'wand edit button on the shell');
+		const editButton = imm.querySelector('.dashboard-imm-edit-btn');
+		assert.ok(editButton, 'layout edit button on the shell');
+		assert.equal(editButton!.getAttribute('aria-label'), '锁定布局', 'editable mode advertises the lock action');
 		// No banner/sidebar pipeline in immersive.
 		assert.equal(host.querySelector('.dashboard-banner'), null, 'no banner element');
 		assert.equal(host.querySelector('.dashboard-main'), null, 'no side/stacked main layout');
@@ -457,6 +459,35 @@ const run = (): void => {
 		assert.equal(added.length, 0, '7: placeholder never fires onAddWidget');
 	}
 
+	// Locked boards retain exact saved geometry across content refreshes.
+	{
+		const { host, result } = render({ data: data({ immersiveEditable: false, immersive: [
+			{ id: 'widget:lunar', w: 6, h: 30, x: 2, y: 4 },
+		] }) });
+		const grid = result.grid as unknown as El;
+		const lunar = grid.children.find(c => c.dataset.immId === 'widget:lunar')!;
+		assert.equal(grid.dataset.layoutLocked, 'true');
+		assert.equal(lunar.style.gridColumn, '3 / span 6');
+		assert.equal(lunar.style.gridRow, '5 / span 30');
+		const before = lunar.style.height;
+		lunar.createDiv({ text: 'new content' });
+		refitImmersiveGrid(result.grid, result.items, true);
+		assert.equal(lunar.style.height, before);
+		assert.equal(lunar.style.gridRow, '5 / span 30');
+		const editButton = host.querySelector('.dashboard-imm-edit-btn')!;
+		assert.equal(editButton.getAttribute('aria-pressed'), 'false');
+		assert.equal(editButton.getAttribute('aria-label'), '编辑布局', 'locked mode advertises the edit action');
+		editButton.click();
+		assert.equal(editButton.getAttribute('aria-pressed'), 'true', 'click immediately enters edit mode');
+		assert.equal(editButton.getAttribute('aria-label'), '锁定布局', 'edit-mode action label updates immediately');
+		const localCleanups: Array<() => void> = [];
+		let commits = 0;
+		setupImmersiveDnD(result.grid, () => result.items, () => { commits++; }, localCleanups);
+		for (const type of ['pointerdown', 'pointermove', 'pointerup']) grid.dispatchEvent({ type, target: lunar, button: 0, clientX: 20, clientY: 5 });
+		assert.equal(commits, 0);
+		assert.equal(lunar.hasClass('dashboard-imm-tile--dragging'), false);
+		localCleanups.forEach(fn => fn());
+	}
 	for (const fn of cleanups.splice(0)) fn();
 	registerHabitService(null);
 };

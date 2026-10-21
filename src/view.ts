@@ -414,9 +414,12 @@ export class DashboardView extends ItemView implements HoverParent {
 		await this.sync.switchFile();
 	}
 
+	editBackground(): void { if (this.data) this.openBannerEditModal(this.data); }
+
 	addSection(): void {
 		// Same flow as the "+ 添加分区" button: pick the section type first,
 		// then name it. The plain name prompt (always a notes section) is gone.
+		if (this.isLayoutLocked()) return;
 		this.openAddSectionModalInner();
 	}
 
@@ -536,6 +539,12 @@ export class DashboardView extends ItemView implements HoverParent {
 				reuseWidgets: preserveWidgets ? this.immWidgetEls : null,
 				getItems: () => this.immItems,
 				onEditBanner: () => this.openBannerEditModal(data),
+				onToggleEditing: () => {
+					const grid = container.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
+					const rects = grid ? stampedRects(grid) : new Map();
+					const items = this.immItems.map(item => ({ ...item, ...(rects.get(item.id) ?? {}) }));
+					void this.sync.updateImmersiveEditing(this.data?.immersiveEditable === false, items);
+				},
 				registerCleanup: fn => this.cleanupFns.push(fn),
 			});
 			this.immItems = imm.items;
@@ -845,13 +854,24 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		// Pipeline card sort — native-menu pick persists and refreshes in place.
 		board.addEventListener('dashboard-pipeline-sort', ((e: CustomEvent) => {
-			const { columnName, sortBy } = e.detail as { columnName: string; sortBy?: 'ctime' | 'platform' };
+			const { columnName, sortBy } = e.detail as { columnName: string; sortBy?: 'ctime' | 'platform' | 'name' | 'manual' };
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (!col?.pipelineConfig) return;
 			const next = { ...col.pipelineConfig, sortBy };
 			void this.sync.updatePipelineConfig(columnName, next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
+		}) as EventListener);
+
+		board.addEventListener('dashboard-pipeline-manual-order', ((e: CustomEvent) => {
+			const { columnName, stageValue, orderedPaths } = e.detail as { columnName: string; stageValue: string; orderedPaths: string[] };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			const config = col?.pipelineConfig;
+			if (!config || config.sortBy !== 'manual' || !Array.isArray(orderedPaths)) return;
+			const visible = new Set(orderedPaths);
+			const prior = config.stageOrder?.[stageValue] ?? [];
+			const stageOrder = { ...config.stageOrder, [stageValue]: [...orderedPaths, ...prior.filter(path => !visible.has(path))] };
+			void this.sync.updatePipelineConfig(columnName, { ...config, stageOrder }).then(() => this.refreshSectionInPlace(columnName));
 		}) as EventListener);
 
 		// Pipeline column width — dragged column edge persists per stage.
@@ -1021,7 +1041,12 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  running) and persist it. The engine write's own render echo is
 	 *  swallowed via suppressNextRender and the vault-watcher reload no-ops on
 	 *  the serialize-equality check — the handleMoveCard recipe. */
+	private isLayoutLocked(): boolean {
+		return !!this.data && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive' && this.data.immersiveEditable === false;
+	}
+
 	private commitImmersiveItems(next: ImmersiveItem[]): void {
+		if (this.isLayoutLocked()) return;
 		const root = this.containerEl.children[1] as HTMLElement | undefined;
 		const grid = root?.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
 		if (grid) {
@@ -1585,6 +1610,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			onOpenNoteInPopover: (file: TFile, subpath?: string) => this.openNote(file, subpath),
 			onOpenNoteAtLine: (file: TFile, line?: number) => this.openNote(file, undefined, line),
 			onCardDelete: async (cardId: string) => {
+				if (this.isLayoutLocked()) return;
 				const confirmed = await showConfirmDialog(this.app, {
 					title: t('common.confirmDelete'),
 					message: t('common.confirmDeleteMessage'),
@@ -1686,17 +1712,17 @@ export class DashboardView extends ItemView implements HoverParent {
 			onMemoColorChange: (card: DashboardCard, color: string) => this.sync.updateMemoColor(card.id, color),
 			onProjectCoverChange: (card: DashboardCard, imagePath: string) => this.sync.updateProjectCover(card.id, imagePath),
 				onCardTitleEdit: (cardId: string, newTitle: string) => this.sync.updateCard(cardId, { title: newTitle }),
-				onCardWidthChange: (cardId: string, width: number) => this.sync.updateCardWidth(cardId, width),
-					onCardSizeChange: (cardId: string, size: string) => this.sync.updateCardSize(cardId, size as import('./types').CardSize),
-				onCardGridChange: (cardId: string, gridCols: number, gridRows: number) => this.sync.updateCardGrid(cardId, gridCols, gridRows),
-				onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => this.sync.updateCardGridMove(cardId, gridCol, gridRow),
+				onCardWidthChange: (cardId: string, width: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardWidth(cardId, width); },
+				onCardSizeChange: (cardId: string, size: string) => { if (this.isLayoutLocked()) return; void this.sync.updateCardSize(cardId, size as import('./types').CardSize); },
+				onCardGridChange: (cardId: string, gridCols: number, gridRows: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardGrid(cardId, gridCols, gridRows); },
+				onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardGridMove(cardId, gridCol, gridRow); },
 				onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
 				onColumnRename: (oldName: string, newName: string, columnIndex?: number) => { void this.sync.renameColumn(oldName, newName, columnIndex); },
 				onColumnDelete: (columnName: string, columnIndex?: number) => this.deleteColumn(columnName, columnIndex),
-				onColumnMove: (fromIndex: number, toIndex: number) => { void this.sync.moveColumn(fromIndex, toIndex); },
-				onColumnMoveBeside: (fromIndex: number, targetIndex: number, side: 'left' | 'right') => { void this.sync.moveColumnBeside(fromIndex, targetIndex, side); },
-				onColumnHeightChange: (name: string, height: number) => { void this.sync.updateColumnHeight(name, height); },
-				onColumnWidthChange: (name: string, widthPct: number) => { void this.sync.updateColumnWidth(name, widthPct); },
+				onColumnMove: (fromIndex: number, toIndex: number) => { if (this.isLayoutLocked()) return; void this.sync.moveColumn(fromIndex, toIndex); },
+				onColumnMoveBeside: (fromIndex: number, targetIndex: number, side: 'left' | 'right') => { if (this.isLayoutLocked()) return; void this.sync.moveColumnBeside(fromIndex, targetIndex, side); },
+				onColumnHeightChange: (name: string, height: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnHeight(name, height); },
+				onColumnWidthChange: (name: string, widthPct: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnWidth(name, widthPct); },
 			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
@@ -1939,6 +1965,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private openAddSectionModal(): void {
+		if (this.isLayoutLocked()) return;
 		// Immersive boards: the "+ 添加卡片" tile opens the card menu —
 		// sections through the modal, widgets straight onto the board
 		// (per-board membership, independent of the global toggles).
@@ -2022,6 +2049,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	/** Remove a tile from this board's arrangement (widget membership is the
 	 *  arrangement itself; the underlying widget config is untouched). */
 	private async removeImmersiveItem(itemId: string): Promise<void> {
+		if (this.isLayoutLocked()) return;
 		if (!this.data) return;
 		const next = this.immItems.filter(item => item.id !== itemId);
 		if (next.length === this.immItems.length) return;
@@ -2322,6 +2350,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	 * until cleanupDrag (touch); we clear it here in case dragend lands after us.
 	 */
 	private async handleMoveCard(cardId: string, targetCol: string, targetIdx: number): Promise<void> {
+		if (this.isLayoutLocked()) return;
 		const kanban = (this.containerEl.children[1] as HTMLElement)?.querySelector<HTMLElement>('.dashboard-kanban');
 		const draggedEl = kanban?.querySelector<HTMLElement>(`.dashboard-card[data-card-id="${CSS.escape(cardId)}"]`) ?? null;
 		const sourceCol = this.data?.columns.find(c => c.cards.some(card => card.id === cardId))?.name;
@@ -2416,6 +2445,17 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (!column) return false;
 		const callbacks = this.createCallbacks();
 		const newEl = renderSection(column, callbacks, this.app, this.data, this.plugin.settings);
+		// A section refresh can change its height above the user's current
+		// viewport. Preserve scrolling ancestors as well as the section's own
+		// scrollers so small controls (such as the Gantt kind cards) do not pull
+		// the whole dashboard back to the top when their preferences are saved.
+		const ancestorScroll: Array<{ el: HTMLElement; top: number; left: number }> = [];
+		let scrollAncestor = oldEl.parentElement;
+		while (scrollAncestor) {
+			ancestorScroll.push({ el: scrollAncestor, top: scrollAncestor.scrollTop, left: scrollAncestor.scrollLeft });
+			scrollAncestor = scrollAncestor.parentElement;
+		}
+		const viewportScroll = { x: window.scrollX, y: window.scrollY };
 		// The rebuilt row starts every internal scroller at 0, which snaps the
 		// card deck back to its first card and task lists back to their top —
 		// the "page jumps away after finishing an edit" symptom. Carry the old
@@ -2439,6 +2479,15 @@ export class DashboardView extends ItemView implements HoverParent {
 			attachImmersiveResizeHandle(newEl, immId, () => this.immItems, next => this.commitImmersiveItems(next));
 		}
 		restoreScrollStates(newEl, scrollStates);
+		const restoreAncestorScroll = (): void => {
+			for (const state of ancestorScroll) {
+				state.el.scrollTop = state.top;
+				state.el.scrollLeft = state.left;
+			}
+			if (window.scrollX !== viewportScroll.x || window.scrollY !== viewportScroll.y) window.scrollTo(viewportScroll.x, viewportScroll.y);
+		};
+		restoreAncestorScroll();
+		window.requestAnimationFrame(restoreAncestorScroll);
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
 		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive' });
@@ -2681,6 +2730,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private async deleteColumn(columnName: string, columnIndex?: number): Promise<void> {
+		if (this.isLayoutLocked()) return;
 		const confirmed = await showConfirmDialog(this.app, {
 			title: t('common.confirmDelete'),
 			message: t('renderer.confirmDeleteSection', { column: columnName }),
@@ -2958,7 +3008,7 @@ export class DashboardView extends ItemView implements HoverParent {
 						const rootFolder = ((st === 'pipeline'
 							? col.pipelineConfig?.rootFolder
 							: col.pmConfig?.rootFolder) ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
-						const hit = rootFolder.length === 0 || lowerPaths.some(p => p.startsWith(rootFolder + '/'));
+						const hit = rootFolder.length === 0 || lowerPaths.some(p => p.startsWith(rootFolder + '/')) || (st === 'pm' && (col.pmConfig?.ganttSources || []).some(ref => lowerPaths.includes(ref.path.toLowerCase())));
 						if (hit) this.refreshSectionInPlace(col.name);
 					} else if (st === 'library' || st === 'folder') {
 						const folders = (col.libraryConfig?.folders ?? [])
@@ -2991,7 +3041,7 @@ export class DashboardView extends ItemView implements HoverParent {
 					.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
 				if (root.length > 0) {
 					if (broad || lowerPaths.length === 0) return true;
-					return lowerPaths.some(p => p.startsWith(root + '/'));
+					return lowerPaths.some(p => p.startsWith(root + '/')) || (col.sectionType === 'pm' && (col.pmConfig?.ganttSources || []).some(ref => lowerPaths.includes(ref.path.toLowerCase())));
 				}
 				return true;
 			}
