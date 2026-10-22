@@ -13,7 +13,7 @@ import {
 	precheckEmbed,
 	type HeaderFetcher,
 } from '../src/web-precheck';
-import { renderWebSection } from '../src/web-section';
+import { isGoogleOAuthUrl, renderWebSection } from '../src/web-section';
 
 // Web section: config persistence round-trips through the hand-rolled YAML
 // serializer; the framing-policy precheck classifies response headers and
@@ -65,6 +65,10 @@ function render(column: DashboardColumn, options?: { fetcher?: HeaderFetcher; ti
 }
 
 async function main(): Promise<void> {
+	assert.equal(isGoogleOAuthUrl('https://accounts.google.com/o/oauth2/v2/auth?client_id=x'), true, 'Google OAuth endpoint is detected');
+	assert.equal(isGoogleOAuthUrl('https://accounts.google.com/ServiceLogin?continue=x'), true, 'Google sign-in endpoint is detected');
+	assert.equal(isGoogleOAuthUrl('https://accounts.google.com/'), false, 'ordinary Google account pages are not classified as OAuth');
+	assert.equal(isGoogleOAuthUrl('https://example.com/o/oauth2/auth'), false, 'non-Google OAuth-like pages are ignored');
 	// Globals the section code touches: window (setTimeout/clearTimeout/open)
 	// and CustomEvent (the configure button's routing event).
 	let opened: string[] = [];
@@ -84,6 +88,10 @@ async function main(): Promise<void> {
 		};
 	}
 	clearPrecheckCache();
+	const external = render(webColumn('Google Calendar', 'https://calendar.google.com/'));
+	const externalButton = findByClass(external.host, 'dashboard-web-open-external')[0]!;
+	externalButton.dispatchEvent({ type: 'click', target: externalButton });
+	assert.equal(opened.at(-1), 'https://calendar.google.com/', 'external-browser button opens the configured site');
 
 	/* ---------------- A. parser round-trip ---------------- */
 

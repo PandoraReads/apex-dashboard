@@ -18,13 +18,26 @@ import { El, findByClass, findTag } from './mini-dom';
 
 // The popup mounts on activeDocument.body — give the stub a live El body.
 const bodyEl = new El('body');
+const documentListeners = new Map<string, Array<(event: unknown) => void>>();
+const fakeWindow = { innerWidth: 1920, setTimeout: (fn: () => void) => { fn(); return 0; } };
+const fakeDocument = {
+	body: bodyEl,
+	defaultView: fakeWindow,
+	activeElement: null as unknown,
+	addEventListener(type: string, fn: (event: unknown) => void): void {
+		documentListeners.set(type, [...(documentListeners.get(type) ?? []), fn]);
+	},
+	removeEventListener(type: string, fn: (event: unknown) => void): void {
+		documentListeners.set(type, (documentListeners.get(type) ?? []).filter(listener => listener !== fn));
+	},
+};
 (globalThis as unknown as Record<string, unknown>).activeDocument = {
 	querySelector: () => null,
 	addEventListener: () => {},
 	removeEventListener: () => {},
 	body: bodyEl,
 };
-(globalThis as unknown as Record<string, unknown>).window = { innerWidth: 1920, setTimeout: () => 0 };
+(globalThis as unknown as Record<string, unknown>).window = fakeWindow;
 
 const app = {} as unknown as App;
 
@@ -34,6 +47,8 @@ const modal = new CountdownSettingsModal(
 	{ id: 'x', label: 'L', targetDate: '2026-09-15T08:30', displayMode: 'days', reminderDays: 0 },
 	r => { saved = { ...r } as { targetDate?: string }; },
 );
+Object.defineProperty(modal.contentEl, 'ownerDocument', { configurable: true, get: () => fakeDocument });
+bodyEl.appendChild(modal.contentEl as unknown as El);
 modal.onOpen();
 const content = modal.contentEl as unknown as El;
 
@@ -85,16 +100,21 @@ assert.equal(label().textContent, '2025-04', 'arrow steps month in day grid');
 
 // 4. Time row inside the popup; pick a day, change time, commit both.
 const timeRow = findByClass(popup, 'dashboard-countdown-popup-time')[0]!;
-const selects = findTag(timeRow, 'select');
-assert.equal(selects.length, 2, 'hour and minute selects inside popup');
-assert.equal(findTag(selects[0]!, 'option').filter(o => o.selected).length > 0, true, 'hour options render');
+const timeTriggers = findByClass(timeRow, 'dashboard-countdown-time-picker-trigger');
+assert.equal(timeTriggers.length, 2, 'hour and minute picker buttons are inside popup');
+timeTriggers[0]!.click();
+const hourOptions = findByClass(popup, 'dashboard-countdown-time-options--hour')[0]!;
+findByClass(hourOptions, 'dashboard-countdown-time-option').find(option => option.textContent === '14')!.click();
+assert.equal(findByClass(bodyEl, 'dashboard-countdown-calendar-popup').length, 1,
+	'picking an hour keeps the date panel open');
 
 dayButtons().find(b => b.textContent === '20')!.click();
 // Simulate time change: hour 14, minute 45 (exact-minute branch).
-selects[0]!.value = '14';
-selects[0]!.dispatchEvent({ type: 'change' });
-selects[1]!.value = '45';
-selects[1]!.dispatchEvent({ type: 'change' });
+timeTriggers[1]!.click();
+const minuteOptions = findByClass(popup, 'dashboard-countdown-time-options--minute')[0]!;
+findByClass(minuteOptions, 'dashboard-countdown-time-option').find(option => option.textContent === '45')!.click();
+assert.equal(findByClass(bodyEl, 'dashboard-countdown-calendar-popup').length, 1,
+	'picking a minute keeps the date panel open');
 
 // Popup Save commits the date; modal Save assembles date + time.
 findTag(findByClass(popup, 'dashboard-task-reminder-popup-btns')[0]!, 'button')
@@ -105,5 +125,17 @@ const footer = findByClass(content, 'dashboard-modal-footer')[0]!;
 findTag(footer, 'button').find(b => b.hasClass('dashboard-modal-btn--confirm'))!.click();
 assert.equal((saved as { targetDate?: string } | undefined)?.targetDate, '2025-04-20T14:45',
 	'save carries date picked via ym panel plus in-popup time');
+
+const malformed = new CountdownSettingsModal(
+	app,
+	{ id: 'broken', label: 'Broken', targetDate: undefined as unknown as string, displayMode: 'days', reminderDays: 0 },
+	() => {},
+);
+assert.doesNotThrow(() => malformed.onOpen(), 'missing saved date no longer crashes the picker');
+bodyEl.appendChild(malformed.contentEl as unknown as El);
+findByClass(malformed.contentEl as unknown as El, 'dashboard-countdown-date-trigger')[0]!.click();
+assert.ok(findByClass(bodyEl, 'dashboard-countdown-calendar-popup').length > 0,
+	'malformed legacy date still opens a usable date picker');
+malformed.onClose();
 
 console.log('countdown picker: ALL PASS');

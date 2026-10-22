@@ -1,7 +1,8 @@
 import { App, Menu, Notice, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { LibraryConfig, PropertyFilter, LibraryViewMode } from './types';
-import { t, getLanguage, getLocale } from './i18n';
+import { t, getLocale } from './i18n';
+import { weekdayLabels } from './locale-format';
 import { attachNoteHover } from './hover-preview';
 import { showConfirmDialog } from './confirm-dialog';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
@@ -380,8 +381,7 @@ function showCalendarPopup(
 	const dp = anchorDate.split('-').map(Number);
 	const viewYear = { value: dp[0] && Number.isFinite(dp[0]) ? dp[0] : now.getFullYear() };
 	const viewMonth = { value: dp[1] && Number.isFinite(dp[1]) ? (dp[1] - 1) : now.getMonth() };
-	const lang = getLanguage();
-	const dayNames = lang !== 'en' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+	const dayNames = weekdayLabels();
 
 	const calNav = popup.createDiv({ cls: 'dashboard-task-reminder-calendar-nav' });
 	const prevBtn = calNav.createEl('button', { text: '<' });
@@ -1153,7 +1153,25 @@ export function renderLibrarySection(
 				header.dataset.groupKey = group.key;
 				const chevron = header.createDiv({ cls: 'dashboard-library-group-chevron' });
 				setIcon(chevron, collapsed ? 'chevron-right' : 'chevron-down');
-				header.createDiv({ cls: 'dashboard-library-group-name', text: group.label });
+				const wikiLink = currentConfig.viewGroupMode === 'property' ? parseGroupWikiLink(group.key) : null;
+				const linkFromPath = group.items[0]?.file.path ?? '';
+				const linkTarget = wikiLink ? resolveGroupLinkTarget(app, wikiLink.path, linkFromPath) : null;
+				const groupName = header.createDiv({
+					cls: 'dashboard-library-group-name' + (wikiLink ? ' dashboard-library-group-name--link' : ''),
+					text: wikiLink?.label ?? group.label,
+				});
+				if (wikiLink) {
+					groupName.setAttribute('role', 'link');
+					groupName.setAttribute('tabindex', '0');
+					groupName.setAttribute('title', wikiLink.path);
+					groupName.addEventListener('keydown', event => {
+						if (event.key === 'Enter' || event.key === ' ') {
+							event.preventDefault();
+							const target = linkTarget ?? resolveGroupLinkTarget(app, wikiLink.path, linkFromPath);
+							if (target) openFile(app, target);
+						}
+					});
+				}
 				// Data total, not rendered count — the load-more pill carries
 				// the "how much is hidden" part of the story.
 				header.createDiv({ cls: 'dashboard-library-group-count', text: String(group.items.length) });
@@ -1201,7 +1219,13 @@ export function renderLibrarySection(
 				// Collapse in place (no vault re-query): flip the set and the
 				// two elements' classes/chevron directly. Expanding fills a
 				// never-rendered body BEFORE revealing it (no empty flash).
-				header.addEventListener('click', () => {
+				header.addEventListener('click', (event) => {
+					if (wikiLink && groupName.contains(event.target as Node)) {
+						event.stopPropagation();
+						const target = linkTarget ?? resolveGroupLinkTarget(app, wikiLink.path, linkFromPath);
+						if (target) openFile(app, target);
+						return;
+					}
 					if (collapsedGroups.has(group.key)) {
 						lazyRenderers.get(group.key)?.();
 						collapsedGroups.delete(group.key);
@@ -2066,6 +2090,53 @@ export interface LibraryResultGroup {
 	items: LibraryFileResult[];
 }
 
+/** Parse an Obsidian wikilink scalar into its resolvable note path and its
+ *  friendly display label. Group links are resolved only when the note exists. */
+export function parseGroupWikiLink(value: unknown): { path: string; label: string } | null {
+	if (value && typeof value === 'object') {
+		const link = value as unknown as { path?: unknown; display?: unknown; alias?: unknown };
+		if (typeof link.path === 'string' && link.path.trim()) {
+			const path = link.path.trim().split('#', 1)[0]!.trim();
+			const display = typeof link.display === 'string' ? link.display : typeof link.alias === 'string' ? link.alias : '';
+			return { path, label: display.trim() || path.split('/').pop() || path };
+		}
+		return null;
+	}
+	if (typeof value !== 'string') return null;
+	const match = /^!?\[\[([^\]]+)\]\]$/.exec(value.trim());
+	if (!match) return null;
+	const [rawPath = '', rawAlias = ''] = match[1]!.split('|', 2);
+	const path = rawPath.split('#', 1)[0]!.trim();
+	if (!path) return null;
+	const label = rawAlias.trim() || path.split('/').pop() || path;
+	return { path, label };
+}
+
+function propertyGroupKey(value: unknown): string {
+	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+	const link = parseGroupWikiLink(value);
+	if (link) return `[[${link.path}${link.label !== link.path.split('/').pop() ? `|${link.label}` : ''}]]`;
+	return '';
+}
+
+function resolveGroupLinkTarget(app: App, path: string, fromPath = ''): TFile | null {
+	const normalized = path.trim();
+	const target = app.metadataCache.getFirstLinkpathDest(normalized, fromPath)
+		?? app.metadataCache.getFirstLinkpathDest(normalized.replace(/\.md$/i, ''), fromPath)
+		?? app.metadataCache.getFirstLinkpathDest(normalized, '');
+	if (isTFileLike(target)) return target;
+	const byPath = app.vault.getAbstractFileByPath(normalized)
+		?? app.vault.getAbstractFileByPath(normalized.endsWith('.md') ? normalized : `${normalized}.md`);
+	return isTFileLike(byPath) ? byPath : null;
+}
+
+function isTFileLike(file: unknown): file is TFile {
+	if (!file || typeof file !== 'object') return false;
+	const candidate = file as { path?: unknown; basename?: unknown; extension?: unknown };
+	return typeof candidate.path === 'string' && typeof candidate.basename === 'string'
+		&& typeof candidate.extension === 'string';
+}
+
 /** Toolbar grouping for grid/gallery/list/table. Folder mode keys by
  *  folderGroupKey (top-level subfolder under the scan folders — a scan root's
  *  direct files group under the root's own name) and sorts alphabetically
@@ -2101,12 +2172,17 @@ export function groupLibraryResults(
 		}
 		if (Array.isArray(value)) {
 			for (const v of value) {
-				const key = String(v);
+				const key = propertyGroupKey(v);
+				if (!key) continue;
 				if (!groups.has(key)) groups.set(key, []);
 				groups.get(key)!.push(result);
 			}
 		} else {
-			const key = str(value);
+			const key = propertyGroupKey(value);
+			if (!key) {
+				noGroup.push(result);
+				continue;
+			}
 			if (!groups.has(key)) groups.set(key, []);
 			groups.get(key)!.push(result);
 		}

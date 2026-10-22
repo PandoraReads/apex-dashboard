@@ -25,9 +25,9 @@
  * Run: `npm run test:library-group`
  */
 import { strict as assert } from 'node:assert';
-import { Menu } from 'obsidian';
+import { Menu, TFile } from 'obsidian';
 import { parse, serialize } from '../src/parser';
-import { renderLibrarySection, groupLibraryResults } from '../src/library-section';
+import { renderLibrarySection, groupLibraryResults, parseGroupWikiLink } from '../src/library-section';
 import type { LibraryFileResult } from '../src/library-section';
 import { El, findByClass } from './mini-dom';
 
@@ -128,6 +128,12 @@ const arrayGroups = groupLibraryResults(
 assert.deepEqual(arrayGroups.map(g => g.label), ['x', 'y'], 'array value fans out');
 assert.equal(arrayGroups[0]!.items.length, 2, 'file appears in every matched group');
 
+const linkedPropertyGroups = groupLibraryResults(
+	[mk('a.md', { project: { path: 'Projects/Alpha.md', display: 'Alpha project' } })],
+	'property', 'project', [],
+);
+assert.equal(linkedPropertyGroups[0]?.key, '[[Projects/Alpha.md|Alpha project]]', 'Obsidian parsed Link objects remain clickable group keys');
+
 // Folder: scan-root subfolders key by their top segment; a scan root's direct
 // files group under the root's own name; files outside every scan root fall
 // back to their first parent segment; vault-root files are not-set.
@@ -146,6 +152,47 @@ const numericGroups = groupLibraryResults(
 assert.deepEqual(numericGroups.map(g => g.label), ['a2', 'a10'], 'numeric-aware alphabetical folder order');
 
 console.log('groupLibraryResults: PASS');
+
+assert.deepEqual(parseGroupWikiLink('[[Projects/Alpha|Alpha project]]'), {
+	path: 'Projects/Alpha', label: 'Alpha project',
+}, 'wikilinks with aliases retain the target and friendly label');
+assert.deepEqual(parseGroupWikiLink('[[Projects/Alpha#Milestones]]'), {
+	path: 'Projects/Alpha', label: 'Alpha',
+}, 'wikilink subpaths resolve to their note');
+assert.equal(parseGroupWikiLink('ordinary text'), null, 'plain group values are not treated as links');
+
+// A frontmatter wikilink group header opens the referenced note and does not
+// also collapse the group when clicked.
+let linkedPath = '';
+const linkedFile = Object.assign(Object.create(TFile.prototype), { path: 'Projects/Alpha.md', basename: 'Alpha', extension: 'md', stat: { mtime: 5, ctime: 1 } });
+const linkedApp = {
+	vault: {
+		getMarkdownFiles: () => [{ ...linkedFile, fm: { project: { path: 'Projects/Alpha.md', display: 'Alpha project' } } }],
+		cachedRead: async () => 'body',
+		adapter: { read: async () => { throw new Error('no adapter in stub'); } },
+	},
+	metadataCache: {
+		getFileCache: () => ({ frontmatter: { project: { path: 'Projects/Alpha.md', display: 'Alpha project' } }, tags: [] }),
+		fileToLinktext: (f: { path: string }) => f.path,
+		getFirstLinkpathDest: (path: string) => path.replace(/\.md$/i, '') === 'Projects/Alpha' ? linkedFile : null,
+	},
+	workspace: { on: () => {}, off: () => {} },
+	fileManager: {},
+} as unknown as Parameters<typeof renderLibrarySection>[2];
+const linkRoot = new El('div');
+renderLibrarySection(
+	linkRoot as unknown as HTMLElement,
+	{ name: 'Linked', color: '', sectionType: 'folder', libraryConfig: { filters: [], viewMode: 'grid', sortBy: 'modified', sortDesc: true, folders: ['Projects'], viewGroupMode: 'property', viewGroupBy: 'project' } },
+	linkedApp,
+	() => {},
+	null,
+	file => { linkedPath = file.path; },
+);
+const linkedGroupName = findByClass(linkRoot, 'dashboard-library-group-name')[0]!;
+assert.equal(linkedGroupName.textContent, 'Alpha project', 'link alias is shown in the group title');
+assert.equal(linkedGroupName.getAttribute('role'), 'link', 'link group is keyboard/screen-reader discoverable');
+linkedGroupName.click();
+assert.equal(linkedPath, 'Projects/Alpha.md', 'clicking the grouped wikilink opens its note');
 
 // ---------- 3. Toolbar + grouped rendering ----------
 

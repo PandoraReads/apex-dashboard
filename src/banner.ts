@@ -7,6 +7,8 @@ import { MultiFolderSelectModal } from './folder-config-modal';
 import { getHabitService } from './habit-service';
 import { applyModalTheme } from './modal-theme';
 import { FocalPointPicker, focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
+import { PathPickerModal } from './path-picker-modal';
+import type { DashboardData } from './types';
 
 /** Poster rotation cadence shared by the banner strip and the immersive
  *  background layer (both surfaces stay in lockstep on the time seed). */
@@ -803,4 +805,98 @@ export class BannerEditModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 	}
+}
+
+/** Immersive-only appearance editor. It shares the banner modal's shell,
+ *  image picker, color controls, and curated font stacks while omitting quotes. */
+export class ImmersiveAppearanceModal extends Modal {
+	private background: string;
+	private clockColor: string | undefined;
+	private clockFont: string | undefined;
+	private readonly onSave: (updates: Pick<DashboardData, 'immersiveBackground' | 'immersiveClockColor' | 'immersiveClockFont'>) => void;
+
+	constructor(
+		app: App,
+		data: DashboardData,
+		onSave: (updates: Pick<DashboardData, 'immersiveBackground' | 'immersiveClockColor' | 'immersiveClockFont'>) => void,
+	) {
+		super(app);
+		this.background = data.immersiveBackground ?? '';
+		this.clockColor = data.immersiveClockColor;
+		this.clockFont = data.immersiveClockFont;
+		this.onSave = onSave;
+	}
+
+	onOpen(): void {
+		this.contentEl.empty();
+		this.contentEl.addClass('dashboard-library-config-modal');
+		this.containerEl.addClass('modal--dashboard');
+		this.containerEl.parentElement?.addClass('modal-bg--dashboard');
+		applyModalTheme(this.containerEl);
+
+		const container = this.contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
+		container.createDiv({ cls: 'dashboard-modal-header' }).createDiv({ cls: 'dashboard-modal-title', text: t('immersive.appearanceTitle') });
+		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+		const form = body.createDiv({ cls: 'dashboard-modal-form' });
+
+		const imageSection = form.createDiv({ cls: 'dashboard-modal-images' });
+		imageSection.createEl('label', { text: t('immersive.background'), cls: 'dashboard-modal-images-label' });
+		const imageRow = imageSection.createDiv({ cls: 'dashboard-modal-image-item' });
+		const imageInput = imageRow.createEl('input', {
+			cls: 'dashboard-modal-input dashboard-modal-image-input',
+			attr: { type: 'text', placeholder: t('banner.imagePath') },
+		});
+		imageInput.value = this.background;
+		imageInput.addEventListener('input', () => { this.background = imageInput.value; });
+		const browse = imageRow.createEl('button', { cls: 'dashboard-modal-image-add', text: t('pathPicker.pickFile') });
+		browse.addEventListener('click', () => new PathPickerModal(this.app, 'image', path => {
+			this.background = path;
+			imageInput.value = path;
+		}).open());
+
+		const clockSection = form.createDiv({ cls: 'dashboard-modal-quote-color' });
+		clockSection.createEl('label', { text: t('immersive.clockColor'), cls: 'dashboard-modal-quote-color-label' });
+		const colorRow = clockSection.createDiv({ cls: 'dashboard-modal-quote-color-row' });
+		const colorInput = colorRow.createEl('input', { cls: 'dashboard-modal-color-input', attr: { type: 'color' } });
+		colorInput.value = this.clockColor ?? '#ffffff';
+		colorInput.addEventListener('input', () => { this.clockColor = colorInput.value; });
+		const colorReset = colorRow.createEl('button', { cls: 'dashboard-modal-color-reset', text: t('immersive.reset') });
+		colorReset.addEventListener('click', () => { this.clockColor = undefined; colorInput.value = '#ffffff'; });
+
+		clockSection.createEl('label', { text: t('immersive.clockFont'), cls: 'dashboard-modal-quote-color-label' });
+		const fontRow = clockSection.createDiv({ cls: 'dashboard-modal-quote-color-row' });
+		const fontSelect = fontRow.createEl('select', { cls: 'dropdown dashboard-modal-quote-font-select' });
+		fontSelect.createEl('option', { value: '', text: t('immersive.defaultClockFont') });
+		const knownFonts = new Set<string>(['']);
+		for (const group of QUOTE_FONT_GROUPS) {
+			const optgroup = fontSelect.createEl('optgroup', { attr: { label: t(group.labelKey) } });
+			for (const font of group.fonts) {
+				knownFonts.add(font.value);
+				const option = optgroup.createEl('option', { value: font.value, text: font.label });
+				if (font.value === this.clockFont) option.selected = true;
+			}
+		}
+		if (this.clockFont && !knownFonts.has(this.clockFont)) {
+			fontSelect.createEl('option', { value: this.clockFont, text: t('banner.quoteFontCustom', { name: firstFontName(this.clockFont) }) }).selected = true;
+		}
+		fontSelect.value = this.clockFont ?? '';
+		fontSelect.addEventListener('change', () => { this.clockFont = fontSelect.value || undefined; });
+		const fontReset = fontRow.createEl('button', { cls: 'dashboard-modal-color-reset', text: t('immersive.reset') });
+		fontReset.addEventListener('click', () => { this.clockFont = undefined; fontSelect.value = ''; });
+
+		const actions = container.createDiv({ cls: 'dashboard-modal-actions' });
+		const cancel = actions.createEl('button', { text: t('common.cancel') });
+		cancel.addEventListener('click', () => this.close());
+		const save = actions.createEl('button', { cls: 'mod-cta', text: t('common.save') });
+		save.addEventListener('click', () => {
+			this.onSave({
+				immersiveBackground: this.background.trim(),
+				immersiveClockColor: this.clockColor,
+				immersiveClockFont: this.clockFont,
+			});
+			this.close();
+		});
+	}
+
+	onClose(): void { this.contentEl.empty(); }
 }

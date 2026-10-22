@@ -1,9 +1,49 @@
-export type Language = 'en' | 'zh' | 'zh-TW';
+import { ja } from './locales/ja';
+import { ko } from './locales/ko';
+import { es } from './locales/es';
+import { de } from './locales/de';
+import { fr } from './locales/fr';
+import { ptBR } from './locales/pt-BR';
+import { ru } from './locales/ru';
+import { th } from './locales/th';
+
+export type Language = 'en' | 'zh' | 'zh-TW' | 'ja' | 'ko' | 'es' | 'de' | 'fr' | 'pt-BR' | 'ru' | 'th';
+export type LanguageSetting = Language | 'system';
+
+export const LANGUAGE_OPTIONS: ReadonlyArray<{ value: LanguageSetting; label: string }> = [
+	{ value: 'system', label: '' },
+	{ value: 'en', label: 'English' },
+	{ value: 'zh', label: '简体中文' },
+	{ value: 'zh-TW', label: '繁體中文' },
+	{ value: 'ja', label: '日本語' },
+	{ value: 'ko', label: '한국어' },
+	{ value: 'es', label: 'Español' },
+	{ value: 'fr', label: 'Français' },
+	{ value: 'de', label: 'Deutsch' },
+	{ value: 'pt-BR', label: 'Português (Brasil)' },
+	{ value: 'ru', label: 'Русский' },
+	{ value: 'th', label: 'ไทย' },
+];
 
 let currentLang: Language = 'zh';
 
-export function setLanguage(lang: Language): void {
-	currentLang = lang;
+export function resolveLanguage(selection: LanguageSetting, hostLanguage = 'en'): Language {
+	if (selection !== 'system') return selection;
+	const normalized = hostLanguage.toLowerCase().replace('_', '-');
+	if (normalized.startsWith('zh')) return /(?:tw|hk|mo|hant)/.test(normalized) ? 'zh-TW' : 'zh';
+	if (normalized.startsWith('ja')) return 'ja';
+	if (normalized.startsWith('ko')) return 'ko';
+	if (normalized.startsWith('es')) return 'es';
+	if (normalized.startsWith('fr')) return 'fr';
+	if (normalized.startsWith('de')) return 'de';
+	if (normalized === 'pt' || normalized.startsWith('pt-br')) return 'pt-BR';
+	if (normalized.startsWith('ru')) return 'ru';
+	if (normalized.startsWith('th')) return 'th';
+	return 'en';
+}
+
+export function setLanguage(lang: LanguageSetting, hostLanguage = 'en'): void {
+	currentLang = resolveLanguage(lang, hostLanguage);
 }
 
 export function getLanguage(): Language {
@@ -21,13 +61,19 @@ export function translationEntry(lang: Language, key: string): string | undefine
 	return translations[lang][key];
 }
 
-/** BCP-47 locale for date/number formatting: the UI language mapped to its
- *  locale. zh-TW keeps its own; zh renders zh-CN dates (previous call sites
- *  hardcoded this pair). */
+/** BCP-47 locale for date and number formatting. */
 export function getLocale(): string {
 	if (currentLang === 'zh-TW') return 'zh-TW';
 	if (currentLang === 'zh') return 'zh-CN';
-	return 'en';
+	if (currentLang === 'ja') return 'ja-JP';
+	if (currentLang === 'ko') return 'ko-KR';
+	if (currentLang === 'es') return 'es-ES';
+	if (currentLang === 'fr') return 'fr-FR';
+	if (currentLang === 'de') return 'de-DE';
+	if (currentLang === 'pt-BR') return 'pt-BR';
+	if (currentLang === 'ru') return 'ru-RU';
+	if (currentLang === 'th') return 'th-TH';
+	return 'en-US';
 }
 
 const translations: Record<Language, Record<string, string>> = {
@@ -246,6 +292,12 @@ const translations: Record<Language, Record<string, string>> = {
 		'themeStudio.color.modeDark': 'Dark',
 		'themeStudio.color.modeCustom': 'Custom',
 		'themeStudio.bg.title': 'Background image',
+		'immersive.appearanceTitle': 'Immersive appearance',
+		'immersive.background': 'Background image',
+		'immersive.clockColor': 'Clock color',
+		'immersive.clockFont': 'Clock font',
+		'immersive.defaultClockFont': 'Default (Didot)',
+		'immersive.reset': 'Reset',
 		'themeStudio.bg.desc': 'Set a global dashboard wallpaper. Glass cards float over it.',
 		'themeStudio.bg.browse': 'Browse',
 		'themeStudio.bg.browsePlaceholder': 'Search image files…',
@@ -403,7 +455,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.alreadyFirstWorkspace': 'Already on the first workspace',
 		'main.dashboard': 'Dashboard',
 		'main.cycleTheme': 'Cycle to next theme',
-		'main.toggleLanguage': 'Toggle interface language',
+		'main.toggleLanguage': 'Choose interface language',
 		'main.languageSwitched': 'Interface language: English',
 		'main.openAppearanceStudio': 'Open the appearance studio',
 		'main.addSection': 'Add new section',
@@ -959,6 +1011,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'habit.streakLabel': 'Streak',
 		'habit.rate30': 'Last 30d',
 		'habit.totalCount': 'Total',
+		'habit.modeCount': 'Switch to count mode',
+		'habit.modeCheck': 'Switch to check-in mode',
 		'habit.renameTitle': 'Rename habit',
 		'habit.deleteTitle': 'Delete habit',
 		'habit.deleteConfirm': 'Delete "{name}"? Its check-in history cannot be recovered.',
@@ -2194,7 +2248,26 @@ const translations: Record<Language, Record<string, string>> = {
 		'library.dateEnd': 'End date',
 		'library.filterActive': 'Filter active',
 		'library.filterValues': '{property}: {values}',
+		'settings.languageSystem': 'Follow Obsidian',
+		'settings.languageSaveError': 'Could not save interface language',
+		'weather.unknown': 'Unknown weather',
+		'yearProgress.daysLeft': '{days} days left',
+		'yearProgress.dayOfYear': 'Day {day} of {total}',
+		'lunar.holiday': 'Holiday',
+		'lunar.makeupWork': 'Makeup work',
+		'lunar.weekend': 'Weekend',
+		'fortune.title': 'Daily fortune',
+		'fortune.chooseCategory': 'Choose a category',
+		'fortune.reveal': 'Reveal meaning',
+		'fortune.drawAgain': 'Draw again',
+		'fortune.category.love': 'Love',
+		'fortune.category.career': 'Career',
+		'fortune.category.study': 'Study',
+		'fortune.category.health': 'Health',
+		'fortune.category.relationship': 'Relationships',
+		'fortune.category.wealth': 'Wealth',
 		'library.filterProperty': 'Property',
+		'library.quickFilter': 'Date filter',
 		'library.filterDateRange': 'Date range',
 		'library.quickRange': 'Quick range',
 		'library.quickFilterTitle': 'Quick filter',
@@ -2434,6 +2507,12 @@ const translations: Record<Language, Record<string, string>> = {
 		'themeStudio.color.modeDark': '深色',
 		'themeStudio.color.modeCustom': '自定义',
 		'themeStudio.bg.title': '背景图',
+		'immersive.appearanceTitle': '沉浸式工作台外观',
+		'immersive.background': '背景图片',
+		'immersive.clockColor': '时间颜色',
+		'immersive.clockFont': '时间字体',
+		'immersive.defaultClockFont': '默认字体（Didot）',
+		'immersive.reset': '重置',
 		'themeStudio.bg.desc': '设置全局仪表盘壁纸，玻璃卡片浮于其上。',
 		'themeStudio.bg.browse': '浏览',
 		'themeStudio.bg.browsePlaceholder': '搜索图片文件…',
@@ -2590,7 +2669,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.alreadyFirstWorkspace': '已经在第一个工作台',
 		'main.dashboard': '工作台',
 		'main.cycleTheme': '切换到下一个主题',
-		'main.toggleLanguage': '切换界面语言',
+		'main.toggleLanguage': '选择界面语言',
 		'main.languageSwitched': '界面语言：中文',
 		'main.openAppearanceStudio': '打开外观定制',
 		'main.addSection': '添加新分区',
@@ -3145,6 +3224,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'habit.streakLabel': '连续',
 		'habit.rate30': '近30天',
 		'habit.totalCount': '累计',
+		'habit.modeCount': '切换为计数模式',
+		'habit.modeCheck': '切换为打卡模式',
 		'habit.renameTitle': '重命名习惯',
 		'habit.deleteTitle': '删除习惯',
 		'habit.deleteConfirm': '删除「{name}」？打卡历史将无法恢复。',
@@ -4404,6 +4485,24 @@ const translations: Record<Language, Record<string, string>> = {
 		'library.dateEnd': '结束日期',
 		'library.filterActive': '筛选已激活',
 		'library.filterValues': '{property}: {values}',
+		'settings.languageSystem': '跟随 Obsidian',
+		'settings.languageSaveError': '无法保存界面语言',
+		'weather.unknown': '未知天气',
+		'yearProgress.daysLeft': '剩 {days} 天',
+		'yearProgress.dayOfYear': '第 {day} / {total} 天',
+		'lunar.holiday': '节假日',
+		'lunar.makeupWork': '补班',
+		'lunar.weekend': '周末',
+		'fortune.title': '每日一签',
+		'fortune.chooseCategory': '请选择您想求的运势',
+		'fortune.reveal': '解签',
+		'fortune.drawAgain': '再求一签',
+		'fortune.category.love': '爱情',
+		'fortune.category.career': '事业',
+		'fortune.category.study': '学业',
+		'fortune.category.health': '健康',
+		'fortune.category.relationship': '关系',
+		'fortune.category.wealth': '财运',
 	},
 	'zh-TW': {
 		'gantt.cards': "项目卡片",
@@ -4620,6 +4719,12 @@ const translations: Record<Language, Record<string, string>> = {
 		'themeStudio.color.modeDark': '深色',
 		'themeStudio.color.modeCustom': '自定義',
 		'themeStudio.bg.title': '背景圖',
+		'immersive.appearanceTitle': '沉浸式工作台外觀',
+		'immersive.background': '背景圖片',
+		'immersive.clockColor': '時間顏色',
+		'immersive.clockFont': '時間字體',
+		'immersive.defaultClockFont': '預設字體（Didot）',
+		'immersive.reset': '重設',
 		'themeStudio.bg.desc': '設定全域性儀表盤桌布，玻璃卡片浮於其上。',
 		'themeStudio.bg.browse': '瀏覽',
 		'themeStudio.bg.browsePlaceholder': '搜尋圖片檔案…',
@@ -4776,7 +4881,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'main.alreadyFirstWorkspace': '已經在第一個工作臺',
 		'main.dashboard': '工作臺',
 		'main.cycleTheme': '切換到下一個主題',
-		'main.toggleLanguage': '切換介面語言',
+		'main.toggleLanguage': '選擇介面語言',
 		'main.languageSwitched': '介面語言：繁體中文',
 		'main.openAppearanceStudio': '開啟外觀定製',
 		'main.addSection': '新增新分割槽',
@@ -5331,6 +5436,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'habit.streakLabel': '連續',
 		'habit.rate30': '近30天',
 		'habit.totalCount': '累計',
+		'habit.modeCount': '切換為計數模式',
+		'habit.modeCheck': '切換為打卡模式',
 		'habit.renameTitle': '重新命名習慣',
 		'habit.deleteTitle': '刪除習慣',
 		'habit.deleteConfirm': '刪除「{name}」？打卡歷史將無法恢復。',
@@ -6590,14 +6697,40 @@ const translations: Record<Language, Record<string, string>> = {
 		'library.dateEnd': '結束日期',
 		'library.filterActive': '篩選已啟用',
 		'library.filterValues': '{property}: {values}',
+		'settings.languageSystem': '跟隨 Obsidian',
+		'settings.languageSaveError': '無法儲存介面語言',
+		'weather.unknown': '未知天氣',
+		'yearProgress.daysLeft': '剩 {days} 天',
+		'yearProgress.dayOfYear': '第 {day} / {total} 天',
+		'lunar.holiday': '節假日',
+		'lunar.makeupWork': '補班',
+		'lunar.weekend': '週末',
+		'fortune.title': '每日一籤',
+		'fortune.chooseCategory': '請選擇想求的運勢',
+		'fortune.reveal': '解籤',
+		'fortune.drawAgain': '再求一籤',
+		'fortune.category.love': '愛情',
+		'fortune.category.career': '事業',
+		'fortune.category.study': '學業',
+		'fortune.category.health': '健康',
+		'fortune.category.relationship': '關係',
+		'fortune.category.wealth': '財運',
 	},
+	ja,
+	ko,
+	es,
+	de,
+	fr,
+	'pt-BR': ptBR,
+	ru,
+	th,
 };
 
 export function t(key: string, params?: Record<string, string | number>): string {
 	let str = translations[currentLang][key] ?? translations.en[key] ?? key;
 	if (params) {
 		for (const [k, v] of Object.entries(params)) {
-			str = str.replace(`{${k}}`, String(v));
+			str = str.split(`{${k}}`).join(String(v));
 		}
 	}
 	return str;

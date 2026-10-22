@@ -1,9 +1,8 @@
 import { renderMusicAccountSettings } from './music-account-settings';
 import { App, Notice, PluginSettingTab, setIcon, Setting, type SettingDefinitionItem, type TextComponent } from 'obsidian';
 import type DashboardPlugin from './main';
-import { DASHBOARD_VIEW_TYPE, DashboardView } from './view';
-import { type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig, type BackupPeriod, type WidgetHeightRatio } from './types';
-import { t, setLanguage, type Language } from './i18n';
+import { type DashboardSettings, type CountdownConfig, type AlbumConfig, type AnniversaryConfig, type BackupPeriod, type WidgetHeightRatio } from './types';
+import { t, LANGUAGE_OPTIONS, type LanguageSetting } from './i18n';
 import { geocodeCity } from './weather-service';
 import { CountdownSettingsModal } from './countdown-modal';
 import { AlbumSettingsModal } from './album-settings-modal';
@@ -320,22 +319,19 @@ export class DashboardSettingTab extends PluginSettingTab {
 			.setName(t('settings.language'))
 			.setDesc(t('settings.languageDesc'))
 			.addDropdown(dropdown => dropdown
-				.addOptions({
-					en: t('settings.languageEn'),
-					zh: t('settings.languageZh'),
-					'zh-TW': t('settings.languageZhTw'),
-				})
+				.addOptions(Object.fromEntries(LANGUAGE_OPTIONS.map(option => [
+					option.value,
+					option.value === 'system' ? t('settings.languageSystem') : option.label,
+				])))
 				.setValue(this.plugin.settings.language)
 				.onChange(async (value) => {
-					const lang = value as Language;
-					this.plugin.settings = {
-						...this.plugin.settings,
-						language: lang,
-					};
-					setLanguage(lang);
-					await this.plugin.saveSettings();
+					const lang = value as LanguageSetting;
+					try {
+						await this.plugin.setInterfaceLanguage(lang);
+					} catch {
+						new Notice(t('settings.languageSaveError'));
+					}
 					this.refresh();
-					this.plugin.refreshAllDashboards();
 				}));
 
 		new Setting(containerEl)

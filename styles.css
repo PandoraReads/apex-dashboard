@@ -3413,6 +3413,39 @@
 	height: 10px;
 }
 
+.dashboard-sidebar-habit-count-mode {
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	color: var(--db-text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	cursor: pointer;
+}
+.dashboard-sidebar-habit-count-mode:hover { color: var(--db-accent); }
+.dashboard-sidebar-habit-count-mode svg { width: 14px; height: 14px; }
+
+.dashboard-sidebar-habit-counter {
+	min-width: 24px;
+	height: 20px;
+	padding: 0 5px;
+	margin-left: auto;
+	border: 1px solid var(--db-border);
+	border-radius: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	color: var(--db-accent);
+	font-size: 0.7em;
+	font-variant-numeric: tabular-nums;
+}
+
 .dashboard-sidebar-habit-name {
 	flex: 1;
 	font-size: 0.75em;
@@ -5634,14 +5667,32 @@
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
-	opacity: 0.3;
+	opacity: 0.72;
 	color: var(--db-text-muted);
 	transition: opacity 0.15s;
 	flex-shrink: 0;
 }
 
+.dashboard-habit-stats-mode-btn {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	-webkit-appearance: none;
+	appearance: none;
+	color: inherit;
+	font: inherit;
+}
+.dashboard-habit-stats-mode-btn:hover,
+.dashboard-habit-stats-mode-btn:focus-visible,
+.dashboard-habit-stats-mode-btn:active {
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+}
+
 .dashboard-habit-stats-icon-btn:hover {
-	opacity: 0.75;
+	opacity: 1;
 }
 
 .dashboard-habit-stats-icon-btn--danger:hover {
@@ -21957,6 +22008,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
    bounded height and scrolls itself (mirrors .dashboard-dataview-content).
    overflow + radius clip the frame's square corners to the theme's. */
 .dashboard-web-content {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	flex: 1;
@@ -21965,6 +22017,20 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	border-radius: var(--db-radius-md);
 	overflow: hidden;
 }
+.dashboard-web-open-external {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 2;
+	width: 30px;
+	height: 30px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	opacity: 0.75;
+}
+.dashboard-web-open-external:hover { opacity: 1; color: var(--text-normal); }
 
 /* Painted backdrop avoids a transparent flash in dark themes while the frame
    loads. No sandbox is set on the frame itself (login-walled apps need
@@ -23142,12 +23208,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   high-contrast strokes read as a proper magazine masthead at clock
 	   scale (macOS ships Didot; Windows falls to Bodoni MT/Georgia). */
 	[data-layout="immersive"] .dashboard-imm-clock-time {
-		font-family: Didot, 'Bodoni MT', 'Playfair Display', Georgia, serif;
+		font-family: var(--dashboard-imm-clock-font, Didot, 'Bodoni MT', 'Playfair Display', Georgia, serif);
 		font-size: 5em;
 		font-weight: 500;
 		letter-spacing: 0.07em;
 		line-height: 1;
-		color: rgba(255, 255, 255, 0.97);
+		color: var(--dashboard-imm-clock-color, rgba(255, 255, 255, 0.97));
 		text-shadow: 0 2px 26px rgba(0, 0, 0, 0.45);
 		font-variant-numeric: lining-nums;
 		margin-left: 0.07em; /* optical centering against the tracking */
@@ -23430,6 +23496,24 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-edit-btn:hover {
 		opacity: 1;
 	}
+	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-appearance-btn {
+		position: absolute;
+		top: 48px;
+		right: 10px;
+		z-index: 3;
+		opacity: 0.7;
+		color: var(--db-text);
+		border: 0 !important;
+		background: transparent !important;
+		background-color: transparent !important;
+		box-shadow: none !important;
+	}
+	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-appearance-btn:hover {
+		opacity: 1;
+		background: transparent !important;
+		color: var(--db-accent, var(--interactive-accent));
+	}
+	[data-layout="immersive"] .dashboard-imm.dashboard-imm--locked > .dashboard-imm-appearance-btn { display: none; }
 
 	/* --- Tile interactions: edge resize + reorder indicators ------------------
 	   Resize is EDGE-BASED: the right edge drags width (ew), the bottom edge
@@ -25884,7 +25968,7 @@ button.dashboard-pipeline-cfg-icon-btn svg {
 	justify-content: flex-end;
 }
 
-/* Column width drag handle: a quiet edge strip on the column's right side. */
+/* Keep the resize hit target without painting a divider or hover stripe. */
 .dashboard-pipeline-col {
 	position: relative;
 }
@@ -25901,25 +25985,53 @@ button.dashboard-pipeline-cfg-icon-btn svg {
 	z-index: 8;
 }
 
-.dashboard-pipeline-col-resize::after {
-	content: '';
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: 5px;
-	width: 2px;
-	border-radius: 2px;
-	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 25%, transparent);
-	transition: background 0.15s ease, width 0.15s ease;
-}
-
+.dashboard-pipeline-col-resize,
 .dashboard-pipeline-col-resize:hover,
-.dashboard-pipeline-col-resize:active {
-	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 8%, transparent);
-}
+.dashboard-pipeline-col-resize:active { background: transparent; }
 
-.dashboard-pipeline-col-resize:hover::after,
-.dashboard-pipeline-col-resize:active::after { width: 4px; left: 4px; background: var(--db-pipe-accent, #6366f1); }
+.dashboard-countdown-popup-time { position: relative; }
+.dashboard-countdown-time-picker-trigger {
+	min-width: 42px;
+	padding: 3px 6px;
+	border: 1px solid var(--db-border-input, var(--background-modifier-border));
+	border-radius: var(--db-radius-sm, 4px);
+	background: var(--db-bg-input, var(--background-primary));
+	color: var(--db-text, var(--text-normal));
+	font: inherit;
+	cursor: pointer;
+}
+.dashboard-countdown-time-picker-trigger:hover { border-color: var(--db-accent, var(--interactive-accent)); }
+.dashboard-countdown-time-options {
+	position: absolute;
+	top: calc(100% + 4px);
+	z-index: 10002;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(34px, 1fr));
+	gap: 3px;
+	width: 180px;
+	max-height: 172px;
+	padding: 6px;
+	overflow-y: auto;
+	border: 1px solid var(--db-border-card, var(--background-modifier-border));
+	border-radius: var(--db-radius-md, 8px);
+	background: var(--db-bg-modal, var(--background-primary));
+	box-shadow: var(--db-shadow-card, 0 6px 18px rgba(0, 0, 0, 0.28));
+}
+.dashboard-countdown-time-options--hour { left: 78px; }
+.dashboard-countdown-time-options--minute { right: 0; }
+.dashboard-countdown-time-option {
+	padding: 5px 2px;
+	border: 0;
+	border-radius: var(--db-radius-sm, 4px);
+	background: transparent;
+	color: var(--db-text, var(--text-normal));
+	cursor: pointer;
+}
+.dashboard-countdown-time-option:hover,
+.dashboard-countdown-time-option.is-selected {
+	background: var(--db-accent, var(--interactive-accent));
+	color: var(--text-on-accent, white);
+}
 
 /* Stage-scope item checklist in the prompt modal. */
 .dashboard-skill-scope {
@@ -29506,6 +29618,16 @@ button.dashboard-capturebar-glyph:hover {
 .dashboard-skillsec-star svg {
 	width: 14px;
 	height: 14px;
+}
+
+.dashboard-library-group-name--link {
+	color: var(--db-link, var(--text-accent));
+	cursor: pointer;
+}
+.dashboard-library-group-name--link:hover { text-decoration: underline; }
+.dashboard-library-group-name--link:focus-visible {
+	outline: 2px solid var(--db-accent, var(--interactive-accent));
+	outline-offset: 2px;
 }
 
 /* Immersive editing gates layout operations while keeping content interactive. */

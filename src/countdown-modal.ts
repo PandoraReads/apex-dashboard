@@ -1,6 +1,7 @@
 import { App, Modal } from 'obsidian';
 import type { CountdownConfig } from './types';
-import { t, getLanguage } from './i18n';
+import { t } from './i18n';
+import { monthLabels, weekdayLabels } from './locale-format';
 import { applyModalTheme } from './modal-theme';
 import { WidgetBackgroundModal } from './widget-background';
 
@@ -11,6 +12,7 @@ export class CountdownSettingsModal extends Modal {
 	private selectedDate: string;
 	private selectedHour: number;
 	private selectedMinute: number;
+	private removeOutsideClickListener: (() => void) | null = null;
 
 	constructor(app: App, config: CountdownConfig, onSave: (config: CountdownConfig) => void) {
 		super(app);
@@ -18,20 +20,15 @@ export class CountdownSettingsModal extends Modal {
 		this.onSave = onSave;
 
 		// Parse existing value: "YYYY-MM-DDTHH:mm" or "YYYY-MM-DD"
-		const raw = config.targetDate;
-		if (raw.includes('T')) {
-			const parts = raw.split('T');
-			this.selectedDate = parts[0] ?? '';
-			const [h, m] = (parts[1] ?? '0:0').split(':').map(Number);
-			this.selectedHour = h ?? 0;
-			this.selectedMinute = m ?? 0;
-		} else if (raw) {
-			this.selectedDate = raw;
-			this.selectedHour = 0;
-			this.selectedMinute = 0;
+		const raw = typeof config.targetDate === 'string' ? config.targetDate.trim() : '';
+		const parsed = /^(\d{4}-\d{2}-\d{2})(?:T(\d{1,2}):(\d{1,2}))?$/.exec(raw);
+		if (parsed && !Number.isNaN(Date.parse(`${parsed[1]}T00:00:00`))) {
+			this.selectedDate = parsed[1]!;
+			this.selectedHour = Math.min(23, Math.max(0, Number(parsed[2] ?? 0)));
+			this.selectedMinute = Math.min(59, Math.max(0, Number(parsed[3] ?? 0)));
 		} else {
-			const now = new Date();
 			this.selectedDate = '';
+			const now = new Date();
 			this.selectedHour = now.getHours();
 			this.selectedMinute = now.getMinutes();
 		}
@@ -140,6 +137,8 @@ export class CountdownSettingsModal extends Modal {
 	}
 
 	private closeCalendarPopup(): void {
+		this.removeOutsideClickListener?.();
+		this.removeOutsideClickListener = null;
 		if (this.calendarPopup) {
 			this.calendarPopup.remove();
 			this.calendarPopup = null;
@@ -149,7 +148,9 @@ export class CountdownSettingsModal extends Modal {
 	private showCalendarPopup(anchor: HTMLElement, dateText: HTMLElement): void {
 		this.closeCalendarPopup();
 
-		const popup = activeDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-countdown-calendar-popup' });
+		const popupDocument = this.contentEl.ownerDocument;
+		const popupWindow = popupDocument.defaultView ?? window;
+		const popup = popupDocument.body.createDiv({ cls: 'dashboard-task-reminder-popup dashboard-countdown-calendar-popup' });
 		applyModalTheme(popup);
 
 		const rect = anchor.getBoundingClientRect();
@@ -182,11 +183,8 @@ export class CountdownSettingsModal extends Modal {
 
 		const viewYear = { value: selectedYear };
 		const viewMonth = { value: selectedMonth };
-		const lang = getLanguage();
-		const dayNames = lang !== 'en' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-		const monthNames = lang !== 'en'
-			? ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
-			: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		const dayNames = weekdayLabels();
+		const monthNames = monthLabels();
 
 		// Two-level header: < > navigate months (or years in the year-month
 		// panel); the label button toggles between the day grid and the
@@ -303,26 +301,67 @@ export class CountdownSettingsModal extends Modal {
 		});
 
 		// Time row: hour and minute pick inside the popup, so one Save commit
-		// carries both the date and the time.
+		// carries both the date and time. Use an in-popup picker instead of a
+		// native <select>: desktop native menus can emit outside mousedown events.
 		timeRow.createSpan({ cls: 'dashboard-countdown-popup-time-label', text: t('countdown.targetTime') });
-		const hourSelect = timeRow.createEl('select', { cls: 'dashboard-countdown-time-select' });
-		for (let h = 0; h < 24; h++) {
-			const opt = hourSelect.createEl('option', { text: String(h).padStart(2, '0'), attr: { value: String(h) } });
-			if (h === this.selectedHour) opt.selected = true;
-		}
+		let activeTimeMenu: HTMLElement | null = null;
+		let hourTrigger: HTMLButtonElement;
+		let minuteTrigger: HTMLButtonElement;
+		const closeTimeMenu = (): void => {
+			activeTimeMenu?.remove();
+			activeTimeMenu = null;
+			hourTrigger?.setAttribute('aria-expanded', 'false');
+			minuteTrigger?.setAttribute('aria-expanded', 'false');
+		};
+		hourTrigger = timeRow.createEl('button', {
+			cls: 'dashboard-countdown-time-picker-trigger',
+			text: String(this.selectedHour).padStart(2, '0'),
+			attr: { type: 'button', 'aria-label': t('countdown.targetTime') },
+		});
 		timeRow.createSpan({ cls: 'dashboard-countdown-time-sep', text: ':' });
-		const minuteSelect = timeRow.createEl('select', { cls: 'dashboard-countdown-time-select' });
-		for (let m = 0; m < 60; m += 5) {
-			const opt = minuteSelect.createEl('option', { text: String(m).padStart(2, '0'), attr: { value: String(m) } });
-			if (m === this.selectedMinute) opt.selected = true;
-		}
-		// Also offer the exact stored minute when it is not a multiple of 5.
-		if (this.selectedMinute % 5 !== 0) {
-			const opt = minuteSelect.createEl('option', { text: String(this.selectedMinute).padStart(2, '0'), attr: { value: String(this.selectedMinute) } });
-			opt.selected = true;
-		}
-		hourSelect.addEventListener('change', () => { this.selectedHour = parseInt(hourSelect.value, 10) || 0; });
-		minuteSelect.addEventListener('change', () => { this.selectedMinute = parseInt(minuteSelect.value, 10) || 0; });
+		minuteTrigger = timeRow.createEl('button', {
+			cls: 'dashboard-countdown-time-picker-trigger',
+			text: String(this.selectedMinute).padStart(2, '0'),
+			attr: { type: 'button', 'aria-label': t('countdown.targetTime') },
+		});
+		const openTimeMenu = (kind: 'hour' | 'minute', trigger: HTMLButtonElement): void => {
+			if (activeTimeMenu?.hasClass(`dashboard-countdown-time-options--${kind}`)) {
+				closeTimeMenu();
+				return;
+			}
+			closeTimeMenu();
+			const menu = timeRow.createDiv({ cls: `dashboard-countdown-time-options dashboard-countdown-time-options--${kind}` });
+			activeTimeMenu = menu;
+			const max = kind === 'hour' ? 24 : 60;
+			for (let value = 0; value < max; value++) {
+				const selected = kind === 'hour' ? value === this.selectedHour : value === this.selectedMinute;
+				const option = menu.createEl('button', {
+					cls: 'dashboard-countdown-time-option' + (selected ? ' is-selected' : ''),
+					text: String(value).padStart(2, '0'),
+					attr: { type: 'button' },
+				});
+				option.addEventListener('click', event => {
+					event.stopPropagation();
+					if (kind === 'hour') {
+						this.selectedHour = value;
+						hourTrigger.setText(String(value).padStart(2, '0'));
+					} else {
+						this.selectedMinute = value;
+						minuteTrigger.setText(String(value).padStart(2, '0'));
+					}
+					closeTimeMenu();
+				});
+			}
+			trigger.setAttribute('aria-expanded', 'true');
+		};
+		hourTrigger.addEventListener('click', event => {
+			event.stopPropagation();
+			openTimeMenu('hour', hourTrigger);
+		});
+		minuteTrigger.addEventListener('click', event => {
+			event.stopPropagation();
+			openTimeMenu('minute', minuteTrigger);
+		});
 
 		btnRow.querySelector('.dashboard-modal-btn--confirm')!.addEventListener('click', (e) => {
 			e.stopPropagation();
@@ -340,21 +379,22 @@ export class CountdownSettingsModal extends Modal {
 		this.calendarPopup = popup;
 
 		// Swallow mousedowns inside the popup so the document-level outside
-		// click handler never sees them — clicking the native time <select>
-		// (whose dropdown lives outside the DOM tree) used to read as an
-		// outside click and close the popup instantly.
+		// click handler never sees them.
 		popup.addEventListener('mousedown', (e) => e.stopPropagation());
 
 		const outsideClick = (ev: MouseEvent) => {
-			const target = ev.target as Element | null;
+			const rawTarget = ev.target as (EventTarget & { nodeType?: number; matches?: (selector: string) => boolean }) | null;
+			const target = rawTarget && typeof rawTarget.nodeType === 'number' ? rawTarget as Node : null;
 			// Native select dropdown layers can report detached or option
 			// targets; never treat them as outside.
-			if (target && typeof target.matches === 'function' && target.matches('select, option')) return;
+			if (rawTarget?.matches?.('select, option')) return;
 			if (!popup.contains(target) && !anchor.contains(target)) {
 				this.closeCalendarPopup();
-				activeDocument.removeEventListener('mousedown', outsideClick);
 			}
 		};
-		window.setTimeout(() => activeDocument.addEventListener('mousedown', outsideClick), 0);
+		this.removeOutsideClickListener = () => popupDocument.removeEventListener('mousedown', outsideClick);
+		popupWindow.setTimeout(() => {
+			if (this.calendarPopup === popup) popupDocument.addEventListener('mousedown', outsideClick);
+		}, 0);
 	}
 }

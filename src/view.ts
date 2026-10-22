@@ -18,7 +18,7 @@ import { refreshMusicWidget } from './music-widget';
 import { getMusicService } from './music-service';
 import { getHabitService } from './habit-service';
 import { getExpenseService } from './expense-service';
-import { renderBanner, BannerEditModal, startBannerImageRotation, BANNER_IMAGE_ROTATION_MS as BANNER_IMAGE_ROTATION_MS_SHARED } from './banner';
+import { renderBanner, BannerEditModal, ImmersiveAppearanceModal, startBannerImageRotation, BANNER_IMAGE_ROTATION_MS as BANNER_IMAGE_ROTATION_MS_SHARED } from './banner';
 import { renderSectionRail } from './section-rail';
 import { renderWorkspaceSwitcher } from './workspace-switcher';
 import { refreshBannerStats } from './banner-stats';
@@ -538,7 +538,9 @@ export class DashboardView extends ItemView implements HoverParent {
 				hoverParent: this,
 				reuseWidgets: preserveWidgets ? this.immWidgetEls : null,
 				getItems: () => this.immItems,
-				onEditBanner: () => this.openBannerEditModal(data),
+				onEditBackground: () => new ImmersiveAppearanceModal(this.app, data, updates => {
+					void this.sync.updateImmersiveAppearance(updates).then(() => this.refresh());
+				}).open(),
 				onToggleEditing: () => {
 					const grid = container.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
 					const rects = grid ? stampedRects(grid) : new Map<string, { x: number; y: number; w: number; h: number }>();

@@ -98,17 +98,30 @@ function renderList(list: HTMLElement, countEl: HTMLElement | null): void {
 
 	for (const habit of habits) {
 		const isDone = service.isDone(habit.id, todayStr);
+		const isCounter = habit.mode === 'count';
 		const item = list.createDiv({
-			cls: 'dashboard-sidebar-habit-item' + (isDone ? ' dashboard-sidebar-habit-item--done' : ''),
+			cls: 'dashboard-sidebar-habit-item' + (isDone && !isCounter ? ' dashboard-sidebar-habit-item--done' : ''),
 			attr: { 'data-habit-id': habit.id },
 		});
 
-		const check = item.createDiv({
-			cls: 'dashboard-sidebar-habit-check' + (isDone ? ' dashboard-sidebar-habit-check--done' : ''),
-		});
-		if (isDone) setIcon(check, 'check');
+		if (isCounter) {
+			const countMode = item.createEl('button', {
+				cls: 'dashboard-sidebar-habit-count-mode',
+				attr: { type: 'button', 'aria-label': habit.name, title: habit.name },
+			});
+			setIcon(countMode, 'calculator');
+		} else {
+			const check = item.createDiv({
+				cls: 'dashboard-sidebar-habit-check' + (isDone ? ' dashboard-sidebar-habit-check--done' : ''),
+			});
+			if (isDone) setIcon(check, 'check');
+		}
 
 		item.createDiv({ cls: 'dashboard-sidebar-habit-name', text: habit.name });
+		if (isCounter) {
+			const count = item.createDiv({ cls: 'dashboard-sidebar-habit-counter' });
+			count.createSpan({ cls: 'dashboard-sidebar-habit-counter-value', text: String(service.getCount(habit.id, todayStr)) });
+		}
 
 		const streak = service.getStreak(habit.id);
 		if (streak > 0) {
@@ -119,7 +132,8 @@ function renderList(list: HTMLElement, countEl: HTMLElement | null): void {
 		}
 
 		item.addEventListener('click', () => {
-			service.toggle(habit.id);
+			if (isCounter) service.incrementCount(habit.id, todayStr);
+			else service.toggle(habit.id, todayStr);
 		});
 	}
 }

@@ -23,6 +23,7 @@ import { El } from './mini-dom';
 import { renderImmersiveRoot, refitImmersiveGrid, layoutImmersiveGrid, setupImmersiveDnD, immersiveWidgetCatalog, openImmersiveAddMenu } from '../src/immersive';
 import { packImmersive, type ImmersiveItem as GridItem } from '../src/immersive-grid';
 import { registerHabitService } from '../src/habit-service';
+import { parse, serialize, generateDefaultMarkdown } from '../src/parser';
 import type { DashboardColumn, DashboardData, DashboardSettings, RenderCallbacks } from '../src/types';
 
 // Node-side globals the render path touches (see verify-refresh-scope /
@@ -164,7 +165,7 @@ const render = (over: { data?: DashboardData; reuse?: Map<string, El> | null } =
 		callbacks,
 		hoverParent: null,
 		reuseWidgets: (over.reuse ?? null) as unknown as Map<string, HTMLElement> | null,
-		onEditBanner: nope,
+		onEditBackground: nope,
 		registerCleanup: fn => cleanups.push(fn as () => void),
 	});
 	return { host, result };
@@ -172,6 +173,15 @@ const render = (over: { data?: DashboardData; reuse?: Map<string, El> | null } =
 
 const run = (): void => {
 	registerHabitService(null);
+	const legacy = parse(generateDefaultMarkdown());
+	assert.equal(legacy.immersiveBackground, legacy.banner.images?.[0] ?? legacy.banner.image, 'legacy immersive background migrates from banner image');
+	legacy.immersiveBackground = 'Backgrounds/immersive.jpg';
+	legacy.immersiveClockColor = '#f4e8ff';
+	legacy.immersiveClockFont = 'Georgia, serif';
+	const roundTrip = parse(serialize(legacy));
+	assert.equal(roundTrip.immersiveBackground, 'Backgrounds/immersive.jpg', 'immersive background persists independently');
+	assert.equal(roundTrip.immersiveClockColor, '#f4e8ff', 'immersive clock color persists');
+	assert.equal(roundTrip.immersiveClockFont, 'Georgia, serif', 'immersive clock font persists');
 
 	// --- 1. Structure --------------------------------------------------------
 	{
@@ -196,6 +206,12 @@ const run = (): void => {
 		const editButton = imm.querySelector('.dashboard-imm-edit-btn');
 		assert.ok(editButton, 'layout edit button on the shell');
 		assert.equal(editButton!.getAttribute('aria-label'), '锁定布局', 'editable mode advertises the lock action');
+		const appearanceButton = imm.querySelector('.dashboard-imm-appearance-btn');
+		assert.ok(appearanceButton, 'appearance magic wand is rendered below the layout toggle');
+		editButton!.dispatchEvent({ type: 'click', target: editButton });
+		assert.ok(imm.classList.contains('dashboard-imm--locked'), 'locking the layout hides appearance editing');
+		editButton!.dispatchEvent({ type: 'click', target: editButton });
+		assert.ok(!imm.classList.contains('dashboard-imm--locked'), 'unlocking the layout reveals appearance editing');
 		// No banner/sidebar pipeline in immersive.
 		assert.equal(host.querySelector('.dashboard-banner'), null, 'no banner element');
 		assert.equal(host.querySelector('.dashboard-main'), null, 'no side/stacked main layout');

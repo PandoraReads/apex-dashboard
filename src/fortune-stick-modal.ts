@@ -4,6 +4,7 @@ import {
 	FORTUNE_CATEGORIES,
 	drawFortuneStick,
 } from './fortune-stick';
+import { t } from './i18n';
 
 export class FortuneStickModal {
 	private stick: FortuneStick | null = null;
@@ -52,11 +53,11 @@ export class FortuneStickModal {
 		const card = this.overlay.createDiv({ cls: 'fortune-card' });
 
 		const title = card.createDiv({ cls: 'fortune-card-title' });
-		title.setText('每日一签');
+		title.setText(t('fortune.title'));
 
 		card.createDiv({
 			cls: 'fortune-card-subtitle',
-			text: '请选择您想求的运势',
+			text: t('fortune.chooseCategory'),
 		});
 
 		const grid = card.createDiv({ cls: 'fortune-category-grid' });
@@ -64,7 +65,7 @@ export class FortuneStickModal {
 		for (const cat of FORTUNE_CATEGORIES) {
 			const btn = grid.createDiv({ cls: 'fortune-category-btn' });
 			btn.createSpan({ cls: 'fortune-category-emoji', text: cat.emoji });
-			btn.createSpan({ cls: 'fortune-category-label', text: cat.label });
+			btn.createSpan({ cls: 'fortune-category-label', text: t(`fortune.category.${cat.key}`) });
 
 			btn.addEventListener('click', () => {
 				this.selectedCategory = cat.key;
@@ -114,7 +115,7 @@ export class FortuneStickModal {
 		const verseTotalMs = (0.6 + (verseLen - 1) * 0.08 + 0.3) * 1000;
 		const revealBtn = front.createDiv({
 			cls: 'fortune-result-reveal-btn fortune-result-reveal-btn--hidden',
-			text: '解签',
+			text: t('fortune.reveal'),
 		});
 
 		window.setTimeout(() => {
@@ -131,7 +132,7 @@ export class FortuneStickModal {
 
 		back.createDiv({
 			cls: 'fortune-back-title',
-			text: '解签',
+			text: t('fortune.reveal'),
 		});
 
 		const interpretationEl = back.createDiv({
@@ -141,7 +142,7 @@ export class FortuneStickModal {
 
 		const backBtn = back.createDiv({
 			cls: 'fortune-result-back-btn',
-			text: '再求一签',
+			text: t('fortune.drawAgain'),
 		});
 
 		backBtn.addEventListener('click', () => {
@@ -169,6 +170,6 @@ export class FortuneStickModal {
 
 	private getCategoryLabel(category: FortuneCategory): string {
 		const found = FORTUNE_CATEGORIES.find(c => c.key === category);
-		return found ? found.label : '';
+		return found ? t(`fortune.category.${found.key}`) : '';
 	}
 }

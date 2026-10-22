@@ -1,6 +1,6 @@
 import { requestUrl } from 'obsidian';
 import type { WeatherConfig, WeatherData } from './types';
-import { getLanguage } from './i18n';
+import { getLanguage, t } from './i18n';
 
 // ---------- API response shapes ----------
 // `requestUrl(...).json` is typed `any`; these interfaces model each provider's
@@ -407,7 +407,8 @@ export async function geocodeCity(query: string): Promise<GeocodeResult[]> {
 	if (!query.trim()) return [];
 
 	const lang = getLanguage();
-	const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=${lang === 'zh' ? 'zh' : 'en'}`;
+	const geocodeLanguage = lang === 'zh-TW' ? 'zh' : lang === 'pt-BR' ? 'pt' : lang;
+	const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=${geocodeLanguage}`;
 
 	try {
 		const resp = await requestUrl({ url });
@@ -493,10 +494,102 @@ const WEATHER_DESC_ZH: Record<number, string> = {
 	95: '雷暴', 96: '雷暴', 99: '雷暴',
 };
 
+const WEATHER_DESC_ZH_TW: Record<number, string> = {
+	0: '晴', 1: '大致晴朗', 2: '多雲', 3: '陰', 45: '霧', 48: '霧凇',
+	51: '小毛毛雨', 53: '毛毛雨', 55: '強毛毛雨', 56: '凍毛毛雨', 57: '凍毛毛雨',
+	61: '小雨', 63: '中雨', 65: '大雨', 66: '凍雨', 67: '凍雨',
+	71: '小雪', 73: '中雪', 75: '大雪', 77: '雪粒',
+	80: '陣雨', 81: '陣雨', 82: '強陣雨', 85: '陣雪', 86: '強陣雪',
+	95: '雷暴', 96: '雷暴', 99: '雷暴',
+};
+
+const WEATHER_DESC_JA: Record<number, string> = {
+	0: '快晴', 1: '晴れ', 2: '一部曇り', 3: '曇り', 45: '霧', 48: '着氷性の霧',
+	51: '弱い霧雨', 53: '霧雨', 55: '強い霧雨', 56: '着氷性の霧雨', 57: '着氷性の霧雨',
+	61: '小雨', 63: '雨', 65: '大雨', 66: '着氷性の雨', 67: '着氷性の雨',
+	71: '小雪', 73: '雪', 75: '大雪', 77: '雪あられ',
+	80: 'にわか雨', 81: 'にわか雨', 82: '強いにわか雨', 85: 'にわか雪', 86: '強いにわか雪',
+	95: '雷雨', 96: '雷雨', 99: '雷雨',
+};
+
+const WEATHER_DESC_KO: Record<number, string> = {
+	0: '맑음', 1: '대체로 맑음', 2: '구름 조금', 3: '흐림', 45: '안개', 48: '착빙 안개',
+	51: '약한 이슬비', 53: '이슬비', 55: '강한 이슬비', 56: '어는 이슬비', 57: '어는 이슬비',
+	61: '약한 비', 63: '비', 65: '강한 비', 66: '어는 비', 67: '어는 비',
+	71: '약한 눈', 73: '눈', 75: '강한 눈', 77: '싸락눈',
+	80: '소나기', 81: '소나기', 82: '강한 소나기', 85: '눈 소나기', 86: '강한 눈 소나기',
+	95: '뇌우', 96: '뇌우', 99: '뇌우',
+};
+
+const WEATHER_DESC_ES: Record<number, string> = {
+	0: 'Despejado', 1: 'Mayormente despejado', 2: 'Parcialmente nublado', 3: 'Cubierto',
+	45: 'Niebla', 48: 'Niebla helada', 51: 'Llovizna débil', 53: 'Llovizna', 55: 'Llovizna intensa',
+	56: 'Llovizna helada', 57: 'Llovizna helada', 61: 'Lluvia débil', 63: 'Lluvia', 65: 'Lluvia intensa',
+	66: 'Lluvia helada', 67: 'Lluvia helada', 71: 'Nieve débil', 73: 'Nieve', 75: 'Nevada intensa',
+	77: 'Nieve granulada', 80: 'Chubascos', 81: 'Chubascos', 82: 'Chubascos intensos',
+	85: 'Chubascos de nieve', 86: 'Chubascos de nieve intensos', 95: 'Tormenta', 96: 'Tormenta', 99: 'Tormenta',
+};
+
+const WEATHER_DESC_FR: Record<number, string> = {
+	0: 'Ciel dégagé', 1: 'Principalement dégagé', 2: 'Partiellement nuageux', 3: 'Couvert',
+	45: 'Brouillard', 48: 'Brouillard givrant', 51: 'Bruine légère', 53: 'Bruine', 55: 'Bruine dense',
+	56: 'Bruine verglaçante', 57: 'Bruine verglaçante', 61: 'Pluie légère', 63: 'Pluie', 65: 'Forte pluie',
+	66: 'Pluie verglaçante', 67: 'Pluie verglaçante', 71: 'Neige légère', 73: 'Neige', 75: 'Forte neige',
+	77: 'Neige en grains', 80: 'Averses', 81: 'Averses', 82: 'Fortes averses',
+	85: 'Averses de neige', 86: 'Fortes averses de neige', 95: 'Orage', 96: 'Orage', 99: 'Orage',
+};
+
+const WEATHER_DESC_DE: Record<number, string> = {
+	0: 'Klar', 1: 'Überwiegend klar', 2: 'Teilweise bewölkt', 3: 'Bedeckt', 45: 'Nebel', 48: 'Raureifnebel',
+	51: 'Leichter Nieselregen', 53: 'Nieselregen', 55: 'Dichter Nieselregen', 56: 'Gefrierender Nieselregen', 57: 'Gefrierender Nieselregen',
+	61: 'Leichter Regen', 63: 'Regen', 65: 'Starker Regen', 66: 'Gefrierender Regen', 67: 'Gefrierender Regen',
+	71: 'Leichter Schnee', 73: 'Schnee', 75: 'Starker Schnee', 77: 'Graupel',
+	80: 'Regenschauer', 81: 'Regenschauer', 82: 'Starke Regenschauer', 85: 'Schneeschauer', 86: 'Starke Schneeschauer',
+	95: 'Gewitter', 96: 'Gewitter', 99: 'Gewitter',
+};
+
+const WEATHER_DESC_PT_BR: Record<number, string> = {
+	0: 'Céu limpo', 1: 'Predominantemente limpo', 2: 'Parcialmente nublado', 3: 'Encoberto',
+	45: 'Nevoeiro', 48: 'Nevoeiro congelante', 51: 'Garoa fraca', 53: 'Garoa', 55: 'Garoa intensa',
+	56: 'Garoa congelante', 57: 'Garoa congelante', 61: 'Chuva fraca', 63: 'Chuva', 65: 'Chuva forte',
+	66: 'Chuva congelante', 67: 'Chuva congelante', 71: 'Neve fraca', 73: 'Neve', 75: 'Neve forte',
+	77: 'Granizo fino', 80: 'Pancadas de chuva', 81: 'Pancadas de chuva', 82: 'Pancadas fortes',
+	85: 'Pancadas de neve', 86: 'Pancadas fortes de neve', 95: 'Trovoada', 96: 'Trovoada', 99: 'Trovoada',
+};
+
+const WEATHER_DESC_RU: Record<number, string> = {
+	0: 'Ясно', 1: 'Преимущественно ясно', 2: 'Переменная облачность', 3: 'Пасмурно', 45: 'Туман', 48: 'Изморозевый туман',
+	51: 'Лёгкая морось', 53: 'Морось', 55: 'Сильная морось', 56: 'Ледяная морось', 57: 'Ледяная морось',
+	61: 'Небольшой дождь', 63: 'Дождь', 65: 'Сильный дождь', 66: 'Ледяной дождь', 67: 'Ледяной дождь',
+	71: 'Небольшой снег', 73: 'Снег', 75: 'Сильный снег', 77: 'Снежная крупа',
+	80: 'Ливень', 81: 'Ливень', 82: 'Сильный ливень', 85: 'Снегопад', 86: 'Сильный снегопад',
+	95: 'Гроза', 96: 'Гроза', 99: 'Гроза',
+};
+
+const WEATHER_DESC_TH: Record<number, string> = {
+	0: 'ท้องฟ้าแจ่มใส', 1: 'ท้องฟ้าแจ่มใสเป็นส่วนใหญ่', 2: 'มีเมฆบางส่วน', 3: 'เมฆครึ้ม',
+	45: 'หมอก', 48: 'หมอกน้ำค้างแข็ง', 51: 'ฝนละอองเล็กน้อย', 53: 'ฝนละออง', 55: 'ฝนละอองหนาแน่น',
+	56: 'ฝนละอองเยือกแข็ง', 57: 'ฝนละอองเยือกแข็ง', 61: 'ฝนเล็กน้อย', 63: 'ฝนตก', 65: 'ฝนตกหนัก',
+	66: 'ฝนเยือกแข็ง', 67: 'ฝนเยือกแข็ง', 71: 'หิมะตกเล็กน้อย', 73: 'หิมะตก', 75: 'หิมะตกหนัก',
+	77: 'เม็ดหิมะ', 80: 'ฝนซู่', 81: 'ฝนซู่', 82: 'ฝนซู่หนัก', 85: 'หิมะตกเป็นช่วง', 86: 'หิมะตกหนักเป็นช่วง',
+	95: 'พายุฝนฟ้าคะนอง', 96: 'พายุฝนฟ้าคะนอง', 99: 'พายุฝนฟ้าคะนอง',
+};
+
+const WEATHER_DESCRIPTIONS = {
+	en: WEATHER_DESC_EN,
+	zh: WEATHER_DESC_ZH,
+	'zh-TW': WEATHER_DESC_ZH_TW,
+	ja: WEATHER_DESC_JA,
+	ko: WEATHER_DESC_KO,
+	es: WEATHER_DESC_ES,
+	fr: WEATHER_DESC_FR,
+	de: WEATHER_DESC_DE,
+	'pt-BR': WEATHER_DESC_PT_BR,
+	ru: WEATHER_DESC_RU,
+	th: WEATHER_DESC_TH,
+};
+
 export function getWeatherDescription(code: number): string {
 	const lang = getLanguage();
-	const desc = lang === 'zh'
-		? WEATHER_DESC_ZH[code]
-		: WEATHER_DESC_EN[code];
-	return desc ?? 'Unknown';
+	return WEATHER_DESCRIPTIONS[lang][code] ?? t('weather.unknown');
 }

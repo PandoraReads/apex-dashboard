@@ -1,7 +1,7 @@
 import { Solar } from 'lunar-typescript';
 import { fetchHolidayData, getHolidayForDate, type HolidayInfo } from './holiday-service';
 import { getTodayAlmanac } from './lunar-almanac';
-import { getLanguage } from './i18n';
+import { t } from './i18n';
 import type { App } from 'obsidian';
 import { FortuneStickModal } from './fortune-stick-modal';
 
@@ -64,8 +64,6 @@ export function renderSidebarLunarWidget(
 	} catch {
 		return;
 	}
-	const lang = getLanguage();
-	const isZh = lang !== 'en';
 
 	const widget = container.createDiv({ cls: 'dashboard-sidebar-widget dashboard-sidebar-lunar' });
 
@@ -96,14 +94,14 @@ export function renderSidebarLunarWidget(
 	if (data.holiday && data.holiday.holiday) {
 		dateEl.createDiv({
 			cls: 'dashboard-sidebar-lunar-badge dashboard-sidebar-lunar-badge--holiday dashboard-sidebar-lunar-badge--inline',
-			text: data.holiday.name || (isZh ? '节假日' : 'Holiday'),
+			text: data.holiday.name || t('lunar.holiday'),
 		});
 	}
 
 	if (data.holiday && data.holiday.type === 3) {
 		dateEl.createDiv({
 			cls: 'dashboard-sidebar-lunar-badge dashboard-sidebar-lunar-badge--work dashboard-sidebar-lunar-badge--inline',
-			text: isZh ? '补班' : 'Makeup work',
+			text: t('lunar.makeupWork'),
 		});
 	}
 
@@ -111,7 +109,7 @@ export function renderSidebarLunarWidget(
 	if (!data.holiday && isWeekend) {
 		dateEl.createDiv({
 			cls: 'dashboard-sidebar-lunar-badge dashboard-sidebar-lunar-badge--weekend dashboard-sidebar-lunar-badge--inline',
-			text: isZh ? '周末' : 'Weekend',
+			text: t('lunar.weekend'),
 		});
 	}
 

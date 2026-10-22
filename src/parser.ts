@@ -101,7 +101,13 @@ export function parse(markdown: string): DashboardData {
 	const columnDefs = parseColumnDefs(frontmatter);
 	const columns = parseColumns(body, columnDefs);
 
-	const data: DashboardData = { banner, quickActions, columns };
+	const legacyImmersiveBackground = banner.images?.[0] ?? banner.image ?? '';
+	const immersiveBackground = typeof frontmatter.immersiveBackground === 'string'
+		? frontmatter.immersiveBackground
+		: legacyImmersiveBackground;
+	const data: DashboardData = { banner, quickActions, columns, immersiveBackground };
+	if (typeof frontmatter.immersiveClockColor === 'string') data.immersiveClockColor = frontmatter.immersiveClockColor;
+	if (typeof frontmatter.immersiveClockFont === 'string') data.immersiveClockFont = frontmatter.immersiveClockFont;
 	const layout = parseLayoutField(frontmatter);
 	if (layout) data.layout = layout;
 	if (quickActionOrder) data.quickActionOrder = quickActionOrder;
@@ -233,6 +239,9 @@ export function serialize(data: DashboardData): string {
 	// first private build) migrate once at parse and never come back, so a
 	// small cap can never be re-inflated by a later load.
 	if (data.immersiveEditable === false) lines.push('immersiveEditable: false');
+	if (data.immersiveBackground !== undefined) lines.push(`immersiveBackground: "${escapeYamlString(data.immersiveBackground)}"`);
+	if (data.immersiveClockColor) lines.push(`immersiveClockColor: "${escapeYamlString(data.immersiveClockColor)}"`);
+	if (data.immersiveClockFont) lines.push(`immersiveClockFont: "${escapeYamlString(data.immersiveClockFont)}"`);
 	if (data.immersive && data.immersive.length > 0) {
 		lines.push('immersive:');
 		for (const tile of data.immersive) {

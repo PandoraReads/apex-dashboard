@@ -24,6 +24,20 @@ const DEFAULT_WEBVIEW_TIMEOUT_MS = 3500;
  *  (Electron defaults) — the guest page never gets host access. */
 const WEBVIEW_PARTITION = 'persist:apex-dashboard-web';
 
+/** Google blocks OAuth authorization inside controlled embedded user-agents.
+ *  Detect only the authorization endpoints so ordinary accounts.google.com
+ *  content continues to work in the section. */
+export function isGoogleOAuthUrl(raw: string): boolean {
+	try {
+		const url = new URL(raw);
+		return url.protocol === 'https:'
+			&& url.hostname.toLowerCase() === 'accounts.google.com'
+			&& /\/(?:o\/oauth2|v\d+\/signin|servicelogin)/i.test(url.pathname);
+	} catch {
+		return false;
+	}
+}
+
 /* ---------------------- native chrome theming ----------------------- */
 
 /** WCAG relative luminance of a CSS color (hex or rgb()/rgba()), or null when
@@ -153,6 +167,19 @@ export function renderWebSection(
 		if (config.zoom != null) frame.style.zoom = String(config.zoom);
 		// Match the embedded page's native scrollbar/controls to the theme.
 		frame.style.colorScheme = resolveFrameColorScheme();
+		appendExternalBrowserButton(target);
+	}
+
+	function appendExternalBrowserButton(target: string): void {
+		const button = content.createEl('button', {
+			cls: 'dashboard-web-open-external',
+			attr: { type: 'button', 'aria-label': t('web.openExternal'), title: t('web.openExternal') },
+		});
+		setIcon(button, 'external-link');
+		button.addEventListener('click', event => {
+			event.stopPropagation();
+			window.open(target, '_blank');
+		});
 	}
 
 	function mountWebview(target: string, my: number): void {
@@ -169,6 +196,13 @@ export function renderWebSection(
 		});
 		// Match the guest page's native scrollbar/controls to the theme.
 		frame.style.colorScheme = resolveFrameColorScheme();
+		appendExternalBrowserButton(target);
+		frame.addEventListener('will-navigate', (event: unknown) => {
+			const navigation = event as { url?: string; preventDefault?: () => void };
+			if (!navigation.url || !isGoogleOAuthUrl(navigation.url)) return;
+			navigation.preventDefault?.();
+			window.open(navigation.url, '_blank');
+		});
 
 		// The tag itself never throws (an unsupported environment yields an
 		// inert HTMLUnknownElement) — the only failure signal is dom-ready

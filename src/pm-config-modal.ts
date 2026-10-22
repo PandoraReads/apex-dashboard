@@ -92,7 +92,7 @@ export class PmConfigModal extends Modal {
 		tplRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pm.cfgWorkNoteTemplate') });
 		const tplInput = tplRow.createEl('input', {
 			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: 'Templates/工作笔记 (optional)' },
+			attr: { type: 'text', placeholder: 'Templates/project notes' },
 		});
 		tplInput.value = this.workNoteTemplate;
 		attachPathPicker(tplRow, tplInput, this.app, 'file', (path) => { this.workNoteTemplate = path; });
@@ -102,7 +102,7 @@ export class PmConfigModal extends Modal {
 		archiveRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pm.cfgArchiveFolder') });
 		const archiveInput = archiveRow.createEl('input', {
 			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: '项目管理/99-归档 (optional)' },
+			attr: { type: 'text', placeholder: 'Projects/archive' },
 		});
 		archiveInput.value = this.archiveFolder;
 		attachPathPicker(archiveRow, archiveInput, this.app, 'folder', (path) => { this.archiveFolder = path; });

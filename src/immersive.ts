@@ -11,8 +11,8 @@
  *   │   └── .dashboard-kanban       (12-column grid: sections + widgets + add tile)
  *   ├── .dashboard-workspace-switcher (absolute, top-left — same spot semantics
  *   │                                 as on the banner)
- *   └── wand edit button             (absolute, top-right, opens BannerEditModal —
- *                                     the banner images ARE this layout's bg)
+ *   └── layout + appearance controls (absolute, top-right; appearance entry
+ *                                     appears only while layout editing is on)
  *
  * The kanban keeps its class name so every kanban-rooted mechanism
  * (refreshSectionInPlace `:scope > [data-column]` lookups, setupDragAndDrop,
@@ -47,8 +47,6 @@ import {
 	createBannerEditButton,
 	getActiveImage,
 	resolveVaultImage,
-	startBannerImageRotation,
-	BANNER_IMAGE_ROTATION_MS,
 } from './banner';
 import { renderQuickNoteRegion } from './quick-note-section';
 import { renderWorkspaceSwitcher } from './workspace-switcher';
@@ -419,7 +417,7 @@ export function renderImmersiveRoot(opts: {
 	 *  through this so post-drag passes never pack against a stale list;
 	 *  defaults to the render snapshot. */
 	getItems?: () => readonly GridItem[];
-	onEditBanner: () => void;
+	onEditBackground?: () => void;
 	onToggleEditing?: () => void;
 	registerCleanup: (fn: () => void) => void;
 }): ImmersiveRenderResult {
@@ -427,19 +425,22 @@ export function renderImmersiveRoot(opts: {
 
 	const imm = container.createDiv({ cls: 'dashboard-imm' });
 	imm.toggleClass('dashboard-imm--locked', data.immersiveEditable === false);
+	const clockStyle: Record<string, string> = {};
+	if (data.immersiveClockColor) clockStyle['--dashboard-imm-clock-color'] = data.immersiveClockColor;
+	if (data.immersiveClockFont) clockStyle['--dashboard-imm-clock-font'] = data.immersiveClockFont;
+	imm.setCssProps(clockStyle);
 
 	// --- Background layer: the banner poster, full-bleed ----------------------
 	const bg = imm.createDiv({ cls: 'dashboard-imm-bg' });
 	// The scrim rides inside the poster layer (also with no image at all —
 	// it IS the fallback surface under the glass).
 	bg.createDiv({ cls: 'dashboard-imm-bg-scrim' });
-	const activeImage = getActiveImage(data.banner);
+	const activeImage = data.immersiveBackground ?? getActiveImage(data.banner);
 	if (activeImage) {
 		const resolved = resolveVaultImage(app, activeImage);
 		if (resolved) bg.style.backgroundImage = `url("${resolved}")`;
 		applyBannerFocal(bg, data.banner, activeImage);
 	}
-	startBannerImageRotation(bg, data.banner, app, BANNER_IMAGE_ROTATION_MS, opts.registerCleanup);
 
 	// --- Top region: clock centered, quick-notes bar re-flowed ----------------
 	// Mounted INSIDE the scroll region (first child): the whole page —
@@ -581,13 +582,16 @@ export function renderImmersiveRoot(opts: {
 	wand = createBannerEditButton(imm, () => {
 		const editing = wand.getAttribute('aria-pressed') !== 'true';
 		setEditingState(editing);
+		imm.toggleClass('dashboard-imm--locked', !editing);
 		opts.onToggleEditing?.();
 	});
 	setEditingState(data.immersiveEditable !== false);
-	wand.addEventListener('contextmenu', e => {
-		e.preventDefault();
-		new Menu().addItem(item => item.setTitle(t('gantt.background')).setIcon('image').onClick(opts.onEditBanner)).showAtMouseEvent(e);
+	const appearanceButton = imm.createEl('button', {
+		cls: 'dashboard-imm-appearance-btn clickable-icon',
+		attr: { type: 'button', title: t('immersive.appearanceTitle'), 'aria-label': t('immersive.appearanceTitle') },
 	});
+	setIcon(appearanceButton, 'wand-sparkles');
+	appearanceButton.addEventListener('click', () => opts.onEditBackground?.());
 	wand.addClass('dashboard-imm-edit-btn');
 
 	return { grid, items, widgetEls };

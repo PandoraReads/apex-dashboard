@@ -116,6 +116,18 @@ function renderHabitCard(
 	head.createDiv({ cls: 'dashboard-habit-stats-card-name', text: habit.name });
 	head.createDiv({ cls: 'dashboard-habit-stats-card-head-spacer' });
 
+	const modeBtn = head.createEl('button', {
+		cls: 'dashboard-habit-stats-icon-btn dashboard-habit-stats-mode-btn',
+		attr: { type: 'button' },
+	});
+	const isCounter = habit.mode === 'count';
+	modeBtn.setAttribute('aria-label', t(isCounter ? 'habit.modeCheck' : 'habit.modeCount'));
+	modeBtn.setAttribute('title', t(isCounter ? 'habit.modeCheck' : 'habit.modeCount'));
+	setIcon(modeBtn, isCounter ? 'check-square-2' : 'calculator');
+	modeBtn.addEventListener('click', () => {
+		service.setMode(habit.id, isCounter ? 'check' : 'count');
+	});
+
 	const renameBtn = head.createDiv({ cls: 'dashboard-habit-stats-icon-btn' });
 	renameBtn.setAttribute('aria-label', t('habit.renameTitle'));
 	setIcon(renameBtn, 'pencil');

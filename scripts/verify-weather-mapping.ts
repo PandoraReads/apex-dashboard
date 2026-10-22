@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
-import { mapMetNoCode } from '../src/weather-service';
+import { getWeatherDescription, mapMetNoCode } from '../src/weather-service';
+import { setLanguage } from '../src/i18n';
 
 // Every base symbol from Met.no's official weathericon 2.0 legend
 // (github.com/metno/weathericons, weather/legend.csv), the WMO code it must
@@ -85,5 +86,16 @@ assert.equal(mapMetNoCode('mysteryrain_night'), 63);
 assert.equal(mapMetNoCode('weirdfogstuff_polartwilight'), 45);
 assert.equal(mapMetNoCode('clearskyish_day'), 3);
 assert.equal(mapMetNoCode(''), 3);
+
+for (const [language, expected] of [
+	['zh', '晴'], ['zh-TW', '晴'], ['ja', '快晴'],
+	['ko', '맑음'], ['es', 'Despejado'], ['fr', 'Ciel dégagé'],
+	['de', 'Klar'], ['pt-BR', 'Céu limpo'], ['ru', 'Ясно'], ['th', 'ท้องฟ้าแจ่มใส'], ['en', 'Clear sky'],
+] as const) {
+	setLanguage(language);
+	assert.equal(getWeatherDescription(0), expected);
+	assert.ok(getWeatherDescription(-1).length > 0);
+}
+setLanguage('zh');
 
 console.log(`verify-weather-mapping: ${checked} legend symbols + regression and fallback cases OK`);

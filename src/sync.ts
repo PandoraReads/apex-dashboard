@@ -739,6 +739,12 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
+	async updateImmersiveAppearance(updates: Pick<DashboardData, 'immersiveBackground' | 'immersiveClockColor' | 'immersiveClockFont'>): Promise<void> {
+		if (!this.data) return;
+		this.data = { ...this.data, ...updates };
+		await this.writeToDisk();
+	}
+
 	async addQuickAction(action: QuickAction): Promise<void> {
 		if (!this.data) return;
 		this.data = {

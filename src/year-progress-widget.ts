@@ -1,4 +1,4 @@
-import { getLanguage } from './i18n';
+import { t } from './i18n';
 import { applyWidgetBackground, attachBackgroundConfigButton } from './widget-background';
 
 /**
@@ -9,7 +9,6 @@ import { applyWidgetBackground, attachBackgroundConfigButton } from './widget-ba
  * sidebar re-renders frequently enough that it never goes stale).
  */
 export function renderSidebarYearProgress(container: HTMLElement, bg?: import('./types').WidgetBackground, app?: import('obsidian').App, onBgChange?: (bg: import('./types').WidgetBackground | undefined) => void): void {
-	const isZh = getLanguage() !== 'en';
 	const now = new Date();
 	const year = now.getFullYear();
 
@@ -32,7 +31,7 @@ export function renderSidebarYearProgress(container: HTMLElement, bg?: import('.
 	header.createSpan({ cls: 'dashboard-sidebar-year-progress-year', text: String(year) });
 	header.createSpan({
 		cls: 'dashboard-sidebar-year-progress-left',
-		text: isZh ? `剩 ${daysLeft} 天` : `${daysLeft} days left`,
+		text: t('yearProgress.daysLeft', { days: daysLeft }),
 	});
 
 	const bar = widget.createDiv({ cls: 'dashboard-progress dashboard-sidebar-year-progress-bar' });
@@ -45,7 +44,7 @@ export function renderSidebarYearProgress(container: HTMLElement, bg?: import('.
 	const sub = widget.createDiv({ cls: 'dashboard-sidebar-year-progress-sub' });
 	sub.createSpan({
 		cls: 'dashboard-sidebar-year-progress-day',
-		text: isZh ? `第 ${dayOfYear} / ${daysInYear} 天` : `Day ${dayOfYear} of ${daysInYear}`,
+		text: t('yearProgress.dayOfYear', { day: dayOfYear, total: daysInYear }),
 	});
 	sub.createSpan({ cls: 'dashboard-sidebar-year-progress-percent', text: `${percent.toFixed(1)}%` });
 }

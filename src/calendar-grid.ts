@@ -1,5 +1,6 @@
 import { App, setIcon, TFile } from 'obsidian';
-import { t, getLanguage } from './i18n';
+import { t } from './i18n';
+import { monthDayLabel as localizedMonthDayLabel } from './locale-format';
 import { renderTextWithLinks } from './renderer';
 import {
 	calendarSpan,
@@ -412,9 +413,7 @@ function parseIso(iso: string): Date {
 
 /** Compact day label for bar aria-labels: zh "8月24日", else "Aug 24". */
 function monthDayLabel(d: Date): string {
-	return getLanguage() !== 'en'
-		? `${monthAbbr(d.getMonth())}${d.getDate()}日`
-		: `${monthAbbr(d.getMonth())} ${d.getDate()}`;
+	return localizedMonthDayLabel(d);
 }
 
 const WEEK_COMPACT_MAX = 6;

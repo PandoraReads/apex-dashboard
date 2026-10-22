@@ -1,11 +1,12 @@
 import { registerGanttFeatures } from './pm-gantt-plugin';
-import { Notice, Platform, Plugin, TAbstractFile, TFile } from 'obsidian';
+import { Notice, Platform, Plugin, TAbstractFile, TFile, getLanguage as getObsidianLanguage } from 'obsidian';
 import { DEFAULT_SETTINGS, type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
 import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
 import { BackupService } from './backup-service';
-import { setLanguage, t, type Language } from './i18n';
+import { setLanguage, t, LANGUAGE_OPTIONS, type LanguageSetting } from './i18n';
+import { LanguagePickerModal } from './language-picker-modal';
 import { setRssReadRetentionDays } from './rss-store';
 import { DataviewGuideModal } from './dataview-guide-modal';
 import { ThemeStudioModal } from './theme-studio-modal';
@@ -196,20 +197,19 @@ export default class DashboardPlugin extends Plugin {
 			},
 		});
 
-		// Cycle en → zh → zh-TW → en. Registered as a normal Obsidian command
-		// so the quick-command bar can bind it like any other.
+		// Preserve the command ID used by existing hotkeys and quick actions.
 		this.addCommand({
 			id: 'toggle-language',
 			name: t('main.toggleLanguage'),
-			callback: async () => {
-				const lang: Language = this.settings.language === 'en'
-					? 'zh'
-					: this.settings.language === 'zh' ? 'zh-TW' : 'en';
-				this.settings = { ...this.settings, language: lang };
-				setLanguage(lang);
-				await this.saveSettings();
-				new Notice(t('main.languageSwitched'));
-				this.refreshAllDashboards();
+			callback: () => {
+				new LanguagePickerModal(this.app, lang => {
+					void this.setInterfaceLanguage(lang).then(() => {
+						const label = lang === 'system'
+							? t('settings.languageSystem')
+							: LANGUAGE_OPTIONS.find(option => option.value === lang)?.label ?? lang;
+						new Notice(`${t('settings.language')}: ${label}`);
+					}).catch(() => new Notice(t('settings.languageSaveError')));
+				}).open();
 			},
 		});
 
@@ -297,6 +297,20 @@ export default class DashboardPlugin extends Plugin {
 		}));
 	}
 
+	async setInterfaceLanguage(language: LanguageSetting): Promise<void> {
+		const previous = this.settings;
+		this.settings = { ...previous, language };
+		setLanguage(language, getObsidianLanguage());
+		try {
+			await this.saveSettings();
+		} catch (error) {
+			this.settings = previous;
+			setLanguage(previous.language, getObsidianLanguage());
+			throw error;
+		}
+		this.refreshAllDashboards();
+	}
+
 	/**
 	 * Announcement for the Dataview section + community group. Shown once per
 	 * ANNOUNCEMENT content version on startup (after layout ready) — i.e. only
@@ -366,6 +380,9 @@ export default class DashboardPlugin extends Plugin {
 		this.settings = {
 			...DEFAULT_SETTINGS,
 			...raw,
+			language: LANGUAGE_OPTIONS.some(option => option.value === raw.language)
+				? raw.language!
+				: DEFAULT_SETTINGS.language,
 			countdowns,
 			albums,
 			anniversaries,
@@ -374,6 +391,7 @@ export default class DashboardPlugin extends Plugin {
 			workspaceNames: workspace.names,
 			dashboardFile: workspace.active,
 		};
+		setLanguage(this.settings.language, getObsidianLanguage());
 		setRssReadRetentionDays(this.settings.rssReadRetentionDays);
 		// First install only (no data.json has ever existed): start with the
 		// Common Actions bar enabled and the sidebar pinned open. Applied here
@@ -450,7 +468,6 @@ export default class DashboardPlugin extends Plugin {
 			// vault settles — keeps onload light and the file index coherent.
 			this.app.workspace.onLayoutReady(() => { void this.seedFirstInstallWorkspaces(); });
 		}
-		setLanguage(this.settings.language);
 	}
 
 	/** First-install preset: create the two registry files — the immersive

@@ -1,4 +1,4 @@
-import type { Language } from './i18n';
+import type { LanguageSetting } from './i18n';
 import type { CalendarTaskFilter } from './alltasks-scan';
 import type { TFile } from 'obsidian';
 import type {
@@ -58,7 +58,7 @@ export interface DashboardSettings {
 	/** Optional display names, parallel to workspaceFiles ('' = number only). */
 	workspaceNames?: string[];
 	recentDocCount: number;
-	language: Language;
+	language: LanguageSetting;
 	stylePreset: string;
 	/** User-saved Appearance-Studio snapshots, listed under a "my themes" group
 	 *  in the theme dropdown. Selecting one applies the whole bundle. */
@@ -406,7 +406,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	workspaceFiles: ['dashboard'],
 	workspaceNames: [''],
 	recentDocCount: 5,
-	language: 'zh',
+	language: 'system',
 	stylePreset: 'mono',
 	layoutMode: 'side',
 	// Defaults match the historical hardcoded CSS spans/sizes so the upgrade
@@ -1316,6 +1316,10 @@ export interface DashboardData {
 	 *  first entry and persisted on the first user drag. */
 	immersive?: ImmersiveItem[];
 	immersiveEditable?: boolean;
+	/** Immersive-only background; legacy values are migrated from the banner. */
+	immersiveBackground?: string;
+	immersiveClockColor?: string;
+	immersiveClockFont?: string;
 	columns: DashboardColumn[];
 }
 

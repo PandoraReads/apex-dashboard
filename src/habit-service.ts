@@ -6,6 +6,8 @@ export interface Habit {
 	name: string;
 	/** 'YYYY-MM-DD', local time. */
 	createdAt: string;
+	/** Existing habits without a mode remain ordinary daily check-ins. */
+	mode?: 'check' | 'count';
 }
 
 /** v1 data layout, stored at .obsidian/plugins/apex-dashboard/habits.json. */
@@ -14,6 +16,8 @@ export interface HabitData {
 	habits: Habit[];
 	/** Completed habit ids keyed by local date 'YYYY-MM-DD'. */
 	records: Record<string, string[]>;
+	/** Optional per-day counter values, keyed by date then habit id. */
+	counts?: Record<string, Record<string, number>>;
 }
 
 export const DATA_FILE = 'habits.json';
@@ -50,7 +54,18 @@ function mergeData(disk: HabitData, session: HabitData): HabitData {
 	for (const [date, set] of seen) {
 		if (set.size > 0) records[date] = [...set];
 	}
-	return { version: 1, habits, records };
+	const counts: Record<string, Record<string, number>> = {};
+	for (const source of [disk, session]) {
+		for (const [date, dayCounts] of Object.entries(source.counts ?? {})) {
+			if (!DATE_RE.test(date) || !dayCounts || typeof dayCounts !== 'object') continue;
+			const merged = counts[date] ?? {};
+			for (const [id, count] of Object.entries(dayCounts)) {
+				if (ids.has(id) && Number.isSafeInteger(count) && count > (merged[id] ?? 0)) merged[id] = count;
+			}
+			if (Object.keys(merged).length > 0) counts[date] = merged;
+		}
+	}
+	return { version: 1, habits, records, ...(Object.keys(counts).length > 0 ? { counts } : {}) };
 }
 
 /** Normalize a parsed habits.json: keep only well-formed habits and record
@@ -63,7 +78,8 @@ function normalizeData(raw: unknown): HabitData {
 			!!h && typeof h === 'object'
 			&& typeof h.id === 'string' && h.id.length > 0
 			&& typeof h.name === 'string' && h.name.length > 0
-			&& typeof h.createdAt === 'string' && DATE_RE.test(h.createdAt))
+			&& typeof h.createdAt === 'string' && DATE_RE.test(h.createdAt)
+			&& (h.mode === undefined || h.mode === 'check' || h.mode === 'count'))
 		: [];
 	const habitIds = new Set(habits.map(h => h.id));
 	const records: Record<string, string[]> = {};
@@ -75,7 +91,18 @@ function normalizeData(raw: unknown): HabitData {
 			if (valid.length > 0) records[date] = valid;
 		}
 	}
-	return { version: 1, habits, records };
+	const counts: Record<string, Record<string, number>> = {};
+	if (obj.counts && typeof obj.counts === 'object') {
+		for (const [date, dayCounts] of Object.entries(obj.counts)) {
+			if (!DATE_RE.test(date) || !dayCounts || typeof dayCounts !== 'object' || Array.isArray(dayCounts)) continue;
+			const valid: Record<string, number> = {};
+			for (const [id, count] of Object.entries(dayCounts)) {
+				if (habitIds.has(id) && Number.isSafeInteger(count) && (count as number) > 0 && (count as number) <= 1_000_000) valid[id] = count as number;
+			}
+			if (Object.keys(valid).length > 0) counts[date] = valid;
+		}
+	}
+	return { version: 1, habits, records, ...(Object.keys(counts).length > 0 ? { counts } : {}) };
 }
 
 function formatDate(d: Date): string {
@@ -313,7 +340,10 @@ export class HabitService {
 		const records = Object.fromEntries(
 			Object.entries(this.data.records).filter(([date]) => date >= cutoffStr),
 		);
-		this.data = { ...this.data, records };
+		const counts = Object.fromEntries(
+			Object.entries(this.data.counts ?? {}).filter(([date]) => date >= cutoffStr),
+		);
+		this.data = { ...this.data, records, ...(Object.keys(counts).length > 0 ? { counts } : { counts: undefined }) };
 	}
 
 	// ===== Habit CRUD =====
@@ -324,11 +354,11 @@ export class HabitService {
 
 	/** Add a habit; null when the name is empty, a duplicate (case-insensitive)
 	 *  or over 50 chars — callers surface the reason as a Notice. */
-	addHabit(name: string): Habit | null {
+	addHabit(name: string, mode: 'check' | 'count' = 'check'): Habit | null {
 		const trimmed = name.trim();
 		if (trimmed.length === 0 || trimmed.length > MAX_NAME_LENGTH) return null;
 		if (this.data.habits.some(h => h.name.toLowerCase() === trimmed.toLowerCase())) return null;
-		const habit: Habit = { id: makeHabitId(), name: trimmed, createdAt: todayStr() };
+		const habit: Habit = { id: makeHabitId(), name: trimmed, createdAt: todayStr(), ...(mode === 'count' ? { mode } : {}) };
 		this.data = { ...this.data, habits: [...this.data.habits, habit] };
 		this.save();
 		this.notify();
@@ -359,10 +389,16 @@ export class HabitService {
 			const kept = ids.filter(i => i !== id);
 			if (kept.length > 0) records[date] = kept;
 		}
+		const counts: Record<string, Record<string, number>> = {};
+		for (const [date, values] of Object.entries(this.data.counts ?? {})) {
+			const kept = Object.fromEntries(Object.entries(values).filter(([habitId]) => habitId !== id));
+			if (Object.keys(kept).length > 0) counts[date] = kept;
+		}
 		this.data = {
 			...this.data,
 			habits: this.data.habits.filter(h => h.id !== id),
 			records,
+			counts,
 		};
 		this.save();
 		this.notify();
@@ -391,8 +427,61 @@ export class HabitService {
 		return this.data.records[key]?.includes(habitId) === true;
 	}
 
+	getCount(habitId: string, date = todayStr()): number {
+		return this.data.counts?.[date]?.[habitId] ?? 0;
+	}
+
+	/** Switch between daily check-in and repeated-click counter semantics.
+	 *  Previous check-ins become count 1 when entering count mode. */
+	setMode(habitId: string, mode: 'check' | 'count'): boolean {
+		const habit = this.data.habits.find(item => item.id === habitId);
+		if (!habit) return false;
+		if ((habit.mode ?? 'check') === mode) return true;
+		let counts = this.data.counts ?? {};
+		if (mode === 'count') {
+			const next = { ...counts };
+			for (const [date, ids] of Object.entries(this.data.records)) {
+				if (ids.includes(habitId) && !next[date]?.[habitId]) {
+					next[date] = { ...(next[date] ?? {}), [habitId]: 1 };
+				}
+			}
+			counts = next;
+		} else {
+			counts = Object.fromEntries(Object.entries(counts).flatMap(([date, values]) => {
+				const { [habitId]: _removed, ...rest } = values;
+				return Object.keys(rest).length > 0 ? [[date, rest]] : [];
+			}));
+		}
+		this.data = {
+			...this.data,
+			habits: this.data.habits.map(item => item.id === habitId ? { ...item, mode: mode === 'check' ? undefined : mode } : item),
+			counts,
+		};
+		this.save();
+		this.notify();
+		return true;
+	}
+
+	/** Add one to a counter habit and mark it complete for the day. */
+	incrementCount(habitId: string, date = todayStr()): number {
+		const habit = this.data.habits.find(item => item.id === habitId);
+		if (!habit || (habit.mode ?? 'check') !== 'count' || !DATE_RE.test(date)) return 0;
+		const value = Math.min(1_000_000, this.getCount(habitId, date) + 1);
+		const counts = { ...(this.data.counts ?? {}), [date]: { ...(this.data.counts?.[date] ?? {}), [habitId]: value } };
+		const ids = this.data.records[date] ?? [];
+		const records = ids.includes(habitId) ? this.data.records : { ...this.data.records, [date]: [...ids, habitId] };
+		this.data = { ...this.data, records, counts };
+		this.save();
+		this.notify();
+		return value;
+	}
+
 	/** Toggle a habit's completion for a date (default today) and notify. */
 	toggle(habitId: string, date?: string): void {
+		if (this.data.habits.find(item => item.id === habitId)?.mode === 'count') {
+			this.incrementCount(habitId, date);
+			return;
+		}
 		const key = date ?? todayStr();
 		const ids = this.data.records[key] ?? [];
 		const next = ids.includes(habitId)
@@ -422,16 +511,19 @@ export class HabitService {
 		if (!DATE_RE.test(date)) return 0;
 		const known = new Set(this.data.habits.map(h => h.id));
 		const merged = new Set(this.data.records[date] ?? []);
+		const counts = { ...(this.data.counts ?? {}), [date]: { ...(this.data.counts?.[date] ?? {}) } };
 		let added = 0;
 		for (const id of habitIds) {
 			if (!known.has(id) || merged.has(id)) continue;
 			merged.add(id);
+			if (this.data.habits.find(h => h.id === id)?.mode === 'count') counts[date]![id] = 1;
 			added++;
 		}
 		if (added === 0) return 0;
 		this.data = {
 			...this.data,
 			records: { ...this.data.records, [date]: [...merged] },
+			counts,
 		};
 		this.save();
 		this.notify();
@@ -481,6 +573,9 @@ export class HabitService {
 
 	/** Total days this habit has ever been checked (survives rate windows). */
 	getTotal(habitId: string): number {
+		if (this.data.habits.find(h => h.id === habitId)?.mode === 'count') {
+			return Object.values(this.data.counts ?? {}).reduce((sum, day) => sum + (day[habitId] ?? 0), 0);
+		}
 		return Object.values(this.data.records)
 			.filter(ids => ids.includes(habitId))
 			.length;
@@ -494,11 +589,14 @@ export class HabitService {
 		const cursor = new Date();
 		cursor.setDate(cursor.getDate() - (days - 1));
 		for (let i = 0; i < days; i++) {
-			const ids = this.data.records[formatDate(cursor)] ?? [];
+			const date = formatDate(cursor);
+			const ids = this.data.records[date] ?? [];
 			if (target === 'all') {
 				series.push(ids.length);
 			} else {
-				series.push(ids.includes(target) ? 1 : 0);
+				series.push(this.data.habits.find(h => h.id === target)?.mode === 'count'
+					? this.getCount(target, date)
+					: ids.includes(target) ? 1 : 0);
 			}
 			cursor.setDate(cursor.getDate() + 1);
 		}
