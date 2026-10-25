@@ -6,7 +6,7 @@
 
 ![Apex Dashboard 工作台](assets/dashboard-hero.png)
 
-**語言 / Language**: [English](README_EN.md) | [简体中文](README.md) | **繁體中文** | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
+**語言 / Language**: [English](README_EN.md) | [简体中文](../README.md) | **繁體中文** | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
 ## 兩種檢視可選
 
