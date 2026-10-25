@@ -2,11 +2,11 @@
 
 > เลิกสลับไปมาระหว่างโน้ตใน Obsidian ทุกอย่างอยู่ในหน้าเดียว ครบทุกสิ่งที่คุณต้องการ จดโน้ตความคิด จัดการ todo ให้จบงาน ติดตามโปรเจกต์ของคุณ — และให้ทุกอย่างดูดีเหลือเชื่อไปด้วย
 
-**ภาษา / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | **ไทย**
-
 ## ภาพหน้าจอ
 
 ![Apex Dashboard](screenshot1.png)
+
+**ภาษา / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | **ไทย**
 
 ## ฟีเจอร์
 

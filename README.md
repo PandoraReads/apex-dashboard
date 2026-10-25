@@ -1,12 +1,12 @@
 # Apex Dashboard
 
-> Obsidian 一页纸工作台。一个页面，搞定一切。随手记灵感、管理待办、追踪项目 — 而且好看得不像实力派。
-
-**语言 / Language**: [English](README_EN.md) | 简体中文 | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
+> Obsidian 一页纸工作台。一个页面，搞定一切。随手记灵感、管理待办、追踪项目 — 而且好看得不像实力派。Stop switching between Obsidian notes. One page. Everything you need. Memo your thoughts, crush your todos, track your projects — and make it look incredible doing it.
 
 📺 **[Apex Dashboard 新手教程：15 分钟学会从设置到搭建自己的工作台](https://www.bilibili.com/video/BV17jph6GELp/?share_source=copy_web&vd_source=8d264377ea22b1761c5edc1cc529996f)**
 
 ![Apex Dashboard 工作台](assets/dashboard-hero.png)
+
+**语言 / Language**: [English](README_EN.md) | 简体中文 | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
 ## 两种视图可选
 

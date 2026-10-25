@@ -2,11 +2,11 @@
 
 > Obsidian のノートを行き来するのはもう終わり。たった 1 ページに、必要なものがすべて。考えをメモし、ToDo を片付け、プロジェクトを追跡 — しかも驚くほど美しい見た目で。
 
-**言語 / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | **日本語** | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
-
 ## スクリーンショット
 
 ![Apex Dashboard](screenshot1.png)
+
+**言語 / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | **日本語** | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
 ## 機能
 

@@ -2,11 +2,11 @@
 
 > Arrêtez de jongler entre vos notes Obsidian. Une seule page. Tout ce qu'il vous faut. Notez vos idées, venez à bout de vos todos, suivez vos projets — et donnez-leur une allure spectaculaire.
 
-**Langue / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | **Français** | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
-
 ## Capture d'écran
 
 ![Apex Dashboard](screenshot1.png)
+
+**Langue / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | **Français** | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
 ## Fonctionnalités
 

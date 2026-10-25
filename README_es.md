@@ -2,11 +2,11 @@
 
 > Deja de alternar entre notas de Obsidian. Una sola página. Todo lo que necesitas. Anota tus pensamientos, arrasa con tus todos, haz seguimiento de tus proyectos — y hazlo con un aspecto increíble.
 
-**Idioma / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | **Español** | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
-
 ## Captura de pantalla
 
 ![Apex Dashboard](screenshot1.png)
+
+**Idioma / Language**: [English](README_EN.md) | [简体中文](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | **Español** | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
 ## Características
 
