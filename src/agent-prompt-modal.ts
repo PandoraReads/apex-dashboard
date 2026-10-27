@@ -92,11 +92,19 @@ export class AgentPromptModal extends Modal {
 		const preview = body.createEl('pre', { cls: 'dashboard-skill-preview' });
 
 		const buildPrompt = (): string => {
+			// The scope list (stage-scope runs) owns the {paths} var: it maps the
+			// run down to the picked files. Without a scope list the caller's
+			// vars pass through untouched — e.g. the material library's
+			// multi-select paths must not be clobbered with ''.
+			const scoped = !!this.selectableFiles && this.selectableFiles.length > 0;
 			const paths = this.selected.size > 0
 				? [...this.selected].map(path => `- ${path}`).join('\n')
 				: '';
-			const prompt = buildAgentPrompt(this.spec, { ...this.vars, input: input.value, paths }, this.agent);
-			if (paths && !this.spec.promptTemplate.includes('{paths}')) {
+			const vars = scoped
+				? { ...this.vars, input: input.value, paths }
+				: { ...this.vars, input: input.value };
+			const prompt = buildAgentPrompt(this.spec, vars, this.agent);
+			if (scoped && paths && !this.spec.promptTemplate.includes('{paths}')) {
 				return `${prompt}\n\n${t('agent.scopeListHeading')}\n${paths}`;
 			}
 			return prompt;

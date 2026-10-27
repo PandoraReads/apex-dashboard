@@ -1,5 +1,5 @@
 import type { App, TFile } from 'obsidian';
-import type { PipelineConfig, PipelineSkill, PipelineStage } from './types';
+import type { PipelineAction, PipelineConfig, PipelineSkill, PipelineStage } from './types';
 import { isUnderExcludedFolder, normalizeExcludeFolders } from './exclude-folders';
 
 /**
@@ -89,6 +89,37 @@ export function sortStageItems(items: PipelineItem[], sortBy: 'ctime' | 'platfor
 		items.sort(byMtime);
 	}
 	return items;
+}
+
+/** Merge a re-rendered slice's new order into the stage's saved manual order.
+ *  The emitted list covers only the cards the user could actually see and
+ *  drag — with a rail filter active that is the filtered subset; under
+ *  progressive rendering it is the rendered slice. Slot replacement: every
+ *  saved slot whose card is in the emitted set takes the next emitted card
+ *  in DOM order; cards outside the set (filtered out / below the render
+ *  limit) keep their saved slots instead of being demoted to the end.
+ *  Emitted cards with no saved slot (new arrivals) append in emitted order.
+ *  The old prefix-style merge ([...emitted, ...rest]) is what scrambled
+ *  columns after a reorder under a filter or past the render limit. */
+export function mergeManualStageOrder(prior: readonly string[], orderedPaths: readonly string[]): string[] {
+	const emitted = [...new Set(orderedPaths.filter(path => path.length > 0))];
+	if (emitted.length === 0) return [...new Set(prior)];
+	const emittedSet = new Set(emitted);
+	const queue = [...emitted];
+	const merged: string[] = [];
+	for (const path of new Set(prior)) {
+		if (!emittedSet.has(path)) {
+			merged.push(path);
+			continue;
+		}
+		const next = queue.shift();
+		if (next !== undefined) merged.push(next);
+	}
+	const mergedSet = new Set(merged);
+	for (const path of emitted) {
+		if (!mergedSet.has(path)) merged.push(path);
+	}
+	return merged;
 }
 
 /** Project-dimension field aliases — any one holding a value counts (Rae's
@@ -315,6 +346,29 @@ export function reorderSkillSubset(
 	return skills.map(skill =>
 		subsetIds.has(skill.id) ? byId.get(orderedIds[rank++]!)! : skill,
 	);
+}
+
+/** Trim + validate user-configured action buttons: a row reaches a card only
+ *  with a label (tooltip), a target field, and at least one non-empty option.
+ *  Options keep config order, deduplicated — the dropdown reads top-down. */
+export function normalizePipelineActions(actions: readonly PipelineAction[] | undefined): PipelineAction[] {
+	return (actions ?? [])
+		.map(action => ({
+			...action,
+			label: action.label.trim(),
+			field: action.field.trim(),
+			options: [...new Set(action.options.map(option => option.trim()).filter(option => option.length > 0))],
+		}))
+		.filter(action => action.label.length > 0 && action.field.length > 0 && action.options.length > 0);
+}
+
+/** Current value of an action's field on one card — the dropdown checkmark.
+ *  YAML lists join with ', ' (a list-valued field matches no single option,
+ *  which is correct: the pick would overwrite the list with one value). */
+export function actionCurrentValue(frontmatter: Record<string, unknown>, field: string): string {
+	const raw = frontmatter[field];
+	if (raw == null) return '';
+	return (Array.isArray(raw) ? raw.map(v => String(v).trim()).filter(v => v.length > 0).join(', ') : String(raw).trim());
 }
 
 /** Seed config for a pipeline section opened for the first time. Labels are

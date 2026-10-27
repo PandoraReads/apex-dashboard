@@ -179,7 +179,9 @@ export function destroyMediaSection(sectionEl: HTMLElement): void {
 	releaseVideoMedia(sectionEl);
 }
 
-function createLazyVideoMounter(): LazyVideoMounter | null {
+/** Lazy mounter factory (desktop video thumbnails). Exported for the
+ *  material library view, which mounts the same kind of tiles. */
+export function createLazyVideoMounter(): LazyVideoMounter | null {
 	if (Platform.isMobile || typeof IntersectionObserver === 'undefined') return null;
 	const mounted = new WeakSet<HTMLElement>();
 	const observer = new IntersectionObserver((entries) => {

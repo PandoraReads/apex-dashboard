@@ -2429,6 +2429,29 @@
 	pointer-events: none;
 }
 
+/* Left-mounted variant (the material library's group rail): mirror the pin
+   edge and the hover-label direction. */
+.dashboard-section-rail--left {
+	right: auto;
+	left: 4px;
+	align-items: flex-start;
+}
+
+.dashboard-section-rail--left .dashboard-section-rail-item {
+	flex-direction: row-reverse;
+	justify-content: flex-start;
+}
+
+.dashboard-section-rail--left .dashboard-section-rail-item::after {
+	right: auto;
+	left: calc(100% + 6px);
+	transform: translateY(-50%) translateX(-4px);
+}
+
+.dashboard-section-rail--left .dashboard-section-rail-item:hover::after {
+	transform: translateY(-50%) translateX(0);
+}
+
 .dashboard-section-rail-item {
 	position: relative;
 	display: flex;
@@ -2688,6 +2711,62 @@
 	min-width: 16px;
 	text-align: center;
 }
+
+/* ===== Unified section toolbar button language (2026-10-27) ==============
+   Every toolbar's buttons speak the same quiet idiom as the ghost icon
+   buttons (sort-direction / filter / config gears): rest = no border, no
+   shadow, transparent surface, muted ink; hover = soft fill + full ink;
+   selected = accent tint. The three families below used to diverge —
+   gantt controls and the skill-library import carried Obsidian's native
+   button chrome (bordered + shadowed), the calendar nav mixed ghost arrows
+   with modal-styled bordered text buttons in the same row. */
+.dashboard-gantt-controls button {
+	background: none;
+	border: none;
+	box-shadow: none;
+	padding: 4px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	font-size: 0.75em;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+}
+.dashboard-gantt-controls button:hover {
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+}
+.dashboard-gantt-controls button.active {
+	color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
+}
+
+button.dashboard-skillsec-import {
+	background: none;
+	border: none;
+	box-shadow: none;
+	border-radius: var(--db-radius-sm, 6px);
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+}
+button.dashboard-skillsec-import:hover {
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-calendar-nav .dashboard-modal-btn {
+	background: none;
+	border: none;
+	box-shadow: none;
+	padding: 4px 10px;
+	border-radius: var(--db-radius-sm, 6px);
+	font-size: 0.8em;
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-calendar-nav .dashboard-modal-btn:hover {
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
+	border-color: transparent;
+}
+
 
 /* ===== Widget card backgrounds (per-widget decorative images) ===== */
 /* The layer is absolutely positioned with z-index:-1 inside an isolation
@@ -7618,22 +7697,28 @@
 	border-color: var(--db-accent);
 }
 
+/* Unified toolbar button language (2026-10-27): rest = no border, no
+   shadow, transparent surface, muted ink; hover = soft fill + full ink.
+   The old accent-tinted border/bg read as a gold frame next to the quiet
+   ghost buttons every other toolbar uses. */
 .dashboard-expense-ledger-btn {
-	background: var(--db-bg-btn, rgba(139, 92, 246, 0.10));
-	border: 1px solid var(--db-border-btn, color-mix(in srgb, var(--db-accent) 30%, transparent));
+	background: none;
+	border: none;
+	box-shadow: none;
 	border-radius: var(--db-radius-sm, 6px);
-	color: var(--db-accent);
-	font-size: 0.72em;
+	color: var(--db-text-muted);
+	font-size: 0.75em;
 	font-weight: 600;
 	font-family: var(--db-font);
 	padding: 4px 12px;
 	cursor: pointer;
 	white-space: nowrap;
-	transition: background 0.15s, opacity 0.15s;
+	transition: background 0.15s, color 0.15s, opacity 0.15s;
 }
 
 .dashboard-expense-ledger-btn:hover:not(:disabled) {
-	background: var(--db-bg-btn-hover, rgba(139, 92, 246, 0.18));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
+	color: var(--db-text);
 }
 
 .dashboard-expense-ledger-btn:disabled {
@@ -7642,9 +7727,7 @@
 }
 
 .dashboard-expense-ledger-btn--ghost {
-	background: transparent;
-	color: var(--db-text-muted);
-	border-color: var(--db-border-card);
+	color: var(--db-text-faint);
 }
 
 .dashboard-expense-ledger-btn--ghost:hover {
@@ -7652,13 +7735,12 @@
 }
 
 .dashboard-expense-ledger-btn--danger {
-	background: rgba(231, 76, 60, 0.10);
-	border-color: rgba(231, 76, 60, 0.35);
 	color: var(--db-danger, #e74c3c);
 }
 
 .dashboard-expense-ledger-btn--danger:hover:not(:disabled) {
-	background: rgba(231, 76, 60, 0.18);
+	background: rgba(231, 76, 60, 0.12);
+	color: var(--db-danger, #e74c3c);
 }
 
 .dashboard-expense-ledger-file {
@@ -15689,7 +15771,10 @@
 	min-width: 120px;
 	max-width: 240px;
 	padding: 4px 10px;
-	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	/* Quiet well, matching the sort select / skillsec search: no hairline,
+	   no native input shadow, focus = soft fill (not the gold border). */
+	border: none;
+	box-shadow: none;
 	border-radius: var(--db-radius-sm, 6px);
 	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
 	color: var(--db-text, var(--text-normal));
@@ -15699,8 +15784,9 @@
 }
 
 .dashboard-library-search:focus {
-	border-color: var(--db-border-input-focus, var(--interactive-accent));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.08));
 }
+
 
 .dashboard-library-search::placeholder {
 	color: var(--db-text-muted, var(--text-muted));
@@ -15739,7 +15825,12 @@
 
 .dashboard-library-sort {
 	padding: 4px 8px;
-	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	/* Quiet-well language: filled input surface, no border, no native select
+	   shadow — sits in the same row as the borderless ghost icon buttons.
+	   Focus is a soft fill (the gold focus border of the old hairline read
+	   as yet another border style). */
+	border: none;
+	box-shadow: none;
 	border-radius: var(--db-radius-sm, 6px);
 	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
 	color: var(--db-text, var(--text-normal));
@@ -15750,7 +15841,7 @@
 }
 
 .dashboard-library-sort:focus {
-	border-color: var(--db-border-input-focus, var(--interactive-accent));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.08));
 }
 
 .dashboard-library-sort-dir {
@@ -15779,7 +15870,7 @@
 .dashboard-library-view-btn {
 	cursor: pointer;
 	padding: 4px 8px;
-	border-radius: 4px;
+	border-radius: var(--db-radius-sm, 6px);
 	color: var(--db-text-muted, var(--text-muted));
 	display: flex;
 	align-items: center;
@@ -15826,7 +15917,10 @@
 
 .dashboard-library-page-size {
 	padding: 3px 6px;
-	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	/* Quiet well, matching the sort select: no hairline, no native select
+	   shadow, focus = soft fill. */
+	border: none;
+	box-shadow: none;
 	border-radius: var(--db-radius-sm, 6px);
 	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
 	color: var(--db-text-muted, var(--text-muted));
@@ -15837,7 +15931,7 @@
 }
 
 .dashboard-library-page-size:focus {
-	border-color: var(--db-border-input-focus, var(--interactive-accent));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.08));
 }
 
 .dashboard-library-config-btn {
@@ -16005,11 +16099,16 @@
 
 .dashboard-library-filter-popup-prop {
 	padding: 4px 8px;
-	border: 1px solid #ddd;
-	border-radius: 6px;
-	background: #f5f5f5;
-	color: #333;
+	/* Was hardcoded light-theme chrome (#ddd border / #f5f5f5 bg / #333
+	   text) — a white-bordered box in dark themes. Quiet well now, matching
+	   every other toolbar input. */
+	border: none;
+	box-shadow: none;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	color: var(--db-text, var(--text-normal));
 	font-size: 0.75em;
+	font-family: var(--db-font, var(--font-interface));
 	outline: none;
 	min-width: 120px;
 }
@@ -16023,24 +16122,26 @@
 .dashboard-library-filter-date-btn {
 	cursor: pointer;
 	padding: 4px 10px;
-	border: 1px solid var(--db-border-card, #ddd);
-	border-radius: 6px;
-	background: var(--db-bg-card, #f5f5f5);
-	color: var(--db-text-muted, #888);
+	/* Ghost language: no hairline border, no shadow; hover = soft fill (the
+	   old hover/has-value accent BORDER read as a gold frame). */
+	border: none;
+	box-shadow: none;
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
+	color: var(--db-text-muted, var(--text-muted));
 	font-size: 0.75em;
 	font-family: var(--db-font, var(--font-interface));
-	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
+	transition: background 0.15s ease, color 0.15s ease;
 }
 
 .dashboard-library-filter-date-btn:hover {
-	border-color: var(--db-accent, var(--interactive-accent, #7c3aed));
-	color: var(--db-text, #333);
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.08));
+	color: var(--db-text, var(--text-normal));
 }
 
 .dashboard-library-filter-date-btn.has-value {
-	color: var(--db-accent, var(--interactive-accent, #7c3aed));
-	border-color: var(--db-accent, var(--interactive-accent, #7c3aed));
-	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 10%, transparent);
+	color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 12%, transparent);
 }
 
 .dashboard-library-filter-popup-values {
@@ -18028,6 +18129,9 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 
 .dashboard-media-lightbox-stage {
+	/* Definite width so the video wrap's percentage resolves against it (a
+	   shrink-to-fit stage made the % circular and pushed the player off-center). */
+	width: 90vw;
 	max-width: 90vw;
 	max-height: 78vh;
 	display: flex;
@@ -18044,6 +18148,58 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	object-fit: contain;
 	border-radius: 4px;
 }
+
+/* Wheel-zoom images: transform is translate+scale around the center (JS),
+   dragging pans while magnified. */
+.dashboard-media-lightbox-img {
+	transform-origin: 50% 50%;
+	cursor: zoom-in;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* Stretchable video player: the WRAP carries the inline width in percent (set
+   by the corner grip drag) and stays a centered flex item of the stage; the
+   video fills the wrap; the grip rides the wrap's corner. */
+.dashboard-media-lightbox-video-wrap {
+	position: relative;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	max-width: 100%;
+}
+
+.dashboard-media-lightbox-video-wrap .dashboard-media-lightbox-video {
+	width: 100%;
+	max-width: 100%;
+	height: auto;
+	max-height: 74vh;
+}
+
+.dashboard-media-lightbox-resize {
+	position: absolute;
+	right: 6px;
+	bottom: 6px;
+	width: 30px;
+	height: 30px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.16);
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	color: #fff;
+	cursor: nwse-resize;
+	opacity: 0.75;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+	transition: opacity 0.12s ease, background-color 0.12s ease;
+}
+
+.dashboard-media-lightbox-resize:hover { opacity: 1; background: rgba(255, 255, 255, 0.28); }
+.dashboard-media-lightbox-resize svg { width: 15px; height: 15px; }
 
 .dashboard-media-lightbox-caption {
 	color: rgba(255, 255, 255, 0.85);
@@ -22087,19 +22243,22 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	opacity: 0.7;
 	word-break: break-all;
 }
+/* Empty/fallback CTA — the rss empty-state language (solid accent, no
+   outline) instead of the old accent border that read as a gold frame. */
 .dashboard-web-fallback-btn {
 	margin-top: 8px;
 	padding: 6px 14px;
-	border: 1px solid var(--db-accent, var(--text-accent));
+	border: none;
+	box-shadow: none;
 	border-radius: var(--db-radius-sm, 8px);
-	background: transparent;
-	color: var(--db-accent, var(--text-accent));
+	background: var(--db-accent, var(--text-accent));
+	color: var(--db-text-inverse, var(--text-on-accent));
 	font-size: 0.9em;
 	cursor: pointer;
 }
 .dashboard-web-fallback-btn:hover {
-	background: var(--db-accent, var(--text-accent));
-	color: var(--db-bg-section, var(--background-primary));
+	background: color-mix(in srgb, var(--db-accent, var(--text-accent)) 88%, var(--db-text));
+	color: var(--db-text-inverse, var(--text-on-accent));
 }
 
 /* Web config modal — zoom preset chips (single-select, with a visible active
@@ -23271,9 +23430,38 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 65%, rgba(255, 255, 255, 0.3));
 		box-shadow: 0 0 0 3px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 22%, transparent);
 	}
-	/* The pencil goes away entirely (the field is a clean card). */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture-icon {
+	/* The pencil goes away entirely (the field is a clean card) — but the
+	   SEARCH glyph stays: search mode needs its affordance. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture:not(.dashboard-quicknote-capture--search) .dashboard-quicknote-capture-icon {
 		display: none;
+	}
+	/* Search mode: the pill stops clipping so the absolutely-positioned
+	   results dropdown underneath survives (overflow:hidden was swallowing
+	   it — "type and see nothing, Enter opens the first hit"). */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search {
+		overflow: visible;
+	}
+	/* Room for a full ten two-line rows (10 × ~53px + gaps + padding), still
+	   capped by the viewport on short panes. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-search-pop {
+		max-height: min(560px, 65vh);
+	}
+	/* No focus ring in search mode: the pill keeps its resting hairline. The
+	   capture-mode accent border + glow read as a white frame over the
+	   poster, and the input's own 1px focus shadow doubles it. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search:focus-within {
+		border-color: rgba(255, 255, 255, 0.16);
+		box-shadow: none;
+	}
+	/* Glyph reads on the dark translucent pill; focus lights it up (beats
+	   the base focus-within accent rule on specificity). */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search .dashboard-quicknote-capture-icon {
+		display: inline-flex;
+		left: 14px;
+		color: rgba(255, 255, 255, 0.6) !important;
+	}
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search:focus-within .dashboard-quicknote-capture-icon {
+		color: rgba(255, 255, 255, 0.95) !important;
 	}
 	/* Kill the narrow cqw sizing: the field fills the card, its own padding
 	   is the whitespace. Both the resting and focus-width rules of the base
@@ -23291,6 +23479,15 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		padding: 10px 14px !important;
 		background: transparent;
 		font-size: 0.92em;
+	}
+	/* Search mode: text clears the glyph (same doubled-class specificity
+	   idiom as above; placed later so the left pad wins the !important tie).
+	   box-shadow:none also kills the base focus ring — a 1px accent rectangle
+	   inside the pill that read as a white border while typing. */
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote .dashboard-quicknote-capture--search .dashboard-quicknote-capture-input.dashboard-quicknote-capture-input,
+	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search .dashboard-quicknote-capture-input:focus {
+		padding-left: 38px !important;
+		box-shadow: none;
 	}
 	/* Cog: a proper card-matched button, sized to be an easy target. */
 	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-cog {
@@ -24486,7 +24683,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	flex: 0 1 200px;
 	min-width: 120px;
 	padding: 4px 10px;
-	border: 1px solid var(--db-border-input, rgba(255, 255, 255, 0.08));
+	/* Quiet well like the sort select: filled surface, no hairline, no
+	   native input shadow, focus = soft fill (not the old accent border). */
+	border: none;
+	box-shadow: none;
 	border-radius: var(--db-radius-sm, 6px);
 	background: var(--db-bg-input, rgba(255, 255, 255, 0.05));
 	color: var(--db-text, var(--text-normal));
@@ -24496,7 +24696,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 
 .dashboard-skillsec-search:focus {
-	border-color: var(--db-border-input-focus, var(--interactive-accent));
+	background: var(--db-bg-hover, rgba(255, 255, 255, 0.08));
 }
 
 .dashboard-skillsec-search::placeholder {
@@ -26565,24 +26765,33 @@ button.dashboard-pipeline-sort-btn svg {
 }
 
 /* Archive affordance: hover-revealed beside the delete button (top-right),
-   ghost-styled instead of the delete button's dark dot. */
-.dashboard-pipeline-card .dashboard-pipeline-archive-btn {
-	right: 28px;
+   ghost-styled instead of the delete button's dark dot. Custom action
+   buttons share the ghost look; their leftward `right` offset is inline
+   (set per index in JS), so no `right` is declared for them here. */
+.dashboard-pipeline-card .dashboard-pipeline-archive-btn,
+.dashboard-pipeline-card .dashboard-pipeline-action-btn {
 	background: transparent;
 	color: var(--db-text-muted, var(--text-muted));
 	border-radius: 5px;
 }
 
-.dashboard-pipeline-card .dashboard-pipeline-archive-btn:hover {
+.dashboard-pipeline-card .dashboard-pipeline-archive-btn {
+	right: 28px;
+}
+
+.dashboard-pipeline-card .dashboard-pipeline-archive-btn:hover,
+.dashboard-pipeline-card .dashboard-pipeline-action-btn:hover {
 	background: color-mix(in srgb, var(--db-pipe-accent, #6366f1) 16%, transparent);
 	color: var(--db-text, var(--text-normal));
 }
 
-.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-archive-btn {
+.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-archive-btn,
+.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-action-btn {
 	color: var(--tl-muted);
 }
 
-.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-archive-btn:hover {
+.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-archive-btn:hover,
+.dashboard-pipeline--trello .dashboard-pipeline-card .dashboard-pipeline-action-btn:hover {
 	background: rgba(var(--tl-shadow), 0.08);
 	color: var(--tl-ink);
 }
@@ -26747,7 +26956,8 @@ button.dashboard-pipeline-skill-btn--colored:hover {
 /* Quiet chrome: footer buttons, archive ghost, checklist, rail shell. */
 .dashboard-pipeline--solid .dashboard-pipeline-card button.dashboard-pipeline-foot-btn,
 .dashboard-pipeline--solid .dashboard-pipeline-card button.dashboard-pipeline-skill-btn:not(.dashboard-pipeline-skill-btn--colored),
-.dashboard-pipeline--solid .dashboard-pipeline-card .dashboard-pipeline-archive-btn {
+.dashboard-pipeline--solid .dashboard-pipeline-card .dashboard-pipeline-archive-btn,
+.dashboard-pipeline--solid .dashboard-pipeline-card .dashboard-pipeline-action-btn {
 	color: var(--sd-card-muted);
 }
 
@@ -26851,6 +27061,7 @@ button.dashboard-pipeline-skill-btn--colored:hover {
 .dashboard-pipeline--blush .dashboard-pipeline-card button.dashboard-pipeline-foot-btn,
 .dashboard-pipeline--blush .dashboard-pipeline-card button.dashboard-pipeline-skill-btn:not(.dashboard-pipeline-skill-btn--colored),
 .dashboard-pipeline--blush .dashboard-pipeline-card .dashboard-pipeline-archive-btn,
+.dashboard-pipeline--blush .dashboard-pipeline-card .dashboard-pipeline-action-btn,
 .dashboard-pipeline--blush button.dashboard-pipeline-col-add,
 .dashboard-pipeline--blush button.dashboard-pipeline-rail-dim,
 .dashboard-pipeline--blush button.dashboard-pipeline-rail-item.is-all {
@@ -29493,7 +29704,6 @@ button.dashboard-capturebar-glyph:hover {
 
 .dashboard-pmsec-toolbar--gantt .dashboard-gantt-control-group .active {
 	color: var(--db-accent, var(--interactive-accent));
-	border-color: var(--db-accent, var(--interactive-accent));
 	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
 }
 
@@ -29961,3 +30171,600 @@ button.dashboard-capturebar-glyph:hover {
 .dashboard-gantt-task-label .dashboard-gantt-task.is-done { text-decoration: line-through; color: var(--db-text-muted, var(--text-muted)); }
 .dashboard-gantt-milestone-icon { flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--db-accent, var(--interactive-accent)); }
 .dashboard-gantt-milestone-icon svg { width: 15px; height: 15px; }
+
+/* ==========================================================================
+   Material library (素材库) — standalone full-page waterfall view. The view
+   root carries .apex-dashboard-root + [data-theme] so every --db-* token and
+   preset applies; this block only adds the page layout, the masonry columns,
+   tiles, selection chrome and the batch bar.
+   ========================================================================== */
+
+.dashboard-material-content {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	padding: 10px 14px 0;
+	box-sizing: border-box;
+}
+
+.dashboard-material-toolbar {
+	flex: 0 0 auto;
+	flex-wrap: wrap;
+	row-gap: 6px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.18));
+}
+
+.dashboard-material-filter-row { padding-top: 6px; }
+
+/* Right cluster (favorites / style / settings) is bare icon buttons (Rae):
+   the renderer no longer wraps them in the view-toggle chip-well, and tighter
+   padding keeps the cluster hugging the gear. The collapse-all button (also
+   bare) sits over by the funnel instead — it is a grouping control. */
+.dashboard-material-toolbar .dashboard-library-view-btn {
+	padding: 4px 5px;
+}
+
+/* Collapse-all only exists in grouped views. */
+.dashboard-material-collapse-all.is-hidden { display: none; }
+
+/* Favorites toggle in the toolbar: filled heart + pink when the view is
+   scoped to the collection. */
+.dashboard-material-favorites-btn.active {
+	background: rgba(224, 36, 94, 0.12);
+	color: #e0245e;
+}
+
+.dashboard-material-favorites-btn.active svg {
+	fill: currentColor;
+}
+
+/* Type filter pills (全部/图片/视频/文本): visible segmented buttons so the
+   active scope reads at a glance. */
+.dashboard-material-typepills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 2px;
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
+	border-radius: 8px;
+	background: var(--db-bg-input, rgba(128, 128, 128, 0.06));
+}
+
+.dashboard-material-typepill {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 9px;
+	font-size: 0.78em;
+	border-radius: 6px;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	white-space: nowrap;
+	transition: color 0.12s ease, background 0.12s ease;
+}
+
+.dashboard-material-typepill:hover { color: var(--db-text, var(--text-normal)); }
+
+.dashboard-material-typepill.active {
+	color: var(--db-text, var(--text-normal));
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 20%, transparent);
+}
+
+.dashboard-material-typepill-icon { display: inline-flex; }
+.dashboard-material-typepill-icon svg { width: 13px; height: 13px; }
+
+/* Fully hidden scrollbar (Rae): the gutter is gone, scrolling still works —
+   wheel/touch/keyboard keep the area usable, nothing is rendered for it. */
+.dashboard-material-area {
+	position: relative;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 10px 2px 6px;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.dashboard-material-area::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* Rubber-band selection: no accidental text/image drag while sweeping. */
+.dashboard-material-area.is-select-mode {
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* OS file drop (Rae): an image/video dragged in from anywhere else on the
+   computer is copied into the vault. The pill names the exact destination,
+   the dashed outline marks the whole area while a file drag is inside, and
+   the tint marks the single group the file will land in. Opaque surfaces, no
+   backdrop-filter (mobile crash guard). */
+.dashboard-material-drophint {
+	position: absolute;
+	top: 4px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 6;
+	max-width: 84%;
+	padding: 5px 13px;
+	border: 1px solid color-mix(in srgb, var(--db-accent, #8b5cf6) 45%, transparent);
+	border-radius: 999px;
+	background: var(--db-bg-modal, #fffdf7);
+	color: var(--db-text, var(--text-normal));
+	font-size: .78em;
+	line-height: 1.3;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+}
+
+.dashboard-material-drophint.is-hidden { display: none; }
+
+.dashboard-material-content.is-dragging-file .dashboard-material-area {
+	outline: 2px dashed color-mix(in srgb, var(--db-accent, #8b5cf6) 55%, transparent);
+	outline-offset: -3px;
+	border-radius: 6px;
+}
+
+.dashboard-material-dropzone.is-drop-active {
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 10%, transparent);
+}
+
+.dashboard-material-block { margin-bottom: 4px; }
+
+/* Masonry: equal-width columns, tiles appended shortest-column-first (JS). */
+.dashboard-material-cols {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.dashboard-material-col {
+	flex: 1 1 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+/* Card chrome is shared; the two style variants own the surface look so the
+   polaroid paper and the original theme card can't fight over one rule. */
+.dashboard-material-tile {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.dashboard-material-tile:hover {
+	transform: translateY(-2px);
+}
+
+.dashboard-material-tile.is-selected {
+	border-color: var(--db-accent, var(--interactive-accent));
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--db-accent, #8b5cf6) 45%, transparent);
+}
+
+/* --- Plain style: the original cover-only card (theme surface, full-bleed
+       cover, title + heart overlaid on the image bottom). --- */
+.dashboard-material-tile--plain {
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.16));
+	border-radius: var(--db-radius-md, 10px);
+	background: var(--db-bg-card, rgba(128, 128, 128, 0.06));
+}
+
+.dashboard-material-tile--plain:hover {
+	border-color: var(--db-accent, var(--interactive-accent));
+	box-shadow: var(--db-sec-glow, 0 4px 14px rgba(0, 0, 0, 0.18));
+}
+
+.dashboard-material-tile--plain .dashboard-material-thumb { border-radius: 0; }
+
+/* Plain caption lives INSIDE the cover: one bar over the image bottom
+   carrying the title + heart (Rae) — no strip of any kind below the image. */
+.dashboard-material-coverbar {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 18px 7px 5px;
+	background: linear-gradient(to top, rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0));
+}
+
+.dashboard-material-coverbar .dashboard-material-name {
+	/* Title takes all the room the heart leaves; long names ellipsize on the
+	   gradient instead of sliding under the heart. */
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 0;
+	color: #ffffff;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.dashboard-material-coverbar .dashboard-material-heart {
+	flex: 0 0 auto;
+	width: 22px;
+	height: 22px;
+	color: rgba(255, 255, 255, 0.85);
+}
+
+.dashboard-material-coverbar .dashboard-material-heart:hover {
+	color: #ff6b81;
+	background: rgba(255, 255, 255, 0.18);
+}
+
+/* Full-bleed cover: the badge and hover actions sit on the cover corner, not
+   inset by polaroid paper padding. */
+.dashboard-material-tile--plain .dashboard-material-check { top: 8px; left: 8px; }
+.dashboard-material-tile--plain .dashboard-material-actions { top: 6px; right: 6px; }
+
+/* --- Polaroid style (Pinterest): photo + caption on one white paper block,
+       macaron strip below. Corners are deliberately near-zero (Rae). --- */
+.dashboard-material-tile--polaroid {
+	border: 1px solid rgba(0, 0, 0, 0.07);
+	border-radius: 3px;
+	background: #fbfaf7;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 5px 14px rgba(0, 0, 0, 0.07);
+}
+
+.dashboard-material-tile--polaroid:hover {
+	border-color: rgba(0, 0, 0, 0.14);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+/* White paper block: polaroid frame around the photo, caption under it. */
+.dashboard-material-photo {
+	padding: 7px 7px 0;
+}
+
+.dashboard-material-thumb {
+	position: relative;
+	width: 100%;
+	background: #eceae4;
+	overflow: hidden;
+	border-radius: 2px;
+}
+
+.dashboard-material-img,
+.dashboard-material-thumb video.dashboard-media-thumb {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.dashboard-material-video-ph {
+	width: 100%;
+	height: 100%;
+	min-height: 48px;
+	background:
+		linear-gradient(135deg, color-mix(in srgb, var(--db-accent, #8b5cf6) 14%, transparent), transparent 60%),
+		rgba(128, 128, 128, 0.12);
+}
+
+/* Caption stays IN the paper flow. It must never pick up the media section's
+   `.dashboard-media-name` overlay chrome (absolute + bottom gradient): that
+   took the name out of flow and let the meta strip ride up over it (Rae). */
+.dashboard-material-name {
+	position: static;
+	/* No side padding in polaroid: the paper block already insets 7px, so the
+	   caption lines up exactly with the photo's left edge. Plain overrides. */
+	padding: 6px 0 7px;
+	font-size: 0.78em;
+	line-height: 1.25;
+	color: #33322e;
+	background: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Macaron meta strip: an OPAQUE pastel per theme (--db-material-macaron),
+   never a translucent accent wash and never glass (Rae). */
+.dashboard-material-meta {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	flex-wrap: wrap;
+	margin-top: auto;
+	padding: 6px 7px;
+	border-top: 1px solid rgba(0, 0, 0, 0.05);
+	border-radius: 0 0 2px 2px;
+	background: var(--db-material-macaron, #fdf3dc);
+}
+
+.dashboard-material-meta-tags {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.dashboard-material-meta .dashboard-media-tile-tag {
+	flex: 0 0 auto;
+	max-width: 90px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: #3a3540;
+	background: #ffffff;
+}
+
+.dashboard-material-meta-date {
+	font-size: 0.66em;
+	letter-spacing: 0.02em;
+	color: rgba(58, 53, 64, 0.66);
+	white-space: nowrap;
+}
+
+/* Favorite heart: outline at rest, filled when collected; pinned to the right
+   end of whichever row carries it (macaron strip or plain bottom row). */
+.dashboard-material-heart {
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.dashboard-material-heart svg { width: 15px; height: 15px; }
+
+/* The macaron strip is always light, so ink there is fixed; the plain card
+   follows the theme. */
+.dashboard-material-meta .dashboard-material-heart { color: rgba(58, 53, 64, 0.6); }
+
+.dashboard-material-heart:hover { color: #e0245e; }
+.dashboard-material-meta .dashboard-material-heart:hover { background: rgba(255, 255, 255, 0.6); }
+
+.dashboard-material-heart.is-fav {
+	color: #e0245e;
+}
+
+.dashboard-material-heart.is-fav svg {
+	fill: currentColor;
+}
+
+.dashboard-material-heart.is-fav:hover {
+	transform: scale(1.12);
+}
+
+/* Macaron pastels for the polaroid strip — one opaque color per built-in
+   theme, chosen to sit next to that theme's accent without inheriting it.
+   Theme-Studio snapshots (custom data-theme ids) fall back to butter. */
+/* Flat neutral page (Rae): light gray in EVERY theme so the theme-following
+   macaron strip never blends into the page — the aurora-light page
+   (#f2f6ff) was nearly identical to its strip (#e6e9fb). (0,2,0) plus later
+   source order beats the per-theme background/animation rules above. */
+.apex-dashboard-root.apex-material-root {
+	background: #ebebeb;
+	animation: none;
+}
+
+.apex-material-root { --db-material-macaron: #fdf3dc; }
+.apex-material-root[data-theme="mono"] { --db-material-macaron: #f1ede4; }
+.apex-material-root[data-theme="aqua"] { --db-material-macaron: #ddf1f4; }
+.apex-material-root[data-theme="aurora"] { --db-material-macaron: #e6e9fb; }
+.apex-material-root[data-theme="blossom"] { --db-material-macaron: #fbe3ec; }
+.apex-material-root[data-theme="earth"] { --db-material-macaron: #efe6d8; }
+.apex-material-root[data-theme="island"] { --db-material-macaron: #e2f2e4; }
+.apex-material-root[data-theme="magma"] { --db-material-macaron: #fbe4d8; }
+.apex-material-root[data-theme="matcha"] { --db-material-macaron: #e8f1dc; }
+.apex-material-root[data-theme="neon"] { --db-material-macaron: #e7e4fa; }
+.apex-material-root[data-theme="nordic"] { --db-material-macaron: #e8eef4; }
+.apex-material-root[data-theme="onyx"] { --db-material-macaron: #edebe6; }
+.apex-material-root[data-theme="tundra"] { --db-material-macaron: #e9f0f1; }
+.apex-material-root[data-theme="volt"] { --db-material-macaron: #f4f6dc; }
+
+.dashboard-material-thumb.is-video-mounted .dashboard-material-video-ph { display: none; }
+.dashboard-material-thumb.dashboard-media-thumb--broken { min-height: 90px; }
+
+/* Selection checkbox: only exists in select mode; dimmed until checked. */
+.dashboard-material-check {
+	position: absolute;
+	top: 13px;
+	left: 13px;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	background: var(--db-bg-card, rgba(20, 20, 20, 0.7));
+	border: 1.5px solid var(--db-text-muted, rgba(128, 128, 128, 0.8));
+	color: transparent;
+	z-index: 2;
+}
+
+.dashboard-material-check svg { width: 14px; height: 14px; }
+
+.dashboard-material-tile.is-select-mode .dashboard-material-check { display: flex; }
+.dashboard-material-tile.is-select-mode.is-selected .dashboard-material-check {
+	background: var(--db-accent, var(--interactive-accent));
+	border-color: var(--db-accent, var(--interactive-accent));
+	color: #fff;
+}
+
+/* Hover actions (tag / move / delete) — visible on hover only. */
+.dashboard-material-actions {
+	position: absolute;
+	top: 11px;
+	right: 11px;
+	display: flex;
+	gap: 4px;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+	z-index: 2;
+}
+
+.dashboard-material-tile:hover .dashboard-material-actions { opacity: 1; pointer-events: auto; }
+
+.dashboard-material-actbtn {
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	background: var(--db-bg-card, rgba(20, 20, 20, 0.65));
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.25));
+	color: var(--db-text, var(--text-normal));
+	cursor: pointer;
+}
+
+.dashboard-material-actbtn:hover { color: var(--db-accent, var(--interactive-accent)); border-color: var(--db-accent, var(--interactive-accent)); }
+.dashboard-material-actbtn svg { width: 14px; height: 14px; }
+
+/* Rubber-band marquee rectangle (select-mode drag). */
+.dashboard-material-marquee {
+	position: absolute;
+	border: 1px solid var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 14%, transparent);
+	border-radius: 3px;
+	pointer-events: none;
+	z-index: 6;
+}
+
+/* Right floating action rail (Rae): vertical, icon-only — select toggle,
+   selection count, divider, skill buttons, then batch actions. Floats over
+   the scroll area so it never consumes layout space. */
+.dashboard-material-actionrail {
+	position: absolute;
+	right: 4px;
+	top: 50%;
+	transform: translateY(-50%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 4px 3px;
+	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
+	border-radius: var(--db-radius-md, 10px);
+	background: var(--db-bg-card, rgba(20, 20, 20, 0.72));
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+	z-index: 20;
+}
+
+.dashboard-material-railbtn {
+	width: 28px;
+	height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: none;
+	border-radius: 7px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	transition: background 0.12s ease, color 0.12s ease;
+}
+
+/* Icon-only, chromeless (Rae). Obsidian's core `button:not(.clickable-icon)`
+   (0,1,1) paints --interactive-normal plus the inset --input-shadow ring on
+   every real <button>, which a single class (0,1,0) cannot beat — hence the
+   rail-scoped selector. Hover/active below ride one class higher so they
+   still win over this reset. */
+.dashboard-material-actionrail button.dashboard-material-railbtn {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	background-color: transparent;
+	box-shadow: none;
+}
+
+.dashboard-material-railbtn svg { width: 15px; height: 15px; }
+
+.dashboard-material-railbtn:hover,
+.dashboard-material-actionrail button.dashboard-material-railbtn:hover {
+	background: var(--db-bg-hover, rgba(128, 128, 128, 0.12));
+	background-color: var(--db-bg-hover, rgba(128, 128, 128, 0.12));
+	box-shadow: none;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-material-railbtn.active,
+.dashboard-material-actionrail button.dashboard-material-railbtn.active {
+	color: var(--db-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 18%, transparent);
+	background-color: color-mix(in srgb, var(--db-accent, #8b5cf6) 18%, transparent);
+	box-shadow: none;
+}
+
+.dashboard-material-railbtn--danger:hover { color: #f66; }
+
+.dashboard-material-railbtn:disabled {
+	opacity: 0.4;
+	cursor: default;
+	pointer-events: none;
+}
+
+/* Selection count pill between toggle and divider. */
+.dashboard-material-railcount {
+	min-width: 18px;
+	padding: 0 3px;
+	text-align: center;
+	font-size: 0.62em;
+	font-weight: 600;
+	border-radius: 999px;
+	color: #fff;
+	background: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-material-raildivider {
+	width: 18px;
+	height: 1px;
+	margin: 2px 0;
+	background: var(--db-border-card, rgba(128, 128, 128, 0.25));
+}
+
+/* Group headers reuse the media section's group chrome. */
+.dashboard-material-area .dashboard-media-group-header { position: static; }
+.dashboard-material-area .dashboard-media-group-body { padding-bottom: 6px; }
+
+/* Icon buttons are divs here, so the tablet button-padding crush does not
+   apply; keep the compact rail/act buttons explicit anyway (real <button>
+   elements on the rail DO hit the .is-tablet rule). */
+.is-tablet button.dashboard-material-railbtn,
+.is-tablet button.dashboard-material-actbtn { padding: 0; }
+
+/* Mobile: full-width search row, tighter paddings, guaranteed 2 columns
+   (the model clamps column count to >= 2). The action rail shrinks and hugs
+   the right edge so it covers as little of the waterfall as possible. */
+@media (max-width: 640px) {
+	.dashboard-material-content { padding: 8px 8px 0; }
+	.dashboard-material-toolbar .dashboard-library-search { flex: 1 1 100%; width: 100%; }
+	.dashboard-material-typepills { flex: 1 1 100%; }
+	.dashboard-material-typepill { flex: 1 1 auto; justify-content: center; }
+	.dashboard-material-typepill-label { display: none; }
+	.dashboard-material-cols { gap: 8px; }
+	.dashboard-material-col { gap: 8px; }
+	/* Narrow tiles: drop the date so tags + heart still fit one strip. */
+	.dashboard-material-meta-date { display: none; }
+	.dashboard-material-meta { padding: 5px 6px; }
+	.dashboard-material-photo { padding: 6px 6px 0; }
+	.dashboard-material-actionrail { right: 2px; padding: 3px 2px; opacity: 0.92; }
+	.dashboard-material-railbtn { width: 30px; height: 30px; }
+	.dashboard-material-actionrail button.dashboard-material-railbtn { width: 30px; height: 30px; }
+	.dashboard-material-railbtn svg { width: 15px; height: 15px; }
+}

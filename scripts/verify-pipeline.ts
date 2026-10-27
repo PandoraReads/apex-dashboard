@@ -1,15 +1,17 @@
 import { strict as assert } from 'node:assert';
 import type { App, TFile } from 'obsidian';
-import type { DashboardData, PipelineConfig, PipelineSkill, PipelineStage } from '../src/types';
+import type { DashboardData, PipelineAction, PipelineConfig, PipelineSkill, PipelineStage } from '../src/types';
 import {
 	cardChips,
 	cardSkillVars,
 	chipColorFor,
+	actionCurrentValue,
 	formatNoteDue,
 	parseNoteDue,
 	parseTasks,
 	distinctFieldValues,
 	filterByField,
+	normalizePipelineActions,
 	PROJECT_FIELD_KEYS,
 	railValueColors,
 	splitFieldValues,
@@ -17,6 +19,7 @@ import {
 	sortStageItems,
 	taskProgress,
 	toggleTaskLine,
+	mergeManualStageOrder,
 	collectPipelineItems,
 	defaultPipelineStages,
 	isPathInPipelineRoot,
@@ -263,6 +266,10 @@ function main(): void {
 	const data = {
 		banner: { quote: '', author: '', image: '' },
 		quickActions: [],
+		// parse() normalizes immersiveBackground to a string (legacy-migration
+		// default ''), and serialize() writes it whenever it's defined — so a
+		// round-trip-stable fixture must carry it (matching a parsed dashboard).
+		immersiveBackground: '',
 		columns: [
 			{
 				name: '内容流水线',
@@ -286,6 +293,10 @@ function main(): void {
 						stage: 'draft', scope: 'card' as const, skillName: 'write-draft',
 						promptTemplate: '$write-draft\n\n文件: {path}\n{input}',
 					}],
+					actions: [{
+						id: 'act_1', label: '审核', icon: 'square-pen', field: '审核状态',
+						options: ['通过', '驳回', '待复审'],
+					}],
 					templatePath: 'Templates/item.md',
 					directSend: true,
 				},
@@ -306,6 +317,13 @@ function main(): void {
 	assert.equal(skill.agent, 'codex', 'Codex target survives pipeline serialization');
 	assert.equal(skill.scope, 'card');
 	assert.equal(skill.promptTemplate, '$write-draft\n\n文件: {path}\n{input}');
+	// Action buttons round-trip: label / icon / field / options survive.
+	const action = col.pipelineConfig?.actions?.[0];
+	assert.ok(action, 'action survives pipeline serialization');
+	assert.equal(action.label, '审核');
+	assert.equal(action.icon, 'square-pen');
+	assert.equal(action.field, '审核状态');
+	assert.deepEqual(action.options, ['通过', '驳回', '待复审']);
 	assert.equal(col.pipelineConfig?.templatePath, 'Templates/item.md');
 	assert.equal(col.pipelineConfig?.directSend, true);
 	assert.equal(col.pipelineConfig?.stages[0]?.width, 240, 'stage width round-trips');
@@ -357,5 +375,97 @@ function verifySkillReorder(): void {
 	console.log('verify-pipeline: skill reorder OK');
 }
 
+/** Custom action buttons: normalizePipelineActions (trim/dedupe/drop-incomplete)
+ *  and actionCurrentValue (the dropdown checkmark source). */
+function verifyActions(): void {
+	const act = (over: Partial<PipelineAction>): PipelineAction =>
+		({ id: 'a', label: 'L', icon: 'square-pen', field: 'F', options: ['x'], ...over });
+
+	// undefined → empty.
+	assert.deepEqual(normalizePipelineActions(undefined), []);
+
+	// Trim label/field/options, drop empties, dedupe options, keep order.
+	const trimmed = normalizePipelineActions([act({ label: '  审核 ', field: ' 状态 ', options: [' 通过 ', '驳回', '通过', '', '  '] })]);
+	assert.equal(trimmed.length, 1);
+	assert.equal(trimmed[0]!.label, '审核');
+	assert.equal(trimmed[0]!.field, '状态');
+	assert.deepEqual(trimmed[0]!.options, ['通过', '驳回'], 'options trimmed, deduped, order kept');
+
+	// Incomplete rows dropped: no label, no field, no usable options.
+	assert.equal(normalizePipelineActions([act({ label: '' })]).length, 0, 'blank label dropped');
+	assert.equal(normalizePipelineActions([act({ field: '  ' })]).length, 0, 'blank field dropped');
+	assert.equal(normalizePipelineActions([act({ options: ['', '   '] })]).length, 0, 'no usable options dropped');
+
+	// current value: strings trimmed, null → '', lists joined, numbers stringified.
+	assert.equal(actionCurrentValue({ 状态: '  通过 ' }, '状态'), '通过');
+	assert.equal(actionCurrentValue({}, '状态'), '', 'missing field is empty (no checkmark)');
+	assert.equal(actionCurrentValue({ 状态: null }, '状态'), '');
+	assert.equal(actionCurrentValue({ 状态: ['通过', ' 驳回 ', ''] }, '状态'), '通过, 驳回', 'list joins trimmed non-empty');
+	assert.equal(actionCurrentValue({ n: 3 }, 'n'), '3');
+	console.log('verify-pipeline: actions OK');
+}
+
 main();
 verifySkillReorder();
+verifyActions();
+
+/** Slot-replacement manual-order merge — the "reordered cards scramble
+ *  after coming back" fix. The emitted list covers only what the user could
+ *  see and drag (rail filter active / progressive-render slice); everything
+ *  else must keep its saved slot. */
+function verifyManualMerge(): void {
+	// Full reorder, no filter: merged order = emitted order.
+	assert.deepEqual(
+		mergeManualStageOrder(['a.md', 'b.md', 'c.md', 'd.md'], ['d.md', 'b.md', 'a.md', 'c.md']),
+		['d.md', 'b.md', 'a.md', 'c.md'],
+		'full reorder applied verbatim',
+	);
+
+	// Rail filter active: only b,a were visible and reordered. The old
+	// prefix merge demoted c,d to the end ([b,a,c,d]); slot replacement keeps
+	// them interleaved at their saved positions.
+	assert.deepEqual(
+		mergeManualStageOrder(['c.md', 'a.md', 'd.md', 'b.md'], ['b.md', 'a.md']),
+		['c.md', 'b.md', 'd.md', 'a.md'],
+		'filtered-out cards keep their slots',
+	);
+
+	// Progressive rendering: first rendered slice reordered, the rest stays
+	// in its saved tail instead of being re-appended after the moved cards.
+	assert.deepEqual(
+		mergeManualStageOrder(['1.md', '2.md', '3.md', '4.md', '5.md', '6.md'], ['3.md', '1.md', '2.md']),
+		['3.md', '1.md', '2.md', '4.md', '5.md', '6.md'],
+		'unrendered tail keeps its slots',
+	);
+
+	// New card the saved order never saw appends in emitted position order.
+	assert.deepEqual(
+		mergeManualStageOrder(['a.md', 'b.md'], ['a.md', 'b.md', 'new.md']),
+		['a.md', 'b.md', 'new.md'],
+		'unordered arrival appends',
+	);
+
+	// Dead paths stay parked where they were (harmless, never render); empty
+	// emission is a no-op returning the deduped prior.
+	assert.deepEqual(
+		mergeManualStageOrder(['a.md', 'dead.md', 'b.md'], ['b.md', 'a.md']),
+		['b.md', 'dead.md', 'a.md'],
+		'dead path keeps its slot',
+	);
+	assert.deepEqual(mergeManualStageOrder(['a.md', 'a.md', 'b.md'], []), ['a.md', 'b.md'], 'empty emission = deduped prior');
+	assert.deepEqual(mergeManualStageOrder([], ['x.md', 'x.md']), ['x.md'], 'first-ever reorder dedupes');
+
+	// The merge output must drive sortStageItems into the visible order for
+	// the filtered case (mtime deliberately scrambled).
+	const stage: PipelineStage = { value: 'idea', label: '选题', color: '#f59e0b' };
+	const mk = (path: string, mtime: number): PipelineItem => ({ file: fakeFile(path, mtime), frontmatter: {}, stage });
+	const items = [mk('b.md', 5), mk('c.md', 4), mk('a.md', 3), mk('d.md', 2)];
+	const merged = mergeManualStageOrder(['c.md', 'a.md', 'd.md', 'b.md'], ['b.md', 'a.md']);
+	assert.deepEqual(
+		sortStageItems(items, 'manual', merged).map(i => i.file.path),
+		['c.md', 'b.md', 'd.md', 'a.md'],
+		'sorted output matches the merged manual order',
+	);
+	console.log('verify-pipeline: manual-order merge OK');
+}
+verifyManualMerge();

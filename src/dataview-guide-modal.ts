@@ -10,11 +10,15 @@ interface GuideFeature {
 }
 
 /** The capabilities showcased in the announcement modal. Content is refreshed
- *  per release (see the `announce.*` i18n keys); icons are Lucide names. */
+ *  per release (see the `announce.*` i18n keys); icons are Lucide names
+ *  (square-sparkles is registered via addIcon in main.ts). */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'languages', textKey: 'announce.featureZhtw' },
-	{ icon: 'palette', textKey: 'announce.featureBarbie' },
-	{ icon: 'chart-gantt', textKey: 'announce.featureGantt' },
+	{ icon: 'square-sparkles', textKey: 'announce.materialEntry' },
+	{ icon: 'images', textKey: 'announce.materialBrowse' },
+	{ icon: 'heart', textKey: 'announce.materialFavorites' },
+	{ icon: 'layers', textKey: 'announce.materialOrganize' },
+	{ icon: 'sparkles', textKey: 'announce.materialAgent' },
+	{ icon: 'import', textKey: 'announce.materialDrop' },
 ];
 
 /**

@@ -21,6 +21,9 @@ import { PipelineConfigModal } from '../src/pipeline-config-modal';
 (globalThis as { activeDocument?: unknown }).activeDocument = {
 	querySelector: (): null => null,
 };
+// LargeTextModal.onOpen defers focus through window.setTimeout (the prompt
+// expand popup); mirror the render harness so the modal opens headless.
+(globalThis as { window?: unknown }).window = globalThis;
 
 function buttonByText(root: El, text: string): El {
 	const btn = findTag(root, 'button').find(b => (b.textContent ?? '').includes(text));
@@ -188,6 +191,82 @@ function main(): void {
 	buttonByText(root4, '保存').click();
 	assert.equal(saved4[0]!.skills[0]!.agent, 'claudian', 'agent change from the narrow select persists');
 	assert.equal(saved4[0]!.skills[0]!.promptTemplate, '读取文件并生成小红书图文文案', 'popup edit persists through save');
+
+	// ── Action buttons: render, edit label→field (CURRENT-state patch),
+	//    options textarea, incomplete-row drop, and save round-trip ──
+	const savedAct: PipelineConfig[] = [];
+	const modalAct = new PipelineConfigModal(stubApp as never, {
+		rootFolder: '内容创作',
+		statusField: 'status',
+		stages: [{ value: 'review', label: '待审', color: '#8b5cf6' }],
+		skills: [],
+		actions: [{ id: 'act_1', label: '审核', icon: 'square-pen', field: '审核状态', options: ['通过', '驳回'] }],
+	}, config => savedAct.push(config));
+	modalAct.onOpen();
+	const rootAct = modalAct.contentEl as unknown as El;
+	const actionCards = findByClass(rootAct, 'dashboard-pipeline-cfg-action');
+	assert.equal(actionCards.length, 1, 'existing action renders one card');
+	// DOM order in the top row: label input, field input (icon/delete are buttons).
+	const actInputs = findTag(actionCards[0]!, 'input') as Array<El & { value: string }>;
+	assert.equal(actInputs.length, 2, 'label + field inputs');
+	assert.equal(actInputs[0]!.value, '审核', 'label prefilled');
+	assert.equal(actInputs[1]!.value, '审核状态', 'field prefilled');
+	const actOptions = findTag(actionCards[0]!, 'textarea')[0] as unknown as El & { value: string; dispatchEvent(ev: unknown): void };
+	assert.equal(actOptions.value, '通过\n驳回', 'options render one per line');
+
+	// Edit label THEN field — the regression guard: a later edit must not
+	// revert the earlier one (patchAction reads CURRENT state).
+	actInputs[0]!.value = '内容审核';
+	actInputs[0]!.dispatchEvent({ type: 'input' });
+	actInputs[1]!.value = '审校状态';
+	actInputs[1]!.dispatchEvent({ type: 'input' });
+	actOptions.value = '通过\n驳回\n 待复审 \n通过\n\n';
+	actOptions.dispatchEvent({ type: 'input' });
+
+	// Add a second action but only fill its label → dropped on save.
+	buttonByText(rootAct, '添加操作按钮').click();
+	const actCards2 = findByClass(rootAct, 'dashboard-pipeline-cfg-action');
+	assert.equal(actCards2.length, 2, 'add button appends an action row');
+	const orphanInputs = findTag(actCards2[1]!, 'input') as Array<El & { value: string }>;
+	orphanInputs[0]!.value = '半成品';
+	orphanInputs[0]!.dispatchEvent({ type: 'input' });
+
+	buttonByText(rootAct, '保存').click();
+	assert.equal(savedAct.length, 1, 'action save accepted');
+	const savedActions = savedAct[0]!.actions ?? [];
+	assert.equal(savedActions.length, 1, 'incomplete action (no field/options) dropped');
+	assert.equal(savedActions[0]!.label, '内容审核', 'label kept after field edit');
+	assert.equal(savedActions[0]!.field, '审校状态', 'field kept after label edit');
+	assert.deepEqual(savedActions[0]!.options, ['通过', '驳回', '待复审'], 'options trimmed + deduped, order kept');
+	assert.equal(savedActions[0]!.icon, 'square-pen', 'icon survives');
+
+	// ── Runtime state the modal never edits rides through a save ──
+	// The regression: trySave built a from-scratch config, so every modal
+	// save reset the sort mode to mtime and wiped the saved manual order +
+	// rail filter — the "reordered cards scramble after editing config" bug.
+	const savedRt: PipelineConfig[] = [];
+	const modalRt = new PipelineConfigModal(stubApp as never, {
+		rootFolder: '内容创作',
+		statusField: 'status',
+		stages: [{ value: 'idea', label: '选题', color: '#f59e0b' }],
+		skills: [],
+		sortBy: 'manual',
+		stageOrder: { idea: ['内容创作/01-选题/b.md', '内容创作/01-选题/a.md'] },
+		filter: { dim: 'platform', value: '公众号' },
+	}, config => savedRt.push(config));
+	modalRt.onOpen();
+	const rootRt = modalRt.contentEl as unknown as El;
+	// Touch an edited field too — carry-over must not depend on a pristine open.
+	const rtLabel = (findTag(findByClass(rootRt, 'dashboard-pipeline-cfg-stage-row')[0]!, 'input') as Array<El & { value: string }>)[0]!;
+	rtLabel.value = '灵感池';
+	rtLabel.dispatchEvent({ type: 'input' });
+
+	buttonByText(rootRt, '保存').click();
+	assert.equal(savedRt.length, 1, 'runtime carry-over save accepted');
+	assert.equal(savedRt[0]!.sortBy, 'manual', 'sort mode survives a modal save');
+	assert.deepEqual(savedRt[0]!.stageOrder, { idea: ['内容创作/01-选题/b.md', '内容创作/01-选题/a.md'] }, 'saved manual order survives');
+	assert.deepEqual(savedRt[0]!.filter, { dim: 'platform', value: '公众号' }, 'rail filter survives');
+	assert.equal(savedRt[0]!.stages[0]!.label, '灵感池', 'the actual edit still lands');
 }
 
 main();

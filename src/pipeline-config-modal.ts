@@ -1,6 +1,6 @@
 import { App, Modal, Notice, setIcon } from 'obsidian';
 import type DashboardPlugin from './main';
-import type { AgentTarget, PipelineConfig, PipelineSkill, PipelineStage } from './types';
+import type { AgentTarget, PipelineAction, PipelineConfig, PipelineSkill, PipelineStage } from './types';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
 import { attachPathPicker } from './path-picker-modal';
@@ -11,12 +11,18 @@ import { LargeTextModal } from './large-text-modal';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 import { normalizeExcludeFolders } from './exclude-folders';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
-import { defaultPipelineStages, normalizeFolderPath } from './pipeline-model';
+import { defaultPipelineStages, normalizeFolderPath, normalizePipelineActions } from './pipeline-model';
 
 let skillSeq = 0;
 function newSkillId(): string {
 	skillSeq += 1;
 	return `sk_${Date.now().toString(36)}_${skillSeq}`;
+}
+
+let actionSeq = 0;
+function newActionId(): string {
+	actionSeq += 1;
+	return `act_${Date.now().toString(36)}_${actionSeq}`;
 }
 
 /**
@@ -31,18 +37,27 @@ export class PipelineConfigModal extends Modal {
 	private statusField: string;
 	private stages: PipelineStage[];
 	private skills: PipelineSkill[];
+	private actions: PipelineAction[];
 	private templatePath: string;
 	private archiveFolder: string;
 	private excludeFolders: string[];
 	private cardProperties: string[];
 	private boardStyle: 'theme' | 'trello' | 'solid' | 'blush';
 	private filterFields: string[];
+	/** Runtime-persisted state the modal does not edit. Saving must carry it
+	 *  through untouched: a from-scratch config would silently reset the sort
+	 *  mode to mtime and wipe the saved manual order + rail filter — the
+	 *  "reordered cards scramble after opening this modal" bug. */
+	private readonly carriedSortBy: PipelineConfig['sortBy'];
+	private readonly carriedStageOrder: PipelineConfig['stageOrder'];
+	private readonly carriedFilter: PipelineConfig['filter'];
 	private readonly onSave: (config: PipelineConfig) => void;
 	/** Owning plugin; present in the app, absent in verification scripts.
 	 *  Without it the skill-name picker button is simply omitted. */
 	private readonly plugin: DashboardPlugin | null;
 	private stagesEl: HTMLElement | null = null;
 	private skillsEl: HTMLElement | null = null;
+	private actionsEl: HTMLElement | null = null;
 	private excludeEditor: ExcludeFoldersEditor | null = null;
 	private propertiesEditor: VisiblePropertiesEditor | null = null;
 	private filterEditor: VisiblePropertiesEditor | null = null;
@@ -71,12 +86,16 @@ export class PipelineConfigModal extends Modal {
 		// checkboxes show the effective state and saving persists it per
 		// skill — the section flag itself stops being written.
 		this.skills = (cfg.skills ?? []).map(skill => ({ ...skill, directSend: skill.directSend ?? cfg.directSend === true }));
+		this.actions = (cfg.actions ?? []).map(action => ({ ...action, options: [...action.options] }));
 		this.templatePath = cfg.templatePath ?? '';
 		this.archiveFolder = cfg.archiveFolder ?? '';
 		this.excludeFolders = [...(cfg.excludeFolders ?? [])];
 		this.cardProperties = [...(cfg.cardProperties ?? [])];
 		this.boardStyle = cfg.boardStyle === 'theme' ? 'theme' : (cfg.boardStyle ?? 'trello');
 		this.filterFields = [...(cfg.filterFields ?? [])];
+		this.carriedSortBy = cfg.sortBy;
+		this.carriedStageOrder = cfg.stageOrder ? { ...cfg.stageOrder } : undefined;
+		this.carriedFilter = cfg.filter ? { ...cfg.filter } : undefined;
 	}
 
 	onOpen(): void {
@@ -171,6 +190,23 @@ export class PipelineConfigModal extends Modal {
 			this.renderSkills();
 		});
 
+		// Custom action buttons: a card-top dropdown button per row that
+		// writes one of its options into a frontmatter field.
+		const actionsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		actionsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('pipeline.cfgActions') });
+		actionsSection.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgActionsHint') });
+		this.actionsEl = actionsSection.createDiv({ cls: 'dashboard-pipeline-cfg-skills' });
+		this.renderActions();
+		const addActionBtn = actionsSection.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			text: t('pipeline.cfgAddAction'),
+			attr: { type: 'button' },
+		});
+		addActionBtn.addEventListener('click', () => {
+			this.actions = [...this.actions, { id: newActionId(), label: '', icon: 'square-pen', field: '', options: [] }];
+			this.renderActions();
+		});
+
 		// Card display: which frontmatter keys render as chips (empty = the
 		// default platform + tags set). No grouping options by design — the
 		// board's columns ARE the grouping.
@@ -242,6 +278,12 @@ export class PipelineConfigModal extends Modal {
 
 	private patchSkill(index: number, patch: Partial<PipelineSkill>): void {
 		this.skills = this.skills.map((s, i) => i === index ? { ...s, ...patch } : s);
+	}
+
+	/** Same CURRENT-state patch rule as skills — listeners close over the
+	 *  row as rendered, so patching a stale snapshot reverts earlier edits. */
+	private patchAction(index: number, patch: Partial<PipelineAction>): void {
+		this.actions = this.actions.map((a, i) => i === index ? { ...a, ...patch } : a);
 	}
 
 	private renderStages(): void {
@@ -415,6 +457,60 @@ export class PipelineConfigModal extends Modal {
 		});
 	}
 
+	/** Action-button rows: icon (hover-tooltip art) + name + target field on
+	 *  the top line, the dropdown options as a one-per-line textarea below.
+	 *  Reuses the skill-card CSS so the section reads as one family. */
+	private renderActions(): void {
+		const host = this.actionsEl;
+		if (!host) return;
+		host.empty();
+		this.actions.forEach((action, index) => {
+			const card = host.createDiv({ cls: 'dashboard-pipeline-cfg-skill dashboard-pipeline-cfg-action' });
+
+			const top = card.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
+			const iconBtn = top.createEl('button', {
+				cls: 'dashboard-pipeline-cfg-icon-btn',
+				attr: { type: 'button', 'aria-label': t('pipeline.cfgActionIcon'), title: action.icon || 'square-pen' },
+			});
+			setIcon(iconBtn, action.icon || 'square-pen');
+			iconBtn.addEventListener('click', () => {
+				new IconPickerModal(this.app, (icon) => {
+					this.patchAction(index, { icon });
+					setIcon(iconBtn, icon || 'square-pen');
+					iconBtn.title = icon || 'square-pen';
+				}).open();
+			});
+			const label = top.createEl('input', {
+				cls: 'dashboard-pipeline-cfg-input',
+				attr: { type: 'text', placeholder: t('pipeline.cfgActionLabel') },
+			});
+			label.value = action.label;
+			label.addEventListener('input', () => { this.patchAction(index, { label: label.value }); });
+			const field = top.createEl('input', {
+				cls: 'dashboard-pipeline-cfg-input dashboard-pipeline-cfg-input--slug',
+				attr: { type: 'text', placeholder: t('pipeline.cfgActionField') },
+			});
+			field.value = action.field;
+			field.addEventListener('input', () => { this.patchAction(index, { field: field.value.trim() }); });
+
+			this.attachRemove(top, () => {
+				this.actions = this.actions.filter((_, i) => i !== index);
+				this.renderActions();
+			});
+
+			const bottom = card.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
+			const options = bottom.createEl('textarea', {
+				cls: 'dashboard-pipeline-cfg-textarea',
+				attr: { rows: '3', placeholder: t('pipeline.cfgActionOptions') },
+			});
+			options.value = action.options.join('\n');
+			options.addEventListener('input', () => {
+				this.patchAction(index, { options: options.value.split('\n').map(o => o.trim()).filter(o => o.length > 0) });
+			});
+			bottom.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pipeline.cfgActionOptionsHint') });
+		});
+	}
+
 	private attachReorder(row: HTMLElement, index: number, move: (count: number) => void): void {
 		const up = row.createEl('button', {
 			cls: 'dashboard-pipeline-cfg-icon-btn',
@@ -479,6 +575,12 @@ export class PipelineConfigModal extends Modal {
 			skills: this.skills
 				.filter(skill => skill.label.trim().length > 0)
 				.map(skill => ({ ...skill, label: skill.label.trim() })),
+			// Same drop rule, stricter: an action needs its name, target
+			// field AND at least one option to be a working button.
+			...(() => {
+				const actions = normalizePipelineActions(this.actions);
+				return actions.length > 0 ? { actions } : {};
+			})(),
 			...(this.boardStyle !== 'theme' ? { boardStyle: this.boardStyle } : {}),
 			...(() => {
 				const filterFields = [...new Set((this.filterEditor?.value ?? this.filterFields).map(f => f.trim()).filter(f => f.length > 0))];
@@ -494,6 +596,10 @@ export class PipelineConfigModal extends Modal {
 				const cardProperties = (this.propertiesEditor?.value ?? this.cardProperties).map(p => p.trim()).filter(p => p.length > 0);
 				return cardProperties.length > 0 ? { cardProperties } : {};
 			})(),
+			// Runtime state the modal never edits rides along untouched.
+			...(this.carriedSortBy ? { sortBy: this.carriedSortBy } : {}),
+			...(this.carriedStageOrder && Object.keys(this.carriedStageOrder).length > 0 ? { stageOrder: this.carriedStageOrder } : {}),
+			...(this.carriedFilter ? { filter: this.carriedFilter } : {}),
 		};
 		this.onSave(config);
 		this.close();

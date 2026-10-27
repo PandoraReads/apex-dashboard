@@ -26,6 +26,7 @@ import type {
 	PipelineConfig,
 	PipelineStage,
 	PipelineSkill,
+	PipelineAction,
 	SkillsSectionConfig,
 	PmConfig,
 	PmStage,
@@ -534,6 +535,17 @@ export function serialize(data: DashboardData): string {
 					lines.push(`          promptTemplate: ${JSON.stringify(skill.promptTemplate)}`);
 				}
 			}
+			if (pc.actions && pc.actions.length > 0) {
+				lines.push('      actions:');
+				for (const action of pc.actions) {
+					lines.push(`        - label: ${JSON.stringify(action.label)}`);
+					lines.push(`          icon: ${JSON.stringify(action.icon)}`);
+					lines.push(`          field: ${JSON.stringify(action.field)}`);
+					// Flow sequence on one line (the stageOrder JSON idiom —
+					// valid YAML, keeps the block compact).
+					lines.push(`          options: ${JSON.stringify(action.options)}`);
+				}
+			}
 			if (pc.templatePath) {
 				lines.push(`      templatePath: ${JSON.stringify(pc.templatePath)}`);
 			}
@@ -889,10 +901,11 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 
 	// The immersive default poster: the full-bleed backdrop new immersive
 	// boards open on (side/stacked boards keep the classic banner default).
+	const IMMERSIVE_POSTER = 'https://images.unsplash.com/photo-1788651946293-893d6b217f34?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.1.0';
 	const IMMERSIVE_DEFAULT_BANNER: BannerData = {
 		...DEFAULT_BANNER,
-		image: 'https://images.unsplash.com/photo-1788651946293-893d6b217f34?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.1.0',
-		images: ['https://images.unsplash.com/photo-1788651946293-893d6b217f34?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.1.0'],
+		image: IMMERSIVE_POSTER,
+		images: [IMMERSIVE_POSTER],
 	};
 	// Rae's arranged immersive board (assets/60 工作台/5-3.md, 2026-10-05) as
 	// the literal new-board template: free-placed tiles (explicit x/y, fixed
@@ -926,6 +939,10 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 		banner: IMMERSIVE_DEFAULT_BANNER,
 		layout: 'immersive',
 		quickActions: [],
+		// Written explicitly so the seeded file is canonical: parse() derives
+		// immersiveBackground from banner.images[0] anyway, and without this
+		// the first save would rewrite the seeded file.
+		immersiveBackground: IMMERSIVE_POSTER,
 		immersive: IMMERSIVE_DEFAULT_TILES,
 		columns: [
 			{
@@ -974,6 +991,9 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 		banner: DEFAULT_BANNER,
 		layout,
 		quickActions: [],
+		// Canonical seed (parse() derives this from banner.images[0]; writing
+		// it keeps the first save byte-stable).
+		immersiveBackground: DEFAULT_BANNER.images?.[0] ?? '',
 		columns: [
 			{
 				name: stickyName,
@@ -1685,6 +1705,28 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 			});
 		}
 	}
+	const actions: PipelineAction[] = [];
+	if (Array.isArray(raw.actions)) {
+		for (const entry of raw.actions) {
+			if (typeof entry !== 'object' || entry === null) continue;
+			const rec = entry as Record<string, unknown>;
+			const label = str(rec.label ?? '').trim();
+			const field = str(rec.field ?? '').trim();
+			// Options: a YAML list of scalars, trimmed, empties dropped, order
+			// kept, deduped — a half-typed row never renders a dead menu item.
+			const options = [...new Set((Array.isArray(rec.options) ? rec.options : [])
+				.map((o: unknown) => str(o).trim())
+				.filter((o: string) => o.length > 0))];
+			if (!label || !field || options.length === 0) continue;
+			actions.push({
+				id: str(rec.id ?? '').trim() || `act_${actions.length + 1}_${Math.random().toString(36).slice(2, 8)}`,
+				label,
+				icon: str(rec.icon ?? '').trim() || 'square-pen',
+				field,
+				options,
+			});
+		}
+	}
 	const templatePath = str(raw.templatePath ?? '').trim();
 	const archiveFolder = str(raw.archiveFolder ?? '').trim().replace(/^\/+|\/+$/g, '');
 	const boardStyleRaw = str(raw.boardStyle ?? '').trim();
@@ -1717,6 +1759,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 		statusField,
 		stages,
 		skills,
+		...(actions.length > 0 ? { actions } : {}),
 		...(boardStyle ? { boardStyle } : {}),
 		...(sortBy ? { sortBy } : {}),
 		...(Object.keys(stageOrder).length ? { stageOrder } : {}),

@@ -119,6 +119,10 @@ export class El {
 		return this.attrs.get(name) ?? null;
 	}
 
+	removeAttribute(name: string): void {
+		this.attrs.delete(name);
+	}
+
 	/** DOM-style dataset: camelCase keys map to/from data-* attributes. */
 	get dataset(): Record<string, string> {
 		const self = this;

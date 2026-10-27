@@ -75,7 +75,7 @@ import { createPomodoroMiniPanel, type PomodoroMiniPanel } from './pomodoro-mini
 import { createReadingMiniTimer, type ReadingMiniTimer } from './reading-mini-timer';
 import { ReadingService } from './reading-service';
 import { ReminderNoticeModal } from './reminder-notice';
-import { parseNoteDue, reorderSkillSubset } from './pipeline-model';
+import { mergeManualStageOrder, parseNoteDue, reorderSkillSubset } from './pipeline-model';
 import { pmKeyDate } from './pm-model';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
@@ -869,10 +869,11 @@ export class DashboardView extends ItemView implements HoverParent {
 			const { columnName, stageValue, orderedPaths } = e.detail as { columnName: string; stageValue: string; orderedPaths: string[] };
 			const col = this.data?.columns.find(c => c.name === columnName);
 			const config = col?.pipelineConfig;
-			if (!config || config.sortBy !== 'manual' || !Array.isArray(orderedPaths)) return;
-			const visible = new Set(orderedPaths);
-			const prior = config.stageOrder?.[stageValue] ?? [];
-			const stageOrder = { ...config.stageOrder, [stageValue]: [...orderedPaths, ...prior.filter(path => !visible.has(path))] };
+			if (!config || config.sortBy !== 'manual' || !Array.isArray(orderedPaths) || orderedPaths.length === 0) return;
+			// Slot-replacement merge: cards outside the emitted slice (filtered
+			// out by the rail or below the render limit) keep their saved slots
+			// instead of being demoted past the reordered ones.
+			const stageOrder = { ...config.stageOrder, [stageValue]: mergeManualStageOrder(config.stageOrder?.[stageValue] ?? [], orderedPaths) };
 			void this.sync.updatePipelineConfig(columnName, { ...config, stageOrder }).then(() => this.refreshSectionInPlace(columnName));
 		}) as EventListener);
 

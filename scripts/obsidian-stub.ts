@@ -49,6 +49,7 @@ export class Notice {
 // exposes the most recently created menu to the test.
 export interface StubMenuItem {
 	title: string;
+	checked: boolean;
 	click(): void;
 }
 export class Menu {
@@ -64,9 +65,10 @@ export class Menu {
 		let clickFn: (() => void) | null = null;
 		const item = {
 			title: '',
+			checked: false,
 			setTitle(t: string) { this.title = t; return this; },
 			setIcon(_icon: string) { return this; },
-			setChecked(_checked: boolean) { return this; },
+			setChecked(c: boolean) { this.checked = c; return this; },
 			setDisabled(_disabled: boolean) { return this; },
 			setWarning(_warning: boolean) { return this; },
 			onClick(fn: () => void) { clickFn = fn; return this; },
@@ -87,6 +89,9 @@ export class Menu {
 export function normalizePath(path: string): string { return path; }
 export const Platform = { isMobile: false, isMobileApp: false };
 export function setIcon(_el: unknown, _icon: string): void {}
+// Registered custom icons are inert in tests — nothing asserts their pixels.
+export function addIcon(_name: string, _svg: string): void {}
+export function removeIcon(_name: string): void {}
 
 // Component base for MarkdownRenderer.render's lifecycle argument (the real
 // one is the ItemView). Trivial here — nothing in the scripts loads children,

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { Modal, Notice } from 'obsidian';
+import { Menu, Modal, Notice } from 'obsidian';
 import { El, findByClass, findTag } from './mini-dom';
 import type { App, TFile } from 'obsidian';
 import type { DashboardColumn, PipelineConfig, RenderCallbacks } from '../src/types';
@@ -501,6 +501,87 @@ async function main(): Promise<void> {
 			assert.ok(noticeTexts().some(m => m.includes('未能移入')), 'loud move-failure notice');
 			assert.ok(!noticeTexts().some(m => m.includes('已归档')), 'no false success notice');
 		}
+	}
+
+	// --- Custom action buttons: hover-ghost LEFT of archive (inline right
+	// offset on a 24px pitch), click opens a native dropdown of the configured
+	// options with the current value checked, and picking one writes that value
+	// into the target frontmatter field — no folder move, no rename. ---
+	{
+		const wait = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+		const files = new Map<string, TFile>();
+		const fm = new Map<string, Record<string, unknown>>();
+		const reviewPath = '内容创作/02-草稿/流量密码.md';
+		files.set(reviewPath, fakeFile(reviewPath, 200));
+		fm.set(reviewPath, { status: 'draft', 审核状态: '通过', flag: '' });
+		let renames = 0;
+		const driveApp = {
+			vault: {
+				getMarkdownFiles: () => [...files.values()],
+				getAbstractFileByPath: () => null,
+				createFolder: async () => {},
+			},
+			metadataCache: {
+				getFileCache: (f: TFile) => {
+					const front = fm.get(f.path);
+					return front ? { frontmatter: front } : null;
+				},
+			},
+			fileManager: {
+				processFrontMatter: async (f: TFile, fn: (o: Record<string, unknown>) => void) => {
+					const front = fm.get(f.path) ?? {};
+					fn(front);
+					fm.set(f.path, front);
+				},
+				renameFile: async () => { renames += 1; },
+				trashFile: async () => {},
+			},
+			plugins: { plugins: {} },
+		} as unknown as App;
+
+		const actionCfg: PipelineConfig = {
+			...config,
+			actions: [
+				{ id: 'act_review', label: '审核', icon: 'square-pen', field: '审核状态', options: ['通过', '驳回', '待复审'] },
+				{ id: 'act_flag', label: '标记', icon: 'flag', field: 'flag', options: ['红', '绿'] },
+			],
+		};
+		const host = new El('div');
+		renderPipelineSection(host as unknown as HTMLElement, pipelineColumn(actionCfg), driveApp, callbacks, null);
+
+		const card = findByClass(host, 'dashboard-pipeline-card').find(c => (c.textContent ?? '').includes('流量密码'))!;
+		assert.ok(card, 'draft card rendered');
+		const actionBtns = findByClass(card, 'dashboard-pipeline-action-btn');
+		assert.equal(actionBtns.length, 2, 'one button per configured action');
+		// mini-dom El has no declared `title`, but the section sets it as the
+		// hover tooltip (a real HTMLElement property) — read it back.
+		const titleOf = (el: El): string => (el as unknown as { title: string }).title;
+		assert.equal(titleOf(actionBtns[0]!), '审核', 'tooltip carries the user-entered button name');
+		assert.equal(actionBtns[0]!.getAttribute('aria-label'), '审核');
+		assert.equal(titleOf(actionBtns[1]!), '标记');
+		// Ghost sits left of archive (CSS right:28) on a 24px pitch, config order.
+		assert.equal(actionBtns[0]!.style.right, '52px', 'first action offset left of archive');
+		assert.equal(actionBtns[1]!.style.right, '76px', 'second action continues leftward');
+		assert.equal(findByClass(card, 'dashboard-pipeline-archive-btn').length, 1, 'archive button still present');
+
+		// Click the review button → native dropdown of its options, current
+		// value (通过) checked, the rest not.
+		actionBtns[0]!.click();
+		const menu = (Menu as unknown as { last: { items: Array<{ title: string; checked: boolean; click(): void }> } }).last;
+		assert.ok(menu, 'dropdown opened');
+		assert.deepEqual(menu.items.map(i => i.title), ['通过', '驳回', '待复审'], 'dropdown lists the configured options in order');
+		assert.equal(menu.items.find(i => i.title === '通过')!.checked, true, 'current field value is checked');
+		assert.equal(menu.items.find(i => i.title === '驳回')!.checked, false, 'non-current options unchecked');
+
+		// Pick 驳回 → writes ONLY the target field, no move, success notice.
+		const noticeTexts = (Notice as unknown as { messages: string[] }).messages;
+		noticeTexts.length = 0;
+		menu.items.find(i => i.title === '驳回')!.click();
+		await wait(10);
+		assert.equal(fm.get(reviewPath)!.审核状态, '驳回', 'picked value written to the target field');
+		assert.equal(fm.get(reviewPath)!.status, 'draft', 'stage field untouched by a non-status action');
+		assert.equal(renames, 0, 'action buttons never move the file');
+		assert.ok(noticeTexts.some(m => m.includes('审核状态') && m.includes('驳回')), 'success notice names field + value');
 	}
 }
 

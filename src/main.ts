@@ -1,9 +1,10 @@
 import { registerGanttFeatures } from './pm-gantt-plugin';
-import { Notice, Platform, Plugin, TAbstractFile, TFile, getLanguage as getObsidianLanguage } from 'obsidian';
+import { Notice, Platform, Plugin, TAbstractFile, TFile, addIcon, getLanguage as getObsidianLanguage } from 'obsidian';
 import { DEFAULT_SETTINGS, type DashboardSettings, type DashboardLayoutMode, type CountdownConfig, type AlbumConfig, type AnniversaryConfig } from './types';
 import { normalizeTransition } from './album-widget';
 import { DashboardSettingTab } from './settings';
 import { DashboardView, DASHBOARD_VIEW_TYPE } from './view';
+import { MaterialLibraryView, MATERIAL_VIEW_TYPE } from './material-view';
 import { BackupService } from './backup-service';
 import { setLanguage, t, LANGUAGE_OPTIONS, type LanguageSetting } from './i18n';
 import { LanguagePickerModal } from './language-picker-modal';
@@ -15,8 +16,8 @@ import { ThemeStudioModal } from './theme-studio-modal';
  *  announcement pops only when the user's stored version differs from this —
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
- *  shipped with 3.8.9. */
-const ANNOUNCE_VERSION = '3.8.9';
+ *  shipped with 3.9.0. */
+const ANNOUNCE_VERSION = '3.9.0';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
@@ -127,6 +128,9 @@ export default class DashboardPlugin extends Plugin {
 			registerGanttFeatures(this);
 
 			this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
+			// Material library (素材库): a standalone full-page view, separate
+			// from the dashboard's embedded media sections.
+			this.registerView(MATERIAL_VIEW_TYPE, (leaf) => new MaterialLibraryView(leaf, this));
 
 		this.backupService = new BackupService(this);
 		// The 60s tick is registered so Obsidian clears it on unload automatically.
@@ -158,11 +162,26 @@ export default class DashboardPlugin extends Plugin {
 		}
 
 		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
+		// square-sparkles (the material library icon, Rae) is newer than the
+		// Lucide dictionary bundled with the Obsidian builds in use — setIcon
+		// would render a blank. addIcon registers the official Lucide paths
+		// (ISC) as a 100x100 child svg, matching Obsidian's custom-icon frame.
+		addIcon(
+			'square-sparkles',
+			'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 15H7"/><path d="M15.41 2.49a.6.6 0 011.18 0l.63 3.334a1.2 1.2 0 00.956.955l3.334.631a.6.6 0 010 1.18l-3.334.63a1.2 1.2 0 00-.955.956l-.631 3.334a.6.6 0 01-1.18 0l-.63-3.334a1.2 1.2 0 00-.956-.955L10.49 8.59a.6.6 0 010-1.18l3.334-.63a1.2 1.2 0 00.955-.956z"/><path d="M21 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h6"/><path d="M9 13v4"/></svg>',
+		);
+		this.addRibbonIcon('square-sparkles', t('material.open'), () => this.openMaterialLibrary());
 
 		this.addCommand({
 			id: 'open-dashboard',
 			name: t('main.openDashboard'),
 			callback: () => this.openDashboard(),
+		});
+
+		this.addCommand({
+			id: 'open-material-library',
+			name: t('material.open'),
+			callback: () => this.openMaterialLibrary(),
 		});
 
 		// The "back to start" quick command: hop straight to the FIRST
@@ -353,6 +372,17 @@ export default class DashboardPlugin extends Plugin {
 		}
 		const leaf = this.app.workspace.getLeaf('tab');
 		await leaf.setViewState({ type: DASHBOARD_VIEW_TYPE, active: true });
+	}
+
+	/** Open (or focus) the standalone material library view. */
+	private async openMaterialLibrary(): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(MATERIAL_VIEW_TYPE);
+		if (existing.length > 0) {
+			this.app.workspace.setActiveLeaf(existing[0]!, { focus: true });
+			return;
+		}
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({ type: MATERIAL_VIEW_TYPE, active: true });
 	}
 
 	async loadSettings(): Promise<void> {

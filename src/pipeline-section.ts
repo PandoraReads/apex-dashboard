@@ -1,5 +1,5 @@
-import { App, HoverParent, Notice, Platform, setIcon, TFile } from 'obsidian';
-import type { DashboardColumn, PipelineConfig, PipelineSkill, PipelineStage, RenderCallbacks } from './types';
+import { App, HoverParent, Menu, Notice, Platform, setIcon, TFile } from 'obsidian';
+import type { DashboardColumn, PipelineAction, PipelineConfig, PipelineSkill, PipelineStage, RenderCallbacks } from './types';
 import { t } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { KANBAN_FILE_DRAG_TYPE } from './dnd';
@@ -8,10 +8,12 @@ import { buildAgentPrompt, ClaudianBridgeError, getAgentAdapter } from './agent-
 import {
 	cardChips,
 	skillColorFor,
+	actionCurrentValue,
 	cardSkillVars,
 	collectPipelineItems,
 	distinctFieldValues,
 	filterByField,
+	normalizePipelineActions,
 	PROJECT_FIELD_KEYS,
 	PLATFORM_FIELD_KEYS,
 	railValueColors,
@@ -465,6 +467,59 @@ async function archivePipelineItem(app: App, item: PipelineItem, cfg: PipelineCo
 }
 const expandedCards = new Set<string>();
 
+/** Apply one custom action pick: write the chosen value into the note's
+ *  target field (processFrontMatter re-reads live frontmatter, so a stale
+ *  cache read cannot clobber other keys). No folder move — the standard
+ *  vault-event refresh re-renders the board; when the field IS the section's
+ *  statusField the card re-groups into its new stage by itself. */
+async function applyPipelineAction(app: App, item: PipelineItem, action: PipelineAction, value: string): Promise<void> {
+	try {
+		await app.fileManager.processFrontMatter(item.file, (fm: Record<string, unknown>) => {
+			fm[action.field] = value;
+		});
+		new Notice(t('pipeline.actionApplied', { name: item.file.basename, field: action.field, value }));
+	} catch (err) {
+		console.error('[Dashboard] pipeline action failed:', err);
+		new Notice(t('pipeline.actionFailed', { field: action.field }));
+	}
+}
+
+/** One card's custom action button: hover-revealed ghost (library delete
+ *  base) parked left of the archive button, click opens the native dropdown.
+ *  `index` orders the buttons leftward from the archive slot. */
+function attachPipelineActionButton(
+	card: HTMLElement,
+	item: PipelineItem,
+	action: PipelineAction,
+	index: number,
+	app: App,
+): void {
+	const btn = card.createEl('button', {
+		cls: 'dashboard-library-card-delete dashboard-pipeline-action-btn',
+		attr: { type: 'button', 'aria-label': action.label },
+	});
+	btn.title = action.label;
+	// delete sits at right:4px, archive at right:28px — actions continue
+	// leftward on the same 24px pitch, in config order.
+	btn.style.right = `${52 + index * 24}px`;
+	setIcon(btn, action.icon || 'square-pen');
+	btn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		e.preventDefault();
+		const current = actionCurrentValue(item.frontmatter, action.field);
+		const menu = new Menu();
+		for (const option of action.options) {
+			menu.addItem(mi => {
+				mi.setTitle(option);
+				if (option === current) mi.setChecked(true);
+				mi.onClick(() => { void applyPipelineAction(app, item, action, option); });
+			});
+		}
+		const rect = btn.getBoundingClientRect();
+		menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
+	});
+}
+
 function renderPipelineCard(
 	item: PipelineItem,
 	stage: PipelineStage,
@@ -516,6 +571,13 @@ function renderPipelineCard(
 			}
 		}
 	}
+
+	// User-defined action buttons: hover-revealed ghosts left of the archive
+	// button, each opening a dropdown that writes one value into a frontmatter
+	// field (see attachPipelineActionButton). Invalid rows never render.
+	normalizePipelineActions(cfg.actions).forEach((action, index) => {
+		attachPipelineActionButton(card, item, action, index, app);
+	});
 
 	// Semi-hidden archive affordance at the top-right, beside the delete
 	// button: revealed on hover like its neighbor (always visible on phones).

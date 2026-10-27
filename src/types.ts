@@ -266,6 +266,13 @@ export interface DashboardSettings {
 	/** User-defined tags for media files (images/videos sections), keyed by
 	 *  vault path. Managed by MediaTagService; optional so old data.json loads. */
 	mediaTags?: Record<string, string[]>;
+	/** Material library (standalone view) config; optional so old data.json
+	 *  loads — sanitizeMaterialConfig fills the defaults at read time. */
+	materialConfig?: MaterialLibraryConfig;
+	/** Favorited (heart) material paths, in sync-able settings rather than
+	 *  localStorage so the collection follows the vault across devices.
+	 *  Optional so old data.json loads. */
+	materialFavorites?: string[];
 	readingEnabled: boolean;
 	readingSoundEnabled: boolean;
 	taskTemplates: TaskTemplate[];
@@ -507,6 +514,8 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 		},
 	] as CountdownConfig[],
 	mediaTags: {},
+	materialConfig: { includeFolders: [], excludeFolders: [], skillButtons: [] },
+	materialFavorites: [],
 	readingEnabled: false,
 	readingSoundEnabled: true,
 	taskTemplates: [],
@@ -1058,6 +1067,23 @@ export interface PipelineSkill {
 	directSend?: boolean;
 }
 
+/** A user-defined action button on every pipeline card. Clicking opens a
+ *  native dropdown of `options`; picking one writes that value verbatim into
+ *  the note's `field` frontmatter key. No folder move — when `field` is the
+ *  section's statusField the board re-groups the card on its own. */
+export interface PipelineAction {
+	id: string;
+	/** Button name — the hover tooltip (user-entered). */
+	label: string;
+	/** Lucide icon name. */
+	icon: string;
+	/** Frontmatter key the picked value is written into. */
+	field: string;
+	/** Dropdown entries: display text AND written value (kept identical by
+	 *  design — WYSIWYG one-click property edits). */
+	options: string[];
+}
+
 /** Pipeline section config (sectionType 'pipeline'): a kanban board whose
  * columns are stages of a content workflow. Items are ordinary vault notes
  * grouped by a frontmatter status field — agents and drag-drops advance items
@@ -1104,6 +1130,9 @@ export interface PipelineConfig {
 	 *  field with `archived`, which matches no stage — the note leaves the
 	 *  board wherever the folder sits. */
 	archiveFolder?: string;
+	/** User-defined card action buttons (dropdown writes a frontmatter
+	 *  value). Empty/absent = no action buttons. Rendered left of archive. */
+	actions?: PipelineAction[];
 	/** Template note seeded on "new item" (vault path; empty = bare note). */
 	templatePath?: string;
 	/** LEGACY section-wide toggle: skip the preview modal and send prompts
@@ -1260,6 +1289,42 @@ export interface SkillCardButton {
 	promptTemplate: string;
 	/** Send immediately instead of opening the confirm dialog. */
 	directSend?: boolean;
+}
+
+/** One launch button in the material library's batch bar: sends the selected
+ *  image/video paths to an agent. The prompt template may use {skill}
+ *  {paths} {path} {count}; an empty template defaults to the skill
+ *  invocation plus a {paths} file list. */
+export interface MaterialSkillButton {
+	id: string;
+	/** Button caption; empty = the agent adapter's label. */
+	label: string;
+	/** Lucide icon name; empty = the agent's default icon. */
+	icon: string;
+	/** Agent adapter that receives the prompt. */
+	agent: AgentTarget;
+	/** Agent-side skill to invoke ('' = free-form prompt). */
+	skillName: string;
+	/** Optional prompt template; empty = "{skill}\n\n{paths}". */
+	promptTemplate: string;
+	/** Send immediately instead of opening the confirm dialog. */
+	directSend?: boolean;
+}
+
+/** Material library (standalone view) config, stored plugin-wide in
+ *  settings.materialConfig. Scan scope mirrors the media sections: empty
+ *  includeFolders = whole vault; tags come from the shared media tag store. */
+export interface MaterialLibraryConfig {
+	/** Scan scope: only these folders (recursive). Empty = whole vault. */
+	includeFolders: string[];
+	/** Folders never shown, even when inside the scan scope. */
+	excludeFolders: string[];
+	/** Batch-bar launch buttons (ordered). */
+	skillButtons: MaterialSkillButton[];
+	/** Where files dragged in from OUTSIDE the vault are copied when the drop
+	 *  does not land on a folder group ('' = Obsidian's attachment folder).
+	 *  Optional so old data.json loads. */
+	importFolder?: string;
 }
 
 export interface DashboardColumn {

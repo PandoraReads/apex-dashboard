@@ -27,6 +27,16 @@ export const SECTION_RAIL_MIN_SECTIONS = 2;
 /** How far from the host's right edge the cursor still reveals the rail. */
 export const SECTION_RAIL_REVEAL_ZONE_PX = 36;
 
+/** Per-surface tweaks for {@link renderSectionRail}. */
+export interface SectionRailOptions {
+	/** Row selector inside `rowsRoot` (default: the dashboard's section rows). */
+	rowsSelector?: string;
+	/** Where rows are looked up (default: the mount host itself). */
+	rowsRoot?: HTMLElement | null;
+	/** Edge the rail pins to (default right). The material library mounts left. */
+	side?: 'left' | 'right';
+}
+
 /** The host element persists across renders (only its children rebuild), so
  *  each mount first detaches the previous render's hooks — otherwise the
  *  scroll listener would pile up per render. */
@@ -54,16 +64,19 @@ export function renderSectionRail(
 	rowCount: number,
 	/** Section display names, index-aligned with the rendered rows. */
 	names: readonly string[],
+	options: SectionRailOptions = {},
 ): HTMLElement | null {
 	railDisposers.get(host)?.();
 	const disposers: Array<() => void> = [];
 	railDisposers.set(host, () => { for (const dispose of disposers) dispose(); });
 	if (rowCount < SECTION_RAIL_MIN_SECTIONS) return null;
 
+	const rowsRoot = options.rowsRoot ?? host;
+	const rowsSelector = options.rowsSelector ?? '.dashboard-section-row';
 	const rows = (): HTMLElement[] =>
-		Array.from(host.querySelectorAll<HTMLElement>('.dashboard-section-row'));
+		Array.from(rowsRoot.querySelectorAll<HTMLElement>(rowsSelector));
 	const rail = host.createDiv({
-		cls: 'dashboard-section-rail',
+		cls: 'dashboard-section-rail' + (options.side === 'left' ? ' dashboard-section-rail--left' : ''),
 		attr: { role: 'navigation', 'aria-label': t('rail.sections') },
 	});
 
@@ -142,8 +155,8 @@ export function renderSectionRail(
 			queued = false;
 			updateActive();
 		};
-		// rAF-coalesced in the app; direct in Node (verify scripts).
-		if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
+		// rAF-coalesced in the app; direct in Node (verify scripts — no window).
+		if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
 		else run();
 	};
 	host.addEventListener('scroll', scheduleUpdate, { capture: true, passive: true });
@@ -161,7 +174,12 @@ export function renderSectionRail(
 		};
 		const onMouseMove = (e: MouseEvent): void => {
 			const rect = host.getBoundingClientRect();
-			setRevealed(e.clientX >= rect.right - SECTION_RAIL_REVEAL_ZONE_PX && e.clientX <= rect.right + 2);
+			// Proximity strip along the rail's own edge (right by default, left
+			// for the material library's left-mounted rail).
+			const onStrip = options.side === 'left'
+				? e.clientX >= rect.left - 2 && e.clientX <= rect.left + SECTION_RAIL_REVEAL_ZONE_PX
+				: e.clientX >= rect.right - SECTION_RAIL_REVEAL_ZONE_PX && e.clientX <= rect.right + 2;
+			setRevealed(onStrip);
 		};
 		const onMouseLeave = (): void => setRevealed(false);
 		host.addEventListener('mousemove', onMouseMove, { passive: true });
