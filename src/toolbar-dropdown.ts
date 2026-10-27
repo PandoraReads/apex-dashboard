@@ -15,17 +15,28 @@ export interface ToolbarDropdownItem {
 	count?: number;
 }
 
+export interface ToolbarDropdownOptions {
+	/** Render the current item's LABEL beside its icon on the collapsed button.
+	 *  For filters whose icon alone would be ambiguous (a grid glyph reads as a
+	 *  view switch, not as "every kind"); off by default so the S/M/L and view
+	 *  buttons keep their compact icon-or-letter face. */
+	withLabel?: boolean;
+}
+
 /**
  * Single-button dropdown toggle for section toolbars: one pill showing the
  * CURRENT selection (its icon, or short text for letter-style entries), click
  * opens the native Obsidian menu with every option (a check on the active
- * one). Replaces the old row of always-visible view/size buttons.
+ * one). Replaces the old row of always-visible view/size buttons. With
+ * `withLabel`, the current label rides beside the icon on the collapsed
+ * button.
  */
 export function createToolbarDropdown(
 	parent: HTMLElement,
 	currentKey: string,
 	items: readonly ToolbarDropdownItem[],
 	onPick: (key: string) => void,
+	options: ToolbarDropdownOptions = {},
 ): HTMLElement {
 	const current = items.find(i => i.key === currentKey) ?? items[0]!;
 	const btn = parent.createDiv({
@@ -35,6 +46,9 @@ export function createToolbarDropdown(
 	btn.title = current.label;
 	if (current.icon) {
 		setIcon(btn, current.icon);
+		if (options.withLabel) {
+			btn.createSpan({ cls: 'dashboard-toolbar-dropdown-label', text: current.label });
+		}
 	} else {
 		btn.createSpan({ cls: 'dashboard-toolbar-dropdown-text', text: current.short ?? current.label });
 	}

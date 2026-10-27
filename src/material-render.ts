@@ -186,40 +186,32 @@ export function renderMaterialLibrary(
 		attr: { type: 'text', placeholder: t('library.searchPlaceholder') },
 	});
 
-	/** Type filter pills (全部 / 图片 / 视频 / 文本) — visible buttons, not a
-	 *  dropdown, so the current scope reads at a glance (Rae). */
-	const typePills = toolbar.createDiv({ cls: 'dashboard-material-typepills', attr: { role: 'group', 'aria-label': t('media.groupByType') } });
-	const TYPE_LABELS: Record<MaterialKindFilter, string> = {
-		all: 'material.typeAll',
-		image: 'material.typeImages',
-		video: 'material.typeVideos',
-		text: 'material.typeText',
+	/** Type filter as ONE dropdown button (Rae): four always-visible pills spent
+	 *  a whole toolbar segment on a choice that changes rarely. The scope now
+	 *  rides on a single button — icon plus the current label, because a bare
+	 *  grid glyph would read as a view switch rather than "every kind". Picking
+	 *  rebuilds the button so its face follows the selection. */
+	const TYPE_CHOICES: ReadonlyArray<{ key: MaterialKindFilter; labelKey: string; icon: string }> = [
+		{ key: 'all', labelKey: 'material.typeAll', icon: 'layout-grid' },
+		{ key: 'image', labelKey: 'material.typeImages', icon: 'image' },
+		{ key: 'video', labelKey: 'material.typeVideos', icon: 'film' },
+		{ key: 'text', labelKey: 'material.typeText', icon: 'file-text' },
+	];
+	const typeToggle = toolbar.createDiv({ cls: 'dashboard-material-type-toggle' });
+	const buildTypeToggle = (): void => {
+		typeToggle.empty();
+		createToolbarDropdown(typeToggle, kindFilter, TYPE_CHOICES.map(c => ({
+			key: c.key,
+			label: t(c.labelKey),
+			icon: c.icon,
+		})), (key) => {
+			kindFilter = key as MaterialKindFilter;
+			currentPage = 1;
+			buildTypeToggle();
+			render();
+		}, { withLabel: true });
 	};
-	const TYPE_ICONS: Record<MaterialKindFilter, string> = {
-		all: 'layout-grid',
-		image: 'image',
-		video: 'film',
-		text: 'file-text',
-	};
-	const buildTypePills = (): void => {
-		typePills.empty();
-		for (const key of ['all', 'image', 'video', 'text'] as const) {
-			const pill = typePills.createDiv({
-				cls: 'dashboard-material-typepill' + (kindFilter === key ? ' active' : ''),
-				attr: { role: 'button', 'aria-label': t(TYPE_LABELS[key]), title: t(TYPE_LABELS[key]), 'data-kind': key },
-			});
-			setIcon(pill.createSpan({ cls: 'dashboard-material-typepill-icon' }), TYPE_ICONS[key]);
-			pill.createSpan({ cls: 'dashboard-material-typepill-label', text: t(TYPE_LABELS[key]) });
-			pill.addEventListener('click', () => {
-				if (kindFilter === key) return;
-				kindFilter = key;
-				currentPage = 1;
-				buildTypePills();
-				render();
-			});
-		}
-	};
-	buildTypePills();
+	buildTypeToggle();
 
 	const sortSelect = toolbar.createEl('select', { cls: 'dashboard-library-sort' });
 	for (const opt of [
@@ -413,7 +405,10 @@ export function renderMaterialLibrary(
 	 *  = the configured default folder); group headers/bodies are their own
 	 *  zones stamped per render. */
 	const resultArea = content.createDiv({ cls: `dashboard-material-area ${MATERIAL_DROPZONE_CLASS}` });
-	const paginationArea = content.createDiv({ cls: 'dashboard-library-pagination' });
+	/** Pagination keeps the shared library chrome but adds the material class:
+	 *  Rae wants the page row to be pure transparent text (no chips, no bar) so
+	 *  the bottom of the page reads as more material space. */
+	const paginationArea = content.createDiv({ cls: 'dashboard-library-pagination dashboard-material-pagination' });
 	/** Right floating action rail: select toggle + skill buttons + batch
 	 *  actions, icons only (Rae) — replaces the old bottom batch bar. */
 	const actionRail = content.createDiv({ cls: 'dashboard-material-actionrail' });
@@ -1016,7 +1011,9 @@ export function renderMaterialLibrary(
 	 *  the tag itself. */
 	function groupDisplayName(group: MaterialGroup): string {
 		if (group.label) return group.label;
-		const typeKey = TYPE_LABELS[group.key as MaterialKindFilter];
+		// Type groups key on the raw kind; the toolbar's choice list is the one
+		// place that maps a kind to its localized label.
+		const typeKey = TYPE_CHOICES.find(c => c.key === group.key)?.labelKey;
 		return groupBy === 'type' && typeKey ? t(typeKey) : group.key;
 	}
 

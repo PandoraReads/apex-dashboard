@@ -2,7 +2,7 @@
  * Material library render smoke test (src/material-render.ts): the full-page
  * waterfall surface against the mini-dom harness.
  *
- * 1. Initial render: toolbar (search / type pills / sort / group / density /
+ * 1. Initial render: toolbar (search / type dropdown / sort / group / density /
  *    settings), result count, waterfall columns with tiles distributed by
  *    shortest-column aspect placement; the right ACTION RAIL is always
  *    mounted with its batch buttons disabled at zero selection.
@@ -13,11 +13,12 @@
  *    when a frontmatter cover resolves — coverless text files never tile at
  *    all (the icon strip is gone with them).
  * 3. Search re-render narrows results; empty state shows on no match.
- * 4. Type pills: visible segmented buttons (全部/图片/视频/文本) filter the
- *    waterfall; group mode renders folder groups with collapse headers;
- *    type groups show localized labels over raw kind keys. Grouped views
- *    reveal the collapse-all toolbar button and the LEFT nav rail (one dash
- *    per group, section-rail styling); flat views hide both.
+ * 4. Type filter: ONE dropdown button (icon + current label) whose native menu
+ *    lists 全部/图片/视频/文本 and narrows the waterfall on pick; group mode
+ *    renders folder groups with collapse headers; type groups show localized
+ *    labels over raw kind keys. Grouped views reveal the collapse-all toolbar
+ *    button and the LEFT nav rail (one dash per group, section-rail styling);
+ *    flat views hide both.
  * 5. Select mode: the right action rail carries select toggle + count badge
  *    + skill buttons + batch actions, icons only; buttons disabled at zero
  *    selection; selecting tiles enables them; skill dispatch opens
@@ -52,7 +53,7 @@
  * Run: `npm run test:material-render`
  */
 import { strict as assert } from 'node:assert';
-import { Modal, Notice } from 'obsidian';
+import { Menu, Modal, Notice } from 'obsidian';
 import { El, findByClass } from './mini-dom';
 import type { App, TFile } from 'obsidian';
 import { renderMaterialLibrary } from '../src/material-render';
@@ -307,8 +308,13 @@ async function main(): Promise<void> {
 	const favoritesIdx = toolbarKids.indexOf(findByClass(host, 'dashboard-material-favorites-btn')[0]!);
 	assert.ok(collapseIdx > funnelIdx, 'collapse-all sits right of the filter funnel');
 	assert.ok(collapseIdx < favoritesIdx, 'collapse-all stays out of the right cluster');
-	// Only the density toggle remains a dropdown — types moved to pills.
-	assert.equal(findByClass(host, 'dashboard-toolbar-dropdown').length, 1, 'density dropdown rendered');
+	// Two dropdowns now: the type filter (icon + label) and density (S/M/L).
+	assert.equal(findByClass(host, 'dashboard-toolbar-dropdown').length, 2, 'type + density dropdowns rendered');
+	assert.equal(
+		findByClass(host, 'dashboard-material-type-toggle')[0]!.parent,
+		toolbarEl,
+		'the type dropdown wrapper sits directly on the toolbar (no chip-well)',
+	);
 	const countEl = findByClass(host, 'dashboard-library-count')[0]!;
 	assert.equal(countEl.textContent, '4 个文件', 'count = scoped files MINUS the coverless text file (notes.txt never tiles)');
 
@@ -393,20 +399,43 @@ async function main(): Promise<void> {
 	search.dispatchEvent({ type: 'input' });
 	assert.equal(tilePaths(host).length, 4, 'cleared search restores results');
 
-	// --- 4. Type pills + group modes ------------------------------------------
-	// Types are visible segmented buttons, not a dropdown menu.
-	let pills = findByClass(host, 'dashboard-material-typepill');
-	assert.equal(pills.length, 4, 'four type pills: all / image / video / text');
-	assert.equal(pills[0]!.hasClass('active'), true, 'all pill starts active');
-	pills[2]!.click();
-	assert.deepEqual(tilePaths(host), ['素材/clip.mp4'], 'video pill filters to videos');
-	pills = findByClass(host, 'dashboard-material-typepill');
-	assert.equal(pills[2]!.hasClass('active'), true, 'video pill is now the active one');
-	pills[3]!.click();
-	assert.deepEqual(tilePaths(host), ['素材/article.md'], 'text pill shows only COVERED text files (notes.txt is gated out)');
-	pills = findByClass(host, 'dashboard-material-typepill');
-	pills[0]!.click();
-	assert.equal(tilePaths(host).length, 4, 'all pill restores every kind');
+	// --- 4. Type dropdown + group modes ---------------------------------------
+	// Types live in ONE toolbar button (icon + the current label) that opens the
+	// native menu; a pick rebuilds the button and narrows the waterfall.
+	const typeBtn = (): El => findByClass(
+		findByClass(host, 'dashboard-material-type-toggle')[0]!,
+		'dashboard-toolbar-dropdown',
+	)[0]!;
+	const typeLabel = (): string => findByClass(typeBtn(), 'dashboard-toolbar-dropdown-label')[0]!.textContent;
+	const openTypeMenu = (): { items: Array<{ title: string; checked: boolean; click(): void }> } => {
+		typeBtn().click();
+		// tsc resolves the real obsidian types (no static last there); the runtime
+		// alias points at the stub, whose Menu.last exists — bridge with a cast.
+		const menu = (Menu as unknown as {
+			last: { items: Array<{ title: string; checked: boolean; click(): void }> } | null;
+		}).last;
+		assert.ok(menu, 'the type button opens a native menu');
+		return menu!;
+	};
+	const pickType = (index: number): void => { openTypeMenu().items[index]!.click(); };
+
+	assert.equal(findByClass(host, 'dashboard-material-typepill').length, 0, 'the segmented pill row is gone');
+	assert.equal(typeLabel(), t('material.typeAll'), 'the collapsed button names the current scope');
+	pickType(2);
+	assert.deepEqual(tilePaths(host), ['素材/clip.mp4'], 'picking videos filters to videos');
+	assert.equal(typeLabel(), t('material.typeVideos'), 'the button face follows the pick');
+	pickType(3);
+	assert.deepEqual(tilePaths(host), ['素材/article.md'], 'picking text shows only COVERED text files (notes.txt is gated out)');
+	pickType(0);
+	assert.equal(tilePaths(host).length, 4, 'picking all restores every kind');
+	// Menu shape: the four kinds in order, the active one checked.
+	const typeMenu = openTypeMenu();
+	assert.deepEqual(
+		typeMenu.items.map(i => i.title),
+		[t('material.typeAll'), t('material.typeImages'), t('material.typeVideos'), t('material.typeText')],
+		'menu lists all four kinds in order',
+	);
+	assert.deepEqual(typeMenu.items.map(i => i.checked), [true, false, false, false], 'the active kind is checked');
 
 	// Folder groups with in-place collapse.
 	const groupSelect = findByClass(host, 'dashboard-media-group-select')[0]!;
@@ -1060,6 +1089,13 @@ async function main(): Promise<void> {
 	assert.ok(lastPageBtn, 'pagination offers the 12th page (the old cap stopped at 10)');
 	lastPageBtn.dispatchEvent({ type: 'click', target: lastPageBtn });
 	assert.equal(findByClass(bigHost, 'dashboard-material-tile').length, 22, 'the last page mounts its full 22 tiles');
+	// The row wears the material chrome hook: pure transparent text (no chips,
+	// no bar) so the bottom of the page reads as more material space. It keeps
+	// the shared class its nav renders into.
+	const pager = findByClass(bigHost, 'dashboard-material-pagination')[0];
+	assert.ok(pager, 'pagination carries the transparent material hook class');
+	assert.ok(pager!.hasClass('dashboard-library-pagination'), '...alongside the shared pagination class');
+	assert.equal(findByClass(pager!, 'dashboard-library-pagination-nav').length, 1, 'the shared nav renders inside it');
 
 	// 13b. grouped view: every folder appears; big groups render progressively.
 	bigSetGroup('folder');

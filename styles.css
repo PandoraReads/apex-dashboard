@@ -2712,6 +2712,18 @@
 	text-align: center;
 }
 
+/* Word label beside the icon (dropdowns created with `withLabel`): says which
+   scope the button currently holds, since an icon alone reads as a view
+   switch. Lighter than the S/M/L letters — it is copy, not a badge. */
+.dashboard-toolbar-dropdown-label {
+	font-size: 0.78em;
+	font-weight: 500;
+	height: 16px;
+	line-height: 16px;
+	white-space: nowrap;
+	color: var(--db-text, var(--text-normal));
+}
+
 /* ===== Unified section toolbar button language (2026-10-27) ==============
    Every toolbar's buttons speak the same quiet idiom as the ghost icon
    buttons (sort-direction / filter / config gears): rest = no border, no
@@ -30227,40 +30239,17 @@ button.dashboard-capturebar-glyph:hover {
 	fill: currentColor;
 }
 
-/* Type filter pills (全部/图片/视频/文本): visible segmented buttons so the
-   active scope reads at a glance. */
-.dashboard-material-typepills {
+/* Type filter is ONE dropdown button (Rae) — the segmented pill row is gone,
+   so the toolbar hands its width back to search/sort/group. Only the wrapper
+   needs material-side rules; the button itself wears the shared
+   .dashboard-toolbar-dropdown chrome. */
+.dashboard-material-type-toggle {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 4px;
-	padding: 2px;
-	border: 1px solid var(--db-border-card, rgba(128, 128, 128, 0.22));
-	border-radius: 8px;
-	background: var(--db-bg-input, rgba(128, 128, 128, 0.06));
-}
-
-.dashboard-material-typepill {
-	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	padding: 3px 9px;
-	font-size: 0.78em;
-	border-radius: 6px;
-	color: var(--db-text-muted, var(--text-muted));
-	cursor: pointer;
-	white-space: nowrap;
-	transition: color 0.12s ease, background 0.12s ease;
+	flex-shrink: 0;
 }
 
-.dashboard-material-typepill:hover { color: var(--db-text, var(--text-normal)); }
-
-.dashboard-material-typepill.active {
-	color: var(--db-text, var(--text-normal));
-	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 20%, transparent);
-}
-
-.dashboard-material-typepill-icon { display: inline-flex; }
-.dashboard-material-typepill-icon svg { width: 13px; height: 13px; }
+.dashboard-material-type-toggle .dashboard-toolbar-dropdown { gap: 4px; }
 
 /* Fully hidden scrollbar (Rae): the gutter is gone, scrolling still works —
    wheel/touch/keyboard keep the area usable, nothing is rendered for it. */
@@ -30276,6 +30265,28 @@ button.dashboard-capturebar-glyph:hover {
 }
 
 .dashboard-material-area::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* Pagination is pure transparent chrome (Rae): no chips and no bar, the row
+   sits straight on the page background so the bottom of the view reads as more
+   material space. Rest state is bare text everywhere (the current page turns
+   accent text instead of a filled chip); only hover borrows a whisper of
+   accent, and these rules come after the shared ones so they must restate it. */
+.dashboard-material-pagination { padding: 0; }
+
+.dashboard-material-pagination .dashboard-library-pagination-nav { padding: 2px 0 4px; }
+
+.dashboard-material-pagination .dashboard-library-pagination-btn,
+.dashboard-material-pagination .dashboard-library-pagination-page.active {
+	background: transparent;
+}
+
+.dashboard-material-pagination .dashboard-library-pagination-page.active {
+	color: var(--db-accent, var(--interactive-accent));
+}
+
+.dashboard-material-pagination .dashboard-library-pagination-btn:hover {
+	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 12%, transparent);
+}
 
 /* Rubber-band selection: no accidental text/image drag while sweeping. */
 .dashboard-material-area.is-select-mode {
@@ -30772,9 +30783,6 @@ button.dashboard-capturebar-glyph:hover {
 @media (max-width: 640px) {
 	.dashboard-material-content { padding: 8px 8px 0; }
 	.dashboard-material-toolbar .dashboard-library-search { flex: 1 1 100%; width: 100%; }
-	.dashboard-material-typepills { flex: 1 1 100%; }
-	.dashboard-material-typepill { flex: 1 1 auto; justify-content: center; }
-	.dashboard-material-typepill-label { display: none; }
 	.dashboard-material-cols { gap: 8px; }
 	.dashboard-material-col { gap: 8px; }
 	/* Narrow tiles: drop the date so tags + heart still fit one strip. */
