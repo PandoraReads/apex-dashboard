@@ -17669,6 +17669,12 @@ button.dashboard-skillsec-import:hover {
 }
 .dashboard-media-group-header.is-collapsed { opacity: 0.75; }
 .dashboard-media-group-body.is-hidden { display: none; }
+/* Progressive group rendering: the load-more pill centered under the block
+   flow of a material group body (same shape as the library group rule). */
+.dashboard-media-group-body .dashboard-library-load-more {
+	width: fit-content;
+	margin: 8px auto 2px;
+}
 .dashboard-media-area .dashboard-media-group-header:first-child { margin-top: 0; }
 /* The empty-state min-height applies to the flat wall; grouped mode sizes by content. */
 .dashboard-media-area:has(.dashboard-media-group-header) { min-height: 0; }
@@ -30314,6 +30320,18 @@ button.dashboard-capturebar-glyph:hover {
 .dashboard-material-dropzone.is-drop-active {
 	background: color-mix(in srgb, var(--db-accent, #8b5cf6) 10%, transparent);
 }
+
+/* Folder-group drag-MOVE target (an internal tile drag, Rae): dashed accent
+   outline — a different affordance from the OS-import fill above. */
+.dashboard-material-dropzone.is-move-active {
+	outline: 2px dashed color-mix(in srgb, var(--db-accent, #8b5cf6) 70%, transparent);
+	outline-offset: -3px;
+	border-radius: 6px;
+}
+
+/* Tiles are only draggable in folder-group mode (renderer stamps it). */
+.dashboard-material-tile[draggable="true"] { cursor: grab; }
+.dashboard-material-tile[draggable="true"]:active { cursor: grabbing; }
 
 .dashboard-material-block { margin-bottom: 4px; }
 

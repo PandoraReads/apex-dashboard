@@ -13,6 +13,7 @@ export const part5: Record<string, string> = {
 	"material.cfgImportFolder": "Папка по умолчанию",
 	"material.cfgImportFolderHint": "Куда копируются изображения и видео, перетащенные извне хранилища. Группа-папка использует свою папку; группа-тег также добавляет этот тег. Оставьте пустым, чтобы использовать папку вложений Obsidian.",
 	"material.dropHint": "Отпустите, чтобы скопировать в {folder}",
+	"material.moveHint": "Отпустите, чтобы переместить в {folder}",
 	"material.dropVaultRoot": "корень хранилища",
 	"material.imported": "Импортировано файлов: {count} в {folder}",
 	"material.importedWithTag": "Импортировано файлов: {count} в {folder}, тег {tag}",

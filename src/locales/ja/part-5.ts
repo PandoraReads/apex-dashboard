@@ -13,6 +13,7 @@ export const part5: Record<string, string> = {
 	"material.cfgImportFolder": "既定の保存先",
 	"material.cfgImportFolderHint": "Vault 外からドラッグした画像・動画のコピー先です。フォルダーグループはそのフォルダーに保存し、タググループはそのタグも自動で付けます。空の場合は Obsidian の添付フォルダーを使います。",
 	"material.dropHint": "離すと {folder} にコピー",
+	"material.moveHint": "離すと {folder} に移動",
 	"material.dropVaultRoot": "Vault のルート",
 	"material.imported": "{count} 件を {folder} に取り込みました",
 	"material.importedWithTag": "{count} 件を {folder} に取り込みました（タグ {tag}）",

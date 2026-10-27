@@ -28,6 +28,7 @@ import { dispatchSkill } from './pipeline-section';
 import { renderSectionRail } from './section-rail';
 import { momentOf } from './datetime';
 import { MATERIAL_DROPZONE_CLASS, wireMaterialDrop } from './material-drop';
+import { wireMaterialFolderMove } from './material-dnd';
 import type { MaterialLibraryConfig, MaterialSkillButton } from './types';
 import {
 	assignWaterfall,
@@ -37,8 +38,8 @@ import {
 	groupMaterialItems,
 	materialColumnCount,
 	materialSkillVars,
+	MATERIAL_GROUP_PAGE_SIZE,
 	MATERIAL_IMAGE_ASPECT,
-	MATERIAL_RENDER_CEILING,
 	MATERIAL_VIDEO_ASPECT,
 	paginateMaterial,
 	sortMaterialItems,
@@ -164,6 +165,13 @@ export function renderMaterialLibrary(
 	const cardStyle: { value: MaterialCardStyle } = { value: readStoredCardStyle(app) };
 	const selected = new Set<string>();
 	const collapsedGroups = new Set<string>();
+	/** Per-group tile limits for progressive rendering (first N + load-more
+	 *  pill). Absent key = MATERIAL_GROUP_PAGE_SIZE; deliberately survives
+	 *  re-renders so a refresh does not fold an expanded group back. */
+	const groupRenderLimits = new Map<string, number>();
+	/** One-shot builders for bodies that rendered while collapsed — building
+	 *  them only on expand keeps a collapsed whole-vault group off the DOM. */
+	const lazyBodyBuilders = new Map<string, () => void>();
 	/** Measured image aspects keyed by path — survives re-renders. */
 	const aspectCache = new Map<string, number>();
 	/** Render generation: stale async probes/relayouts no-op. */
@@ -449,6 +457,7 @@ export function renderMaterialLibrary(
 		groupRail = null;
 		resizeObserver?.disconnect();
 		disposeDrop();
+		disposeMoveDrop();
 		mounter?.disconnect();
 		releaseVideoMedia(resultArea);
 		closeFilterPopup();
@@ -493,28 +502,36 @@ export function renderMaterialLibrary(
 			.catch(() => new Notice(t('material.copyFailed')));
 	}
 
+	/** Move files into a folder (shared by the rail's picker flow and the
+	 *  folder-group drag-drop): rename per file, skip same-destination and
+	 *  name collisions, one Notice each for moved/skipped. */
+	async function movePathsTo(paths: readonly string[], rawFolder: string): Promise<void> {
+		if (paths.length === 0) return;
+		const folder = rawFolder.replace(/\/+$/, '');
+		let moved = 0;
+		let skipped = 0;
+		for (const path of paths) {
+			const file = fileOf(path);
+			if (!file) continue;
+			const name = path.slice(path.lastIndexOf('/') + 1);
+			const newPath = folder ? `${folder}/${name}` : name;
+			if (newPath === path) continue;
+			if (app.vault.getAbstractFileByPath(newPath)) { skipped++; continue; }
+			try {
+				await app.fileManager.renameFile(file, newPath);
+				selected.delete(path);
+				moved++;
+			} catch { skipped++; }
+		}
+		if (moved > 0) new Notice(t('material.moved', { count: String(moved) }));
+		if (skipped > 0) new Notice(t('material.moveSkipped', { count: String(skipped) }));
+		render();
+	}
+
 	async function moveItems(paths: readonly string[]): Promise<void> {
 		if (paths.length === 0) return;
 		new PathPickerModal(app, 'folder', async target => {
-			const folder = target.replace(/\/+$/, '');
-			let moved = 0;
-			let skipped = 0;
-			for (const path of paths) {
-				const file = fileOf(path);
-				if (!file) continue;
-				const name = path.slice(path.lastIndexOf('/') + 1);
-				const newPath = folder ? `${folder}/${name}` : name;
-				if (newPath === path) continue;
-				if (app.vault.getAbstractFileByPath(newPath)) { skipped++; continue; }
-				try {
-					await app.fileManager.renameFile(file, newPath);
-					selected.delete(path);
-					moved++;
-				} catch { skipped++; }
-			}
-			if (moved > 0) new Notice(t('material.moved', { count: String(moved) }));
-			if (skipped > 0) new Notice(t('material.moveSkipped', { count: String(skipped) }));
-			render();
+			await movePathsTo(paths, target);
 		}).open();
 	}
 
@@ -691,6 +708,10 @@ export function renderMaterialLibrary(
 		tile.dataset.materialPath = item.path;
 		tile.dataset.cardStyle = polaroid ? 'polaroid' : 'plain';
 		tile.setAttribute('role', 'button');
+		// Draggable only in folder-group mode: dropping a tile onto another
+		// folder group moves it there (see material-dnd.ts). Other modes have
+		// no folder-keyed zones, so the drag would go nowhere.
+		tile.draggable = groupBy === 'folder';
 
 		// Polaroid (Pin style): photo + caption share one white paper block and
 		// a macaron strip below carries tags/date/heart. Plain: the original
@@ -817,18 +838,21 @@ export function renderMaterialLibrary(
 	}
 
 	/** Re-run the column layout of the CURRENT render (density change, pane
-	 *  resize, settled aspect probes). Tiles are moved, not rebuilt. */
+	 *  resize, settled aspect probes). Tiles are moved, not rebuilt. Flat view
+	 *  has one column host; grouped views have one per group body, so every
+	 *  host is re-flowed with its own tiles (grouped columns used to be left
+	 *  with their fallback ratios whenever a probe settled). */
 	function relayout(): void {
-		const colsHost = resultArea.querySelector<HTMLElement>('.dashboard-material-cols');
-		if (!colsHost) return;
-		const tiles: { el: HTMLElement; item: MaterialItem }[] = [];
-		for (const el of Array.from(colsHost.querySelectorAll<HTMLElement>('.dashboard-material-tile'))) {
-			const path = el.dataset.materialPath ?? '';
-			const item = lastItems.get(path);
-			if (item) tiles.push({ el, item });
+		const colsHosts = Array.from(resultArea.querySelectorAll<HTMLElement>('.dashboard-material-cols'));
+		for (const colsHost of colsHosts) {
+			const tiles: { el: HTMLElement; item: MaterialItem }[] = [];
+			for (const el of Array.from(colsHost.querySelectorAll<HTMLElement>('.dashboard-material-tile'))) {
+				const path = el.dataset.materialPath ?? '';
+				const item = lastItems.get(path);
+				if (item) tiles.push({ el, item });
+			}
+			if (tiles.length > 0) layoutTiles(colsHost, tiles);
 		}
-		if (tiles.length === 0) return;
-		layoutTiles(colsHost, tiles);
 	}
 
 	/** Items of the last render, keyed by path (relayout + lightbox order). */
@@ -958,7 +982,12 @@ export function renderMaterialLibrary(
 			body?.toggleClass('is-hidden', collapse);
 			if (chevron) setIcon(chevron, collapse ? 'chevron-right' : 'chevron-down');
 			if (collapse) collapsedGroups.add(key);
-			else collapsedGroups.delete(key);
+			else {
+				// A group that rendered while collapsed has an unbuilt body —
+				// fill it before revealing (no empty flash).
+				lazyBodyBuilders.get(key)?.();
+				collapsedGroups.delete(key);
+			}
 		}
 		updateCollapseAllUi();
 	}
@@ -1061,6 +1090,18 @@ export function renderMaterialLibrary(
 		onImported: () => render(),
 	});
 
+	// Folder-group drag moves (Rae): dropping a tile on another folder group
+	// moves the file(s) there. Zones and the destination rules are stamped per
+	// render below; the drag plumbing lives in material-dnd.ts.
+	const disposeMoveDrop = wireMaterialFolderMove({
+		content,
+		hint: dropHint,
+		getGroupMode: () => groupBy,
+		isSelected: (path) => selected.has(path),
+		getSelected: () => [...selected],
+		movePaths: (paths, folder) => { void movePathsTo(paths, folder); },
+	});
+
 	function renderTilesBlock(host: HTMLElement, items: readonly MaterialItem[], opener: (item: MaterialItem) => void): void {
 		const block = host.createDiv({ cls: 'dashboard-material-block' });
 		const colsHost = block.createDiv({ cls: 'dashboard-material-cols' });
@@ -1126,15 +1167,18 @@ export function renderMaterialLibrary(
 			return;
 		}
 
-		// Silent ceiling: still capped for render cost, but the on-screen
-		// notice is gone (Rae) — it ate layout space for a rare state.
-		const display = sorted.length > MATERIAL_RENDER_CEILING ? sorted.slice(0, MATERIAL_RENDER_CEILING) : sorted;
+		// No total ceiling (Rae): a 500-item cap hid everything past it in the
+		// flat view AND whole folders in grouped views. Both paths stay bounded
+		// without it — flat is paginated (only one page's tiles mount), grouped
+		// is progressive per group (first MATERIAL_GROUP_PAGE_SIZE + pill) and
+		// collapsed groups never build their bodies at all.
 
 		if (groupBy !== 'none') {
-			const groups = groupMaterialItems(display, groupBy, t('library.notSet'));
+			const groups = groupMaterialItems(sorted, groupBy, t('library.notSet'));
 			const displayOrder = groups.flatMap(g => g.items);
 			for (const item of displayOrder) lastItems.set(item.path, item);
 			const opener = makeLightboxOpener(displayOrder);
+			const renderedNow: MaterialItem[] = [];
 			for (const group of groups) {
 				const collapsed = collapsedGroups.has(group.key);
 				// Both halves of a group are drop zones carrying its key: a folder
@@ -1150,8 +1194,44 @@ export function renderMaterialLibrary(
 				const body = resultArea.createDiv({ cls: `dashboard-media-group-body ${MATERIAL_DROPZONE_CLASS}` });
 				body.dataset.importKey = group.key;
 				if (collapsed) body.addClass('is-hidden');
+				// Progressive body: first N tiles + load-more pill. The pill
+				// rebuilds the body in place with a bigger slice (the body
+				// element stays put, so the pane's scroll survives); slice()
+				// shrinks harmlessly when a re-render narrows the group.
+				const renderGroupBody = (probe: boolean): readonly MaterialItem[] => {
+					const limit = groupRenderLimits.get(group.key) ?? MATERIAL_GROUP_PAGE_SIZE;
+					body.empty();
+					const slice = group.items.slice(0, limit);
+					renderTilesBlock(body, slice, opener);
+					// Later builds (pill click / lazy expand) probe their own
+					// slice; the initial pass probes once below, batched.
+					if (probe) probeAspects(slice, gen);
+					if (group.items.length > limit) {
+						const more = body.createDiv({
+							cls: 'dashboard-library-load-more',
+							text: t('library.showMore', { count: group.items.length - limit }),
+						});
+						more.addEventListener('click', (e) => {
+							e.stopPropagation();
+							groupRenderLimits.set(group.key, limit + MATERIAL_GROUP_PAGE_SIZE);
+							renderGroupBody(true);
+						});
+					}
+					return slice;
+				};
+				if (collapsed) {
+					// Collapsed at render time: defer the body build entirely.
+					// One-shot so re-collapsing keeps the built DOM.
+					lazyBodyBuilders.set(group.key, () => {
+						lazyBodyBuilders.delete(group.key);
+						renderGroupBody(true);
+					});
+				} else {
+					renderedNow.push(...renderGroupBody(false));
+				}
 				header.addEventListener('click', () => {
 					if (collapsedGroups.has(group.key)) {
+						lazyBodyBuilders.get(group.key)?.();
 						collapsedGroups.delete(group.key);
 						header.removeClass('is-collapsed');
 						body.removeClass('is-hidden');
@@ -1163,7 +1243,6 @@ export function renderMaterialLibrary(
 						setIcon(chevron, 'chevron-right');
 					}
 				});
-				renderTilesBlock(body, group.items, opener);
 			}
 			// Group affordances: collapse-all button + left nav rail over the
 			// group headers (labels match the header text, so type groups show
@@ -1172,13 +1251,13 @@ export function renderMaterialLibrary(
 			collapseAllBtn.removeClass('is-hidden');
 			updateCollapseAllUi();
 			mountGroupRail(labels);
-			probeAspects(displayOrder, gen);
+			probeAspects(renderedNow, gen);
 			return;
 		}
 
 		collapseAllBtn.addClass('is-hidden');
 		mountGroupRail([]);
-		const { page, items, totalPages } = paginateMaterial(display, currentPage, pageSize);
+		const { page, items, totalPages } = paginateMaterial(sorted, currentPage, pageSize);
 		currentPage = page;
 		for (const item of items) lastItems.set(item.path, item);
 		const opener = makeLightboxOpener(items);
@@ -1186,7 +1265,7 @@ export function renderMaterialLibrary(
 		probeAspects(items, gen);
 
 		if (totalPages > 1) {
-			renderPagination(paginationArea, page, totalPages, display.length, (p) => {
+			renderPagination(paginationArea, page, totalPages, sorted.length, (p) => {
 				currentPage = p;
 				render();
 			});

@@ -13,6 +13,7 @@ export const part5: Record<string, string> = {
 	"material.cfgImportFolder": "Destination par défaut",
 	"material.cfgImportFolderHint": "Où sont copiées les images et vidéos déposées depuis l'extérieur du coffre. Un groupe de dossiers utilise son propre dossier ; un groupe d'étiquettes reçoit aussi cette étiquette. Laissez vide pour utiliser le dossier de pièces jointes d'Obsidian.",
 	"material.dropHint": "Relâchez pour copier dans {folder}",
+	"material.moveHint": "Relâchez pour déplacer dans {folder}",
 	"material.dropVaultRoot": "la racine du coffre",
 	"material.imported": "{count} fichiers importés dans {folder}",
 	"material.importedWithTag": "{count} fichiers importés dans {folder}, étiquette {tag}",

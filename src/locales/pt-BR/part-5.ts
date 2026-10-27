@@ -13,6 +13,7 @@ export const part5: Record<string, string> = {
 	"material.cfgImportFolder": "Destino padrão",
 	"material.cfgImportFolderHint": "Para onde são copiadas as imagens e os vídeos arrastados de fora do vault. Um grupo de pastas usa a própria pasta; um grupo de tags também recebe essa tag. Deixe vazio para usar a pasta de anexos do Obsidian.",
 	"material.dropHint": "Solte para copiar para {folder}",
+	"material.moveHint": "Solte para mover para {folder}",
 	"material.dropVaultRoot": "a raiz do vault",
 	"material.imported": "{count} arquivos importados para {folder}",
 	"material.importedWithTag": "{count} arquivos importados para {folder}, tag {tag}",

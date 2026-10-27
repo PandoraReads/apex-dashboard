@@ -13,6 +13,7 @@ export const part5: Record<string, string> = {
 	"material.cfgImportFolder": "ปลายทางเริ่มต้น",
 	"material.cfgImportFolderHint": "ตำแหน่งที่คัดลอกรูปภาพและวิดีโอที่ลากมาจากนอก vault กลุ่มโฟลเดอร์จะบันทึกลงโฟลเดอร์ของกลุ่มนั้น กลุ่มแท็กจะติดแท็กนั้นให้อัตโนมัติ เว้นว่างไว้เพื่อใช้โฟลเดอร์ไฟล์แนบของ Obsidian",
 	"material.dropHint": "ปล่อยเพื่อคัดลอกไปยัง {folder}",
+	"material.moveHint": "ปล่อยเพื่อย้ายไปยัง {folder}",
 	"material.dropVaultRoot": "รากของ vault",
 	"material.imported": "นำเข้า {count} ไฟล์ไปยัง {folder}",
 	"material.importedWithTag": "นำเข้า {count} ไฟล์ไปยัง {folder} แท็ก {tag}",

@@ -13,6 +13,7 @@ export const part5: Record<string, string> = {
 	"material.cfgImportFolder": "기본 저장 위치",
 	"material.cfgImportFolderHint": "볼트 밖에서 끌어다 놓은 이미지·동영상이 복사되는 위치입니다. 폴더 그룹은 해당 폴더에 저장되고, 태그 그룹은 해당 태그도 자동으로 붙습니다. 비워 두면 Obsidian 첨부 폴더를 사용합니다.",
 	"material.dropHint": "놓으면 {folder} 에 복사",
+	"material.moveHint": "놓으면 {folder} 로 이동",
 	"material.dropVaultRoot": "볼트 최상위",
 	"material.imported": "{count}개 파일을 {folder} 에 가져왔습니다",
 	"material.importedWithTag": "{count}개 파일을 {folder} 에 가져왔습니다(태그 {tag})",

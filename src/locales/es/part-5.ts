@@ -13,6 +13,7 @@ export const part5: Record<string, string> = {
 	"material.cfgImportFolder": "Destino predeterminado",
 	"material.cfgImportFolderHint": "Dónde se copian las imágenes y los vídeos arrastrados desde fuera de la bóveda. Un grupo de carpetas usa su propia carpeta; un grupo de etiquetas también recibe esa etiqueta. Déjalo vacío para usar la carpeta de adjuntos de Obsidian.",
 	"material.dropHint": "Suelta para copiar en {folder}",
+	"material.moveHint": "Suelta para mover a {folder}",
 	"material.dropVaultRoot": "la raíz de la bóveda",
 	"material.imported": "{count} archivos importados en {folder}",
 	"material.importedWithTag": "{count} archivos importados en {folder}, etiqueta {tag}",

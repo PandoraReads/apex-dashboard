@@ -56,6 +56,7 @@ import { Modal, Notice } from 'obsidian';
 import { El, findByClass } from './mini-dom';
 import type { App, TFile } from 'obsidian';
 import { renderMaterialLibrary } from '../src/material-render';
+import { MATERIAL_MOVE_DRAG_TYPE } from '../src/material-dnd';
 import { AgentPromptModal } from '../src/agent-prompt-modal';
 import { MediaLightboxModal } from '../src/media-lightbox-modal';
 import { MediaTagEditModal } from '../src/media-tag-editor-modal';
@@ -134,6 +135,10 @@ function makeApp(
 	files: readonly TFile[] = VAULT,
 	frontmatter: Record<string, Record<string, unknown>> = FRONTMATTER,
 	seedStorage: Record<string, string> = {},
+	/** Section 12 (drag-move): when true, renameFile also swaps the entry in
+	 *  the live vault maps so the post-move refresh regroups the tile — the
+	 *  default record-only stub matches what earlier sections assert. */
+	moveOnRename = false,
 ): {
 	app: App;
 	renamed: Array<{ from: string; to: string }>;
@@ -195,7 +200,17 @@ function makeApp(
 			openLinkText: async (linktext: string) => { openedNotes.push(linktext); },
 		},
 		fileManager: {
-			renameFile: async (file: { path: string }, to: string) => { renamed.push({ from: file.path, to }); },
+			renameFile: async (file: { path: string }, to: string) => {
+				renamed.push({ from: file.path, to });
+				if (!moveOnRename) return;
+				const existing = byPath.get(file.path);
+				if (!existing) return;
+				const moved = mediaFile(to, existing.stat.mtime, existing.stat.size);
+				const idx = live.indexOf(existing);
+				if (idx >= 0) live[idx] = moved;
+				byPath.delete(file.path);
+				byPath.set(to, moved);
+			},
 			trashFile: async () => {},
 		},
 		loadLocalStorage: (key: string) => storage[key] ?? null,
@@ -846,6 +861,245 @@ async function main(): Promise<void> {
 	await sleep(20);
 	assert.deepEqual(drop.created, [{ path: '附件/默认/attach.png', bytes: 4 }], 'an empty default lands in the attachment folder');
 	dropController.destroy();
+
+	// --- 12. Folder-group drag-move: drag a tile onto another group ---------
+	// Rae: in folder grouping a group key IS a vault path, so an internal
+	// drag-and-drop there means "move the file(s)". Internal drags carry a
+	// custom data type (never 'Files'), so the OS-import wiring stays quiet.
+	const MOVE_VAULT = [
+		mediaFile('素材/图片/cover.png', 30, 500),
+		mediaFile('素材/图片/shot.jpg', 20, 400),
+		mediaFile('素材/视频/clip.mp4', 40, 9000),
+		mediaFile('素材/视频/shot.jpg', 25, 100),
+	];
+	const mv = makeApp(MOVE_VAULT, {}, {}, true);
+	const mvHost = new El('div');
+	bodyHost.appendChild(mvHost);
+	const mvController = renderMaterialLibrary(mvHost as unknown as HTMLElement, {
+		app: mv.app,
+		getConfig: () => ({ includeFolders: ['素材'], excludeFolders: [], skillButtons: [] }),
+		onConfigChange: () => {},
+		onOpenSettings: () => {},
+		tagStore: { getTags: () => [], getAllTags: () => [], setTags: () => true },
+	});
+	const mvGroupSelect = findByClass(mvHost, 'dashboard-media-group-select')[0]!;
+	const mvHint = findByClass(mvHost, 'dashboard-material-drophint')[0]!;
+	const mvSetGroup = (mode: string): void => {
+		mvGroupSelect.value = mode;
+		mvGroupSelect.dispatchEvent({ type: 'change' });
+	};
+	const mvBodyForKey = (key: string): El => {
+		const found = findByClass(mvHost, 'dashboard-media-group-body').find(b => b.dataset.importKey === key);
+		assert.ok(found, `group body for ${key}`);
+		return found!;
+	};
+	const mvTile = (path: string): El => {
+		const found = findByClass(mvHost, 'dashboard-material-tile').find(el => el.dataset.materialPath === path);
+		assert.ok(found, `tile for ${path}`);
+		return found!;
+	};
+	// A recording DataTransfer for INTERNAL drags: types grow via setData, so
+	// the handler's type sniffing works exactly like a real browser's.
+	const moveDT = () => {
+		const store = new Map<string, string>();
+		const types: string[] = [];
+		return {
+			types,
+			effectAllowed: 'none',
+			dropEffect: 'none',
+			setData(type: string, value: string): void { if (!types.includes(type)) types.push(type); store.set(type, value); },
+			getData(type: string): string { return store.get(type) ?? ''; },
+		};
+	};
+	const moveEvent = (type: string, target: El, dt: ReturnType<typeof moveDT>) => {
+		const record = {
+			type,
+			target,
+			dataTransfer: dt,
+			prevented: false,
+			preventDefault(): void { record.prevented = true; },
+			stopPropagation(): void {},
+		};
+		return record;
+	};
+	const draggableOf = (el: El): boolean => (el as unknown as { draggable?: boolean }).draggable === true;
+
+	// 12a. flat view: tiles are not draggable and an internal drag seeds nothing.
+	const flatDT = moveDT();
+	mvTile('素材/图片/cover.png').dispatchEvent(moveEvent('dragstart', mvTile('素材/图片/cover.png'), flatDT));
+	assert.deepEqual(flatDT.types, [], 'flat view: no drag payload is seeded');
+	assert.equal(findByClass(mvHost, 'dashboard-material-tile').every(el => !draggableOf(el)), true, 'flat view: tiles are not draggable');
+
+	// 12b. folder grouping turns tiles into drag sources.
+	mvSetGroup('folder');
+	assert.equal(findByClass(mvHost, 'dashboard-material-tile').every(el => draggableOf(el)), true, 'folder view: every tile is draggable');
+	const mvCoverTile = mvTile('素材/图片/cover.png');
+
+	// 12c. dragstart seeds the custom type with the tile's path.
+	const dt = moveDT();
+	mvCoverTile.dispatchEvent(moveEvent('dragstart', mvCoverTile, dt));
+	assert.deepEqual(dt.types, [MATERIAL_MOVE_DRAG_TYPE], 'dragstart seeds the internal move type');
+	assert.equal(dt.effectAllowed, 'move', 'the drag is declared as a move');
+	assert.equal(dt.getData(MATERIAL_MOVE_DRAG_TYPE), JSON.stringify(['素材/图片/cover.png']), 'the payload is the tile path as JSON');
+
+	// 12d. hovering another folder group accepts the drop and shows where it lands.
+	const videoBody = mvBodyForKey('素材/视频');
+	const over = moveEvent('dragover', videoBody, dt);
+	videoBody.dispatchEvent(over);
+	assert.equal(over.prevented, true, 'a folder-group zone preventDefaults the dragover (drop is allowed)');
+	assert.equal(dt.dropEffect, 'move', 'the cursor reports a move');
+	assert.ok(videoBody.hasClass('is-move-active'), 'the hovered group outlines as the move target');
+	assert.equal(mvHint.hasClass('is-hidden'), false, 'the destination hint shows');
+	assert.equal(mvHint.textContent, t('material.moveHint', { folder: '视频' }), 'the hint names the sub-folder, not the whole key');
+
+	// 12e. moving out of the hovered zone (no drop) clears the chrome.
+	mvCoverTile.dispatchEvent({ type: 'dragend', target: mvCoverTile });
+	assert.ok(!videoBody.hasClass('is-move-active'), 'dragend clears the outline');
+	assert.ok(mvHint.hasClass('is-hidden'), 'dragend hides the hint');
+
+	// 12f. the actual drop moves the file and the refresh regroups it.
+	StubNotice.messages.length = 0;
+	mv.renamed.length = 0;
+	videoBody.dispatchEvent(moveEvent('dragover', videoBody, dt));
+	videoBody.dispatchEvent(moveEvent('drop', videoBody, dt));
+	await sleep(20);
+	assert.deepEqual(mv.renamed, [{ from: '素材/图片/cover.png', to: '素材/视频/cover.png' }], 'the drop renames the file into the group folder');
+	assert.deepEqual(StubNotice.messages, [t('material.moved', { count: 1 })], 'one notice reports the move');
+	assert.ok(!videoBody.hasClass('is-move-active'), 'the outline clears after the drop');
+	assert.ok(tilePaths(mvBodyForKey('素材/视频')).includes('素材/视频/cover.png'), 'the refreshed tile lands in the destination group');
+	assert.equal(tilePaths(mvBodyForKey('素材/图片')).includes('素材/图片/cover.png'), false, 'and leaves its old group');
+
+	// 12g. dropping onto the file's own group is a no-op (same destination).
+	StubNotice.messages.length = 0;
+	mv.renamed.length = 0;
+	const ownDT = moveDT();
+	mvTile('素材/图片/shot.jpg').dispatchEvent(moveEvent('dragstart', mvTile('素材/图片/shot.jpg'), ownDT));
+	const mvPictureBody = mvBodyForKey('素材/图片');
+	mvPictureBody.dispatchEvent(moveEvent('drop', mvPictureBody, ownDT));
+	await sleep(20);
+	assert.deepEqual(mv.renamed, [], 'a same-destination drop renames nothing');
+	assert.deepEqual(StubNotice.messages, [], 'and stays silent');
+
+	// 12h. a name conflict at the destination is skipped, not clobbered.
+	StubNotice.messages.length = 0;
+	mv.renamed.length = 0;
+	// 素材/图片/shot.jpg dragged into 素材/视频 where shot.jpg already lives.
+	const clashDT = moveDT();
+	mvTile('素材/图片/shot.jpg').dispatchEvent(moveEvent('dragstart', mvTile('素材/图片/shot.jpg'), clashDT));
+	mvBodyForKey('素材/视频').dispatchEvent(moveEvent('drop', mvBodyForKey('素材/视频'), clashDT));
+	await sleep(20);
+	assert.deepEqual(mv.renamed, [], 'a colliding move is never issued');
+	assert.deepEqual(StubNotice.messages, [t('material.moveSkipped', { count: 1 })], 'the skip is reported');
+
+	// 12i. a selection rides along: dragging a selected tile moves them all.
+	const selectBtn = findByClass(mvHost, 'dashboard-material-select-toggle')[0]!;
+	selectBtn.dispatchEvent({ type: 'click', target: selectBtn });
+	const shotTile = mvTile('素材/图片/shot.jpg');
+	const movedCoverTile = mvTile('素材/视频/cover.png');
+	shotTile.dispatchEvent({ type: 'click', target: shotTile });
+	movedCoverTile.dispatchEvent({ type: 'click', target: movedCoverTile });
+	const multiDT = moveDT();
+	shotTile.dispatchEvent(moveEvent('dragstart', shotTile, multiDT));
+	assert.equal(
+		multiDT.getData(MATERIAL_MOVE_DRAG_TYPE),
+		JSON.stringify(['素材/图片/shot.jpg', '素材/视频/cover.png']),
+		'dragging a selected tile carries the whole selection (in click order)',
+	);
+
+	// 12j. type grouping has no folder keys: even a properly typed internal
+	// drag finds no legal zone there.
+	mvSetGroup('type');
+	const strayDT = moveDT();
+	strayDT.setData(MATERIAL_MOVE_DRAG_TYPE, JSON.stringify(['素材/图片/shot.jpg']));
+	const typeBody = mvBodyForKey('image');
+	const typeOver = moveEvent('dragover', typeBody, strayDT);
+	typeBody.dispatchEvent(typeOver);
+	assert.equal(typeOver.prevented, false, 'a type group never accepts an internal move');
+	assert.ok(!typeBody.hasClass('is-move-active'), 'and never outlines');
+	mvController.destroy();
+
+	// --- 13. No 500 ceiling: big vaults stay fully reachable -----------------
+	// Rae: the old total cap hid everything past item 500 — flat pagination
+	// never reached it, and grouped views dropped whole folders. Progressive
+	// per-group rendering replaces the cap (first 50 + pill), and a group that
+	// renders while collapsed builds nothing until it is expanded.
+	const BIG_VAULT: TFile[] = [
+		...Array.from({ length: 560 }, (_, i): TFile => mediaFile(`素材/图片/f${String(i).padStart(3, '0')}.png`, 100 + i, 500)),
+		...Array.from({ length: 12 }, (_, i): TFile => mediaFile(`素材/视频/clip${String(i).padStart(2, '0')}.mp4`, 900 + i, 9000)),
+	];
+	const big = makeApp(BIG_VAULT, {}, {});
+	const bigHost = new El('div');
+	bodyHost.appendChild(bigHost);
+	const bigController = renderMaterialLibrary(bigHost as unknown as HTMLElement, {
+		app: big.app,
+		getConfig: () => ({ includeFolders: ['素材'], excludeFolders: [], skillButtons: [] }),
+		onConfigChange: () => {},
+		onOpenSettings: () => {},
+		tagStore: { getTags: () => [], getAllTags: () => [], setTags: () => true },
+	});
+	const bigGroupSelect = findByClass(bigHost, 'dashboard-media-group-select')[0]!;
+	const bigCount = findByClass(bigHost, 'dashboard-library-count')[0]!;
+	const bigSetGroup = (mode: string): void => {
+		bigGroupSelect.value = mode;
+		bigGroupSelect.dispatchEvent({ type: 'change' });
+	};
+	const bigHeaderOf = (key: string): El => {
+		const found = findByClass(bigHost, 'dashboard-media-group-header').find(h => h.dataset.groupKey === key);
+		assert.ok(found, `header for ${key}`);
+		return found!;
+	};
+	const bigBodyOf = (key: string): El => {
+		const found = findByClass(bigHost, 'dashboard-media-group-body').find(b => b.dataset.importKey === key);
+		assert.ok(found, `group body for ${key}`);
+		return found!;
+	};
+
+	// 13a. flat view: all 572 counted; pagination reaches page 12 (cap was 10).
+	assert.equal(bigCount.textContent, t('library.fileCount', { count: 572 }), 'every file is counted — nothing hidden at 500');
+	const lastPageBtn = findByClass(bigHost, 'dashboard-library-pagination-page').find(el => el.textContent === '12');
+	assert.ok(lastPageBtn, 'pagination offers the 12th page (the old cap stopped at 10)');
+	lastPageBtn.dispatchEvent({ type: 'click', target: lastPageBtn });
+	assert.equal(findByClass(bigHost, 'dashboard-material-tile').length, 22, 'the last page mounts its full 22 tiles');
+
+	// 13b. grouped view: every folder appears; big groups render progressively.
+	bigSetGroup('folder');
+	assert.deepEqual(
+		findByClass(bigHost, 'dashboard-media-group-header').map(h => h.dataset.groupKey),
+		['素材/图片', '素材/视频'],
+		'every folder is a group — none dropped past a 500 cap',
+	);
+	assert.equal(findByClass(bigHeaderOf('素材/图片'), 'dashboard-media-group-count')[0]!.textContent, '560', 'the big group keeps its true count');
+	assert.equal(findByClass(bigHeaderOf('素材/视频'), 'dashboard-media-group-count')[0]!.textContent, '12', 'and so does the small one');
+	const bigPicBody = bigBodyOf('素材/图片');
+	assert.equal(findByClass(bigPicBody, 'dashboard-material-tile').length, 50, 'a big group mounts its first 50 tiles only');
+	const morePill = findByClass(bigPicBody, 'dashboard-library-load-more')[0]!;
+	assert.equal(morePill.textContent, t('library.showMore', { count: 510 }), 'the pill counts the unmounted remainder');
+	morePill.dispatchEvent({ type: 'click', target: morePill });
+	assert.equal(findByClass(bigPicBody, 'dashboard-material-tile').length, 100, 'a pill click mounts the next batch in place');
+	assert.equal(findByClass(bigBodyOf('素材/视频'), 'dashboard-material-tile').length, 12, 'a small group mounts everything, no pill');
+	assert.equal(findByClass(bigBodyOf('素材/视频'), 'dashboard-library-load-more').length, 0, 'no pill under the size limit');
+
+	// 13c. a group that renders while collapsed builds nothing until expanded.
+	const videoHeader1 = bigHeaderOf('素材/视频');
+	videoHeader1.dispatchEvent({ type: 'click', target: videoHeader1 });
+	bigController.refresh();
+	const videoBodyAfterRefresh = bigBodyOf('素材/视频');
+	assert.ok(videoBodyAfterRefresh.hasClass('is-hidden'), 'the collapsed group body is hidden');
+	assert.equal(findByClass(videoBodyAfterRefresh, 'dashboard-material-tile').length, 0, 'collapsed at render time: the body is deferred, not built');
+	const videoHeader2 = bigHeaderOf('素材/视频');
+	videoHeader2.dispatchEvent({ type: 'click', target: videoHeader2 });
+	assert.equal(findByClass(bigBodyOf('素材/视频'), 'dashboard-material-tile').length, 12, 'expanding fills the deferred body');
+
+	// 13d. expand-all also fills groups that rendered collapsed.
+	const clipHeader1 = bigHeaderOf('素材/视频');
+	clipHeader1.dispatchEvent({ type: 'click', target: clipHeader1 });
+	bigController.refresh();
+	const collapseAll = findByClass(bigHost, 'dashboard-material-collapse-all')[0]!;
+	collapseAll.dispatchEvent({ type: 'click', target: collapseAll });
+	assert.ok(bigBodyOf('素材/视频').hasClass('is-hidden'), 'collapse-all folds every group');
+	collapseAll.dispatchEvent({ type: 'click', target: collapseAll });
+	assert.equal(findByClass(bigBodyOf('素材/视频'), 'dashboard-material-tile').length, 12, 'expand-all builds deferred bodies before revealing');
+	bigController.destroy();
 
 	assert.equal(savedConfigs.length, 0, 'no config writes during render-only interactions');
 

@@ -65,9 +65,10 @@ export interface MaterialGroup {
 	offset: number;
 }
 
-/** Hard ceiling on rendered tiles per refresh (grouped mode shows everything,
- *  so a whole-vault tag group could otherwise mount thousands of <img>s). */
-export const MATERIAL_RENDER_CEILING = 500;
+/** Per-group progressive batch: a group body mounts the first N tiles plus a
+ *  load-more pill (Rae — the old 500-total ceiling hid whole folders, so a
+ *  vault's later folders simply never appeared in grouped views). */
+export const MATERIAL_GROUP_PAGE_SIZE = 50;
 
 /** Density → target tile width in px (the waterfall column width). */
 export const DENSITY_TARGET_PX: Record<MaterialDensity, number> = { small: 150, medium: 210, large: 280 };
