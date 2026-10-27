@@ -543,6 +543,15 @@ export default class DashboardPlugin extends Plugin {
 				void leaf.view.refresh();
 			}
 		}
+		// Material library pages re-theme in place instead of re-rendering:
+		// a theme switch is a pure CSS change and a refresh would rescan the
+		// whole vault (see MaterialLibraryView.applyThemeSurface).
+		const materialLeaves = this.app.workspace.getLeavesOfType(MATERIAL_VIEW_TYPE);
+		for (const leaf of materialLeaves) {
+			if (leaf.view instanceof MaterialLibraryView) {
+				leaf.view.applyThemeSurface();
+			}
+		}
 	}
 
 	/** Reload every open dashboard view from disk (used after a backup restore). */

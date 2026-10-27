@@ -35,6 +35,25 @@ export class App {}
 export class TFile {}
 export class MarkdownView {}
 export class WorkspaceLeaf {}
+
+// ItemView base for lifecycle tests (material view): containerEl mirrors the
+// real two-child layout (header, content) so views rendering into
+// `children[1]` mount unchanged, and `app` is whatever the test seeded on the
+// leaf. registerEvent is a no-op — vault listeners are driven by hand where a
+// script needs them.
+export class ItemView {
+	app: App;
+	leaf: WorkspaceLeaf;
+	containerEl: El;
+	constructor(leaf: WorkspaceLeaf) {
+		this.leaf = leaf;
+		this.app = (leaf as unknown as { app?: App }).app ?? new App();
+		this.containerEl = new El('div');
+		this.containerEl.appendChild(new El('div'));
+		this.containerEl.appendChild(new El('div'));
+	}
+	registerEvent(_ref: unknown): unknown { return null; }
+}
 export class Notice {
 	/** Every message ever shown, in order — lets verification scripts assert
 	 *  on notice text without a real toast. */

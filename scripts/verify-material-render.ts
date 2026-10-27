@@ -48,15 +48,21 @@
  *    flat/type → the configured default (then Obsidian's attachment folder);
  *    the hint pill names the live destination, non-media is refused with a
  *    notice, non-file drags are ignored, and the drop refreshes the waterfall.
+ * 14. View theme lifecycle (MaterialLibraryView): the page mounts with the
+ *    FULL appearance pass (custom colors reach it at open, not just the
+ *    preset attribute), and applyThemeSurface() flips the preset in place —
+ *    attribute changes, stale overrides clear, the waterfall DOM is NOT
+ *    rebuilt (no vault rescan for a pure CSS change).
  *
  * Pure scanning/sorting/column math is covered by verify-material.
  * Run: `npm run test:material-render`
  */
 import { strict as assert } from 'node:assert';
-import { Menu, Modal, Notice } from 'obsidian';
+import { Menu, Modal, Notice, WorkspaceLeaf } from 'obsidian';
 import { El, findByClass } from './mini-dom';
 import type { App, TFile } from 'obsidian';
 import { renderMaterialLibrary } from '../src/material-render';
+import { MaterialLibraryView } from '../src/material-view';
 import { MATERIAL_MOVE_DRAG_TYPE } from '../src/material-dnd';
 import { AgentPromptModal } from '../src/agent-prompt-modal';
 import { MediaLightboxModal } from '../src/media-lightbox-modal';
@@ -1136,6 +1142,45 @@ async function main(): Promise<void> {
 	collapseAll.dispatchEvent({ type: 'click', target: collapseAll });
 	assert.equal(findByClass(bigBodyOf('素材/视频'), 'dashboard-material-tile').length, 12, 'expand-all builds deferred bodies before revealing');
 	bigController.destroy();
+
+	// 14. View theme lifecycle: the standalone view carries the dashboard
+	// board's FULL theming surface, and a preset flip re-themes it in place.
+	type MaterialPlugin = ConstructorParameters<typeof MaterialLibraryView>[1];
+	const { app: themeBaseApp } = makeApp();
+	// The view registers vault listeners at open; the render app stub has no
+	// `on` — mirror a real vault's event source (never fired in this section).
+	const themeApp = { ...themeBaseApp, vault: { ...themeBaseApp.vault, on: () => () => {} } };
+	const themeLeaf = new WorkspaceLeaf();
+	(themeLeaf as unknown as { app: unknown }).app = themeApp;
+	const themeSettings = {
+		stylePreset: 'earth',
+		customColors: { accent: '#123456' },
+		materialConfig: { includeFolders: ['素材'], excludeFolders: [], skillButtons: [] },
+		materialFavorites: ['素材/cover.png'],
+	};
+	const themePlugin = {
+		settings: themeSettings,
+		saveSettings: async () => {},
+		mediaTagService: null,
+	} as unknown as MaterialPlugin;
+	const themeView = new MaterialLibraryView(themeLeaf, themePlugin);
+	await themeView.onOpen();
+	const surface = themeView.containerEl.children[1] as unknown as El;
+	assert.equal(surface.getAttribute('data-theme'), 'earth', 'the view opens on the stored preset');
+	assert.ok(surface.hasClass('apex-dashboard-root'), 'same theming surface classes as the board');
+	assert.equal(surface.style.getPropertyValue('--db-accent'), '#123456', 'custom color overrides reach the material page at open');
+
+	// A re-render would rebuild the waterfall (a full vault rescan); the
+	// in-place flip must leave the very same tile nodes attached.
+	const tilesBefore = findByClass(surface, 'dashboard-material-tile');
+	assert.ok(tilesBefore.length > 0, 'the waterfall is mounted');
+	themePlugin.settings = { ...themeSettings, stylePreset: 'matcha', customColors: {} } as unknown as MaterialPlugin['settings'];
+	themeView.applyThemeSurface();
+	assert.equal(surface.getAttribute('data-theme'), 'matcha', 'applyThemeSurface flips the preset attribute');
+	assert.equal(surface.style.getPropertyValue('--db-accent'), '', 'the old accent override is dropped, not stuck over the new theme');
+	assert.equal(findByClass(surface, 'dashboard-material-tile').length, tilesBefore.length, 'tile count unchanged — pure CSS switch, no re-render');
+	assert.ok(tilesBefore.every(tile => findByClass(surface, 'dashboard-material-tile').includes(tile)), 'the very same tile nodes survive the theme flip');
+	await themeView.onClose();
 
 	assert.equal(savedConfigs.length, 0, 'no config writes during render-only interactions');
 

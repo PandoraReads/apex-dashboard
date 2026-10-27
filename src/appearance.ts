@@ -143,14 +143,24 @@ export function applyAppearance(container: HTMLElement, app: App, settings: Dash
  */
 export function refreshAppearanceLive(app: App, settings: DashboardSettings): void {
 	const roots = activeDocument.querySelectorAll<HTMLElement>('.apex-dashboard-root');
-	roots.forEach(root => {
-		root.querySelectorAll(':scope > .apex-dashboard-bg').forEach(el => el.remove());
-		clearCustomColors(root);
-		clearAdvanced(root);
-		applyBackground(root, app, settings);
-		applyCustomColors(root, settings.customColors);
-		applyAdvanced(root, settings);
-	});
+	roots.forEach(root => refreshAppearanceOnRoot(root, app, settings));
+}
+
+/**
+ * In-place appearance pass for ONE rendered root (dashboard board or material
+ * library): drop the previous background layer and every override this module
+ * set, then re-apply from `settings`. Same body the live preview uses, exposed
+ * so a view can re-theme its own surface when the preset flips — without the
+ * full re-render a theme switch does not justify (the material page would
+ * rescan the whole vault for a pure CSS change).
+ */
+export function refreshAppearanceOnRoot(root: HTMLElement, app: App, settings: DashboardSettings): void {
+	root.querySelectorAll(':scope > .apex-dashboard-bg').forEach(el => el.remove());
+	clearCustomColors(root);
+	clearAdvanced(root);
+	applyBackground(root, app, settings);
+	applyCustomColors(root, settings.customColors);
+	applyAdvanced(root, settings);
 }
 
 function applyBackground(container: HTMLElement, app: App, settings: DashboardSettings): void {

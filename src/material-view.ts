@@ -13,6 +13,7 @@ import { renderMaterialLibrary, type MaterialRenderController } from './material
 import { MaterialConfigModal } from './material-config-modal';
 import { sanitizeMaterialConfig } from './material-model';
 import { agentTargets } from './agent-dispatch';
+import { applyAppearance, refreshAppearanceOnRoot } from './appearance';
 
 export const MATERIAL_VIEW_TYPE = 'apex-material-view';
 
@@ -60,6 +61,10 @@ export class MaterialLibraryView extends ItemView {
 		container.addClass('apex-dashboard-root');
 		container.addClass('apex-material-root');
 		container.setAttribute('data-theme', this.plugin.settings.stylePreset);
+		// Custom colors / background image / advanced sliders too — without
+		// this the material page silently ignored everything the appearance
+		// settings let the user tune.
+		applyAppearance(container, this.app, this.plugin.settings);
 
 		this.controller = renderMaterialLibrary(container, {
 			app: this.app,
@@ -107,6 +112,20 @@ export class MaterialLibraryView extends ItemView {
 		this.registerEvent(this.app.vault.on('delete', file => {
 			if (isFile(file)) scheduleRefresh();
 		}));
+	}
+
+	/**
+	 * Re-theme in place: flip the preset attribute and re-run the appearance
+	 * pass WITHOUT re-rendering. Theme switches must land on an open material
+	 * page as instantly as on the dashboard board, and a re-render here would
+	 * rescan the whole vault for a pure CSS change. Reached from the plugin's
+	 * refreshAllDashboards (cycle-theme command, settings dropdown, theme
+	 * studio) — the same paths the dashboard view already handles.
+	 */
+	applyThemeSurface(): void {
+		const container = this.containerEl.children[1] as HTMLElement;
+		container.setAttribute('data-theme', this.plugin.settings.stylePreset);
+		refreshAppearanceOnRoot(container, this.app, this.plugin.settings);
 	}
 
 	async onClose(): Promise<void> {
