@@ -2714,14 +2714,15 @@
 
 /* Word label beside the icon (dropdowns created with `withLabel`): says which
    scope the button currently holds, since an icon alone reads as a view
-   switch. Lighter than the S/M/L letters — it is copy, not a badge. */
+   switch. Lighter than the S/M/L letters — it is copy, not a badge — and it
+   inherits the button's ink so the toolbar's quiet idiom (muted at rest, full
+   ink on hover) applies to it unchanged. */
 .dashboard-toolbar-dropdown-label {
 	font-size: 0.78em;
 	font-weight: 500;
 	height: 16px;
 	line-height: 16px;
 	white-space: nowrap;
-	color: var(--db-text, var(--text-normal));
 }
 
 /* ===== Unified section toolbar button language (2026-10-27) ==============
@@ -30281,7 +30282,7 @@ button.dashboard-capturebar-glyph:hover {
 }
 
 .dashboard-material-pagination .dashboard-library-pagination-page.active {
-	color: var(--db-accent, var(--interactive-accent));
+	color: var(--db-accent, var(--interactive-accent, #8b5cf6));
 }
 
 .dashboard-material-pagination .dashboard-library-pagination-btn:hover {
