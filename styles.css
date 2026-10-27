@@ -30574,9 +30574,6 @@ button.dashboard-capturebar-glyph:hover {
 	transform: scale(1.12);
 }
 
-/* Macaron pastels for the polaroid strip — one opaque color per built-in
-   theme, chosen to sit next to that theme's accent without inheriting it.
-   Theme-Studio snapshots (custom data-theme ids) fall back to butter. */
 /* Flat neutral page (Rae): light gray in EVERY theme so the theme-following
    macaron strip never blends into the page — the aurora-light page
    (#f2f6ff) was nearly identical to its strip (#e6e9fb). (0,2,0) plus later
@@ -30586,19 +30583,24 @@ button.dashboard-capturebar-glyph:hover {
 	animation: none;
 }
 
+/* Macaron colors for the polaroid strip — one opaque color per built-in
+   theme. Hand-picked palette (Rae 2026-10-28), applied in BOTH light and
+   dark: the card never switches with the page background, only the page
+   behind it does. Theme-Studio snapshots (custom data-theme ids) fall back
+   to butter. */
 .apex-material-root { --db-material-macaron: #fdf3dc; }
-.apex-material-root[data-theme="mono"] { --db-material-macaron: #f1ede4; }
-.apex-material-root[data-theme="aqua"] { --db-material-macaron: #ddf1f4; }
-.apex-material-root[data-theme="aurora"] { --db-material-macaron: #e6e9fb; }
+.apex-material-root[data-theme="mono"] { --db-material-macaron: #d45060; }
+.apex-material-root[data-theme="aqua"] { --db-material-macaron: #dddddd; }
+.apex-material-root[data-theme="aurora"] { --db-material-macaron: #f8e7f6; }
 .apex-material-root[data-theme="blossom"] { --db-material-macaron: #fbe3ec; }
-.apex-material-root[data-theme="earth"] { --db-material-macaron: #efe6d8; }
-.apex-material-root[data-theme="island"] { --db-material-macaron: #e2f2e4; }
+.apex-material-root[data-theme="earth"] { --db-material-macaron: #efe9e3; }
+.apex-material-root[data-theme="island"] { --db-material-macaron: #7ab2b2; }
 .apex-material-root[data-theme="magma"] { --db-material-macaron: #fbe4d8; }
-.apex-material-root[data-theme="matcha"] { --db-material-macaron: #e8f1dc; }
-.apex-material-root[data-theme="neon"] { --db-material-macaron: #e7e4fa; }
-.apex-material-root[data-theme="nordic"] { --db-material-macaron: #e8eef4; }
+.apex-material-root[data-theme="matcha"] { --db-material-macaron: #b8cfb3; }
+.apex-material-root[data-theme="neon"] { --db-material-macaron: #ffb6c1; }
+.apex-material-root[data-theme="nordic"] { --db-material-macaron: #dff1f1; }
 .apex-material-root[data-theme="onyx"] { --db-material-macaron: #edebe6; }
-.apex-material-root[data-theme="tundra"] { --db-material-macaron: #e9f0f1; }
+.apex-material-root[data-theme="tundra"] { --db-material-macaron: #efe9e3; }
 .apex-material-root[data-theme="volt"] { --db-material-macaron: #f4f6dc; }
 
 .dashboard-material-thumb.is-video-mounted .dashboard-material-video-ph { display: none; }
