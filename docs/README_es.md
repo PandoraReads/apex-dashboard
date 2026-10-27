@@ -130,6 +130,27 @@ Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, consi
 
 ## Novedades
 
+### 3.9.1
+- **Eliminado el límite de 500 de la biblioteca de materiales** — Antes, una sola renderización se truncaba rígidamente en 500 elementos: los materiales sobrantes no se podían navegar y la vista agrupada perdía carpetas enteras; ahora la vista de mosaico pagina hasta llegar a todos los materiales, la vista agrupada renderiza cada grupo de forma progresiva (primer lote de 50 + "mostrar más"), y los grupos colapsados no construyen contenido en absoluto — las bóvedas enormes ya no pierden materiales ni montan decenas de miles de nodos de una vez
+- **Mover por arrastre entre grupos de carpetas** — En la vista agrupada por carpetas, arrastra una tarjeta de material a otro grupo para mover el archivo: arrastra varias seleccionadas para mover en lote, los conflictos de nombres duplicados se saltan automáticamente con un aviso, y al pasar el cursor sobre el grupo destino se muestra "suelta para mover a ××"
+- **Corrección del diseño de columnas agrupadas** — Una vez completada la detección de la relación de aspecto de las imágenes, cada grupo ahora reordena las columnas del mosaico (antes solo lo hacía el primer grupo)
+
+### 3.9.0
+- **Biblioteca de materiales completamente nueva** — Nuevo icono square-sparkles en la zona de funciones izquierda que abre la biblioteca de materiales a página completa: las imágenes, los vídeos y las notas con portada de la bóveda se reúnen en un único mosaico
+- **Dos estilos de tarjeta** — Cambio con un clic entre tarjeta de portada original y tarjeta polaroid estilo Pin, tres niveles de densidad, y navegación agrupada por carpeta, etiqueta o tipo; la vista agrupada incluye carril de navegación izquierdo y plegado con un clic
+- **Favoritos** — Haz clic en el corazón de una tarjeta para marcar el material como favorito; el botón de corazón de la barra de herramientas filtra con un clic para ver solo favoritos
+- **Organización en lote** — Selección múltiple con cuadro de arrastre y pista de iconos de funciones a la derecha para etiquetar, mover, copiar rutas y eliminar en lote
+- **Integración con Agent** — Envía los materiales seleccionados con un clic a una habilidad de Agent, con la ruta incorporada automáticamente en la plantilla de prompt
+- **Suelta y guarda** — Arrastra imágenes o vídeos desde cualquier lugar del ordenador: se copian automáticamente a la bóveda, se colocan según el grupo y se etiquetan; la ubicación de almacenamiento predeterminada es configurable en ajustes
+
+### 3.8.11
+- **Interfaz multilingüe ampliada** — Nuevos idiomas: japonés, coreano, español, francés, alemán, portugués de Brasil, ruso y tailandés; junto con el chino simplificado, el chino tradicional y el inglés suman 11 idiomas de interfaz. Las nuevas instalaciones pueden seguir el idioma de Obsidian o cambiarse desde ajustes o la lista de selección de idioma; las traducciones se empaquetan sin conexión
+- **Apariencia del espacio de trabajo inmersivo** — La imagen de fondo puede configurarse independientemente del espacio de trabajo normal, y el reloj superior admite personalizar fuente y color; la entrada de edición se recoge bajo el botón de edición de diseño
+- **Modo de recuento de hábitos** — Los hábitos pueden cambiar a acumulación por clics repetidos; el widget muestra el recuento del día y el panel de estadísticas admite ver datos acumulados y cambiar de modo
+- **Salto a enlaces en agrupación por propiedades** — Cuando una sección de carpeta o base de datos agrupa por la propiedad de enlaces bidireccionales, hacer clic en el nombre del grupo abre la nota destino
+- **Correcciones de cuenta atrás y web** — Corregida la interacción de selección de la hora objetivo de la cuenta atrás; el inicio de sesión con Google OAuth salta al navegador externo para continuar la autorización
+- **Visualización multilingüe mejorada** — Calendario, clima, calendario lunar y progreso del año se muestran según el idioma actual
+
 ### 3.8.8
 - **Archivo del pipeline reforzado** — Al archivar, ahora primero se mueve el archivo, se verifica que el renombrado realmente se aplicó (con un reintento automático) y solo entonces se marca el estado: los fallos silenciosos de movimiento en vaults sincronizados con iCloud ya no dejan una nota medio archivada varada en su carpeta de etapa (cuatro casos diagnosticados). Un movimiento fallido avisa y deja la tarjeta en el tablero, de modo que un clic más simplemente reintenta. Los movimientos por arrastre entre etapas reciben la misma protección
 - **Corregido el reordenamiento por arrastre de botones de habilidad en tarjetas** — Causa raíz encontrada: incluso con el arrastre nativo de la tarjeta cancelado, Chromium sigue liberando la captura de puntero del botón, lo que elimina los listeners locales de movimiento/soltado del botón en cuanto el puntero sale de los 22 px del botón — justo lo que un reordenamiento entre botones necesita. El gesto ahora viaja sobre listeners de captura a nivel de documento: intercambio en vivo durante el arrastre, orden persistido al soltar, y soltar sobre otro botón de habilidad ya no puede abrir su modal por accidente

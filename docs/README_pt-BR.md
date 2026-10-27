@@ -130,6 +130,27 @@ Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido,
 
 ## Novidades
 
+### 3.9.1
+- **Limite de 500 da biblioteca de materiais removido** — antes, uma única renderização cortava rigidamente em 500 itens: materiais além disso não apareciam ao folhear, e a visualização agrupada chegava a perder pastas inteiras; agora, a visualização em mosaico pagina até todos os materiais, a visualização agrupada renderiza cada grupo progressivamente (primeiros 50 + "mostrar mais"), e grupos recolhidos não montam conteúdo nenhum — vaults enormes não perdem mais materiais nem montam dez mil nós de uma vez
+- **Arrastar e mover em grupos de pastas** — na visualização agrupada por pastas, arrastar um cartão de material para outro grupo move o arquivo: selecione vários e arraste junto para mover em lote, conflitos de nome são pulados automaticamente com um aviso, e ao pairar sobre o grupo de destino aparece "solte para mover para ××"
+- **Correção do layout das colunas agrupadas** — depois que a detecção das proporções de largura/altura das imagens termina, todos os grupos agora refazem as colunas do mosaico (antes, só o primeiro grupo refazia)
+
+### 3.9.0
+- **Biblioteca de materiais totalmente nova** — um ícone square-sparkles na barra de ferramentas da esquerda abre a biblioteca de materiais em página inteira: imagens, vídeos e notas com capa do vault se reúnem em um único fluxo masonry
+- **Dois estilos de cartão** — cartão com capa original / cartão polaroid estilo Pin com alternância em um clique, três níveis de densidade, e navegação agrupada por pasta, tag ou tipo; a visualização agrupada tem trilho de navegação à esquerda e recolher tudo em um clique
+- **Favoritos** — clique no coração do cartão para favoritar o material; o botão de coração na barra de ferramentas mostra só os favoritos em um clique
+- **Organização em lote** — arraste uma caixa de seleção para marcar vários; o trilho de ícones à direita aplica tags, move, copia o caminho e exclui em lote
+- **Integração com o Agent** — envie os materiais selecionados com um clique para uma skill do Agent, com o caminho automaticamente inserido no template de prompt
+- **Arraste para salvar** — arraste imagens/vídeos de qualquer lugar do computador: eles são copiados automaticamente para o vault, posicionados conforme o grupo e etiquetados; o local de destino padrão pode ser configurado nas configurações
+
+### 3.8.11
+- **Extensão multilíngue da interface** — adicionados japonês, coreano, espanhol, francês, alemão, português do Brasil, russo e tailandês; junto com chinês simplificado, chinês tradicional e inglês, são 11 idiomas de interface no total; novas instalações podem seguir o idioma do Obsidian, e a troca também pode ser feita pelas configurações ou pela lista de seleção de idioma; as traduções vêm empacotadas offline
+- **Aparência do espaço de trabalho imersivo** — a imagem de fundo pode ser definida independentemente do espaço de trabalho comum, e o relógio superior ganha fonte e cor personalizáveis; a entrada de edição foi recolhida sob o botão de edição de layout
+- **Modo de contagem do hábito** — hábitos podem alternar para acumular contagens com cliques repetidos; o widget mostra a contagem do dia, e o painel de estatísticas permite ver os dados acumulados e alternar o modo
+- **Link de grupo de propriedades** — quando uma seção de pastas ou de banco de dados é agrupada por uma propriedade de link bidirecional, clicar no nome do grupo abre a nota de destino
+- **Correções de contagem regressiva e de web** — corrigida a interação de seleção do horário-alvo da contagem regressiva; o login com Google OAuth abre o navegador externo para continuar a autorização
+- **Aprimoramento da exibição multilíngue** — calendário, clima, calendário lunar e progresso do ano agora seguem o idioma atual da interface
+
 ### 3.8.8
 - **Pipeline de arquivamento reforçado** — O arquivamento agora move o arquivo primeiro, verifica se a renomeação realmente aconteceu (com uma tentativa automática de retry) e só então grava o status: falhas silenciosas de movimentação em vaults sincronizados pelo iCloud não deixam mais uma nota meio arquivada presa na pasta do seu estágio (quatro ocorrências diagnosticadas). Uma movimentação que falha avisa e deixa o cartão no quadro, então mais um clique simplesmente repete a operação. Movimentos de arrastar entre estágios recebem a mesma proteção
 - **Corrigida a reordenação por arrastar dos botões de skill nos cartões** — Causa raiz encontrada: mesmo com o arrastar nativo do cartão cancelado, o Chromium ainda libera o pointer capture do botão, matando os listeners locais de move/up do botão no instante em que o ponteiro sai dos 22px do botão — exatamente o que uma reordenação entre botões precisa. O gesto agora usa listeners de captura no nível do documento: troca ao vivo enquanto arrasta, ordem persistida ao soltar, e soltar sobre outro botão de skill não abre mais o modal dele por acidente

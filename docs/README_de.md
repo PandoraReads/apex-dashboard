@@ -130,6 +130,27 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 
 ## Was ist neu
 
+### 3.9.1
+- **500er-Obergrenze der Medienbibliothek entfernt** — Bisher wurde eine einzelne Darstellung hart auf 500 Einträge abgeschnitten: Überschüssige Medien ließen sich nicht erreichen, und in der Gruppenansicht gingen ganze Gruppen samt Ordner verloren. Jetzt gilt: Die Kachelansicht blättert paginiert durch alle Medien, die Gruppenansicht rendert jede Gruppe progressiv (erste 50 Karten + „Mehr anzeigen“), und eingeklappte Gruppen bauen ihren Inhalt gar nicht erst auf — sehr große Vaults verlieren keine Medien mehr, und es werden nicht mehr auf einen Schlag zehntausende Knoten gemountet
+- **Drag-&-Drop-Verschieben in Ordnergruppen** — In der Ordnergruppenansicht ein Medienkärtchen in eine andere Gruppe ziehen verschiebt die Datei: Mehrere ausgewählte Karten gemeinsam ziehen verschiebt sie im Stapel, Namenskonflikte werden automatisch übersprungen und gemeldet, und beim Darüberfahren über die Zielgruppe erscheint „Loslassen, um nach ×× zu verschieben“
+- **Spaltenlayout der Gruppen korrigiert** — Nach Abschluss der Seitenverhältnis-Erkennung der Bilder ordnen sich die Wasserfall-Spalten jetzt in jeder Gruppe neu an (bisher nur in der ersten Gruppe)
+
+### 3.9.0
+- **Völlig neue Medienbibliothek** — Neues square-sparkles-Icon im linken Funktionsbereich öffnet die Vollseiten-Medienbibliothek: Bilder, Videos und Notizen mit Cover aus dem Vault fließen zusammen in einem Wasserfall
+- **Zwei Kartenstile** — Original-Cover-Karte / Polaroid-Karte im Pin-Stil mit einem Klick umschalten, drei Dichtestufen, Gruppieren nach Ordner, Tag oder Typ; die Gruppenansicht bietet eine linke Navigationsleiste und Ein-Klick-Einklappen
+- **Favoriten** — Klicke auf das Herz auf der Karte, um ein Medium zu favorisieren; der Herz-Button in der Toolbar zeigt mit einem Klick nur Favoriten
+- **Stapelverarbeitung** — Ziehe einen Rahmen für die Mehrfachauswahl, und die Icon-Funktionsleiste rechts versieht sie stapelweise mit Tags, verschiebt sie, kopiert Pfade und löscht sie
+- **Agent-Anbindung** — Ausgewählte Medien mit einem Klick an eine Agent-Fähigkeit übergeben, der Pfad wird automatisch in die Prompt-Vorlage übernommen
+- **Ablegen heißt Speichern** — Ziehe Bilder/Videos von irgendwo auf dem Rechner hinein: Sie werden automatisch in den Vault kopiert, anhand der Gruppierung abgelegt und getaggt; der Standard-Ablageort ist in den Einstellungen konfigurierbar
+
+### 3.8.11
+- **Mehrsprachige Oberfläche erweitert** — Neu dazu kommen Japanisch, Koreanisch, Spanisch, Französisch, Deutsch, Brasilianisches Portugiesisch, Russisch und Thailändisch; zusammen mit vereinfachtem Chinesisch, traditionellem Chinesisch und Englisch werden 11 Oberflächensprachen unterstützt. Bei neuer Installation folgt die Oberfläche der Obsidian-Sprache, lässt sich aber auch über die Einstellungen oder die Sprachauswahlliste wechseln; die Übersetzungen sind offline eingebunden
+- **Immersiver-Arbeitsbereich-Aussehen** — Das Hintergrundbild lässt sich unabhängig vom normalen Arbeitsbereich einstellen, und die Schriftart sowie Farbe der oberen Uhr sind anpassbar; der Bearbeitungseingang ist unter dem Layout-Bearbeiten-Button zusammengeräumt
+- **Zählmodus für Gewohnheiten** — Gewohnheiten lassen sich auf wiederholtes Klicken zum Aufsummieren der Zählwerte umstellen; das Widget zeigt die Tageszählung, und das Statistik-Panel unterstützt das Ansehen kumulierter Daten sowie den Moduswechsel
+- **Sprung über Eigenschaftsgruppen-Links** — Gruppieren Ordner- oder Datenbank-Bereiche nach einer Backlink-Eigenschaft, öffnet ein Klick auf den Gruppennamen die Zielnotiz
+- **Countdown- und Web-Fixes** — Die Zielzeit-Auswahl-Interaktion des Countdowns wurde repariert; die Google-OAuth-Anmeldung springt in einen externen Browser, um die Autorisierung fortzusetzen
+- **Mehrsprachige Anzeige vervollständigt** — Kalender, Wetter, Mondkalender und Jahresfortschritt zeigen ihre Oberflächeninhalte in der aktuellen Sprache an
+
 ### 3.8.8
 - **Pipeline-Archivierung gehärtet** — Die Archivierung verschiebt jetzt zuerst die Datei, verifiziert, dass die Umbenennung tatsächlich angekommen ist (mit einem automatischen Wiederholungsversuch), und stempelt erst dann den Status: Stumme Verschiebefehler auf iCloud-synchronisierten Vaults stranden keine halb archivierte Notiz mehr in ihrem Stage-Ordner (vier Vorkommnisse diagnostiziert). Eine fehlgeschlagene Verschiebung meldet sich und lässt die Karte auf dem Board, sodass ein weiterer Klick es einfach erneut versucht. Stage-Drag-Verschiebungen erhalten dieselbe Absicherung
 - **Karten-Skill-Button-Drag-Neuanordnung behoben** — Grundursache gefunden: Selbst wenn der native Drag der Karte abgebrochen wurde, gab Chromium weiterhin die Pointer-Capture des Buttons frei, was die button-lokalen move/up-Listener augenblicklich außer Kraft setzte, sobald der Zeiger den 22-px-Button verließ — genau das, was eine button-übergreifende Neuanordnung braucht. Die Geste fährt nun auf dokumentweiten Capture-Listenern: Live-Tauschen beim Ziehen, Reihenfolge beim Loslassen gespeichert, und ein Drop auf einem anderen Skill-Button kann dessen Modal nicht mehr versehentlich öffnen

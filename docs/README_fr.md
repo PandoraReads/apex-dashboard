@@ -130,6 +130,27 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 
 ## Nouveautés
 
+### 3.9.1
+- **Suppression de la limite de 500 de la bibliothèque de médias** — l'ancien plafond dur de 500 éléments par rendu rendait les médias au-delà inaccessible et, en vue groupée, faisait perdre des dossiers entiers ; désormais : la vue en mosaïque pagine jusqu'à tous les médias, la vue groupée rend chaque groupe progressivement (premier lot de 50 + « en voir plus »), et les groupes repliés ne construisent aucun contenu — les très grands coffres ne perdent plus de médias et ne montent plus des dizaines de milliers de nœuds d'un coup
+- **Déplacement par glissement dans les groupes de dossiers** — dans la vue groupée par dossiers, glissez une carte de média vers un autre groupe pour déplacer le fichier : plusieurs cartes sélectionnées se déplacent en lot, les conflits de noms identiques sont ignorés automatiquement avec notification, et au survol du groupe cible s'affiche « relâchez pour déplacer vers ×× »
+- **Correction de la disposition des colonnes groupées** — une fois la détection du ratio d'aspect des images terminée, chaque groupe réorganise désormais ses colonnes en cascade (auparavant, seul le premier groupe se réorganisait)
+
+### 3.9.0
+- **Bibliothèque de médias entièrement nouvelle** — l'icône square-sparkles débarque dans la zone fonctionnelle de gauche et ouvre une bibliothèque de médias pleine page : les images, vidéos et notes à couverture du coffre convergent toutes dans une cascade unique
+- **Deux styles de cartes** — bascule en un clic entre la carte couverture d'origine et la carte polaroïd style Pin, trois niveaux de densité, navigation groupée par dossier, étiquette ou type ; la vue groupée offre un rail de navigation latéral gauche et un repli en un clic
+- **Favoris** — touchez le cœur sur une carte pour ajouter un médium aux favoris, et le bouton cœur de la barre d'outils ne montre que les favoris en un clic
+- **Organisation par lot** — sélection multiple par glissement de cadre, et le rail d'icônes fonctionnelles de droite applique les étiquettes, déplacements, copies de chemin et suppressions par lot
+- **Liaison Agent** — envoyez les médias sélectionnés en un clic vers une compétence Agent, le chemin étant automatiquement injecté dans le modèle de prompt
+- **Déposez, c'est enregistré** — glissez des images/vidéos depuis n'importe où sur l'ordinateur : elles sont copiées dans le coffre automatiquement, rangées selon le groupe cible et étiquetées ; l'emplacement de stockage par défaut se configure dans les réglages
+
+### 3.8.11
+- **Extension de l'interface multilingue** — ajout du japonais, coréen, espagnol, français, allemand, portugais brésilien, russe et thaï ; avec le chinois simplifié, le chinois traditionnel et l'anglais, l'interface prend en charge 11 langues ; les nouvelles installations suivent la langue d'Obsidian, et le changement reste possible via les réglages ou la liste de sélection de langue, les traductions étant embarquées hors ligne
+- **Apparence de l'espace de travail immersif** — l'image de fond se règle indépendamment de l'espace de travail ordinaire, et la police ainsi que la couleur de l'horloge supérieure sont personnalisables ; l'entrée d'édition est rangée sous le bouton d'édition de la mise en page
+- **Mode de comptage des habitudes** — une habitude peut basculer en comptage par clics répétés ; le widget affiche le compteur du jour et le panneau de statistiques permet de consulter les données cumulées et de changer de mode
+- **Lien de saut des groupes de propriétés** — dans les sections dossier ou base de données groupées par propriété de lien bidirectionnel, cliquer sur le nom du groupe ouvre la note cible
+- **Corrections du compte à rebours et du web** — interaction de sélection de l'heure cible du compte à rebours corrigée ; la connexion Google OAuth bascule vers le navigateur externe pour poursuivre l'habilitation
+- **Affichage multilingue complété** — calendrier, météo, calendrier lunaire et progression annuelle suivent désormais la langue courante de l'interface
+
 ### 3.8.8
 - **Pipeline d'archivage sécurisé** — L'archivage déplace désormais d'abord le fichier, vérifie que le renommage a bien eu lieu (avec une nouvelle tentative automatique), et seulement ensuite inscrit le statut : les déplacements silencieusement défaillants sur les coffres synchronisés iCloud ne laissent plus une note à moitié archivée coincée dans son dossier d'étape (quatre occurrences diagnostiquées). Un déplacement qui échoue se fait entendre et laisse la carte sur le tableau : un clic de plus suffit pour réessayer. Les déplacements par glissement d'étape bénéficient de la même protection
 - **Réorganisation par glissement des boutons de compétence corrigée** — Cause racine trouvée : même quand le glissement natif de la carte est annulé, Chromium relâche toujours la capture du pointeur du bouton, tuant les écouteurs move/up propres au bouton dès que le pointeur quitte les 22 px du bouton — exactement ce dont une réorganisation entre boutons a besoin. Le geste s'appuie désormais sur des écouteurs de capture au niveau du document : permutation en direct pendant le glissement, ordre persisté au relâchement, et un dépose atterrissant sur un autre bouton de compétence ne peut plus ouvrir sa fenêtre par accident

@@ -130,6 +130,27 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.9.1
+- **500-item render cap removed** — the old hard ceiling hid every material past item 500 and dropped whole folders in grouped views; now the flat view paginates through everything, grouped views render each group progressively (first 50 + "Show more"), and collapsed groups build no content at all — big vaults lose no material and never mount tens of thousands of nodes at once
+- **Drag to move in folder grouping** — drag a material card onto another folder group to move the file: a multi-selection drags together as a batch move, name conflicts are skipped with a notice, and hovering a target group shows where it will land
+- **Grouped column re-flow fixed** — after image aspect ratios settle, every group now re-lays out its waterfall columns (previously only the first group did)
+
+### 3.9.0
+- **All-new material library** — a new square-sparkles icon on the left ribbon opens a full-page material library: every image, video and covered note in the vault flows into one masonry waterfall
+- **Two card styles** — classic cover card or Pin-style polaroid card, three density steps, grouped browsing by folder, tag or type; grouped views get a left navigation rail and one-click collapse
+- **Favorites** — tap the heart on a card to collect it; the toolbar heart button scopes the view to your collection
+- **Batch organize** — marquee-select tiles, then tag, move, copy paths or delete in bulk from the icon rail on the right
+- **Agent integration** — send selected materials to an agent skill in one tap; paths flow into the prompt template
+- **Drop to import** — drag images/videos in from anywhere on your computer: copied into the vault, filed by group and auto-tagged; the default destination is configurable in settings
+
+### 3.8.11
+- **Interface languages expanded** — Japanese, Korean, Spanish, French, German, Brazilian Portuguese, Russian and Thai join Simplified Chinese, Traditional Chinese and English for 11 interface languages in total; fresh installs can follow Obsidian's language, and everything can be switched from settings or the language list, with translations bundled offline
+- **Immersive workspace appearance** — the background image can now be set independently of the regular workspace, and the top clock's font and color are customizable; the edit entry tucks in under the layout-edit button
+- **Habit count mode** — habits can switch to repeated-tap counting: the widget shows today's count and the stats panel supports viewing cumulative data and switching modes
+- **Property-group link jump** — when a folder or database section groups by a bidirectional link property, clicking the group name opens the target note
+- **Countdown and web fixes** — fixed the countdown target-time selection interaction; Google OAuth sign-in now hands off to the external browser to finish authorization
+- **Multilingual display polish** — calendar, weather, lunar date and yearly progress content now follow the current language
+
 ### 3.8.8
 - **Pipeline archive hardened** — Archiving now moves the file first, verifies the rename actually landed (with one automatic retry), and only then stamps the status: silent move failures on iCloud-synced vaults no longer strand a half-archived note in its stage folder (four occurrences diagnosed). A failed move speaks up and leaves the card on the board, so one more click simply retries. Stage-drag moves get the same guard
 - **Card skill-button drag reorder fixed** — Root cause found: even with the card's native drag canceled, Chromium still releases the button's pointer capture, killing the button-local move/up listeners the instant the pointer leaves the 22px button — exactly what a cross-button reorder needs. The gesture now rides document-level capture listeners: live swapping while dragging, order persisted on release, and a drop landing on another skill button can no longer open its modal by accident
