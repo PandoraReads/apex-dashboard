@@ -130,6 +130,11 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.9.2
+- **Instant theme switching in the material library** — the material page now re-themes in place the moment you switch the plugin theme, exactly like the dashboard board, no close-and-reopen needed; custom colors, background image and appearance settings now apply to the material page too
+- **Type filter collapsed into one dropdown** — the image/video/text filter became a single dropdown button for a calmer toolbar, and pagination went flat so every material stays directly reachable
+- **New card base-strip palette** — the polaroid card's bottom meta strip now uses a hand-picked color set, shared by light and dark modes
+
 ### 3.9.1
 - **500-item render cap removed** — the old hard ceiling hid every material past item 500 and dropped whole folders in grouped views; now the flat view paginates through everything, grouped views render each group progressively (first 50 + "Show more"), and collapsed groups build no content at all — big vaults lose no material and never mount tens of thousands of nodes at once
 - **Drag to move in folder grouping** — drag a material card onto another folder group to move the file: a multi-selection drags together as a batch move, name conflicts are skipped with a notice, and hovering a target group shows where it will land

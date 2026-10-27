@@ -130,6 +130,11 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 
 ## Nouveautés
 
+### 3.9.2
+- **Changement de thème instantané dans la bibliothèque de médias** — la page des médias applique désormais le nouveau thème en place dès que vous changez le thème du plugin, à l'identique du tableau de bord, sans fermer ni rouvrir ; les couleurs personnalisées, l'image d'arrière-plan et les réglages d'apparence s'appliquent maintenant aussi à la page des médias
+- **Filtre de type replié en un menu déroulant** — le filtre image/vidéo/texte devient un unique bouton déroulant pour apaiser la barre d'outils, et la pagination s'aplatit, si bien que chaque média reste directement accessible
+- **Nouvelle palette de la bande de base des cartes** — la bande méta inférieure de la carte polaroïd utilise désormais un jeu de couleurs choisi à la main, commun aux modes clair et sombre
+
 ### 3.9.1
 - **Suppression de la limite de 500 de la bibliothèque de médias** — l'ancien plafond dur de 500 éléments par rendu rendait les médias au-delà inaccessible et, en vue groupée, faisait perdre des dossiers entiers ; désormais : la vue en mosaïque pagine jusqu'à tous les médias, la vue groupée rend chaque groupe progressivement (premier lot de 50 + « en voir plus »), et les groupes repliés ne construisent aucun contenu — les très grands coffres ne perdent plus de médias et ne montent plus des dizaines de milliers de nœuds d'un coup
 - **Déplacement par glissement dans les groupes de dossiers** — dans la vue groupée par dossiers, glissez une carte de média vers un autre groupe pour déplacer le fichier : plusieurs cartes sélectionnées se déplacent en lot, les conflits de noms identiques sont ignorés automatiquement avec notification, et au survol du groupe cible s'affiche « relâchez pour déplacer vers ×× »

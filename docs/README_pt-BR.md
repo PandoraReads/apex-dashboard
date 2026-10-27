@@ -130,6 +130,11 @@ Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido,
 
 ## Novidades
 
+### 3.9.2
+- **Troca de tema instantânea na biblioteca de materiais** — a página de materiais agora se re-tematiza no lugar no momento em que você troca o tema do plugin, exatamente como o quadro do dashboard, sem precisar fechar e reabrir; cores personalizadas, imagem de fundo e configurações de aparência agora também se aplicam à página de materiais
+- **Filtro de tipo recolhido em um único dropdown** — o filtro de imagem/vídeo/texto virou um único botão dropdown para uma barra de ferramentas mais silenciosa, e a paginação ficou achatada para que todo material continue diretamente alcançável
+- **Nova paleta para a faixa base do cartão** — a faixa de metadados inferior do cartão polaroid agora usa um conjunto de cores escolhido à mão, compartilhado pelos modos claro e escuro
+
 ### 3.9.1
 - **Limite de 500 da biblioteca de materiais removido** — antes, uma única renderização cortava rigidamente em 500 itens: materiais além disso não apareciam ao folhear, e a visualização agrupada chegava a perder pastas inteiras; agora, a visualização em mosaico pagina até todos os materiais, a visualização agrupada renderiza cada grupo progressivamente (primeiros 50 + "mostrar mais"), e grupos recolhidos não montam conteúdo nenhum — vaults enormes não perdem mais materiais nem montam dez mil nós de uma vez
 - **Arrastar e mover em grupos de pastas** — na visualização agrupada por pastas, arrastar um cartão de material para outro grupo move o arquivo: selecione vários e arraste junto para mover em lote, conflitos de nome são pulados automaticamente com um aviso, e ao pairar sobre o grupo de destino aparece "solte para mover para ××"

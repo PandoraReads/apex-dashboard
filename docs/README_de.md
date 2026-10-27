@@ -130,6 +130,11 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 
 ## Was ist neu
 
+### 3.9.2
+- **Sofortiger Theme-Wechsel in der Medienbibliothek** — die Medienseite passt ihr Theme jetzt an Ort und Stelle an, sobald du das Plugin-Theme wechselst, genau wie das Dashboard-Board, ohne Schließen und erneutes Öffnen; eigene Farben, Hintergrundbild und Appearance-Einstellungen gelten jetzt auch für die Medienseite
+- **Typfilter kollabiert zu einem Dropdown** — der Bild-/Video-/Text-Filter wurde zu einem einzelnen Dropdown-Button für eine ruhigere Toolbar, und die Paginierung ist jetzt flach, sodass jedes Medium direkt erreichbar bleibt
+- **Neue Farbpalette für den Karten-Basisstreifen** — der untere Meta-Streifen der Polaroid-Karte nutzt jetzt ein handverlesenes Farbset, das sich heller und dunkler Modus teilen
+
 ### 3.9.1
 - **500er-Obergrenze der Medienbibliothek entfernt** — Bisher wurde eine einzelne Darstellung hart auf 500 Einträge abgeschnitten: Überschüssige Medien ließen sich nicht erreichen, und in der Gruppenansicht gingen ganze Gruppen samt Ordner verloren. Jetzt gilt: Die Kachelansicht blättert paginiert durch alle Medien, die Gruppenansicht rendert jede Gruppe progressiv (erste 50 Karten + „Mehr anzeigen“), und eingeklappte Gruppen bauen ihren Inhalt gar nicht erst auf — sehr große Vaults verlieren keine Medien mehr, und es werden nicht mehr auf einen Schlag zehntausende Knoten gemountet
 - **Drag-&-Drop-Verschieben in Ordnergruppen** — In der Ordnergruppenansicht ein Medienkärtchen in eine andere Gruppe ziehen verschiebt die Datei: Mehrere ausgewählte Karten gemeinsam ziehen verschiebt sie im Stapel, Namenskonflikte werden automatisch übersprungen und gemeldet, und beim Darüberfahren über die Zielgruppe erscheint „Loslassen, um nach ×× zu verschieben“
