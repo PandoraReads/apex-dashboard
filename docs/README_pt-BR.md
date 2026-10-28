@@ -34,6 +34,9 @@ Incorpore qualquer página da web diretamente em uma seção — cole uma URL e 
 ### 📡 RSS
 Assine blogs e feeds de notícias direto no quadro: adicione qualquer link RSS 2.0 / Atom e os artigos mais recentes de todos os feeds fluem juntos em uma única lista em ordem cronológica inversa (tags de origem, pontos de não lido), com filtro de não lidos e marcar tudo como lido. Clique em uma entrada para ler o artigo completo em um modal — feeds que trazem o texto completo são renderizados diretamente, e feeds apenas com resumo são baixados e têm o conteúdo principal extraído automaticamente. Cada entrada tem um botão de download que salva o artigo como uma nota do vault (nome com prefixo de data, frontmatter de origem, link original) na pasta configurada; entradas salvas levam direto à nota. O conteúdo dos feeds é armazenado em cache localmente por 30 minutos; o estado de lido e salvo persiste entre sessões.
 
+### 🖼️ Biblioteca de material
+Uma visão em tela cheia dedicada (ícone sparkle da barra ou paleta de comandos) que reúne todas as imagens, vídeos e textos com capa do vault em uma cachoeira de layout livre. Busca, filtro por tipo, filtro por tags, agrupamento por pasta/tag/tipo, favoritos e dois estilos de cartão (capa simples / polaroid estilo Pin); o visualizador oferece zoom com roda, arrastar para mover e esticar o vídeo, e lista as notas que referenciam o item com salto em um clique. A barra de ações à direita despacha habilidades, aplica tags em lote (tags existentes a um clique), move, arquiva (destino configurado nos ajustes), copia caminhos e exclui; arraste imagens ou vídeos de fora do vault e eles são copiados seguindo as regras de agrupamento. Escopo de varredura, pasta de destino e pasta de arquivo ficam nas configurações da biblioteca.
+
 ### ⚡ Quick Actions
 Fixe seus atalhos mais usados na barra lateral. Suporta dois tipos de ação: **File**, para abrir qualquer documento, e **Command**, atalhos para disparar qualquer comando do Obsidian. Inclui predefinições integradas para New Journal e New Note.
 
@@ -129,6 +132,13 @@ Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido,
 </p>
 
 ## Novidades
+
+### 3.9.3
+- **Arquivar na biblioteca de material** — novo botão arquivar na barra de ações à direita move a seleção para a pasta de arquivo configurada nos ajustes; sem pasta configurada, um aviso convida a defini-la
+- **Notas referenciadas no visualizador** — a visualização de imagem/vídeo lista no rodapé todas as notas que referenciam ou incorporam o item, com salto em um clique
+- **Tags mais práticas** — o popup de tags em lote permite escolher tags existentes em um clique; as tags do filtro agora quebram em várias linhas com reticência para nomes longos, e o botão de limpar teve o texto corrigido e aparece assim que um filtro é escolhido
+- **Cliques seguem as configurações do espaço** — os cartões de texto da biblioteca abrem pela mesma configuração de popover/aba dos cartões do painel
+- **Renderização mais estável** — mudanças de filtro e página pintam em uma única passagem (pré-sondagem de proporções e reutilização de elementos de imagem), com menos saltos na tela
 
 ### 3.9.2
 - **Troca de tema instantânea na biblioteca de materiais** — a página de materiais agora se re-tematiza no lugar no momento em que você troca o tema do plugin, exatamente como o quadro do dashboard, sem precisar fechar e reabrir; cores personalizadas, imagem de fundo e configurações de aparência agora também se aplicam à página de materiais

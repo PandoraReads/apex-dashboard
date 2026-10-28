@@ -227,6 +227,7 @@ export const part1: Record<string, string> = {
 	"media.filterTags": "Tags",
 	"media.editTags": "Editar tags",
 	"media.editTagsTitle": "Tags — {name}",
+	"media.backlinks": "Notas que referenciam",
 	"media.resizeVideo": "Arraste para redimensionar o player",
 	"media.addTagPlaceholder": "Adicione uma tag e pressione Enter",
 	"media.existingTags": "Tags existentes",

@@ -24,6 +24,8 @@ export class MaterialConfigModal extends Modal {
 	private buttons: MaterialSkillButton[];
 	/** Drop-in destination ('' = Obsidian's attachment folder). */
 	private importFolder: string;
+	/** Archive destination ('' = the archive button notices instead). */
+	private archiveFolder: string;
 
 	constructor(
 		app: App,
@@ -35,6 +37,7 @@ export class MaterialConfigModal extends Modal {
 		this.excludeFolders = [...config.excludeFolders];
 		this.buttons = config.skillButtons.map(b => ({ ...b }));
 		this.importFolder = normalizeImportFolder(config.importFolder ?? '');
+		this.archiveFolder = normalizeImportFolder(config.archiveFolder ?? '');
 	}
 
 	onOpen(): void {
@@ -116,6 +119,23 @@ export class MaterialConfigModal extends Modal {
 		});
 		attachPathPicker(importRow, importInput, this.app, 'folder', (path) => {
 			this.importFolder = normalizeImportFolder(path);
+		});
+
+		// --- Archive destination (the action rail's archive button) --------
+		const archiveSection = body.createDiv({ cls: 'dashboard-library-config-section' });
+		archiveSection.createDiv({ cls: 'dashboard-library-config-label', text: t('material.cfgArchiveFolder') });
+		archiveSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('material.cfgArchiveFolderHint') });
+		const archiveRow = archiveSection.createDiv({ cls: 'dashboard-media-folder-input-row' });
+		const archiveInput = archiveRow.createEl('input', {
+			cls: 'dashboard-media-filter-folder',
+			attr: { type: 'text', placeholder: t('media.filterFolderPlaceholder') },
+		});
+		archiveInput.value = this.archiveFolder;
+		archiveInput.addEventListener('input', () => {
+			this.archiveFolder = normalizeImportFolder(archiveInput.value);
+		});
+		attachPathPicker(archiveRow, archiveInput, this.app, 'folder', (path) => {
+			this.archiveFolder = normalizeImportFolder(path);
 		});
 
 		// --- Skill buttons -------------------------------------------------
@@ -248,6 +268,7 @@ export class MaterialConfigModal extends Modal {
 			includeFolders: this.includeFolders.map(f => f.trim()).filter(Boolean),
 			excludeFolders: this.excludeFolders.map(f => f.trim()).filter(Boolean),
 			importFolder: this.importFolder,
+			archiveFolder: this.archiveFolder,
 			skillButtons: this.buttons.map(b => ({
 				...b,
 				label: b.label.trim(),

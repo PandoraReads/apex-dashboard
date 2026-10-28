@@ -34,6 +34,9 @@ Bette jede beliebige Webseite direkt in einen Bereich ein — URL einfügen und 
 ### 📡 RSS
 Abonniere Blogs und Newsfeeds direkt im Board: füge einen beliebigen RSS 2.0-/Atom-Link hinzu und die neuesten Artikel aus allen Feeds fließen in einer umgekehrt chronologischen Liste zusammen (Quellen-Tags, Unread-Punkte), mit Unread-Filter und „Alles als gelesen markieren“. Klicke auf einen Eintrag, um den vollständigen Artikel in einem Modal zu lesen — Feeds mit Volltext werden direkt gerendert, reine Zusammenfassungs-Feeds werden automatisch abgerufen und ihr Hauptinhalt extrahiert. Jeder Eintrag hat einen Download-Button, der den Artikel als Vault-Notiz speichert (datumspräfixierter Name, Quellen-Frontmatter, Original-Link) im konfigurierten Ordner; gespeicherte Einträge springen direkt zur Notiz. Feed-Inhalte werden 30 Minuten lokal zwischengespeichert; Gelesen- und Speicherstatus bleiben über Sitzungen hinweg erhalten.
 
+### 🖼️ Materialbibliothek
+Eine eigene Vollbildansicht (Sparkle-Symbol im Menüband oder Befehlspalette), die alle Bilder, Videos und Textdateien mit Cover des Tresors in einem frei fließenden Wasserfall versammelt. Suche, Typfilter, Tag-Filter, Ordner-/Tag-/Typ-Gruppierung, Favoriten und zwei Kartenstile (schlichtes Cover / Pin-Polaroid); der Lightbox bietet Radzoom, Ziehen zum Verschieben und Video-Breitenziehen und listet die Notizen, die das Material referenzieren, mit Ein-Klick-Sprung. Die rechte Aktionsleiste startet Skills, vergibt Stapel-Tags (vorhandene Tags sind ein Klick entfernt), verschiebt, archiviert (Zielordner in den Einstellungen), kopiert Pfade und löscht; Bilder oder Videos von außerhalb des Tresors hineingezogen werden nach den Gruppierregeln automatisch kopiert. Scanbereich, Standard-Ablageordner und Archivordner werden in den Einstellungen der Materialbibliothek konfiguriert.
+
 ### ⚡ Quick Actions
 Hefte deine meistgenutzten Verknüpfungen an die Seitenleiste. Unterstützt zwei Aktionstypen: **Datei**-Links zum Öffnen beliebiger Dokumente und **Befehl**-Verknüpfungen zum Ausführen jedes Obsidian-Befehls. Enthält integrierte Voreinstellungen für New Journal und New Note.
 
@@ -129,6 +132,13 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 </p>
 
 ## Was ist neu
+
+### 3.9.3
+- **Archivieren in der Materialbibliothek** — neuer Archivieren-Button in der rechten Aktionsleiste verschiebt die Auswahl in den in den Einstellungen gesetzten Archivordner; ohne Ordner erscheint ein Hinweis zur Einrichtung
+- **Referenzierende Notizen im Lightbox** — die Bild-/Video-Ansicht listet unten alle Notizen, die das Material verlinken oder einbetten, mit Ein-Klick-Sprung
+- **Bequemer taggen** — das Stapel-Tag-Popup bietet vorhandene Tags als Ein-Klick-Chips; die Filter-Tags umbrechen auf mehrere Zeilen mit Kürzung langer Namen, und der Leeren-Button hat jetzt die richtige Beschriftung und erscheint sofort beim Filtern
+- **Klicks folgen den Arbeitsbereich-Einstellungen** — Textkarten der Materialbibliothek öffnen wie Dashboard-Karten nach der Popover-/Tab-Einstellung
+- **Rendern stabiler** — Filter- und Seitenwechsel zeichnen sich in einem Durchgang (Vorab-Messung der Seitenverhältnisse plus Wiederverwendung der Bildelemente) und springen weniger
 
 ### 3.9.2
 - **Sofortiger Theme-Wechsel in der Medienbibliothek** — die Medienseite passt ihr Theme jetzt an Ort und Stelle an, sobald du das Plugin-Theme wechselst, genau wie das Dashboard-Board, ohne Schließen und erneutes Öffnen; eigene Farben, Hintergrundbild und Appearance-Einstellungen gelten jetzt auch für die Medienseite

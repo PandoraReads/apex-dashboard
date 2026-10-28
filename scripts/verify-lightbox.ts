@@ -15,12 +15,18 @@
  * 5. Backdrop close vs. drag tail: a plain backdrop click closes, but the
  *    click a grip drag synthesizes when it releases over the backdrop is
  *    swallowed, and clicks on the player never close.
+ * 6. Backlinks: the referencing-notes list below the tag bar keeps only
+ *    existing markdown notes (missing files and canvas boards drop), sorts
+ *    by path, and a click closes the lightbox then jumps via the openNote
+ *    hook — or openLinkText when no hook is provided (resolvedLinks is the
+ *    source of truth).
  *
  * Run: `npm run test:lightbox`
  */
 import { strict as assert } from 'node:assert';
 import { El, findByClass } from './mini-dom';
-import type { App, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
+import type { App } from 'obsidian';
 import { MediaLightboxModal } from '../src/media-lightbox-modal';
 
 // window/activeDocument for the gesture listeners (document-capture pairs).
@@ -45,21 +51,57 @@ function mediaFile(path: string): TFile {
 
 const FILES = [mediaFile('素材/a.png'), mediaFile('素材/b.png'), mediaFile('素材/clip.mp4')];
 
-function makeApp(): { app: App; stored: { value: string | null } } {
-	const byPath = new Map(FILES.map(f => [f.path, f]));
+/** Backlink sources must be real TFile instances — the renderer filters with
+ *  instanceof, and the plain-object mediaFile cast above would never pass. */
+function noteFile(path: string): TFile {
+	const name = path.slice(path.lastIndexOf('/') + 1);
+	const dot = name.lastIndexOf('.');
+	return Object.assign(new TFile(), {
+		path,
+		name,
+		basename: dot > 0 ? name.slice(0, dot) : name,
+		extension: dot > 0 ? name.slice(dot + 1).toLowerCase() : '',
+		parent: { path: path.slice(0, path.lastIndexOf('/')) || '/' },
+		stat: { mtime: 1, ctime: 1, size: 10 },
+	}) as unknown as TFile;
+}
+
+// ref-a / ref-b resolve; gone.md is a stale link with no file behind it;
+// whiteboard.canvas exists but is not a markdown note.
+const NOTE_A = noteFile('笔记/ref-a.md');
+const NOTE_B = noteFile('笔记/ref-b.md');
+const CANVAS = Object.assign(new TFile(), { path: '笔记/whiteboard.canvas', extension: 'canvas' }) as unknown as TFile;
+/** Inverted from the metadata cache's resolvedLinks view of the fixtures:
+ *  sources whose resolved targets include the media file. */
+const RESOLVED_LINKS: Record<string, Record<string, number>> = {
+	'笔记/ref-b.md': { '素材/a.png': 1 },
+	'笔记/gone.md': { '素材/a.png': 1 },
+	'笔记/ref-a.md': { '素材/a.png': 2, '素材/clip.mp4': 1 },
+	'笔记/whiteboard.canvas': { '素材/a.png': 1 },
+};
+
+function makeApp(): { app: App; stored: { value: string | null }; openedLinks: string[] } {
+	const byPath = new Map<string, TFile>();
+	for (const f of [...FILES, NOTE_A, NOTE_B, CANVAS]) byPath.set(f.path, f);
 	const stored = { value: null as string | null };
+	const openedLinks: string[] = [];
 	const app = {
 		vault: {
 			getFileByPath: (p: string) => byPath.get(p) ?? null,
+			getAbstractFileByPath: (p: string) => byPath.get(p) ?? null,
 			adapter: {
 				basePath: '/vault-root',
 				getResourcePath: (p: string) => `app://local/${p}`,
 			},
 		},
+		metadataCache: { resolvedLinks: RESOLVED_LINKS },
+		workspace: {
+			openLinkText: async (linktext: string) => { openedLinks.push(linktext); },
+		},
 		loadLocalStorage: () => stored.value,
 		saveLocalStorage: (_k: string, v: string) => { stored.value = v; },
 	} as unknown as App;
-	return { app, stored };
+	return { app, stored, openedLinks };
 }
 
 /** contentEl through the mini-dom type (tsc sees the real HTMLElement). */
@@ -67,8 +109,14 @@ function contentOf(modal: MediaLightboxModal): El {
 	return (modal as unknown as { contentEl: El }).contentEl;
 }
 
-function openModal(app: App, files: TFile[], index: number, kind: 'image' | 'video'): MediaLightboxModal {
-	const modal = new MediaLightboxModal(app, files, index, kind);
+function openModal(
+	app: App,
+	files: TFile[],
+	index: number,
+	kind: 'image' | 'video',
+	openNote?: (file: TFile) => void,
+): MediaLightboxModal {
+	const modal = new MediaLightboxModal(app, files, index, kind, undefined, openNote);
 	// The stub Modal has no scope; the real one registers arrow-key handlers.
 	(modal as unknown as { scope: { register: () => void } }).scope = { register: () => {} };
 	modal.onOpen();
@@ -76,7 +124,7 @@ function openModal(app: App, files: TFile[], index: number, kind: 'image' | 'vid
 }
 
 function main(): void {
-	const { app, stored } = makeApp();
+	const { app, stored, openedLinks } = makeApp();
 
 	// --- 1. Image wheel zoom ---------------------------------------------------
 	const imgModal = openModal(app, [FILES[0]!, FILES[1]!], 0, 'image');
@@ -167,6 +215,38 @@ function main(): void {
 	stage.dispatchEvent({ type: 'click', target: video });
 	assert.equal(closes, 1, 'click on the player does not close');
 	bd.onClose();
+
+	// --- 6. Backlinks: referencing notes below the tags ----------------------------
+	// Hook path: click closes the lightbox and hands the note to openNote.
+	const hookOpens: Array<{ path: string }> = [];
+	let hookCloses = 0;
+	const blModal = openModal(app, [FILES[0]!], 0, 'image', f => { hookOpens.push({ path: f.path }); });
+	(blModal as unknown as { close: () => void }).close = () => { hookCloses += 1; };
+	const blContent = contentOf(blModal);
+	assert.equal(
+		findByClass(blContent, 'dashboard-media-lightbox-backlinks-title')[0]!.textContent, '引用笔记',
+		'section title is localized',
+	);
+	assert.equal(findByClass(blContent, 'dashboard-media-lightbox-backlink').length, 2, 'stale links and canvas boards drop; only existing notes render');
+	assert.deepEqual(
+		findByClass(blContent, 'dashboard-media-lightbox-backlink-name').map(el => el.textContent),
+		['ref-a', 'ref-b'],
+		'notes sort by path and carry the basename',
+	);
+	findByClass(blContent, 'dashboard-media-lightbox-backlink')[0]!.dispatchEvent({ type: 'click' });
+	assert.equal(hookCloses, 1, 'backlink click closes the lightbox');
+	assert.deepEqual(hookOpens, [{ path: '笔记/ref-a.md' }], 'and jumps through the openNote hook');
+	blModal.onClose();
+
+	// Fallback: no hook → the jump rides openLinkText.
+	const fbModal = openModal(app, [FILES[0]!], 0, 'image');
+	findByClass(contentOf(fbModal), 'dashboard-media-lightbox-backlink')[0]!.dispatchEvent({ type: 'click' });
+	assert.deepEqual(openedLinks, ['笔记/ref-a.md'], 'without a hook the jump falls back to openLinkText');
+	fbModal.onClose();
+
+	// Videos get the same section; unreferenced files render none.
+	assert.equal(findByClass(contentOf(openModal(app, [FILES[2]!], 0, 'video')), 'dashboard-media-lightbox-backlink').length, 1, 'video mode lists its referencing note too');
+	assert.equal(findByClass(contentOf(openModal(app, [FILES[1]!], 0, 'image')), 'dashboard-media-lightbox-backlink').length, 0, 'unreferenced file renders no backlink rows');
 
 	console.log('verify-lightbox: all assertions passed');
 }

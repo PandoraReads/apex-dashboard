@@ -16050,11 +16050,40 @@ button.dashboard-skillsec-import:hover {
 	border-radius: var(--db-radius-md, 10px);
 	border: 1px solid var(--db-border-card, #e0e0e0);
 	background: var(--db-bg-modal, var(--db-bg, var(--background-primary)));
-	max-width: 320px;
+	max-width: 360px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 	z-index: 10000;
 	color: var(--db-text, #1a1a1a);
 }
+
+/* Tag-chip lists (filter popup, folder config, batch-tag popup): wrap into
+   rows instead of stacking one chip per line, and scroll once tall. */
+.dashboard-library-filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	max-height: 220px;
+	overflow-y: auto;
+	padding-right: 2px;
+}
+.dashboard-library-filter-chip {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Batch-tag popup (right action rail): input + save share one row, the
+   existing tags sit below as toggleable chips. */
+.dashboard-material-tagpop { width: 300px; }
+.dashboard-material-tagpop-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+.dashboard-material-tagpop-row .dashboard-media-filter-folder { flex: 1; min-width: 0; }
+.dashboard-material-tagpop-chips { margin-top: 2px; }
 
 /* Quick-filter popup internals (title row, property+range row, preset row). */
 .dashboard-library-quickfilter-title {
@@ -18017,6 +18046,47 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-media-lightbox-tag--add:hover { background: rgba(255, 255, 255, 0.15); }
 .dashboard-media-lightbox-tag-icon { display: inline-flex; align-items: center; }
 .dashboard-media-lightbox-tag-icon svg { width: 11px; height: 11px; }
+
+/* Referencing-notes list (below the tag bar): one row per note that links
+   or embeds this file; a row click closes the lightbox and opens the note.
+   An empty host (:empty) collapses — unreferenced files show no section. */
+.dashboard-media-lightbox-backlinks {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	margin-top: 8px;
+	max-height: 13vh;
+	overflow-y: auto;
+	padding: 0 16px;
+}
+.dashboard-media-lightbox-backlinks:empty { display: none; }
+.dashboard-media-lightbox-backlinks-title {
+	color: rgba(255, 255, 255, 0.55);
+	font-size: 0.6875em;
+	letter-spacing: 0.04em;
+}
+.dashboard-media-lightbox-backlink {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	max-width: min(480px, 80vw);
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 0.75em;
+	line-height: 18px;
+	padding: 1px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	cursor: pointer;
+}
+.dashboard-media-lightbox-backlink:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+.dashboard-media-lightbox-backlink-icon { display: inline-flex; align-items: center; flex: none; }
+.dashboard-media-lightbox-backlink-icon svg { width: 11px; height: 11px; }
+.dashboard-media-lightbox-backlink-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
 
 /* Tag edit modal */
 .dashboard-media-tagedit-path {

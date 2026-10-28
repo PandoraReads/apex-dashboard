@@ -323,5 +323,6 @@ export function sanitizeMaterialConfig(raw: unknown, validAgents: readonly Agent
 		excludeFolders: strList(obj.excludeFolders),
 		skillButtons: buttons,
 		importFolder: typeof obj.importFolder === 'string' ? normalizeImportFolder(obj.importFolder) : '',
+	archiveFolder: typeof obj.archiveFolder === 'string' ? normalizeImportFolder(obj.archiveFolder) : '',
 	};
 }

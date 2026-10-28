@@ -34,6 +34,9 @@ Intégrez n'importe quelle page web directement dans une section — collez une 
 ### 📡 RSS
 Abonnez-vous à des blogs et flux d'actualités directement sur le tableau : ajoutez n'importe quel lien RSS 2.0 / Atom et les derniers articles de tous les flux convergent dans une liste unique anti-chronologique (tags de source, points non-lus), avec un filtre des non-lus et un bouton « tout marquer comme lu ». Cliquez sur un article pour le lire en entier dans une fenêtre modale — les flux fournissant le texte complet s'affichent directement, les flux limités au résumé sont récupérés et leur contenu principal extrait automatiquement. Chaque article dispose d'un bouton de téléchargement qui l'enregistre sous forme de note dans le coffre (nom préfixé par la date, frontmatter de source, lien original) dans le dossier configuré ; les articles enregistrés renvoient directement à la note. Le contenu des flux est mis en cache localement pendant 30 minutes ; les états « lu » et « enregistré » persistent d'une session à l'autre.
 
+### 🖼️ Bibliothèque de matériel
+Une vue plein écran dédiée (icône sparkle du ruban ou palette de commandes) qui rassemble toutes les images, vidéos et textes avec couverture du coffre dans une cascade libre. Recherche, filtre par type, filtre par tags, groupement par dossier/tag/type, favoris et deux styles de carte (couverture simple / polaroïd façon Pin) ; la visionneuse offre le zoom à la molette, le déplacement par glisser et l'étirement des vidéos, et liste les notes référençant l'élément avec un saut en un clic. La barre d'actions à droite envoie des compétences, étiquette en lot (les tags existants sont à un clic), déplace, archive (destination configurée dans les réglages), copie les chemins et supprime ; glissez-déposez des images ou vidéos depuis l'extérieur du coffre et elles sont copiées selon les règles de regroupement. Portée d'analyse, dossier de dépôt et dossier d'archivage se règlent dans les paramètres de la bibliothèque.
+
 ### ⚡ Actions rapides
 Épinglez vos raccourcis les plus utilisés dans la barre latérale. Deux types d'actions sont pris en charge : les liens **Fichier** pour ouvrir n'importe quel document, et les raccourcis **Commande** pour déclencher n'importe quelle commande Obsidian. Inclut des préréglages intégrés pour Nouveau journal et Nouvelle note.
 
@@ -129,6 +132,13 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 </p>
 
 ## Nouveautés
+
+### 3.9.3
+- **Archivage dans la bibliothèque de matériel** — un nouveau bouton d'archivage dans la barre d'actions droite déplace la sélection vers le dossier d'archivage configuré ; une notification invite à le régler s'il est vide
+- **Notes référencées dans la visionneuse** — la vue image/vidéo liste en bas toutes les notes qui lient ou intègrent l'élément, avec un saut en un clic
+- **Étiquetage plus fluide** — la popup d'étiquetage en lot propose les tags existants en un clic ; les tags du filtre passent sur plusieurs lignes avec troncature des noms longs, et le bouton d'effacement corrige son libellé et apparaît dès qu'un filtre est actif
+- **Les clics suivent les réglages de l'espace** — les cartes texte de la bibliothèque s'ouvrent selon le même réglage pop-over/onglet que les cartes du tableau de bord
+- **Stabilité du rendu** — les changements de filtre et de page se peignent en une seule passe (pré-sonde des ratios et réutilisation des éléments d'image), réduisant les sauts à l'écran
 
 ### 3.9.2
 - **Changement de thème instantané dans la bibliothèque de médias** — la page des médias applique désormais le nouveau thème en place dès que vous changez le thème du plugin, à l'identique du tableau de bord, sans fermer ni rouvrir ; les couleurs personnalisées, l'image d'arrière-plan et les réglages d'apparence s'appliquent maintenant aussi à la page des médias

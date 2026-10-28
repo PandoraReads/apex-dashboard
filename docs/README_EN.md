@@ -34,6 +34,9 @@ Embed any web page right in a section — paste a URL and browse it like an in-b
 ### 📡 RSS
 Subscribe to blogs and news feeds right on the board: add any RSS 2.0 / Atom link and the latest articles from all feeds flow together in one reverse-chronological list (source tags, unread dots), with an unread filter and mark-all-read. Click an entry to read the full article in a modal — feeds that ship full text render directly, summary-only feeds are fetched and main-content-extracted automatically. Every entry has a download button that saves the article as a vault note (date-prefixed name, source frontmatter, original link) into the configured folder; saved entries jump straight to the note. Feed content is cached locally for 30 minutes; read and saved state persist across sessions.
 
+### 🖼️ Material library
+A dedicated full-screen view (ribbon sparkle icon or command palette) that gathers every image, video and covered text file in the vault into a free-form waterfall. Search, type filter, tag filter, folder/tag/type grouping, a favorites view and two card styles (plain cover / Pin-style polaroid); the lightbox offers wheel zoom, drag-to-pan and video width stretching, and lists the notes referencing the asset with one-click jumps. The right action rail dispatches skills, batch-tags (existing tags are one click away), moves, archives (destination configured in settings), copies paths and deletes; drag images or videos in from outside the vault and they are copied in following the grouping rules. Scan scope, default drop-in folder and archive folder all live in the material library settings.
+
 ### ⚡ Quick Actions
 Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
 
@@ -129,6 +132,13 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 </p>
 
 ## What's New
+
+### 3.9.3
+- **Material library archive** — a new archive button on the right action rail moves the selection into the archive folder configured in settings, with a notice prompting the setup when unset
+- **Lightbox backlinks** — the image/video viewer lists every note that links or embeds the asset at the bottom; click to jump
+- **Smarter tagging** — the batch-tag popup offers existing tags as one-click chips; the filter popup wraps tags into rows with ellipsis for long names, and the clear button's wording is fixed and it appears the moment a filter is picked
+- **Clicks follow the workspace setting** — text tiles in the material library open through the same popover-or-tab setting as dashboard card clicks
+- **Rendering stability** — filter and page changes paint in one pass (aspect pre-probing + image element reuse), reducing on-screen reshuffling
 
 ### 3.9.2
 - **Instant theme switching in the material library** — the material page now re-themes in place the moment you switch the plugin theme, exactly like the dashboard board, no close-and-reopen needed; custom colors, background image and appearance settings now apply to the material page too

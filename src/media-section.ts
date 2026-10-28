@@ -457,6 +457,17 @@ export function renderMediaSection(
 		refreshMedia();
 		if (filterPopup) {
 			renderTagsSelector(chipsHost, tagService?.getAllTags() ?? [], filterTags, (tg) => toggleFilterTag(tg, chipsHost));
+			// Picking the first tag inside an already-open popup must surface
+			// the clear button too (it is only created at open time).
+			if (hasMediaFilter() && filterPopup.querySelector('.dashboard-library-filter-popup-clear') === null) {
+				const clearBtn = filterPopup.createEl('button', { cls: 'dashboard-library-filter-popup-clear', text: t('library.clearFilters') });
+				clearBtn.addEventListener('click', (ev) => {
+					ev.stopPropagation();
+					filterStart = ''; filterEnd = ''; filterFolders = []; filterTags = [];
+					refreshMedia();
+					closeMediaPopup();
+				});
+			}
 		}
 	}
 
@@ -550,7 +561,7 @@ export function renderMediaSection(
 		folderRow.createDiv({ cls: 'dashboard-library-config-hint', text: t('media.filterFolderHint') });
 
 		if (hasMediaFilter()) {
-			const clearBtn = filterPopup.createEl('button', { cls: 'dashboard-library-filter-popup-clear', text: t('reminder.clearReminder') });
+			const clearBtn = filterPopup.createEl('button', { cls: 'dashboard-library-filter-popup-clear', text: t('library.clearFilters') });
 			clearBtn.addEventListener('click', (ev) => {
 				ev.stopPropagation();
 				filterStart = ''; filterEnd = ''; filterFolders = []; filterTags = [];
@@ -667,7 +678,9 @@ export function renderMediaSection(
 		} : undefined;
 
 		const openLightbox = (pageIndex: number): void => {
-			new MediaLightboxModal(app, results.map(r => r.file), start + pageIndex, kind, tagHooks).open();
+			// onOpenNote carries the workspace popover-or-tab behavior into the
+			// lightbox's backlink jumps.
+			new MediaLightboxModal(app, results.map(r => r.file), start + pageIndex, kind, tagHooks, onOpenNote).open();
 		};
 
 		// One lazy mounter per render: desktop video tiles mount a real <video>
@@ -686,7 +699,7 @@ export function renderMediaSection(
 			const groups = groupMediaResults(results, groupBy);
 			const displayFiles = groups.flatMap(g => g.items.map(r => r.file));
 			const openGroupLightbox = (displayIndex: number): void => {
-				new MediaLightboxModal(app, displayFiles, displayIndex, kind, tagHooks).open();
+				new MediaLightboxModal(app, displayFiles, displayIndex, kind, tagHooks, onOpenNote).open();
 			};
 			for (const group of groups) {
 				const collapsed = collapsedGroups.has(group.key);

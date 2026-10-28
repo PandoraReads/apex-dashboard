@@ -11,6 +11,7 @@ import type DashboardPlugin from './main';
 import { t } from './i18n';
 import { renderMaterialLibrary, type MaterialRenderController } from './material-render';
 import { MaterialConfigModal } from './material-config-modal';
+import { NoteOpener } from './note-opener';
 import { sanitizeMaterialConfig } from './material-model';
 import { agentTargets } from './agent-dispatch';
 import { applyAppearance, refreshAppearanceOnRoot } from './appearance';
@@ -20,6 +21,9 @@ export const MATERIAL_VIEW_TYPE = 'apex-material-view';
 export class MaterialLibraryView extends ItemView {
 	private plugin: DashboardPlugin;
 	private controller: MaterialRenderController | null = null;
+	/** Note opens routed through the workspace popover-or-tab setting, so a
+	 *  text-tile click behaves exactly like a dashboard card click. */
+	private opener: NoteOpener | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: DashboardPlugin) {
 		super(leaf);
@@ -66,6 +70,7 @@ export class MaterialLibraryView extends ItemView {
 		// settings let the user tune.
 		applyAppearance(container, this.app, this.plugin.settings);
 
+		this.opener = new NoteOpener(this.app, () => this.plugin.settings.disableNotePopover);
 		this.controller = renderMaterialLibrary(container, {
 			app: this.app,
 			// GETTER, not a snapshot: the renderer re-reads this on every
@@ -74,6 +79,7 @@ export class MaterialLibraryView extends ItemView {
 			getConfig: () => this.config(),
 			onConfigChange: () => { /* settings persist through the modal */ },
 			onOpenSettings: () => this.openSettings(),
+			openNote: (file) => this.opener?.open(file),
 			tagStore: this.plugin.mediaTagService ?? null,
 			// Hearts live in settings (not localStorage) so the collection
 			// follows the vault across devices via data.json sync.
@@ -129,6 +135,8 @@ export class MaterialLibraryView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.opener?.close();
+		this.opener = null;
 		this.controller?.destroy();
 		this.controller = null;
 		const container = this.containerEl.children[1] as HTMLElement;

@@ -227,6 +227,7 @@ export const part1: Record<string, string> = {
 	"media.filterTags": "Теги",
 	"media.editTags": "Редактировать теги",
 	"media.editTagsTitle": "Теги — {name}",
+	"media.backlinks": "Ссылающиеся заметки",
 	"media.resizeVideo": "Потяните, чтобы изменить размер плеера",
 	"media.addTagPlaceholder": "Добавьте тег и нажмите Enter.",
 	"media.existingTags": "Существующие теги",

@@ -37,6 +37,7 @@ const BASE: MaterialLibraryConfig = {
 	includeFolders: ['素材'],
 	excludeFolders: ['回收站'],
 	importFolder: ' ./素材/收件箱/ ',
+	archiveFolder: ' ./归档箱/ ',
 	skillButtons: [{ id: 'mb_1', label: '配图', icon: '', agent: 'claudian', skillName: '', promptTemplate: '' }],
 };
 
@@ -78,6 +79,7 @@ function main(): void {
 		includeFolders: ['素材'],
 		excludeFolders: ['回收站'],
 		importFolder: '素材/新收件箱',
+		archiveFolder: '归档箱',
 		skillButtons: [{ id: 'mb_1', label: '配图', icon: '', agent: 'claudian', skillName: '', promptTemplate: '' }],
 	}, 'the typed destination is normalized and the rest of the config is untouched');
 
@@ -91,6 +93,22 @@ function main(): void {
 	input2.dispatchEvent({ type: 'input' });
 	(findTag(root2, 'button').filter(b => b.hasClass('dashboard-modal-btn--confirm')).pop() as unknown as El)!.click();
 	assert.equal(cleared[0]!.importFolder, '', 'an empty destination saves as the vault default');
+
+	// 4. the archive destination mirrors the drop-in field (renders
+	//    normalized, types and saves independently of the import folder)
+	const archived: MaterialLibraryConfig[] = [];
+	const modal3 = new MaterialConfigModal(stubApp as never, { ...BASE, archiveFolder: ' ./归档箱/ ' }, cfg => archived.push(cfg));
+	modal3.onOpen();
+	const root3 = modal3.contentEl as unknown as El;
+	const pickers3 = findByClass(root3, 'dashboard-pathpicker-btn');
+	assert.equal(pickers3.length, 2, 'both destination rows carry folder-picker buttons');
+	const archiveInput = findTag(pickers3[1]!.parent as El, 'input')[0] as unknown as El & { value: string };
+	assert.equal(archiveInput.value, '归档箱', 'a saved archive folder renders normalized');
+	archiveInput.value = ' 归档/2026 ';
+	archiveInput.dispatchEvent({ type: 'input' });
+	(findTag(root3, 'button').filter(b => b.hasClass('dashboard-modal-btn--confirm')).pop() as unknown as El)!.click();
+	assert.equal(archived[0]!.archiveFolder, '归档/2026', 'the typed archive destination saves normalized');
+	assert.equal(archived[0]!.importFolder, '素材/收件箱', 'and leaves the drop-in destination untouched');
 
 	console.log('verify-material-config: OK (drop-in destination field renders, normalizes and saves)');
 }

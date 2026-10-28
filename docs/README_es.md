@@ -34,6 +34,9 @@ Incrusta cualquier página web directamente en una sección — pega una URL y n
 ### 📡 RSS
 Suscríbete a blogs y fuentes de noticias directamente en el tablero: añade cualquier enlace RSS 2.0 / Atom y los últimos artículos de todas las fuentes fluyen juntos en una única lista cronológica inversa (etiquetas de fuente, puntos de no leído), con un filtro de no leídos y marcar todo como leído. Haz clic en una entrada para leer el artículo completo en un modal — las fuentes que incluyen el texto completo se muestran directamente, y las que solo ofrecen resumen se descargan y se les extrae automáticamente el contenido principal. Cada entrada tiene un botón de descarga que guarda el artículo como nota del vault (nombre con prefijo de fecha, frontmatter de origen, enlace original) en la carpeta configurada; las entradas guardadas saltan directamente a la nota. El contenido de las fuentes se almacena en caché localmente durante 30 minutos; el estado de leído y guardado persiste entre sesiones.
 
+### 🖼️ Biblioteca de material
+Una vista a pantalla completa (icono sparkle de la cinta o paleta de comandos) que reúne todas las imágenes, vídeos y textos con portada del vault en una cascada de diseño libre. Búsqueda, filtro por tipo, filtro por etiquetas, agrupación por carpeta/etiqueta/tipo, favoritos y dos estilos de tarjeta (portada simple / polaroid estilo Pin); el visor ofrece zoom con rueda, arrastre para desplazar y estiramiento del vídeo, y lista las notas que referencian el recurso con salto en un clic. La barra de acciones derecha despacha habilidades, etiqueta en lote (las etiquetas existentes están a un clic), mueve, archiva (destino configurado en ajustes), copia rutas y elimina; arrastra imágenes o vídeos desde fuera del vault y se copian siguiendo las reglas de agrupación. Alcance de escaneo, carpeta de destino y carpeta de archivo se configuran en los ajustes de la biblioteca.
+
 ### ⚡ Quick Actions
 Fija tus atajos más usados en la barra lateral. Admite dos tipos de acción: enlaces a **Archivo** para abrir cualquier documento, y atajos de **Comando** para ejecutar cualquier comando de Obsidian. Incluye presets integrados para Nuevo diario y Nueva nota.
 
@@ -129,6 +132,13 @@ Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, consi
 </p>
 
 ## Novedades
+
+### 3.9.3
+- **Archivado en la biblioteca de material** — nuevo botón de archivar en la barra de acciones derecha: mueve el material seleccionado a la carpeta de archivo configurada en ajustes, con un aviso que pide configurarla si está vacía
+- **Notas referenciadas en el visor** — la vista de imágenes y vídeos muestra abajo todas las notas que enlazan o incrustan el recurso, con salto en un clic
+- **Etiquetar más cómodo** — el popup de etiquetado en lote permite elegir etiquetas existentes de un clic; las etiquetas del filtro se reparten en varias filas con recorte de nombres largos, y el botón de limpiar corrige su texto y aparece al instante al filtrar
+- **Los clics siguen los ajustes del espacio** — las tarjetas de texto de la biblioteca se abren con el mismo ajuste de popover/pestaña que las tarjetas del tablero
+- **Estabilidad de renderizado** — los cambios de filtro y página se pintan en una sola pasada (pre-sondeo de proporciones y reutilización de elementos de imagen), con menos saltos en pantalla
 
 ### 3.9.2
 - **Cambio de tema instantáneo en la biblioteca de materiales** — La página de materiales ahora cambia de tema en el sitio en cuanto cambias el tema del plugin, exactamente igual que el tablero del dashboard, sin necesidad de cerrar y reabrir; los colores personalizados, la imagen de fondo y los ajustes de apariencia ahora también se aplican a la página de materiales

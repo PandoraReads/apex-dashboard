@@ -41,6 +41,7 @@ import {
 	MATERIAL_GROUP_PAGE_SIZE,
 	MATERIAL_IMAGE_ASPECT,
 	MATERIAL_VIDEO_ASPECT,
+	normalizeImportFolder,
 	paginateMaterial,
 	sortMaterialItems,
 	type MaterialDensity,
@@ -87,6 +88,10 @@ export interface MaterialRenderContext {
 	/** Open the settings modal (the view owns it). */
 	onOpenSettings(): void;
 	tagStore: MaterialTagStore | null;
+	/** Open a text tile as a note. The view backs this with the workspace's
+	 *  popover-or-tab setting (disableNotePopover), so the click follows the
+	 *  same behavior as dashboard card clicks. Absent → plain openLinkText. */
+	openNote?: (file: TFile) => void;
 	favorites?: MaterialFavoritesHooks;
 }
 
@@ -95,12 +100,6 @@ export interface MaterialRenderController {
 	refresh(): void;
 	destroy(): void;
 }
-
-/** rAF that also works under the node test harness. */
-const nextFrame = (fn: () => void): number =>
-	typeof requestAnimationFrame === 'function'
-		? requestAnimationFrame(fn)
-		: window.setTimeout(fn, 0);
 
 /** Probe an image's natural aspect off-DOM; resolves 0 when unknown
  *  (unsupported format / load error / timeout). Never rejects. */
@@ -174,6 +173,9 @@ export function renderMaterialLibrary(
 	const lazyBodyBuilders = new Map<string, () => void>();
 	/** Measured image aspects keyed by path — survives re-renders. */
 	const aspectCache = new Map<string, number>();
+	/** Waterfall blocks holding tiles whose aspects are still being probed
+	 *  (see renderTilesBlock): laid out once, when the probes settle. */
+	const pendingBlocks = new Map<HTMLElement, { gen: number; tiles: Array<{ el: HTMLElement; item: MaterialItem }> }>();
 	/** Render generation: stale async probes/relayouts no-op. */
 	let generation = 0;
 	let filterPopup: HTMLElement | null = null;
@@ -281,14 +283,41 @@ export function renderMaterialLibrary(
 		if (filterPopup) { filterPopup.remove(); filterPopup = null; }
 	}
 
-	function toggleFilterTag(tag: string, chipsHost: HTMLElement | null): void {
+	function toggleFilterTag(tag: string): void {
 		filterTags = filterTags.includes(tag)
 			? filterTags.filter(tg => tg !== tag)
 			: [...filterTags, tag];
 		currentPage = 1;
 		render();
-		if (filterPopup && chipsHost) {
-			renderTagsSelector(chipsHost, tagStore?.getAllTags() ?? [], filterTags, (tg) => toggleFilterTag(tg, chipsHost));
+		// Rebuild the popup in place: chips flip their active state AND the
+		// clear button appears the moment the first filter gets picked (it
+		// used to exist only if a filter was already set when the popup
+		// opened — picking a tag inside a fresh popup offered no way back).
+		renderFilterPopup();
+	}
+
+	/** (Re)build the filter popup's rows: label + tag chips + the clear
+	 *  button whenever any filter is active. */
+	function renderFilterPopup(): void {
+		if (!filterPopup) return;
+		filterPopup.empty();
+		if (tagStore) {
+			const tagRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
+			tagRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('media.filterTags') });
+			const chips = tagRow.createDiv({ cls: 'dashboard-library-filter-chips' });
+			renderTagsSelector(chips, tagStore.getAllTags(), filterTags, (tag) => toggleFilterTag(tag));
+		} else {
+			filterPopup.createDiv({ cls: 'dashboard-library-config-hint', text: t('material.cfgBtnHint') });
+		}
+		if (filterTags.length > 0) {
+			const clearBtn = filterPopup.createEl('button', { cls: 'dashboard-library-filter-popup-clear', text: t('library.clearFilters') });
+			clearBtn.addEventListener('click', (ev) => {
+				ev.stopPropagation();
+				filterTags = [];
+				currentPage = 1;
+				render();
+				closeFilterPopup();
+			});
 		}
 	}
 
@@ -308,24 +337,7 @@ export function renderMaterialLibrary(
 		const rect = filterBtn.getBoundingClientRect();
 		filterPopup.setCssProps({ position: 'fixed', top: `${rect.bottom + 4}px`, left: `${rect.left}px`, zIndex: '10000' });
 
-		if (tagStore) {
-			const tagRow = filterPopup.createDiv({ cls: 'dashboard-library-quickfilter-row' });
-			tagRow.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('media.filterTags') });
-			const chips = tagRow.createDiv({ cls: 'dashboard-library-filter-chips' });
-			renderTagsSelector(chips, tagStore.getAllTags(), filterTags, (tag) => toggleFilterTag(tag, chips));
-		} else {
-			filterPopup.createDiv({ cls: 'dashboard-library-config-hint', text: t('material.cfgBtnHint') });
-		}
-		if (filterTags.length > 0) {
-			const clearBtn = filterPopup.createEl('button', { cls: 'dashboard-library-filter-popup-clear', text: t('reminder.clearReminder') });
-			clearBtn.addEventListener('click', (ev) => {
-				ev.stopPropagation();
-				filterTags = [];
-				currentPage = 1;
-				render();
-				closeFilterPopup();
-			});
-		}
+		renderFilterPopup();
 		outsideClickHandler = (e: MouseEvent): void => {
 			if (!filterPopup) return;
 			const target = e.target as Node;
@@ -441,6 +453,7 @@ export function renderMaterialLibrary(
 
 	function destroy(): void {
 		generation++;
+		warmUpStopped = true;
 		cancelPendingOpen();
 		for (const dispose of gestureDisposers.splice(0)) dispose();
 		marqueeEl?.remove();
@@ -456,6 +469,11 @@ export function renderMaterialLibrary(
 		mounter?.disconnect();
 		releaseVideoMedia(resultArea);
 		closeFilterPopup();
+		if (imgPoolSweepTimer !== null) {
+			window.clearTimeout(imgPoolSweepTimer);
+			imgPoolSweepTimer = null;
+		}
+		materialImgPool.clear();
 	}
 
 	// ---- tile actions ----------------------------------------------------
@@ -530,6 +548,21 @@ export function renderMaterialLibrary(
 		}).open();
 	}
 
+	/** Archive the selection into the configured archive folder (Rae): one
+	 *  click moves every selected file there via movePathsTo (same-target and
+	 *  name-collision skips + the moved/skipped notices come with it). No
+	 *  folder configured → a notice points at the setting instead of guessing
+	 *  a destination. */
+	function archiveItems(paths: readonly string[]): void {
+		if (paths.length === 0) return;
+		const folder = normalizeImportFolder(ctx.getConfig().archiveFolder ?? '');
+		if (!folder) {
+			new Notice(t('material.archiveUnset'));
+			return;
+		}
+		void movePathsTo(paths, folder);
+	}
+
 	function openTagEditor(item: MaterialItem): void {
 		if (!tagStore) return;
 		const file = fileOf(item.path);
@@ -545,8 +578,10 @@ export function renderMaterialLibrary(
 		).open();
 	}
 
-	/** Batch-tag every selected file (adds the typed tag; keeps existing).
-	 *  Popup floats beside the right action rail. */
+	/** Batch-tag every selected file (adds the typed/picked tags; keeps
+	 *  existing). Popup floats beside the right action rail; the existing
+	 *  tags are one click away — chips toggle into the input, which also
+	 *  accepts free-typed comma-separated tags. */
 	function batchTag(): void {
 		if (!tagStore || selected.size === 0) return;
 		const paths = [...selected];
@@ -560,11 +595,25 @@ export function renderMaterialLibrary(
 			transform: 'translateY(-50%)',
 			zIndex: '10000',
 		});
-		const input = row.createEl('input', {
+		const inputRow = row.createDiv({ cls: 'dashboard-material-tagpop-row' });
+		const input = inputRow.createEl('input', {
 			cls: 'dashboard-media-filter-folder',
 			attr: { type: 'text', placeholder: allTags.slice(0, 5).join(' / ') || t('material.batchTag') },
 		});
-		const apply = row.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.save') });
+		const apply = inputRow.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.save') });
+		const pickedTags = (): string[] =>
+			input.value.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0);
+		const chipsHost = row.createDiv({ cls: 'dashboard-library-filter-chips dashboard-material-tagpop-chips' });
+		const syncChips = (): void => {
+			renderTagsSelector(chipsHost, allTags, pickedTags(), (tag) => {
+				const picked = pickedTags();
+				input.value = (picked.includes(tag)
+					? picked.filter(tg => tg !== tag)
+					: [...picked, tag]).join(', ');
+				syncChips();
+			});
+		};
+		syncChips();
 		const close = (): void => { row.remove(); activeDocument.removeEventListener('click', outside, true); };
 		const outside = (e: MouseEvent): void => {
 			const target = e.target as Node;
@@ -572,8 +621,7 @@ export function renderMaterialLibrary(
 			close();
 		};
 		apply.addEventListener('click', () => {
-			const tag = input.value.trim();
-			if (tag) {
+			for (const tag of pickedTags()) {
 				for (const path of paths) {
 					const next = new Set(tagStore.getTags(path));
 					next.add(tag);
@@ -619,6 +667,28 @@ export function renderMaterialLibrary(
 	function aspectOf(item: MaterialItem): number {
 		if (item.kind === 'video') return MATERIAL_VIDEO_ASPECT;
 		return aspectCache.get(item.path) ?? MATERIAL_IMAGE_ASPECT;
+	}
+
+	/** Aspects that need no async probe: cached images/text-covers, plus the
+	 *  kinds that render at a fixed ratio (video). */
+	function isLayoutReady(item: MaterialItem): boolean {
+		if (item.kind === 'image' || (item.kind === 'text' && textCoverOf(item) !== '')) {
+			return aspectCache.has(item.path);
+		}
+		return true;
+	}
+
+	/** Image probing available (desktop with a working Image constructor —
+	 *  mobile and the node harnesses skip it and mount everything at the
+	 *  fallback ratios, exactly as before). */
+	function probingSupported(): boolean {
+		const ImageCtor = (globalThis as { Image?: typeof Image }).Image;
+		return typeof ImageCtor === 'function' && !Platform.isMobile;
+	}
+
+	/** Kinds whose tile ratio comes from decoding an image (needs a probe). */
+	function isProbeable(item: MaterialItem): boolean {
+		return item.kind === 'image' || (item.kind === 'text' && textCoverOf(item) !== '');
 	}
 
 	/** Resolve a text file's frontmatter cover (封面/cover or any image-looking
@@ -695,6 +765,39 @@ export function renderMaterialLibrary(
 		input.addEventListener('blur', () => { void finish(true); });
 	}
 
+	/** Decoded-image pool, keyed by item path. Re-renders reparent the SAME
+	 *  <img> node instead of minting a fresh one: a new element re-fetches
+	 *  and re-decodes even from cache, and that blank-then-fill repaint wave
+	 *  across every tile was the "screen keeps switching" feel on filter
+	 *  clicks. A changed src (cover swap / file replaced) rebuilds. */
+	const materialImgPool = new Map<string, HTMLElement>();
+	function adoptMaterialImg(host: HTMLElement, key: string, src: string, alt: string): void {
+		const pooled = materialImgPool.get(key);
+		if (pooled && pooled.getAttribute('src') === src) {
+			pooled.setAttribute('alt', alt);
+			host.appendChild(pooled);
+			return;
+		}
+		const img = host.createEl('img', {
+			cls: 'dashboard-material-img',
+			attr: { src, alt, loading: 'lazy' },
+		});
+		materialImgPool.set(key, img);
+	}
+
+	/** Prune pool entries whose element left the DOM. Delayed a second so
+	 *  deferred (probe-held) tiles reconnect through their flush first. */
+	let imgPoolSweepTimer: number | null = null;
+	function scheduleImgPoolSweep(): void {
+		if (imgPoolSweepTimer !== null) window.clearTimeout(imgPoolSweepTimer);
+		imgPoolSweepTimer = window.setTimeout(() => {
+			imgPoolSweepTimer = null;
+			for (const [key, el] of [...materialImgPool]) {
+				if (!el.isConnected) materialImgPool.delete(key);
+			}
+		}, 1000);
+	}
+
 	function buildTile(item: MaterialItem, openItem: (item: MaterialItem) => void): HTMLElement {
 		const polaroid = cardStyle.value === 'polaroid';
 		// Detached tile (global createDiv): built outside the DOM, then placed
@@ -717,17 +820,11 @@ export function renderMaterialLibrary(
 		thumb.style.aspectRatio = String(aspectOf(item));
 		if (item.kind === 'text') {
 			// Text tiles are cover-gated upstream, so a cover always exists.
-			thumb.createEl('img', {
-				cls: 'dashboard-material-img',
-				attr: { src: textCoverOf(item), alt: item.basename, loading: 'lazy' },
-			});
+			adoptMaterialImg(thumb, item.path, textCoverOf(item), item.basename);
 		} else {
 			const src = resolveVaultImage(app, item.path);
 			if (src && item.kind === 'image') {
-				thumb.createEl('img', {
-					cls: 'dashboard-material-img',
-					attr: { src, alt: item.basename, loading: 'lazy' },
-				});
+				adoptMaterialImg(thumb, item.path, src, item.basename);
 			} else if (src) {
 				thumb.createDiv({ cls: 'dashboard-material-video-ph' });
 				if (mounter) mounter.observe(thumb, src);
@@ -817,7 +914,10 @@ export function renderMaterialLibrary(
 		return tile;
 	}
 
-	/** Build the waterfall column hosts and append tiles by assignment. */
+	/** Build the waterfall column hosts and append tiles by assignment. Also
+	 *  syncs each thumb's aspect-ratio with the (possibly just-probed) cache —
+	 *  the settled ratio used to be patched per tile mid-probe, which made the
+	 *  whole waterfall jump with every probe that came in. */
 	function layoutTiles(colsHost: HTMLElement, tiles: readonly { el: HTMLElement; item: MaterialItem }[]): void {
 		colsHost.empty();
 		const cols = materialColumnCount(colsHost.clientWidth, density.value);
@@ -826,7 +926,9 @@ export function renderMaterialLibrary(
 		for (let i = 0; i < cols; i++) {
 			colEls.push(colsHost.createDiv({ cls: 'dashboard-material-col' }));
 		}
-		tiles.forEach(({ el }, i) => {
+		tiles.forEach(({ el, item }, i) => {
+			const thumb = el.querySelector<HTMLElement>('.dashboard-material-thumb');
+			if (thumb) thumb.style.aspectRatio = String(aspectOf(item));
 			colEls[assignment[i] ?? 0]!.appendChild(el);
 		});
 		colsHost.style.setProperty('--db-material-cols', String(cols));
@@ -853,49 +955,81 @@ export function renderMaterialLibrary(
 	/** Items of the last render, keyed by path (relayout + lightbox order). */
 	const lastItems = new Map<string, MaterialItem>();
 
-	/** Probe the page's unmeasured images (and text-tile covers), then relayout
-	 *  once per batch. */
+	/** Probe the page's unmeasured images (and text-tile covers). Settled
+	 *  probes land in the cache and flush the blocks holding deferred tiles
+	 *  in one pass — nothing ever lays out at the fallback ratio only to jump
+	 *  when the real ratio arrives (the filter "quick reshuffle" fix). */
 	function probeAspects(items: readonly MaterialItem[], gen: number): void {
-		const ImageCtor = (globalThis as { Image?: typeof Image }).Image;
-		if (typeof ImageCtor !== 'function' || Platform.isMobile) return;
-		const pending = items.filter(it => !aspectCache.has(it.path) && (
-			it.kind === 'image'
-			|| (it.kind === 'text' && textCoverOf(it) !== '')
-		));
+		if (!probingSupported()) return;
+		const pending = items.filter(it => !aspectCache.has(it.path) && isProbeable(it));
 		let inflight = 0;
 		let queued = [...pending];
-		let dirty = false;
 		const pump = (): void => {
 			if (gen !== generation) return;
 			while (inflight < 8 && queued.length > 0) {
 				const item = queued.shift()!;
 				const src = item.kind === 'text' ? textCoverOf(item) : resolveVaultImage(app, item.path);
-				if (!src) { aspectCache.set(item.path, aspectOf(item)); dirty = true; continue; }
+				if (!src) { aspectCache.set(item.path, aspectOf(item)); continue; }
 				inflight++;
 				void probeAspect(src).then(aspect => {
 					inflight--;
 					if (gen !== generation) return;
-					if (aspect > 0) {
-						aspectCache.set(item.path, aspect);
-						const tile = resultArea.querySelector<HTMLElement>(`.dashboard-material-tile[data-material-path="${cssEscape(item.path)}"] .dashboard-material-thumb`);
-						if (tile) tile.style.aspectRatio = String(aspect);
-						dirty = true;
-					}
+					// Cache the fallback too: a broken image must still mount
+					// (an uncached path would defer its tile forever and
+					// re-probe it on every render).
+					aspectCache.set(item.path, aspect > 0 ? aspect : aspectOf(item));
 					pump();
 				});
 			}
-			if (queued.length === 0 && inflight === 0 && dirty) {
-				dirty = false;
-				// Full shortest-column re-flow with the settled ratios.
-				nextFrame(() => { if (gen === generation) relayout(); });
-			}
+			if (queued.length === 0 && inflight === 0) flushPendingBlocks(gen);
 		};
 		pump();
 	}
 
-	/** cssEscape that works without the CSS API (paths in selectors). */
-	function cssEscape(s: string): string {
-		return s.replace(/["\\]/g, '\\$&');
+	/** Lay out the blocks whose tiles waited on aspect probes — one pass, all
+	 *  at their final ratios. */
+	function flushPendingBlocks(gen: number): void {
+		if (gen !== generation) return;
+		for (const [colsHost, record] of pendingBlocks) {
+			pendingBlocks.delete(colsHost);
+			if (record.gen !== gen) continue;
+			layoutTiles(colsHost, record.tiles);
+		}
+	}
+
+	/** Background aspect warm-up: fill the cache for every probeable item of
+	 *  the scan scope (concurrency 4, below the visible page's 8, so the
+	 *  first paint's probes always win the slots). Cache-only — it never
+	 *  touches tiles, so it needs no generation guards and safely spans
+	 *  renders; destroy() stops it. */
+	let warmUpStopped = false;
+	function warmAspectCache(): void {
+		if (!probingSupported()) return;
+		const records: MaterialFileRecord[] = app.vault.getFiles().map(f => ({
+			path: f.path,
+			basename: f.basename,
+			extension: f.extension,
+			stat: { mtime: f.stat.mtime, ctime: f.stat.ctime, size: f.stat.size },
+		}));
+		const all = buildMaterialItems(records, path => tagStore?.getTags(path) ?? [], config);
+		const queue = all.filter(it => !aspectCache.has(it.path) && isProbeable(it));
+		let inflight = 0;
+		const pump = (): void => {
+			if (warmUpStopped) return;
+			while (inflight < 4 && queue.length > 0) {
+				const item = queue.shift()!;
+				const src = item.kind === 'text' ? textCoverOf(item) : resolveVaultImage(app, item.path);
+				if (!src) { aspectCache.set(item.path, aspectOf(item)); continue; }
+				inflight++;
+				void probeAspect(src).then(aspect => {
+					inflight--;
+					// Cache the fallback too, same as the visible probes.
+					aspectCache.set(item.path, aspect > 0 ? aspect : aspectOf(item));
+					pump();
+				});
+			}
+		};
+		pump();
 	}
 
 	function updateFilterChips(): void {
@@ -904,7 +1038,7 @@ export function renderMaterialLibrary(
 		for (const tag of filterTags) {
 			const chip = filterChipsRow.createDiv({ cls: 'dashboard-library-filter-tag dashboard-library-filter-tag--tag' });
 			chip.createSpan({ cls: 'dashboard-library-filter-tag-label', text: `#${tag}` });
-			chip.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' }).addEventListener('click', () => toggleFilterTag(tag, null));
+			chip.createSpan({ cls: 'dashboard-library-filter-tag-x', text: '×' }).addEventListener('click', () => toggleFilterTag(tag));
 		}
 	}
 
@@ -955,6 +1089,7 @@ export function renderMaterialLibrary(
 		mkRailBtn('tags', t('material.batchTag'), () => batchTag());
 		mkRailBtn('folder-input', t('material.batchMove'), () => { void moveItems([...selected]); });
 		mkRailBtn('copy', t('material.copyPaths'), () => copyPaths([...selected]));
+		mkRailBtn('archive', t('material.archive'), () => archiveItems([...selected]));
 		mkRailBtn('trash-2', t('common.delete'), () => { void deleteItems([...selected]); }, 'dashboard-material-railbtn--danger');
 		// Clear stays enabled even at zero — it also just re-renders the rail.
 		mkRailBtn('x', t('material.clearSelection'), () => {
@@ -1099,19 +1234,33 @@ export function renderMaterialLibrary(
 		movePaths: (paths, folder) => { void movePathsTo(paths, folder); },
 	});
 
+	/** Build a waterfall block. Tiles with known aspects lay out at once;
+	 *  unmeasured ones are held back (when probing is available) until their
+	 *  probes settle, then flush in at their final ratios — laying them out
+	 *  at the fallback ratio first made the whole waterfall reshuffle the
+	 *  moment a filter click pulled unmeasured images onto the page. */
 	function renderTilesBlock(host: HTMLElement, items: readonly MaterialItem[], opener: (item: MaterialItem) => void): void {
 		const block = host.createDiv({ cls: 'dashboard-material-block' });
 		const colsHost = block.createDiv({ cls: 'dashboard-material-cols' });
 		const tiles = items.map(item => ({ el: buildTile(item, opener), item }));
-		layoutTiles(colsHost, tiles);
+		// No probing (mobile / node harnesses) → everything mounts immediately
+		// at the fallback ratios, exactly as before.
+		const ready = probingSupported() ? tiles.filter(({ item }) => isLayoutReady(item)) : tiles;
+		layoutTiles(colsHost, ready);
+		if (ready.length < tiles.length) {
+			pendingBlocks.set(colsHost, { gen: generation, tiles });
+		}
 	}
 
 	/** Lightbox over the same-kind files of the given display order; text
-	 *  items open as notes instead (nothing to preview in a media lightbox). */
+	 *  items open as notes instead (nothing to preview in a media lightbox),
+	 *  honoring the workspace open-note hook when the view provides one. */
 	function makeLightboxOpener(order: readonly MaterialItem[]) {
 		return (item: MaterialItem): void => {
 			if (item.kind === 'text') {
-				void app.workspace.openLinkText(item.path, '', false);
+				const file = fileOf(item.path);
+				if (ctx.openNote && file) ctx.openNote(file);
+				else void app.workspace.openLinkText(item.path, '', false);
 				return;
 			}
 			const sameKind = order.filter(r => r.kind === item.kind).map(r => fileOf(r.path)).filter((f): f is TFile => !!f);
@@ -1121,22 +1270,17 @@ export function renderMaterialLibrary(
 				getAllTags: () => tagStore.getAllTags(),
 				onTagsChange: (file: TFile, tags: string[]) => { tagStore.setTags(file.path, tags); },
 			} : undefined;
-			new MediaLightboxModal(app, sameKind, index, item.kind, tagHooks).open();
+			new MediaLightboxModal(app, sameKind, index, item.kind, tagHooks, ctx.openNote).open();
 		};
 	}
 
 	function render(): void {
 		const gen = ++generation;
+		scheduleImgPoolSweep();
 		// Fresh settings every pass — the getter is the fix for the stale
 		// scan-scope bug (a config captured at mount kept the whole vault
 		// visible after the settings modal narrowed the scope).
 		config = ctx.getConfig();
-		releaseVideoMedia(resultArea);
-		mounter?.disconnect();
-		resultArea.empty();
-		resultArea.toggleClass('is-select-mode', selectMode);
-		paginationArea.empty();
-		lastItems.clear();
 
 		const records: MaterialFileRecord[] = app.vault.getFiles().map(f => ({
 			path: f.path,
@@ -1156,6 +1300,82 @@ export function renderMaterialLibrary(
 		updateFilterChips();
 		favoritesBtn.toggleClass('active', favoritesOnly);
 		renderActionRail();
+
+		// Atomic swap (Rae): when the next paint would include unmeasured
+		// images, HOLD the current waterfall on screen until their aspect
+		// probes settle (or a short deadline passes), then paint in ONE pass.
+		// Painting the measured subset first and joining the rest later made
+		// every tile change position twice on every filter click.
+		if (probingSupported() && sorted.length > 0) {
+			const uncached = paintSetOf(sorted).filter(it => !isLayoutReady(it) && isProbeable(it));
+			if (uncached.length > 0) {
+				probeThen(uncached, () => { if (gen === generation) paintResults(sorted, gen); });
+				return;
+			}
+		}
+		paintResults(sorted, gen);
+	}
+
+	/** The items the next paint will actually mount (flat: the current page;
+	 *  grouped: each expanded group's current slice) — the hold only waits
+	 *  for these, never the whole result set. */
+	function paintSetOf(sorted: readonly MaterialItem[]): readonly MaterialItem[] {
+		if (groupBy !== 'none') {
+			const groups = groupMaterialItems(sorted, groupBy, t('library.notSet'));
+			const out: MaterialItem[] = [];
+			for (const group of groups) {
+				if (collapsedGroups.has(group.key)) continue;
+				const limit = groupRenderLimits.get(group.key) ?? MATERIAL_GROUP_PAGE_SIZE;
+				out.push(...group.items.slice(0, limit));
+			}
+			return out;
+		}
+		return paginateMaterial(sorted, currentPage, pageSize).items;
+	}
+
+	/** Probe a batch, then run done once — at natural completion or a short
+	 *  deadline, so one slow image can't hold the swap hostage. The caller
+	 *  guards done() against stale generations. */
+	function probeThen(items: readonly MaterialItem[], done: () => void): void {
+		let finished = false;
+		let inflight = 0;
+		const queued = [...items];
+		const finish = (): void => {
+			if (finished) return;
+			finished = true;
+			window.clearTimeout(deadline);
+			done();
+		};
+		const deadline = window.setTimeout(finish, 600);
+		const pump = (): void => {
+			if (finished) return;
+			while (inflight < 8 && queued.length > 0) {
+				const item = queued.shift()!;
+				const src = item.kind === 'text' ? textCoverOf(item) : resolveVaultImage(app, item.path);
+				if (!src) { aspectCache.set(item.path, aspectOf(item)); continue; }
+				inflight++;
+				void probeAspect(src).then(aspect => {
+					inflight--;
+					aspectCache.set(item.path, aspect > 0 ? aspect : aspectOf(item));
+					pump();
+				});
+			}
+			if (queued.length === 0 && inflight === 0) finish();
+		};
+		pump();
+	}
+
+	/** Build the waterfall (and pagination) for an already computed result
+	 *  set. Every tile either has a cached aspect or rides the pendingBlocks
+	 *  deferral (deadline stragglers, pill-expanded slices). */
+	function paintResults(sorted: readonly MaterialItem[], gen: number): void {
+		releaseVideoMedia(resultArea);
+		mounter?.disconnect();
+		resultArea.empty();
+		resultArea.toggleClass('is-select-mode', selectMode);
+		paginationArea.empty();
+		lastItems.clear();
+		pendingBlocks.clear();
 
 		if (sorted.length === 0) {
 			collapseAllBtn.addClass('is-hidden');
@@ -1273,5 +1493,10 @@ export function renderMaterialLibrary(
 	sortSelect.addEventListener('change', () => { sortBy = sortSelect.value as MaterialSortBy; currentPage = 1; render(); });
 
 	render();
+	// Warm the aspect cache in the background (Rae): quietly probe every
+	// probeable item of the scan scope once, after the first paint, so later
+	// filter/sort/page clicks find the ratios cached and mount everything in
+	// one pass (no deferred two-phase join for first-seen images).
+	warmAspectCache();
 	return { refresh: render, destroy };
 }

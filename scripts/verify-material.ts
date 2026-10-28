@@ -217,18 +217,19 @@ assert.equal(effectiveMaterialTemplate({ promptTemplate: ' 用 {path} 创作 ' }
 // --- 9. sanitizeMaterialConfig ---------------------------------------------------
 assert.deepEqual(
 	sanitizeMaterialConfig(undefined, ['claudian', 'copilot']),
-	{ includeFolders: [], excludeFolders: [], skillButtons: [], importFolder: '' },
+	{ includeFolders: [], excludeFolders: [], skillButtons: [], importFolder: '', archiveFolder: '' },
 	'undefined → complete defaults',
 );
 assert.deepEqual(
 	sanitizeMaterialConfig('garbage', []),
-	{ includeFolders: [], excludeFolders: [], skillButtons: [], importFolder: '' },
+	{ includeFolders: [], excludeFolders: [], skillButtons: [], importFolder: '', archiveFolder: '' },
 	'non-object garbage → defaults',
 );
 const saved = sanitizeMaterialConfig({
 	includeFolders: ['/素材/', '', 42, ' 旅行 '],
 	excludeFolders: ['回收站', null],
 	importFolder: ' ./素材/收件箱/ ',
+	archiveFolder: ' ./归档/ ',
 	skillButtons: [
 		{ id: 'b1', label: ' 配图 ', icon: 'image', agent: 'copilot', skillName: 'mk-cover', promptTemplate: ' x ', directSend: true },
 		{ label: 'bad agent', agent: 'nonexistent', promptTemplate: '' },
@@ -238,7 +239,9 @@ const saved = sanitizeMaterialConfig({
 assert.deepEqual(saved.includeFolders, ['素材', '旅行'], 'include folders normalized, non-strings dropped');
 assert.deepEqual(saved.excludeFolders, ['回收站'], 'exclude non-strings dropped');
 assert.equal(saved.importFolder, '素材/收件箱', 'import folder normalized (dots/slashes/space folded)');
+assert.equal(saved.archiveFolder, '归档', 'archive folder normalized the same way');
 assert.equal(sanitizeMaterialConfig({ importFolder: 42 }, []).importFolder, '', 'non-string import folder → default');
+assert.equal(sanitizeMaterialConfig({ archiveFolder: 42 }, []).archiveFolder, '', 'non-string archive folder → default');
 assert.equal(saved.skillButtons.length, 2, 'garbage button entries dropped');
 assert.deepEqual(saved.skillButtons[0], {
 	id: 'b1', label: '配图', icon: 'image', agent: 'copilot',

@@ -227,6 +227,7 @@ export const part1: Record<string, string> = {
 	"media.filterTags": "のタグ",
 	"media.editTags": "タグを編集",
 	"media.editTagsTitle": "タグ — {name}",
+	"media.backlinks": "参照しているノート",
 	"media.resizeVideo": "ドラッグでプレイヤーのサイズを変更",
 	"media.addTagPlaceholder": "タグを追加して Enter キーを押します",
 	"media.existingTags": "既存のタグ",

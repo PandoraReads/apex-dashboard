@@ -227,6 +227,7 @@ export const part1: Record<string, string> = {
 	"media.filterTags": "แท็ก",
 	"media.editTags": "แก้ไขแท็ก",
 	"media.editTagsTitle": "แท็ก — {name}",
+	"media.backlinks": "โน้ตที่อ้างอิง",
 	"media.resizeVideo": "ลากเพื่อปรับขนาดเครื่องเล่น",
 	"media.addTagPlaceholder": "เพิ่มแท็กแล้วกด Enter",
 	"media.existingTags": "แท็กที่มีอยู่",

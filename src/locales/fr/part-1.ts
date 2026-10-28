@@ -227,6 +227,7 @@ export const part1: Record<string, string> = {
 	"media.filterTags": "Balises",
 	"media.editTags": "Modifier les balises",
 	"media.editTagsTitle": "Balises — {name}",
+	"media.backlinks": "Notes y faisant référence",
 	"media.resizeVideo": "Faites glisser pour redimensionner le lecteur",
 	"media.addTagPlaceholder": "Ajoutez une balise et appuyez sur Entrée",
 	"media.existingTags": "Balises existantes",

@@ -59,7 +59,7 @@
  */
 import { strict as assert } from 'node:assert';
 import { Menu, Modal, Notice, WorkspaceLeaf } from 'obsidian';
-import { El, findByClass } from './mini-dom';
+import { El, findByClass, findTag } from './mini-dom';
 import type { App, TFile } from 'obsidian';
 import { renderMaterialLibrary } from '../src/material-render';
 import { MaterialLibraryView } from '../src/material-view';
@@ -612,6 +612,29 @@ async function main(): Promise<void> {
 	input2.dispatchEvent({ type: 'keydown', key: 'Enter' });
 	assert.deepEqual(renamed, [{ from: '素材/article.md', to: '素材/封面文章.md' }], 'enter commits the rename with the extension kept');
 	assert.ok(findByClass(host, 'dashboard-material-tile').some(el => el.dataset.materialPath === '素材/article.md'), 'tile re-renders (stub vault keeps the old path)');
+
+	// --- 7b. Text open honors the workspace open-note hook --------------------
+	// With ctx.openNote wired (the view backs it with the popover setting),
+	// a text click routes through the hook instead of openLinkText.
+	const hookHost = new El('div');
+	bodyHost.appendChild(hookHost);
+	const openedViaHook: string[] = [];
+	const hookController = renderMaterialLibrary(hookHost as unknown as HTMLElement, {
+		app,
+		getConfig: () => liveConfig,
+		onConfigChange: () => {},
+		onOpenSettings: () => {},
+		tagStore,
+		openNote: file => { openedViaHook.push(file.path); },
+	});
+	const hookTile = findByClass(hookHost, 'dashboard-material-tile').find(el => el.dataset.materialPath === '素材/article.md')!;
+	assert.ok(hookTile, 'hook controller tiles the text file');
+	hookTile.click();
+	assert.equal(openedViaHook.length, 0, 'the hook path also waits out the open delay');
+	await sleep(320);
+	assert.deepEqual(openedViaHook, ['素材/article.md'], 'text click routes through ctx.openNote when provided');
+	assert.equal(openedNotes.length, 0, 'openLinkText stays untouched while the hook owns the open');
+	hookController.destroy();
 
 	// --- 8. Per-tile tag editor -------------------------------------------------
 	StubModal.last = null;
@@ -1183,6 +1206,182 @@ async function main(): Promise<void> {
 	await themeView.onClose();
 
 	assert.equal(savedConfigs.length, 0, 'no config writes during render-only interactions');
+
+	// --- 15. Filter popup + batch-tag chips + archive rail + probe defer ------
+	const fxConfig: MaterialLibraryConfig = { includeFolders: ['素材'], excludeFolders: [], skillButtons: [SKILL_BUTTON] };
+	const fxHost = new El('div');
+	bodyHost.appendChild(fxHost);
+	const fxController = renderMaterialLibrary(fxHost as unknown as HTMLElement, {
+		app,
+		getConfig: () => fxConfig,
+		onConfigChange: () => {},
+		onOpenSettings: () => {},
+		tagStore,
+	});
+
+	// a) the filter popup: chips toggle the filter, the clear button says
+	//    "clear filters" (it used to reuse the reminder string).
+	findByClass(fxHost, 'dashboard-library-filter-btn')[0]!.click();
+	const popup15 = findByClass(bodyHost, 'dashboard-library-filter-popup')[0]!;
+	assert.ok(popup15, 'the filter popup mounts at the body');
+	assert.deepEqual(
+		findByClass(popup15, 'dashboard-library-filter-chip').map(c => c.textContent),
+		['封面', '小红书', '文章'],
+		'the popup lists every existing tag',
+	);
+	findByClass(popup15, 'dashboard-library-filter-chip').find(c => c.textContent === '封面')!.click();
+	assert.equal(findByClass(fxHost, 'dashboard-material-tile').length, 1, 'a picked tag narrows the waterfall');
+	const clearBtn15 = findByClass(popup15, 'dashboard-library-filter-popup-clear')[0]!;
+	assert.equal(clearBtn15.textContent, '清除筛选', 'the clear button says clear-filters, not the reminder string');
+	assert.ok(findByClass(popup15, 'dashboard-library-filter-chip').some(c => c.hasClass('active') && c.textContent === '封面'), 'the active chip reflects the picked tag');
+	clearBtn15.click();
+	assert.equal(findByClass(fxHost, 'dashboard-material-tile').length, 4, 'clearing restores the full page');
+	assert.equal(findByClass(bodyHost, 'dashboard-library-filter-popup').length, 0, 'and closes the popup');
+
+	// b) batch tags: existing tags are one click away, chips toggle into the
+	//    input, apply writes every picked tag to the whole selection.
+	findByClass(fxHost, 'dashboard-material-select-toggle')[0]!.click();
+	const fxTiles = () => findByClass(fxHost, 'dashboard-material-tile');
+	fxTiles().find(el => el.dataset.materialPath === '素材/cover.png')!.click();
+	fxTiles().find(el => el.dataset.materialPath === '素材/clip.mp4')!.click();
+	const fxRailBtns = (): El[] => findByClass(fxHost, 'dashboard-material-railbtn');
+	fxRailBtns().find(b => b.getAttribute('title') === '打标签')!.click();
+	const tagpop = findByClass(bodyHost, 'dashboard-material-tagpop')[0]!;
+	assert.ok(tagpop, 'the batch-tag popup floats beside the rail');
+	const tagInput = findTag(tagpop, 'input')[0] as unknown as El & { value: string };
+	const popChip = (name: string): El => findByClass(tagpop, 'dashboard-library-filter-chip').find(c => c.textContent === name)!;
+	assert.deepEqual(
+		findByClass(tagpop, 'dashboard-library-filter-chip').map(c => c.textContent),
+		['封面', '小红书', '文章'],
+		'the popup offers the existing tags as chips',
+	);
+	popChip('封面').click();
+	assert.equal(tagInput.value, '封面', 'a chip click fills the input');
+	popChip('小红书').click();
+	assert.equal(tagInput.value, '封面, 小红书', 'chips accumulate');
+	popChip('封面').click();
+	assert.equal(tagInput.value, '小红书', 'clicking an active chip removes it');
+	popChip('封面').click();
+	(findTag(tagpop, 'button').find(b => b.hasClass('dashboard-modal-btn--confirm')) as unknown as El)!.click();
+	assert.deepEqual([...tagStore.getTags('素材/clip.mp4')].sort(), ['封面', '小红书'], 'apply writes every picked tag to the selection');
+	assert.deepEqual([...tagStore.getTags('素材/cover.png')].sort(), ['封面', '小红书'], 'and keeps existing tags');
+
+	// c) the archive rail button: without a destination a notice points at the
+	//    setting; with one the selection moves there via renameFile.
+	StubNotice.messages.length = 0;
+	const renamedBefore15 = renamed.length;
+	const archiveBtn = (): El | undefined => fxRailBtns().find(b => b.getAttribute('title') === '归档');
+	assert.ok(archiveBtn(), 'the archive button sits on the rail');
+	const railBtnTitles = fxRailBtns().map(b => b.getAttribute('title'));
+	assert.ok(railBtnTitles.indexOf('归档') < railBtnTitles.indexOf('删除'), 'archive sits above delete');
+	archiveBtn()!.click();
+	assert.equal(renamed.length, renamedBefore15, 'no destination configured → nothing moves');
+	assert.ok(StubNotice.messages.some((m: string) => m.includes('归档文件夹')), 'and a notice points at the missing setting');
+	fxConfig.archiveFolder = '归档';
+	archiveBtn()!.click();
+	// movePathsTo awaits renameFile per file — let the microtasks drain
+	// before asserting on the moves/notices (same discipline as the drop tests).
+	await sleep(20);
+	assert.deepEqual(
+		renamed.slice(renamedBefore15).map(r => r.to).sort(),
+		['归档/clip.mp4', '归档/cover.png'],
+		'the selection archives into the configured folder',
+	);
+	assert.equal(StubNotice.messages[StubNotice.messages.length - 1], '已移动 2 个文件', 'one notice reports the move');
+	assert.equal(findByClass(fxHost, 'dashboard-material-railcount').length, 0, 'archiving clears the selection');
+
+	// d) atomic swap: when the next paint includes unmeasured images, the
+	//    render HOLDS (nothing mounts — no partial layout) until the probes
+	//    settle, then paints everything in one pass at final ratios.
+	const probeQueue: Array<{ naturalWidth: number; naturalHeight: number; onload: (() => void) | null }> = [];
+	class FakeImage {
+		naturalWidth = 0;
+		naturalHeight = 0;
+		onload: (() => void) | null = null;
+		onerror: (() => void) | null = null;
+		src = '';
+		constructor() { probeQueue.push(this); }
+	}
+	(globalThis as Record<string, unknown>).Image = FakeImage;
+	// probeAspect arms an 8s-failure timeout per image; a real node timer
+	// would keep the process alive — swallow only the long timers.
+	const realSetTimeout = globalThis.setTimeout;
+	(globalThis as Record<string, unknown>).setTimeout = ((fn: () => void, ms?: number) => {
+		if ((ms ?? 0) >= 8000) return 0 as unknown as ReturnType<typeof setTimeout>;
+		return realSetTimeout(fn, ms) as ReturnType<typeof setTimeout>;
+	}) as typeof setTimeout;
+	const deferHost = new El('div');
+	bodyHost.appendChild(deferHost);
+	renderMaterialLibrary(deferHost as unknown as HTMLElement, {
+		app,
+		getConfig: () => fxConfig,
+		onConfigChange: () => {},
+		onOpenSettings: () => {},
+		tagStore,
+	});
+	assert.equal(findByClass(deferHost, 'dashboard-material-tile').length, 0, 'the swap holds — no partial layout before probes settle');
+	assert.ok(probeQueue.length >= 3, `unmeasured images queued probes (${probeQueue.length})`);
+	for (const img of probeQueue.splice(0)) {
+		img.naturalWidth = 800;
+		img.naturalHeight = 400;
+		img.onload!();
+	}
+	await sleep(30);
+	const deferTiles = findByClass(deferHost, 'dashboard-material-tile');
+	assert.equal(deferTiles.length, 4, 'probes settle → the whole page paints in one pass');
+	const coverThumb = findByClass(deferTiles.find(el => el.dataset.materialPath === '素材/cover.png')!, 'dashboard-material-thumb')[0]! as unknown as { style: { aspectRatio?: string } };
+	assert.equal(coverThumb.style.aspectRatio, '2', 'at their settled aspect, with no fallback-ratio pass in between');
+
+	// f) background warm-up: after the first render the aspect cache fills
+	//    for the whole scan scope, so a LATER render mounts every tile in one
+	//    synchronous pass — the deferred two-phase join never happens.
+	const warmHost = new El('div');
+	bodyHost.appendChild(warmHost);
+	const warmController = renderMaterialLibrary(warmHost as unknown as HTMLElement, {
+		app,
+		getConfig: () => fxConfig,
+		onConfigChange: () => {},
+		onOpenSettings: () => {},
+		tagStore,
+	});
+	// Drain the FakeImage queue until the visible probes AND the warm-up
+	// pump (which mints images lazily as slots free) both run dry.
+	for (let round = 0; round < 8 && probeQueue.length > 0; round++) {
+		for (const img of probeQueue.splice(0)) {
+			img.naturalWidth = 800;
+			img.naturalHeight = 400;
+			img.onload!();
+		}
+		await sleep(10);
+	}
+	assert.equal(probeQueue.length, 0, 'visible probes and warm-up both drained');
+	// A re-render of the SAME controller (what a filter click is) finds every
+	// ratio cached and mounts the whole page in one synchronous pass.
+	warmController.refresh();
+	assert.equal(
+		findByClass(warmHost, 'dashboard-material-tile').length, 4,
+		'a warm cache mounts every tile synchronously — no deferred join',
+	);
+
+	delete (globalThis as Record<string, unknown>).Image;
+	(globalThis as Record<string, unknown>).setTimeout = realSetTimeout;
+
+	// e) image-element pool: a re-render reparents the SAME decoded <img>
+	//    node (no blank-then-fill repaint wave across the grid); two tiles
+	//    sharing one cover source keep distinct nodes (pool is keyed by
+	//    item, not by src, so neither steals the other's element).
+	const tileOf15 = (path: string): El => findByClass(fxHost, 'dashboard-material-tile').find(el => el.dataset.materialPath === path)!;
+	const imgBefore15 = findByClass(tileOf15('素材/cover.png'), 'dashboard-material-img')[0]!;
+	fxController.refresh();
+	assert.strictEqual(
+		findByClass(tileOf15('素材/cover.png'), 'dashboard-material-img')[0]!,
+		imgBefore15,
+		'refresh reparents the same decoded img node',
+	);
+	const articleImg15 = findByClass(tileOf15('素材/article.md'), 'dashboard-material-img')[0]!;
+	const coverImg15 = findByClass(tileOf15('素材/cover.png'), 'dashboard-material-img')[0]!;
+	assert.equal(articleImg15.getAttribute('src'), coverImg15.getAttribute('src'), 'the text tile and its cover image share the source');
+	assert.notStrictEqual(articleImg15, coverImg15, 'but keep distinct img nodes');
 
 	console.log('verify-material-render: all assertions passed');
 }

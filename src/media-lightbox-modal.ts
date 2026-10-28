@@ -1,5 +1,4 @@
-import { App, Modal, setIcon } from 'obsidian';
-import type { TFile } from 'obsidian';
+import { App, Modal, TFile, setIcon } from 'obsidian';
 import { resolveVaultImage } from './banner';
 import { releaseVideoMedia } from './media-section';
 import { MediaTagEditModal } from './media-tag-editor-modal';
@@ -28,24 +27,30 @@ export interface MediaTagHooks {
  * closes. Media src comes from {@link resolveVaultImage} which works for both.
  * With tagHooks set, a tag bar below the caption shows and edits per-file
  * tags; saving updates the bar in place so the playing video never restarts.
+ * Below the tags, a centered list names every note that references the file
+ * (backlinks); a click closes the lightbox and opens the note through
+ * openNote — popover-setting-aware when the caller wires it that way.
  */
 export class MediaLightboxModal extends Modal {
 	private readonly files: TFile[];
 	private index: number;
 	private readonly kind: 'image' | 'video';
 	private readonly tagHooks?: MediaTagHooks;
+	/** Note-jump hook for the backlinks list (falls back to openLinkText). */
+	private readonly openNote?: (file: TFile) => void;
 	/** Document-level gesture teardown (zoom pan, video resize) — run on close
 	 *  so a drag interrupted by Esc/unload never leaks its move listeners. */
 	private readonly gestureDisposers: Array<() => void> = [];
 	/** Timestamp of the last finished drag gesture (see GESTURE_CLICK_GUARD_MS). */
 	private lastGestureEndAt = 0;
 
-	constructor(app: App, files: TFile[], startIndex: number, kind: 'image' | 'video', tagHooks?: MediaTagHooks) {
+	constructor(app: App, files: TFile[], startIndex: number, kind: 'image' | 'video', tagHooks?: MediaTagHooks, openNote?: (file: TFile) => void) {
 		super(app);
 		this.files = files;
 		this.index = files.length === 0 ? 0 : Math.max(0, Math.min(startIndex, files.length - 1));
 		this.kind = kind;
 		this.tagHooks = tagHooks;
+		this.openNote = openNote;
 	}
 
 	onOpen(): void {
@@ -119,6 +124,12 @@ export class MediaLightboxModal extends Modal {
 			this.renderTagBar(tagBar, file);
 		}
 
+		// Referencing notes (Rae): centered below the tag area; an empty host
+		// stays childless and CSS hides it (:empty), so unreferenced files
+		// render no section at all.
+		const backlinksHost = contentEl.createDiv({ cls: 'dashboard-media-lightbox-backlinks' });
+		this.renderBacklinks(backlinksHost, file);
+
 		const prevBtn = contentEl.createDiv({ cls: 'dashboard-media-lightbox-nav dashboard-media-lightbox-nav--prev' });
 		setIcon(prevBtn, 'chevron-left');
 		if (this.index <= 0) prevBtn.addClass('is-disabled');
@@ -155,6 +166,44 @@ export class MediaLightboxModal extends Modal {
 				},
 			).open();
 		});
+	}
+
+	/** Notes referencing the current file, listed below the tag bar.
+	 *  resolvedLinks maps every source path to its resolved targets (links
+	 *  AND embeds), so an inverted scan collects exactly the referencing
+	 *  notes; canvas boards and stale link texts never resolve, and the
+	 *  md/instanceof filter drops anything that still slips through. Sorted
+	 *  by path so the order survives index rebuilds. A click closes the
+	 *  lightbox and opens the note (openNote honors the workspace popover
+	 *  setting; openLinkText is the hook-less fallback). */
+	private renderBacklinks(host: HTMLElement, file: TFile): void {
+		// Optional-chained for the minimal node harnesses; a real App always
+		// carries the metadata cache.
+		const links = this.app.metadataCache?.resolvedLinks;
+		if (!links) return;
+		const notes: TFile[] = [];
+		for (const [sourcePath, targets] of Object.entries(links)) {
+			if (!(file.path in targets)) continue;
+			const source = this.app.vault.getAbstractFileByPath(sourcePath);
+			if (source instanceof TFile && source.extension === 'md') notes.push(source);
+		}
+		if (notes.length === 0) return;
+		notes.sort((a, b) => a.path.localeCompare(b.path));
+		host.createDiv({ cls: 'dashboard-media-lightbox-backlinks-title', text: t('media.backlinks') });
+		for (const note of notes) {
+			const row = host.createDiv({
+				cls: 'dashboard-media-lightbox-backlink',
+				attr: { role: 'link', title: note.path },
+			});
+			setIcon(row.createSpan({ cls: 'dashboard-media-lightbox-backlink-icon' }), 'file-text');
+			row.createSpan({ cls: 'dashboard-media-lightbox-backlink-name', text: note.basename });
+			row.addEventListener('click', (e) => {
+				e.stopPropagation();
+				this.close();
+				if (this.openNote) this.openNote(note);
+				else void this.app.workspace.openLinkText(note.path, '');
+			});
+		}
 	}
 
 	private show(index: number): void {

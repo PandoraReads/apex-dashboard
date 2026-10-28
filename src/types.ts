@@ -1325,6 +1325,10 @@ export interface MaterialLibraryConfig {
 	 *  does not land on a folder group ('' = Obsidian's attachment folder).
 	 *  Optional so old data.json loads. */
 	importFolder?: string;
+	/** Where the action rail's archive button moves the selection ('' = the
+	 *  button notices about the missing setting instead of guessing).
+	 *  Optional so old data.json loads. */
+	archiveFolder?: string;
 }
 
 export interface DashboardColumn {

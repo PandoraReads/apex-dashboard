@@ -227,6 +227,7 @@ export const part1: Record<string, string> = {
 	"media.filterTags": "태그",
 	"media.editTags": "태그 편집",
 	"media.editTagsTitle": "태그 — {name}",
+	"media.backlinks": "참조하는 노트",
 	"media.resizeVideo": "드래그하여 플레이어 크기 조절",
 	"media.addTagPlaceholder": "태그를 추가하고 Enter를 누르세요.",
 	"media.existingTags": "기존 태그",
