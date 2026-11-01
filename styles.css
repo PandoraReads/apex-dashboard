@@ -11875,6 +11875,17 @@ button.dashboard-skillsec-import:hover {
 
 .dashboard-task-input:focus {
 	color: var(--db-text);
+	/* Focus affordance for an otherwise borderless inline field: a single
+	   underline in the accent colour. Needs !important to beat the
+	   border:none !important above (higher specificity + later source order). */
+	border-bottom: 1px solid var(--db-accent, var(--interactive-accent)) !important;
+}
+
+/* Placeholder hides on FOCUS (not just on typing) so an empty focused field
+   reads as an active input line instead of a label. */
+.dashboard-task-input:focus::placeholder {
+	color: transparent;
+	opacity: 0;
 }
 
 /* ===== Note ===== */

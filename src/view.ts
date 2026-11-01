@@ -79,6 +79,7 @@ import { mergeManualStageOrder, parseNoteDue, reorderSkillSubset } from './pipel
 import { pmKeyDate } from './pm-model';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
+import { dailyBlockHeading, mergeDailyTasksBlock } from './daily-note-block';
 import { getOrCreateDailyNote, ensureFolder } from './daily-notes';
 import { createMemoNote } from './memo-note';
 import type { App } from 'obsidian';
@@ -1804,14 +1805,24 @@ export class DashboardView extends ItemView implements HoverParent {
 			const path = folder ? `${folder}/${fileName}` : fileName;
 
 			const title = card.title?.trim() || t('notice.memoUntitled');
-			const block = `### ${title}\n${serializeTasksForNote(card.tasks)}`;
+			const heading = dailyBlockHeading(title);
+			const block = `${heading}\n${serializeTasksForNote(card.tasks)}`;
 
 			if (folder) await ensureFolder(this.app, folder);
 
 			const existing = this.app.vault.getAbstractFileByPath(path);
 			if (existing instanceof TFile) {
 				const raw = await this.app.vault.read(existing);
-				await this.app.vault.modify(existing, prependAfterFrontmatter(raw, block));
+				// Merge, don't overwrite: existing entries are updated to the
+				// card's state, new card entries are appended, and task lines
+				// that exist only in the note (hand-added / removed from the
+				// card) are left untouched. Absent heading → prepend a block.
+				const { content, replaced } = mergeDailyTasksBlock(raw, heading, card.tasks);
+				if (replaced) {
+					await this.app.vault.modify(existing, content);
+				} else {
+					await this.app.vault.modify(existing, prependAfterFrontmatter(raw, block));
+				}
 			} else {
 				await this.app.vault.create(path, `${block}\n`);
 			}
