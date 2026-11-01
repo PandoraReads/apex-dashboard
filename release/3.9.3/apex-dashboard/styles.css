@@ -11860,6 +11860,12 @@ button.dashboard-skillsec-import:hover {
 	appearance: none;
 	background: none !important;
 	border: none !important;
+	/* Underline seat is ALWAYS present (transparent when idle). Creating the
+	   border only on focus paints its first frame with the initial color
+	   (currentColor → dark) before the accent rule lands — the black→accent
+	   flicker — and grows the field by 1px. A transparent border has no
+	   first-frame color and no layout shift; focus just recolors it. */
+	border-bottom: 1px solid transparent !important;
 	box-shadow: none !important;
 	color: var(--db-text-muted);
 	font-size: 0.9em;
@@ -11875,10 +11881,8 @@ button.dashboard-skillsec-import:hover {
 
 .dashboard-task-input:focus {
 	color: var(--db-text);
-	/* Focus affordance for an otherwise borderless inline field: a single
-	   underline in the accent colour. Needs !important to beat the
-	   border:none !important above (higher specificity + later source order). */
-	border-bottom: 1px solid var(--db-accent, var(--interactive-accent)) !important;
+	/* Recolor the always-present transparent underline (see base rule). */
+	border-bottom-color: var(--db-accent, var(--interactive-accent)) !important;
 }
 
 /* Placeholder hides on FOCUS (not just on typing) so an empty focused field
