@@ -4,20 +4,35 @@ import { t } from './i18n';
 import { showPromptDialog } from './prompt-dialog';
 import { showConfirmDialog } from './confirm-dialog';
 import { normalizeWorkspacePath } from './workspace-registry';
+import { isImmersiveMode } from './immersive-grid';
+import type { DashboardLayoutMode } from './types';
 
 /** Display label for a workspace: its name, else the file path. */
 function workspaceLabel(name: string, path: string): string {
 	return name.trim() || `${path}.md`;
 }
 
+/** Menu label + icon per layout mode. Both immersive tones share the poster
+ *  icon language; the light one is marked by the sun so the two entries stay
+ *  distinguishable at a glance. */
+const LAYOUT_MENU_ENTRIES: Readonly<Record<DashboardLayoutMode, { label: string; icon: string }>> = {
+	'side': { label: 'settings.layoutSide', icon: 'panels-top-left' },
+	'stacked': { label: 'settings.layoutStacked', icon: 'rows-3' },
+	'immersive': { label: 'settings.layoutImmersive', icon: 'gallery-vertical' },
+	'immersive-light': { label: 'settings.layoutImmersiveLight', icon: 'sun' },
+};
+
+/** Order the layout entries appear in the menu. */
+const LAYOUT_MENU_ORDER: readonly DashboardLayoutMode[] = ['side', 'stacked', 'immersive', 'immersive-light'];
+
 /** Open the "new workspace" dialog and create the workspace on confirm.
  *  `layout` seeds the board file's `layout:` override (the immersive-hub
  *  flavour of the + menu). */
-async function promptNewWorkspace(plugin: DashboardPlugin, layout?: 'immersive'): Promise<void> {
+async function promptNewWorkspace(plugin: DashboardPlugin, layout?: DashboardLayoutMode): Promise<void> {
 	const files = plugin.settings.workspaceFiles;
 	const fallback = t('workspace.defaultName', { n: files.length + 1 });
 	const name = await showPromptDialog(plugin.app, {
-		title: layout === 'immersive' ? t('workspace.newImmersiveTitle') : t('workspace.newTitle'),
+		title: isImmersiveMode(layout) ? t('workspace.newImmersiveTitle') : t('workspace.newTitle'),
 		placeholder: t('workspace.namePlaceholder'),
 		defaultValue: fallback,
 	});
@@ -60,12 +75,13 @@ function openWorkspaceMenu(plugin: DashboardPlugin, file: string, name: string, 
 		menu.addSeparator();
 		const activeView = plugin.getActiveDashboardView();
 		const current = activeView?.getBoardData()?.layout ?? plugin.settings.layoutMode;
-		if (current === 'immersive') menu.addItem(item => item.setTitle(t('gantt.background')).setIcon('image').onClick(() => activeView?.editBackground()));
-		for (const mode of ['side', 'stacked', 'immersive'] as const) {
+		if (isImmersiveMode(current)) menu.addItem(item => item.setTitle(t('gantt.background')).setIcon('image').onClick(() => activeView?.editBackground()));
+		for (const mode of LAYOUT_MENU_ORDER) {
 			menu.addItem(item => {
+				const entry = LAYOUT_MENU_ENTRIES[mode];
 				item
-					.setTitle(t(mode === 'side' ? 'settings.layoutSide' : mode === 'stacked' ? 'settings.layoutStacked' : 'settings.layoutImmersive'))
-					.setIcon(mode === 'side' ? 'panels-top-left' : mode === 'stacked' ? 'rows-3' : 'gallery-vertical')
+					.setTitle(t(entry.label))
+					.setIcon(entry.icon)
 					.setChecked(current === mode)
 					.onClick(() => { void plugin.setActiveBoardLayout(mode); });
 			});

@@ -25,7 +25,7 @@ import { showConfirmDialog } from './confirm-dialog';
 import { applyModalTheme } from './modal-theme';
 import { partnerIndexOf } from './column-pairs';
 import { RATIO_SPAN, buildStackedSpanSpecs, resolveStackedSpans, isTieredWidgetKey } from './widget-span';
-import { effectiveLayout } from './immersive-grid';
+import { effectiveLayout, isImmersiveMode } from './immersive-grid';
 import { carryImmersivePlacement } from './immersive';
 import { isInPreserveScope, type PreserveScope } from './preserve-scope';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
@@ -286,8 +286,18 @@ export function renderSidebarWeekCalendar(container: HTMLElement): void {
 export function resolveEffectiveLayout(
 	settings: import('./types').DashboardSettings,
 	data?: import('./types').DashboardData | null,
-): 'side' | 'stacked' | 'immersive' {
+): import('./types').DashboardLayoutMode {
 	return effectiveLayout(data?.layout ?? settings.layoutMode, Platform.isPhone);
+}
+
+/** True for BOTH immersive tones (dark glass and light glass). The immersive
+ *  family shares one render pipeline, so every branch tests this instead of
+ *  comparing against the 'immersive' literal. */
+export function isImmersiveLayout(
+	settings: import('./types').DashboardSettings,
+	data?: import('./types').DashboardData | null,
+): boolean {
+	return isImmersiveMode(resolveEffectiveLayout(settings, data));
 }
 
 /** True when the board should render top-bottom (widget strip under the
@@ -1985,7 +1995,7 @@ export function renderDashboard(
 	const addColBtn = container.createDiv({ cls: 'dashboard-add-section' });
 	// Immersive boards have no "sections" — every tile is a card, so the
 	// ghost tile speaks the card language too.
-	addColBtn.setText(settings && resolveEffectiveLayout(settings, data) === 'immersive'
+	addColBtn.setText(settings && isImmersiveLayout(settings, data)
 		? t('renderer.addCard')
 		: t('renderer.addSection'));
 	addColBtn.setAttribute('role', 'button');
@@ -2298,7 +2308,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 	// Immersive boards have no collapsed sections: the toggle is hidden and
 	// every tile renders expanded (a saved collapsed state from another
 	// layout must not strand a tile).
-	const immersive = !!settings && resolveEffectiveLayout(settings, data) === 'immersive';
+	const immersive = !!settings && isImmersiveLayout(settings, data);
 	const collapsed = getCollapsedSections(app);
 	if (!immersive && collapsed.has(column.name)) {
 		el.addClass('dashboard-section-row--collapsed');

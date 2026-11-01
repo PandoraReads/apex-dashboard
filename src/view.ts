@@ -4,9 +4,9 @@ import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, isImmersiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
 import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
-import { defaultWidgetSize, displaceOverlappedBy, widgetItemId } from './immersive-grid';
+import { defaultWidgetSize, displaceOverlappedBy, isImmersiveMode, widgetItemId } from './immersive-grid';
 import type { PreserveScope } from './preserve-scope';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
 import { refreshCalendarSections } from './calendar-section';
@@ -453,7 +453,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// countdowns keep ticking, no vault re-scan). The immersive grid has no
 		// whole-area container: its cards are individual tiles, so they detach
 		// into a per-key map instead (renderImmersiveRoot re-attaches them).
-		if (layout === 'immersive') {
+		if (isImmersiveMode(layout)) {
 			this.immWidgetEls = new Map();
 			const prevGrid = prevRoot?.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
 			prevGrid?.querySelectorAll<HTMLElement>(':scope > [data-widget-key]').forEach(el => {
@@ -476,14 +476,14 @@ export class DashboardView extends ItemView implements HoverParent {
 			JSON.stringify([data.quickActions, data.quickActionOrder, data.hiddenPresets]),
 			data,
 		);
-		const preserveWidgets = layout === 'immersive'
+		const preserveWidgets = isImmersiveMode(layout)
 			? this.immWidgetEls.size > 0 && this.sidebarWidgetsSig === widgetSig
 			: !!this.sidebarWidgetsEl && this.sidebarWidgetsSig === widgetSig;
 
 		// The live-DOM scope destroy functions must leave alone: one element
 		// (side/stacked widgets area) or a per-card set (immersive tiles).
 		const preserveScope: HTMLElement | Set<HTMLElement> | null = preserveWidgets
-			? (layout === 'immersive' ? new Set(this.immWidgetEls.values()) : this.sidebarWidgetsEl)
+			? (isImmersiveMode(layout) ? new Set(this.immWidgetEls.values()) : this.sidebarWidgetsEl)
 			: null;
 		this.runCleanup(preserveScope);
 		this.data = data;
@@ -520,7 +520,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// mix in one free grid (still on a .dashboard-kanban host, so every
 		// kanban-rooted mechanism keeps working).
 		let boardHost: HTMLElement;
-		if (layout === 'immersive') {
+		if (isImmersiveMode(layout)) {
 			const imm = renderImmersiveRoot({
 				container,
 				data,
@@ -650,7 +650,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// The immersive grid owns section geometry; its section grip becomes a
 		// whole-tile reorder handle (setupImmersiveDnD), so the side/stacked
 		// grip-reorder wiring is skipped there. Card drags stay armed in both.
-		setupDragAndDrop(boardHost, this.createCallbacks(), this.dndCleanupFns, { skipSectionGrip: layout === 'immersive' });
+		setupDragAndDrop(boardHost, this.createCallbacks(), this.dndCleanupFns, { skipSectionGrip: isImmersiveMode(layout) });
 		this.attachBoardEventDelegation(boardHost);
 
 		// Replay the pre-render scroll snapshot onto the rebuilt tree. Keys that
@@ -1045,7 +1045,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  swallowed via suppressNextRender and the vault-watcher reload no-ops on
 	 *  the serialize-equality check — the handleMoveCard recipe. */
 	private isLayoutLocked(): boolean {
-		return !!this.data && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive' && this.data.immersiveEditable === false;
+		return !!this.data && isImmersiveLayout(this.plugin.settings, this.data) && this.data.immersiveEditable === false;
 	}
 
 	private commitImmersiveItems(next: ImmersiveItem[]): void {
@@ -1972,7 +1972,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Immersive boards: the "+ 添加卡片" tile opens the card menu —
 		// sections through the modal, widgets straight onto the board
 		// (per-board membership, independent of the global toggles).
-		if (this.data && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive') {
+		if (this.data && isImmersiveLayout(this.plugin.settings, this.data)) {
 			const root = this.containerEl.children[1] as HTMLElement | undefined;
 			const anchor = root?.querySelector<HTMLElement>('.dashboard-imm .dashboard-imm-add-btn')
 				?? root?.querySelector<HTMLElement>('.dashboard-imm .dashboard-add-section')
@@ -2478,7 +2478,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (minH) newEl.style.minHeight = minH;
 		// The swapped-in node carries no resize grip — re-attach it (the
 		// method is idempotent) so the tile keeps its corner handle.
-		if (immId && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive') {
+		if (immId && isImmersiveLayout(this.plugin.settings, this.data)) {
 			attachImmersiveResizeHandle(newEl, immId, () => this.immItems, next => this.commitImmersiveItems(next));
 		}
 		restoreScrollStates(newEl, scrollStates);
@@ -2493,7 +2493,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		window.requestAnimationFrame(restoreAncestorScroll);
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
-		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive' });
+		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: isImmersiveLayout(this.plugin.settings, this.data) });
 		return true;
 	}
 
@@ -2977,7 +2977,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// next full render (any board data edit, workspace switch-in, settings
 		// change) like every other section. Calendar grids are in-place
 		// updates that never swap elements — those stay live everywhere.
-		const immersive = resolveEffectiveLayout(this.plugin.settings, data) === 'immersive';
+		const immersive = isImmersiveLayout(this.plugin.settings, data);
 		const sectionType = (col: { sectionType?: string }) => col.sectionType;
 		const hasScanning = !immersive && data.columns.some(col => {
 			const st = sectionType(col);
@@ -3207,7 +3207,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		restoreScrollStates(mount, scrollStates);
 		// The corner resize grip and the hover delete button lived inside the
 		// swapped-out card.
-		if (immId && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive') {
+		if (immId && isImmersiveLayout(this.plugin.settings, this.data)) {
 			attachImmersiveResizeHandle(mount, immId, () => this.immItems, next => this.commitImmersiveItems(next));
 			if (immId.startsWith('widget:')) {
 				attachImmersiveWidgetDelete(mount, removeId => void this.removeImmersiveItem(removeId));

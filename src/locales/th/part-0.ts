@@ -159,6 +159,7 @@ export const part0: Record<string, string> = {
 	"settings.layoutSide": "แถบด้านข้าง",
 	"settings.layoutStacked": "ซ้อนกัน",
 	"settings.layoutImmersive": "ดื่มด่ำ",
+	"settings.layoutImmersiveLight": "ดื่มด่ำแบบสว่าง",
 	"view.sidebarResizeHint": "ลากเพื่อปรับขนาดแถบด้านข้าง",
 	"view.stripResizeHint": "ลากเพื่อปรับขนาดแถบวิดเจ็ต",
 	"settings.stylePreset": "แบบ",

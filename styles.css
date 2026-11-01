@@ -23268,18 +23268,22 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 /* ======================================================================
    IMMERSIVE LAYOUT (desktop/tablet only, >=641px)
    Full-bleed poster background; widget cards and section cards mixed in
-   one free 12-column grid; every card is dark glass with light text.
+   one free 12-column grid; every card is glass over the poster — dark glass
+   with light text ('immersive') or white glass with dark text
+   ('immersive-light'). Both tones share every structural rule below; the
+   attribute is matched by PREFIX, so never write an exact-match selector
+   for the immersive board here.
 
    Guards mirror the stacked block: the whole chapter sits inside
    @media (min-width: 641px), the exact inverse of the phone block's
-   max-width: 640px, and phones never receive data-layout="immersive"
+   max-width: 640px, and phones never receive an immersive layout value
    (resolveEffectiveLayout pins them to 'side') — so the phone CSS keeps
    winning by construction and the iOS backdrop-filter kill-switch stays
    untouched.
    ====================================================================== */
 @media (min-width: 641px) {
 
-	/* --- Token overrides: light text + guaranteed glass --------------------
+	/* --- Token overrides: tone text + guaranteed glass --------------------
 	   Three identical blocks beat every theme layer by specificity + source
 	   order: the base pair matches .apex-dashboard-root[data-theme="x"]
 	   (0,2,0); the .theme-light/.theme-dark pairs (0,3,0) match the theme
@@ -23297,10 +23301,17 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   blank tiles (the classic Chromium backdrop-filter pathology; iframes
 	   worst). The glass look comes from the stronger fills instead; real
 	   blur stays available as an opt-in via the glassBlur setting, which
-	   re-emits this token inline on the root. */
-	.apex-dashboard-root[data-layout="immersive"],
-	.theme-light .apex-dashboard-root[data-layout="immersive"],
-	.theme-dark .apex-dashboard-root[data-layout="immersive"] {
+	   re-emits this token inline on the root.
+
+	   TWO TONES SHARE THIS CHAPTER. `immersive` is dark glass with light
+	   text (this block); `immersive-light` is the mirror material — white
+	   glass with dark text — defined in the block right after. The attribute
+	   prefix [data-layout^="immersive"] matches BOTH, so the whole structural
+	   chapter below (shell, poster, grid, tiles, corner controls) serves the
+	   pair, and only the tone tokens differ. */
+	.apex-dashboard-root[data-layout^="immersive"],
+	.theme-light .apex-dashboard-root[data-layout^="immersive"],
+	.theme-dark .apex-dashboard-root[data-layout^="immersive"] {
 		--db-text: rgba(255, 255, 255, 0.96);
 		--db-text-muted: rgba(255, 255, 255, 0.74);
 		--db-text-faint: rgba(255, 255, 255, 0.52);
@@ -23340,43 +23351,149 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		   but its content is invisible" bug. */
 		--db-bg-modal: #171a21;
 		--db-bg-modal-raised: #1f232c;
+
+		/* --- Poster-tone tokens: DARK glass --------------------------------
+		   Not theme inputs — this is the material of the board itself. Every
+		   raw color used by the rules below (tile glass, scrim, capture pill,
+		   ghost labels, resize affordances) reads ONE of these, so the light
+		   variant only has to restate this list — no structural rule is
+		   duplicated per tone. */
+		--imm-tile-bg: color-mix(in srgb, var(--db-bg-card) 35%, rgba(8, 10, 14, 0.74));
+		--imm-tile-border: rgba(255, 255, 255, 0.22);
+		--imm-tile-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+		--imm-scrim: linear-gradient(rgba(8, 10, 14, 0.42), rgba(8, 10, 14, 0.3) 30%, rgba(8, 10, 14, 0.38));
+		--imm-pill-bg: color-mix(in srgb, rgba(8, 10, 14, 0.72) 78%, var(--db-bg-card));
+		--imm-pill-border: rgba(255, 255, 255, 0.16);
+		--imm-group-header-bg: rgba(8, 10, 14, 0.38);
+		--imm-group-header-border: rgba(255, 255, 255, 0.22);
+		--imm-add-section-bg: color-mix(in srgb, var(--db-bg-card) 25%, rgba(8, 10, 14, 0.55));
+		--imm-add-section-border: rgba(255, 255, 255, 0.28);
+		--imm-edit-btn-bg: rgba(8, 10, 14, 0.35);
+		--imm-edit-btn-border: rgba(255, 255, 255, 0.25);
+		--imm-input-color: rgba(255, 255, 255, 0.92);
+		--imm-input-placeholder: rgba(255, 255, 255, 0.5);
+		/* Text-hierarchy of the poster chrome, strongest → faintest. */
+		--imm-strong: rgba(255, 255, 255, 0.96);
+		--imm-ink: rgba(255, 255, 255, 0.72);
+		--imm-ink-soft: rgba(255, 255, 255, 0.55);
+		--imm-hover-fill: rgba(255, 255, 255, 0.14);
+		--imm-clock-default: rgba(255, 255, 255, 0.97);
+		--imm-clock-shadow: 0 2px 26px rgba(0, 0, 0, 0.45);
+		--imm-resize-grad: linear-gradient(135deg, transparent 46%, rgba(255, 255, 255, 0.55) 46%, rgba(255, 255, 255, 0.55) 54%, transparent 54%);
+		/* What accent hairlines/glows mix toward to stay visible on the tone. */
+		--imm-accent-mix: white;
 	}
 
-	/* --- Input legibility on the dark-glass board -------------------------
+	/* --- Light-glass tone: 'immersive-light' -------------------------------
+	   The SAME board in the opposite material: translucent white tiles with
+	   dark text, meant for bright posters where dark glass read as a heavy
+	   black slab. Structurally identical — only the tokens above are
+	   restated (plus the modal pair, so dialogs opened from a light board
+	   come up light too).
+
+	   SOURCE ORDER IS LOAD-BEARING: this block sits AFTER the dark one, and
+	   the dark selectors' [data-layout^="immersive"] prefix matches an
+	   immersive-light root as well (same specificity, 0,2,0 / 0,3,0) — later
+	   in the file is what makes the light values win. Never move it above. */
+	.apex-dashboard-root[data-layout="immersive-light"],
+	.theme-light .apex-dashboard-root[data-layout="immersive-light"],
+	.theme-dark .apex-dashboard-root[data-layout="immersive-light"] {
+		--db-text: rgba(18, 22, 31, 0.94);
+		--db-text-muted: rgba(18, 22, 31, 0.68);
+		--db-text-faint: rgba(18, 22, 31, 0.46);
+		--db-border-card: rgba(18, 22, 31, 0.14);
+		--db-border-section: rgba(18, 22, 31, 0.14);
+		--db-border-input: rgba(18, 22, 31, 0.16);
+		--db-border-btn: rgba(18, 22, 31, 0.14);
+		--db-border-add-section: rgba(18, 22, 31, 0.18);
+		--db-backdrop-blur: none;
+		/* Native widgets inside the board (checkboxes, range thumb, select
+		   popups, date pickers) follow the BOARD tone, not the Obsidian
+		   theme — a light board in a dark session would otherwise paint dark
+		   native chrome onto white glass. Only the light tone sets it: the
+		   dark tone keeps whatever the app theme provides. */
+		color-scheme: light;
+		/* Sticky kanban column titles layer --db-bg-section over --db-bg; pin
+		   the page token to the scrim family or a dark theme's --db-bg falls
+		   through and the titles go black-on-black. */
+		--db-bg: #f4f5f8;
+		--db-bg-card: rgba(255, 255, 255, 0.72);
+		--db-bg-card-hover: rgba(255, 255, 255, 0.88);
+		--db-bg-section: rgba(255, 255, 255, 0.72);
+		--db-bg-input: rgba(255, 255, 255, 0.86);
+		--db-bg-btn: rgba(255, 255, 255, 0.72);
+		--db-bg-btn-hover: rgba(255, 255, 255, 0.95);
+		--db-bg-hover: rgba(18, 22, 31, 0.06);
+		--db-bg-hover-strong: rgba(18, 22, 31, 0.1);
+		--db-bg-add-section: rgba(255, 255, 255, 0.55);
+		--db-bg-overlay: rgba(255, 255, 255, 0.85);
+		--db-bg-modal: #fbfbfd;
+		--db-bg-modal-raised: #ffffff;
+
+		/* Poster-tone tokens: LIGHT glass (mirror of the dark list). */
+		--imm-tile-bg: rgba(255, 255, 255, 0.78);
+		--imm-tile-border: rgba(18, 22, 31, 0.1);
+		--imm-tile-shadow: 0 8px 24px rgba(18, 22, 31, 0.1);
+		--imm-scrim: linear-gradient(rgba(248, 249, 252, 0.74), rgba(248, 249, 252, 0.56) 30%, rgba(248, 249, 252, 0.68));
+		--imm-pill-bg: rgba(255, 255, 255, 0.86);
+		--imm-pill-border: rgba(18, 22, 31, 0.12);
+		--imm-group-header-bg: rgba(248, 249, 252, 0.74);
+		--imm-group-header-border: rgba(18, 22, 31, 0.12);
+		--imm-add-section-bg: rgba(255, 255, 255, 0.55);
+		--imm-add-section-border: rgba(18, 22, 31, 0.2);
+		--imm-edit-btn-bg: rgba(255, 255, 255, 0.72);
+		--imm-edit-btn-border: rgba(18, 22, 31, 0.14);
+		--imm-input-color: rgba(18, 22, 31, 0.92);
+		--imm-input-placeholder: rgba(18, 22, 31, 0.45);
+		--imm-strong: rgba(18, 22, 31, 0.96);
+		--imm-ink: rgba(18, 22, 31, 0.7);
+		--imm-ink-soft: rgba(18, 22, 31, 0.45);
+		--imm-hover-fill: rgba(18, 22, 31, 0.08);
+		--imm-clock-default: rgba(14, 18, 26, 0.94);
+		/* A TIGHT, faint white halo only: the dark tone's 26px black glow has
+		   no light-tone counterpart — a wide 0.75-alpha white glow behind
+		   Didot's hairline strokes eats the glyph and the clock reads as pale
+		   gray mush on the milky scrim (caught in the headless render). */
+		--imm-clock-shadow: 0 1px 10px rgba(255, 255, 255, 0.5);
+		--imm-resize-grad: linear-gradient(135deg, transparent 46%, rgba(18, 22, 31, 0.45) 46%, rgba(18, 22, 31, 0.45) 54%, transparent 54%);
+		--imm-accent-mix: rgba(18, 22, 31, 0.9);
+	}
+
+	/* --- Input legibility on the poster board ------------------------------
 	   Obsidian's own field rules (`textarea, input[type='text'] { color:
 	   var(--text-normal) }`) out-specify the plugin's per-input color rules,
 	   so in a LIGHT Obsidian session every board input went dark-text-on-
 	   dark-glass (typed text invisible — sticky-card task inputs, expense
-	   fields). The immersive board is always dark glass with light text;
-	   force the pair at the root so app.css cannot flip it per-field. */
-	[data-layout="immersive"] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
-	[data-layout="immersive"] textarea,
-	[data-layout="immersive"] select {
-		color: rgba(255, 255, 255, 0.92) !important;
+	   fields), and on a light board the mirror bug appears. Force the tone's
+	   pair at the root so app.css cannot flip it per-field. */
+	[data-layout^="immersive"] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+	[data-layout^="immersive"] textarea,
+	[data-layout^="immersive"] select {
+		color: var(--imm-input-color) !important;
 	}
-	[data-layout="immersive"] input::placeholder,
-	[data-layout="immersive"] textarea::placeholder {
-		color: rgba(255, 255, 255, 0.5) !important;
+	[data-layout^="immersive"] input::placeholder,
+	[data-layout^="immersive"] textarea::placeholder {
+		color: var(--imm-input-placeholder) !important;
 		opacity: 1;
 	}
 
-	/* Grouped library/folder headers: an explicit dark strip keeps the title
-	   readable whatever glass/poster composite sits behind the tile — on a
-	   bright poster the translucent white glass washed out to near-white and
-	   swallowed the light title text. */
-	[data-layout="immersive"] .dashboard-library-group-header {
-		background: rgba(8, 10, 14, 0.38);
-		border-bottom-color: rgba(255, 255, 255, 0.22);
+	/* Grouped library/folder headers: an explicit tone strip keeps the title
+	   readable whatever glass/poster composite sits behind the tile — a
+	   translucent fill alone washed out against the poster and swallowed the
+	   title text. */
+	[data-layout^="immersive"] .dashboard-library-group-header {
+		background: var(--imm-group-header-bg);
+		border-bottom-color: var(--imm-group-header-border);
 		padding-left: 8px;
 		padding-right: 8px;
 	}
-	[data-layout="immersive"] .dashboard-library-group-header .dashboard-library-group-name,
-	[data-layout="immersive"] .dashboard-library-group-header .dashboard-library-group-count {
-		color: rgba(255, 255, 255, 0.9) !important;
+	[data-layout^="immersive"] .dashboard-library-group-header .dashboard-library-group-name,
+	[data-layout^="immersive"] .dashboard-library-group-header .dashboard-library-group-count {
+		color: var(--imm-strong) !important;
 	}
 
 	/* --- Shell -------------------------------------------------------------- */
-	[data-layout="immersive"] .dashboard-imm {
+	[data-layout^="immersive"] .dashboard-imm {
 		position: relative; /* anchor for the corner controls */
 		z-index: 1;
 		display: flex;
@@ -23393,22 +23510,22 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   descendant. Wheel, trackpad and keyboard scrolling are untouched. This
 	   chapter sits after every other ::-webkit-scrollbar rule in the file, so
 	   it also wins any specificity tie against them. */
-	[data-layout="immersive"],
-	[data-layout="immersive"] * {
+	[data-layout^="immersive"],
+	[data-layout^="immersive"] * {
 		scrollbar-width: none;
 	}
-	[data-layout="immersive"]::-webkit-scrollbar,
-	[data-layout="immersive"] *::-webkit-scrollbar {
+	[data-layout^="immersive"]::-webkit-scrollbar,
+	[data-layout^="immersive"] *::-webkit-scrollbar {
 		display: none;
 	}
 	/* Exception: the workflow board's horizontal scrollbar is functional
 	   signage — columns overflow to the right and the bar is how you tell.
 	   Restore it with the wrap's own hover-reveal recipe (transparent until
 	   hover, accent thumb), the same rhythm it uses in the normal layout. */
-	[data-layout="immersive"] .dashboard-pipeline-wrap {
+	[data-layout^="immersive"] .dashboard-pipeline-wrap {
 		scrollbar-width: auto;
 	}
-	[data-layout="immersive"] .dashboard-pipeline-wrap::-webkit-scrollbar {
+	[data-layout^="immersive"] .dashboard-pipeline-wrap::-webkit-scrollbar {
 		display: block;
 	}
 
@@ -23418,7 +23535,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   z-index 0 would paint AFTER static in-flow content (CSS painting order)
 	   and swallow the board — negative keeps it behind everything while
 	   staying inside .dashboard-imm's own stacking context. */
-	[data-layout="immersive"] .dashboard-imm-bg {
+	[data-layout^="immersive"] .dashboard-imm-bg {
 		position: fixed;
 		inset: 0;
 		z-index: -1;
@@ -23428,12 +23545,13 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		transition: opacity 0.6s ease;
 	}
 	/* Readability scrim: keeps the mid-dark average that light text needs,
-	   whichever poster is up. Slightly stronger at the top so the centered
+	   whichever poster is up (the light tone washes it to a pale veil for
+	   dark text instead). Slightly stronger at the top so the centered
 	   week calendar and capture field read cleanly. */
-	[data-layout="immersive"] .dashboard-imm-bg-scrim {
+	[data-layout^="immersive"] .dashboard-imm-bg-scrim {
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(rgba(8, 10, 14, 0.42), rgba(8, 10, 14, 0.30) 30%, rgba(8, 10, 14, 0.38));
+		background: var(--imm-scrim);
 	}
 
 	/* --- Top region: clock centered, quick-notes bar re-flowed ---------------- */
@@ -23442,7 +23560,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* The top region lives INSIDE the scroll region: horizontal rails come
 	   from the scroll region's padding; only the top breathing room is its
 	   own. Everything scrolls away together. */
-	[data-layout="immersive"] .dashboard-imm-top {
+	[data-layout^="immersive"] .dashboard-imm-top {
 		flex: 0 0 auto;
 		display: flex;
 		flex-direction: column;
@@ -23455,14 +23573,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* Didot — the same editorial serif the banner quotes default to. Its
 	   high-contrast strokes read as a proper magazine masthead at clock
 	   scale (macOS ships Didot; Windows falls to Bodoni MT/Georgia). */
-	[data-layout="immersive"] .dashboard-imm-clock-time {
+	[data-layout^="immersive"] .dashboard-imm-clock-time {
 		font-family: var(--dashboard-imm-clock-font, Didot, 'Bodoni MT', 'Playfair Display', Georgia, serif);
 		font-size: 5em;
 		font-weight: 500;
 		letter-spacing: 0.07em;
 		line-height: 1;
-		color: var(--dashboard-imm-clock-color, rgba(255, 255, 255, 0.97));
-		text-shadow: 0 2px 26px rgba(0, 0, 0, 0.45);
+		color: var(--dashboard-imm-clock-color, var(--imm-clock-default));
+		text-shadow: var(--imm-clock-shadow);
 		font-variant-numeric: lining-nums;
 		margin-left: 0.07em; /* optical centering against the tracking */
 	}
@@ -23473,7 +23591,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   Chrome-start-page styling: NO container panel — the capture field is a
 	   wide translucent pill floating on the poster and the chips are ghost
 	   buttons; the bar itself is fully transparent. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote {
 		flex-direction: column;
 		align-items: stretch;
 		gap: 10px;
@@ -23493,7 +23611,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* Capture field row first: the pill stretches the full bar width. */
 	/* The input row keeps the compact 440px measure, centered; the chips
 	   row below spans the FULL width and is not capped by the input. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-actions {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-actions {
 		order: 0;
 		justify-content: center;
 		gap: 5px;
@@ -23504,10 +23622,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* The capture field is a CARD-matched input: the same radius language as
 	   the board tiles, no pencil icon up front, whitespace carried by the
 	   textarea's own padding, nothing pre-rendered inside. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture {
 		flex: 1 1 auto;
-		background: color-mix(in srgb, rgba(8, 10, 14, 0.72) 78%, var(--db-bg-card));
-		border: 1px solid rgba(255, 255, 255, 0.16);
+		background: var(--imm-pill-bg);
+		border: 1px solid var(--imm-pill-border);
 		backdrop-filter: var(--db-backdrop-blur);
 		-webkit-backdrop-filter: var(--db-backdrop-blur);
 		border-radius: var(--db-radius-lg, 12px);
@@ -23515,42 +23633,42 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		overflow: hidden;
 		transition: border-color 0.15s ease, box-shadow 0.15s ease;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture:focus-within {
-		border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 65%, rgba(255, 255, 255, 0.3));
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture:focus-within {
+		border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 65%, var(--imm-accent-mix));
 		box-shadow: 0 0 0 3px color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 22%, transparent);
 	}
 	/* The pencil goes away entirely (the field is a clean card) — but the
 	   SEARCH glyph stays: search mode needs its affordance. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture:not(.dashboard-quicknote-capture--search) .dashboard-quicknote-capture-icon {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture:not(.dashboard-quicknote-capture--search) .dashboard-quicknote-capture-icon {
 		display: none;
 	}
 	/* Search mode: the pill stops clipping so the absolutely-positioned
 	   results dropdown underneath survives (overflow:hidden was swallowing
 	   it — "type and see nothing, Enter opens the first hit"). */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search {
 		overflow: visible;
 	}
 	/* Room for a full ten two-line rows (10 × ~53px + gaps + padding), still
 	   capped by the viewport on short panes. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-search-pop {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-search-pop {
 		max-height: min(560px, 65vh);
 	}
 	/* No focus ring in search mode: the pill keeps its resting hairline. The
 	   capture-mode accent border + glow read as a white frame over the
 	   poster, and the input's own 1px focus shadow doubles it. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search:focus-within {
-		border-color: rgba(255, 255, 255, 0.16);
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search:focus-within {
+		border-color: var(--imm-pill-border);
 		box-shadow: none;
 	}
-	/* Glyph reads on the dark translucent pill; focus lights it up (beats
+	/* Glyph reads on the translucent pill; focus lights it up (beats
 	   the base focus-within accent rule on specificity). */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search .dashboard-quicknote-capture-icon {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search .dashboard-quicknote-capture-icon {
 		display: inline-flex;
 		left: 14px;
-		color: rgba(255, 255, 255, 0.6) !important;
+		color: var(--imm-ink) !important;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search:focus-within .dashboard-quicknote-capture-icon {
-		color: rgba(255, 255, 255, 0.95) !important;
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search:focus-within .dashboard-quicknote-capture-icon {
+		color: var(--imm-strong) !important;
 	}
 	/* Kill the narrow cqw sizing: the field fills the card, its own padding
 	   is the whitespace. Both the resting and focus-width rules of the base
@@ -23558,8 +23676,8 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* The doubled class mirrors the base !important rule's specificity trick
 	   (quick-note-config overrides carry the doubled class), so the immersive
 	   padding wins the !important-vs-!important fight. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote .dashboard-quicknote-capture .dashboard-quicknote-capture-input.dashboard-quicknote-capture-input,
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture-input:focus {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote .dashboard-quicknote-capture .dashboard-quicknote-capture-input.dashboard-quicknote-capture-input,
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture-input:focus {
 		width: 100%;
 		min-width: 0;
 		height: 42px;
@@ -23573,37 +23691,37 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   idiom as above; placed later so the left pad wins the !important tie).
 	   box-shadow:none also kills the base focus ring — a 1px accent rectangle
 	   inside the pill that read as a white border while typing. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote .dashboard-quicknote-capture--search .dashboard-quicknote-capture-input.dashboard-quicknote-capture-input,
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search .dashboard-quicknote-capture-input:focus {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote .dashboard-quicknote-capture--search .dashboard-quicknote-capture-input.dashboard-quicknote-capture-input,
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-capture--search .dashboard-quicknote-capture-input:focus {
 		padding-left: 38px !important;
 		box-shadow: none;
 	}
 	/* Cog: a proper card-matched button, sized to be an easy target. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-cog {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-cog {
 		width: 42px;
 		height: 42px;
 		flex: 0 0 42px;
 		margin-top: 0;
-		background: color-mix(in srgb, rgba(8, 10, 14, 0.72) 78%, var(--db-bg-card)) !important;
-		border: 1px solid rgba(255, 255, 255, 0.16) !important;
+		background: var(--imm-pill-bg) !important;
+		border: 1px solid var(--imm-pill-border) !important;
 		border-radius: var(--db-radius-lg, 12px) !important;
-		color: rgba(255, 255, 255, 0.78) !important;
+		color: var(--imm-ink) !important;
 		opacity: 1;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-cog svg {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-cog svg {
 		width: 18px;
 		height: 18px;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-cog:hover {
-		color: rgba(255, 255, 255, 1) !important;
-		border-color: rgba(255, 255, 255, 0.3) !important;
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-cog:hover {
+		color: var(--imm-strong) !important;
+		border-color: color-mix(in srgb, var(--imm-pill-border) 50%, var(--imm-strong)) !important;
 	}
 	/* ...chips below: ghost pills — text on the poster, faint hover fill,
 	   no chip backgrounds, no separators. The pills are invisible at rest,
 	   so the PERCEIVED button spacing is gap + both neighbors' horizontal
 	   padding; both stay tight here (3px gap, 6px pill padding ≈ 17px of
 	   air between labels) — the side/stacked bar keeps its roomier recipe. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-nav {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-nav {
 		order: 1;
 		flex: 0 1 auto;
 		min-width: 0;
@@ -23613,24 +23731,24 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		gap: 3px;
 		padding: 0 4px;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-chip {
 		background: none;
 		border: 1px solid transparent;
-		color: rgba(255, 255, 255, 0.72);
+		color: var(--imm-ink);
 		border-radius: 999px;
 		padding: 3px 6px;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip::before {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-chip::before {
 		display: none;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip:hover {
-		background: rgba(255, 255, 255, 0.14);
-		border-color: rgba(255, 255, 255, 0.14);
-		color: rgba(255, 255, 255, 0.96);
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-chip:hover {
+		background: var(--imm-hover-fill);
+		border-color: var(--imm-hover-fill);
+		color: var(--imm-strong);
 	}
 
 	/* --- Scroll region: the one scrolling layer ------------------------------ */
-	[data-layout="immersive"] .dashboard-scroll-region {
+	[data-layout^="immersive"] .dashboard-scroll-region {
 		flex: 1;
 		min-height: 0;
 		display: flex;
@@ -23644,7 +23762,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		scrollbar-width: thin;
 		scrollbar-color: transparent transparent;
 	}
-	[data-layout="immersive"] .dashboard-scroll-region:hover {
+	[data-layout^="immersive"] .dashboard-scroll-region:hover {
 		scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 	}
 
@@ -23657,7 +23775,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   The .apex-dashboard-root prefix is load-bearing specificity: the
 	   transparent-theme cluster sets `gap: 8px` at (0,3,0) — the shorthand
 	   would silently reinstate an 8px row gap INSIDE every span. */
-	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban {
+	.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban {
 		display: grid;
 		grid-template-columns: repeat(12, minmax(0, 1fr));
 		grid-auto-rows: 10px; /* IMM_ROW_UNIT (immersive-grid.ts) — keep in sync */
@@ -23672,9 +23790,9 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   A tile is ANY direct grid child carrying data-imm-id: a section row, a
 	   widget card, or a refresh-swap mount wrapper (refreshDataWidget replaces
 	   async-refresh widgets with a bare mount that carries the id). Tiles are
-	   a stronger cast of the same translucent-white glass the inner surfaces
-	   use (--db-bg-card above), so the board reads as one material with a
-	   tile/content hierarchy.
+	   a stronger cast of the same glass the inner surfaces use (--db-bg-card
+	   above), so the board reads as one material with a tile/content
+	   hierarchy — in the dark tone (--imm-tile-bg) or the light one.
 	   Sizing: after each fit pass the tile carries an inline min-height /
 	   max-height / height triple pinned to its spanned fill (immersive.ts
 	   refitImmersiveGrid). The EXPLICIT height is load-bearing beyond the
@@ -23684,7 +23802,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   tallest column and wheel-over-column scrolled the page instead of the
 	   list. Content past the pin scrolls INSIDE the section's own scrollers
 	   (the library files area, kanban columns). */
-	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] {
+	.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > [data-imm-id] {
 		position: relative; /* containing block for the strips/delete chrome */
 		/* BORDER-BOX is load-bearing: the fit pins height/min/max to
 		   rowsToPx(span) and that math budgets the tile's own padding+border
@@ -23694,12 +23812,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		   ~16px — worst right after a drag-resize ("cards overlap after
 		   resizing"). */
 		box-sizing: border-box;
-		background: color-mix(in srgb, var(--db-bg-card) 35%, rgba(8, 10, 14, 0.74));
-		border: 1px solid rgba(255, 255, 255, 0.22);
+		background: var(--imm-tile-bg);
+		border: 1px solid var(--imm-tile-border);
 		backdrop-filter: var(--db-backdrop-blur);
 		-webkit-backdrop-filter: var(--db-backdrop-blur);
 		color: var(--db-text);
-		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+		box-shadow: var(--imm-tile-shadow);
 		overflow: hidden;
 		min-width: 0;
 		align-self: start;
@@ -23715,25 +23833,25 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   into a nested vertical scroller chasing the tile's size — the
 	   "strobing sections" bug. The section-row base 500px cap is cleared so
 	   the fit/user cap governs; content past the tile cap scrolls the TILE. */
-	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id].dashboard-section-row {
+	.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > [data-imm-id].dashboard-section-row {
 		max-height: none;
 	}
 	/* Mount-wrapped widget tiles: the mount is the glass tile; the widget
 	   card inside goes transparent (no glass-on-glass double fill) and sizes
 	   with its own content (height auto — the mount/tile handles the cap). */
-	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > .dashboard-sidebar-widget-mount {
+	.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > .dashboard-sidebar-widget-mount {
 		display: flex;
 		flex-direction: column;
 	}
-	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-sidebar-widget,
-	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > .dashboard-sidebar-widget.dashboard-sidebar-widget {
+	.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-sidebar-widget,
+	.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > .dashboard-sidebar-widget.dashboard-sidebar-widget {
 		/* Widgets are FIXED-HEIGHT tiles (the stacked sizing design): the
 		   card fills the tile and manages its own internal scrolling. */
 		flex: 1 1 auto;
 		min-height: 0;
 		height: auto;
 	}
-	.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-sidebar-widget {
+	.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-sidebar-widget {
 		background: transparent;
 		border: none;
 		box-shadow: none;
@@ -23745,14 +23863,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   instead of the full-width slab. Auto placement lands it after the last
 	   explicitly placed tile. Fixed pixel height — fine rows would make
 	   "span 2" a 20px sliver. */
-	[data-layout="immersive"] .dashboard-add-section {
+	[data-layout^="immersive"] .dashboard-add-section {
 		grid-column: auto / span 3;
 		grid-row: auto / span 12;
 		flex: none;
 		margin-bottom: 0;
-		border-color: rgba(255, 255, 255, 0.28);
+		border-color: var(--imm-add-section-border);
 		color: var(--db-text-muted);
-		background: color-mix(in srgb, var(--db-bg-card) 25%, rgba(8, 10, 14, 0.55));
+		background: var(--imm-add-section-bg);
 		backdrop-filter: var(--db-backdrop-blur);
 		-webkit-backdrop-filter: var(--db-backdrop-blur);
 	}
@@ -23761,7 +23879,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   The workspace switcher keeps its banner spot semantics (top-left); the
 	   wand (background editor) moves top-right. Both hang off .dashboard-imm
 	   (position: relative above). */
-	[data-layout="immersive"] .dashboard-imm > .dashboard-workspace-switcher {
+	[data-layout^="immersive"] .dashboard-imm > .dashboard-workspace-switcher {
 		top: 8px;
 		left: 10px;
 		z-index: 3;
@@ -23769,20 +23887,20 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* Resting at half opacity: unlike the banner (surface hover reveals it),
 	   there is no banner surface here — an invisible button on a poster is
 	   undiscoverable. */
-	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-edit-btn {
+	[data-layout^="immersive"] .dashboard-imm > .dashboard-imm-edit-btn {
 		top: 8px;
 		right: 10px;
 		bottom: auto;
 		z-index: 3;
 		opacity: 0.45;
 		color: var(--db-text);
-		border-color: rgba(255, 255, 255, 0.25);
-		background: rgba(8, 10, 14, 0.35);
+		border-color: var(--imm-edit-btn-border);
+		background: var(--imm-edit-btn-bg);
 	}
-	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-edit-btn:hover {
+	[data-layout^="immersive"] .dashboard-imm > .dashboard-imm-edit-btn:hover {
 		opacity: 1;
 	}
-	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-appearance-btn {
+	[data-layout^="immersive"] .dashboard-imm > .dashboard-imm-appearance-btn {
 		position: absolute;
 		top: 48px;
 		right: 10px;
@@ -23794,12 +23912,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		background-color: transparent !important;
 		box-shadow: none !important;
 	}
-	[data-layout="immersive"] .dashboard-imm > .dashboard-imm-appearance-btn:hover {
+	[data-layout^="immersive"] .dashboard-imm > .dashboard-imm-appearance-btn:hover {
 		opacity: 1;
 		background: transparent !important;
 		color: var(--db-accent, var(--interactive-accent));
 	}
-	[data-layout="immersive"] .dashboard-imm.dashboard-imm--locked > .dashboard-imm-appearance-btn { display: none; }
+	[data-layout^="immersive"] .dashboard-imm.dashboard-imm--locked > .dashboard-imm-appearance-btn { display: none; }
 
 	/* --- Tile interactions: edge resize + reorder indicators ------------------
 	   Resize is EDGE-BASED: the right edge drags width (ew), the bottom edge
@@ -23837,7 +23955,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		width: 16px;
 		height: 16px;
 		cursor: nwse-resize;
-		background: linear-gradient(135deg, transparent 46%, rgba(255, 255, 255, 0.55) 46%, rgba(255, 255, 255, 0.55) 54%, transparent 54%);
+		background: var(--imm-resize-grad);
 		border-bottom-right-radius: var(--db-radius-lg);
 	}
 	/* Hairline edge accents, revealed on tile hover. */
@@ -23849,7 +23967,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		right: 2px;
 		width: 2px;
 		border-radius: 2px;
-		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, white);
+		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, var(--imm-accent-mix));
 	}
 	.dashboard-imm-resize-v::after {
 		content: '';
@@ -23859,11 +23977,11 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		bottom: 2px;
 		height: 2px;
 		border-radius: 2px;
-		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, white);
+		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 75%, var(--imm-accent-mix));
 	}
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-handle,
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-h::after,
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-v::after,
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-handle,
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-h::after,
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-resize-v::after,
 	.dashboard-imm-resize-h:hover::after,
 	.dashboard-imm-resize-v:hover::after {
 		opacity: 0.9;
@@ -23872,10 +23990,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	/* Reorder drop indicators: accent glow on the leading/trailing edge of
 	   the hovered tile (left half = insert before, right half = after). */
 	.dashboard-imm-tile--over-left {
-		box-shadow: -3px 0 0 0 var(--db-accent), 0 8px 28px rgba(0, 0, 0, 0.22);
+		box-shadow: -3px 0 0 0 var(--db-accent), var(--imm-tile-shadow);
 	}
 	.dashboard-imm-tile--over-right {
-		box-shadow: 3px 0 0 0 var(--db-accent), 0 8px 28px rgba(0, 0, 0, 0.22);
+		box-shadow: 3px 0 0 0 var(--db-accent), var(--imm-tile-shadow);
 	}
 	.dashboard-imm-tile--dragging {
 		opacity: 0.4;
@@ -23895,35 +24013,35 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   same card costume as widget tiles. Section chrome collapses to a card
 	   header — smaller title, ghost hover-revealed controls, no grip (the
 	   header IS the drag surface, see setupImmersiveDnD). */
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id].dashboard-section-row {
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id].dashboard-section-row {
 		padding: 12px 14px;
 	}
-	[data-layout="immersive"] .dashboard-section-header {
+	[data-layout^="immersive"] .dashboard-section-header {
 		margin-bottom: 6px;
 		min-height: 22px;
 		cursor: grab;
 	}
-	[data-layout="immersive"] .dashboard-section-header:active {
+	[data-layout^="immersive"] .dashboard-section-header:active {
 		cursor: grabbing;
 	}
-	[data-layout="immersive"] .dashboard-section-title-wrap {
+	[data-layout^="immersive"] .dashboard-section-title-wrap {
 		gap: 6px;
 	}
-	[data-layout="immersive"] .dashboard-section-title {
+	[data-layout^="immersive"] .dashboard-section-title {
 		font-size: 0.85em;
 		font-weight: 600;
 		letter-spacing: 0.01em;
 	}
-	[data-layout="immersive"] .dashboard-section-grip {
+	[data-layout^="immersive"] .dashboard-section-grip {
 		display: none; /* retired: the header is the handle */
 	}
-	[data-layout="immersive"] .dashboard-section-toggle {
+	[data-layout^="immersive"] .dashboard-section-toggle {
 		opacity: 0.45;
 	}
 	/* Header controls: ghost icon buttons at rest, fully revealed on card
 	   hover (the widget config-button recipe — a card full of lit buttons is
 	   a panel, not a card). */
-	[data-layout="immersive"] .dashboard-section-header-actions button {
+	[data-layout^="immersive"] .dashboard-section-header-actions button {
 		background: none;
 		border: none;
 		box-shadow: none;
@@ -23931,34 +24049,34 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		opacity: 0.35;
 		transition: opacity 0.15s ease, color 0.15s ease;
 	}
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover .dashboard-section-header-actions button {
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id]:hover .dashboard-section-header-actions button {
 		opacity: 1;
 		color: var(--db-text-muted);
 	}
-	[data-layout="immersive"] .dashboard-section-header-actions button:hover {
+	[data-layout^="immersive"] .dashboard-section-header-actions button:hover {
 		color: var(--db-text);
 	}
 	/* Library/tool toolbars lose their inner card box — the tile IS the card;
 	   the search field keeps its input chrome (functional). */
-	[data-layout="immersive"] .dashboard-library-toolbar,
-	[data-layout="immersive"] .dashboard-dataview-toolbar {
+	[data-layout^="immersive"] .dashboard-library-toolbar,
+	[data-layout^="immersive"] .dashboard-dataview-toolbar {
 		background: none;
 		padding: 2px 0;
 		margin-bottom: 6px;
 	}
-	[data-layout="immersive"] .dashboard-library-toolbar button,
-	[data-layout="immersive"] .dashboard-dataview-toolbar button {
+	[data-layout^="immersive"] .dashboard-library-toolbar button,
+	[data-layout^="immersive"] .dashboard-dataview-toolbar button {
 		background: none;
 		border: none;
 		box-shadow: none;
 		color: var(--db-text-faint);
 	}
-	[data-layout="immersive"] .dashboard-library-toolbar button:hover,
-	[data-layout="immersive"] .dashboard-dataview-toolbar button:hover {
+	[data-layout^="immersive"] .dashboard-library-toolbar button:hover,
+	[data-layout^="immersive"] .dashboard-dataview-toolbar button:hover {
 		color: var(--db-text);
 	}
 	/* The add-card ghost reads as a shy tile, not a slab. */
-	[data-layout="immersive"] .dashboard-add-section {
+	[data-layout^="immersive"] .dashboard-add-section {
 		font-size: 0.75em;
 		letter-spacing: 0.04em;
 	}
@@ -23984,7 +24102,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		background: none !important;
 		box-shadow: none !important;
 		outline: none;
-		color: rgba(255, 255, 255, 0.55);
+		color: var(--imm-ink-soft);
 		cursor: pointer;
 		opacity: 0;
 		transition: opacity 0.15s ease, color 0.15s ease;
@@ -23993,14 +24111,14 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		width: 11px;
 		height: 11px;
 	}
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-widget-del,
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id]:hover > .dashboard-imm-widget-del,
 	.dashboard-imm-widget-del:focus-visible {
 		opacity: 1;
 	}
 	.dashboard-imm-widget-del:hover {
 		color: #ff8080;
 	}
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id] .dashboard-widget-cfg-btn {
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id] .dashboard-widget-cfg-btn {
 		top: 28px;
 	}
 
@@ -24008,12 +24126,12 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   buttons, pinned to the row's right edge (the top region spans the page
 	   and never scrolls). As a mid-page fixed FAB it shadowed tiles near the
 	   right edge and ate their resize-strip presses. */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-nav {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-nav {
 		position: relative;
 		width: 100%;
 		align-self: stretch;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-imm-add-btn {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-imm-add-btn {
 		position: absolute;
 		right: 0;
 		top: 50%;
@@ -24027,21 +24145,21 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 		padding: 0;
 		border: none;
 		background: none;
-		color: rgba(255, 255, 255, 0.75);
+		color: var(--imm-ink);
 		cursor: pointer;
 		transition: color 0.15s ease, transform 0.15s ease;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-imm-add-btn:hover {
-		color: #ffffff;
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-imm-add-btn:hover {
+		color: var(--imm-strong);
 		transform: translateY(-50%) scale(1.12);
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-imm-add-btn svg {
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-imm-add-btn svg {
 		width: 15px;
 		height: 15px;
 	}
 	/* Without the quick-notes bar the button anchors to the top region's
 	   right instead. */
-	[data-layout="immersive"] .dashboard-imm-top > .dashboard-imm-add-btn {
+	[data-layout^="immersive"] .dashboard-imm-top > .dashboard-imm-add-btn {
 		top: 8px;
 		transform: none;
 	}
@@ -24050,7 +24168,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	   exact grid slot the dragged card would take — the drop destination is
 	   readable at a glance instead of inferred from edge glows. */
 	.dashboard-imm-drop-ghost {
-		border: 2px dashed color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 80%, white);
+		border: 2px dashed color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 80%, var(--imm-accent-mix));
 		background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 12%, transparent);
 		border-radius: var(--db-radius-lg, 12px);
 		margin-bottom: 10px;
@@ -24060,18 +24178,18 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	}
 	/* The collapse chevron has no role on immersive boards (tiles are always
 	 * expanded — renderSection skips the collapsed class there). */
-	[data-layout="immersive"] .dashboard-section-toggle {
+	[data-layout^="immersive"] .dashboard-section-toggle {
 		display: none;
 	}
 	/* The "Today" chip follows the same light ghost language as its
 	   siblings (the base bar paints it accent — loud on the poster). */
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip.dashboard-quicknote-today,
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-today .dashboard-quicknote-icon {
-		color: rgba(255, 255, 255, 0.72) !important;
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-chip.dashboard-quicknote-today,
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-today .dashboard-quicknote-icon {
+		color: var(--imm-ink) !important;
 		font-weight: 500;
 	}
-	[data-layout="immersive"] .dashboard-imm-top .dashboard-quicknote-chip.dashboard-quicknote-today:hover {
-		color: rgba(255, 255, 255, 0.96) !important;
+	[data-layout^="immersive"] .dashboard-imm-top .dashboard-quicknote-chip.dashboard-quicknote-today:hover {
+		color: var(--imm-strong) !important;
 	}
 	/* Pointer-move session: no text selection, grabbing cursor, and the
 	 * pressed tile doesn't hijack scroll. */
@@ -24087,9 +24205,9 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	 * press on header text + move made the browser hijack the gesture (all
 	 * pointer events cease — no move, no up), which read as "memo/todo cards
 	 * can't be moved". Selection off; click/dblclick-rename unaffected. */
-	[data-layout="immersive"] .dashboard-section-header,
-	[data-layout="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-card-header,
-	[data-layout="immersive"] .dashboard-kanban > [data-widget-key] {
+	[data-layout^="immersive"] .dashboard-section-header,
+	[data-layout^="immersive"] .dashboard-kanban > [data-imm-id] > .dashboard-card-header,
+	[data-layout^="immersive"] .dashboard-kanban > [data-widget-key] {
 		user-select: none;
 		-webkit-user-select: none;
 	}
@@ -27462,8 +27580,8 @@ button.dashboard-capturebar-glyph:hover {
    content widgets, wrong around these slim bars (a hard white rectangle
    around a rounded capsule, Rae). The bar IS the frame: strip the tile
    chrome for the two quick-input tiles so nothing doubles it. */
-.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id][data-widget-key="quickCapture"],
-.apex-dashboard-root[data-layout="immersive"] .dashboard-kanban > [data-imm-id][data-widget-key="fileSearch"] {
+.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > [data-imm-id][data-widget-key="quickCapture"],
+.apex-dashboard-root[data-layout^="immersive"] .dashboard-kanban > [data-imm-id][data-widget-key="fileSearch"] {
 	background: transparent;
 	border: none;
 	box-shadow: none;

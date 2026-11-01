@@ -42,7 +42,7 @@ import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
 import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-picker';
 import { normalizeColumnPairs } from './column-pairs';
-import { clampSpanW, clampSpanH, migrateLegacyHeight } from './immersive-grid';
+import { clampSpanW, clampSpanH, isImmersiveMode, migrateLegacyHeight } from './immersive-grid';
 
 const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle']);
 // 'notes', 'memo' and 'todo' are retired standalone section types: they parse
@@ -120,7 +120,7 @@ export function parse(markdown: string): DashboardData {
 	return data;
 }
 
-const KNOWN_LAYOUTS = new Set<string>(['side', 'stacked', 'immersive']);
+const KNOWN_LAYOUTS = new Set<string>(['side', 'stacked', 'immersive', 'immersive-light']);
 
 /** This workspace's layout override; absent/unknown → undefined (the global
  *  settings default rules — the upgrade path for pre-per-workspace boards). */
@@ -937,7 +937,9 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 	});
 	const immersiveBoard: DashboardData = {
 		banner: IMMERSIVE_DEFAULT_BANNER,
-		layout: 'immersive',
+		// The seeded file keeps the REQUESTED tone ('immersive' or
+		// 'immersive-light') — the arrangement below is shared by both.
+		layout,
 		quickActions: [],
 		// Written explicitly so the seeded file is canonical: parse() derives
 		// immersiveBackground from banner.images[0] anyway, and without this
@@ -986,7 +988,7 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 			},
 		],
 	};
-	if (layout === 'immersive') return serialize(immersiveBoard);
+	if (isImmersiveMode(layout)) return serialize(immersiveBoard);
 	return serialize({
 		banner: DEFAULT_BANNER,
 		layout,

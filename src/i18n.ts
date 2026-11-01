@@ -292,6 +292,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.layoutSide': 'Sidebar',
 		'settings.layoutStacked': 'Stacked',
 		'settings.layoutImmersive': 'Immersive',
+		'settings.layoutImmersiveLight': 'Immersive light',
 		// Sidebar/strip resize handles (aria labels)
 		'view.sidebarResizeHint': 'Drag to resize the sidebar',
 		'view.stripResizeHint': 'Drag to resize the widget strip',
@@ -2568,6 +2569,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.layoutSide': '侧栏',
 		'settings.layoutStacked': '堆叠',
 		'settings.layoutImmersive': '沉浸式',
+		'settings.layoutImmersiveLight': '沉浸式浅色',
 		// Sidebar/strip resize handles (aria labels)
 		'view.sidebarResizeHint': '拖动调整侧栏宽度',
 		'view.stripResizeHint': '拖动调整小组件条高度',
@@ -4841,6 +4843,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'settings.layoutSide': '側欄',
 		'settings.layoutStacked': '堆疊',
 		'settings.layoutImmersive': '沉浸式',
+		'settings.layoutImmersiveLight': '沉浸式淺色',
 		// Sidebar/strip resize handles (aria labels)
 		'view.sidebarResizeHint': '拖動調整側欄寬度',
 		'view.stripResizeHint': '拖動調整小元件條高度',

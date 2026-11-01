@@ -9,7 +9,15 @@ import type {
 	WereadRecency,
 } from './weread-shelf-model';
 
-export type DashboardLayoutMode = 'side' | 'stacked' | 'immersive';
+/** Board arrangements. `immersive` and `immersive-light` share the WHOLE
+ *  immersive pipeline (poster background, pinned top region, free 12-column
+ *  grid, tile resize/reorder) — they differ only in glass tone: dark glass
+ *  with light text vs light glass with dark text. Every layout branch must
+ *  therefore test the immersive FAMILY (isImmersiveMode), never the single
+ *  'immersive' literal, or the light variant silently renders as a side
+ *  board. See immersive-grid.ts for the predicates and styles.css's
+ *  `[data-layout^="immersive"]` chapter for the shared structure. */
+export type DashboardLayoutMode = 'side' | 'stacked' | 'immersive' | 'immersive-light';
 
 /** One tile of the immersive free grid: a widget card or a section card.
  *  `id` is `widget:<key>` or `section:<column name>`; array order is the
@@ -69,8 +77,9 @@ export interface DashboardSettings {
 	/** Board arrangement: widgets in a left rail ('side', default), a
 	    horizontal strip under the banner ('stacked'), or a full-bleed poster
 	    background with widgets and sections mixed in one free grid
-	    ('immersive'). Desktop/tablet only; phones keep their own layout
-	    regardless of this value. */
+	    ('immersive'). 'immersive-light' is the same board in light glass (dark
+	    text, white translucent tiles) for bright posters. Desktop/tablet only;
+	    phones keep their own layout regardless of this value. */
 	layoutMode: DashboardLayoutMode;
 	/** Habit card height ratio in the stacked layout (side layout ignores it;
 	    the card is content-height there). */

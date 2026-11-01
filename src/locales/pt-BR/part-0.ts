@@ -159,6 +159,7 @@ export const part0: Record<string, string> = {
 	"settings.layoutSide": "Barra lateral",
 	"settings.layoutStacked": "Empilhado",
 	"settings.layoutImmersive": "Imersivo",
+	"settings.layoutImmersiveLight": "Imersivo claro",
 	"view.sidebarResizeHint": "Arraste para redimensionar a barra lateral",
 	"view.stripResizeHint": "Arraste para redimensionar a faixa de widgets",
 	"settings.stylePreset": "Estilo",

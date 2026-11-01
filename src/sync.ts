@@ -2,6 +2,7 @@ import { moveDashboardCard } from './card-move';
 import { App, TFile } from 'obsidian';
 import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
+import { isImmersiveMode } from './immersive-grid';
 import { t } from './i18n';
 import {
 	type TaskPath,
@@ -994,10 +995,12 @@ export class SyncEngine {
 
 		// Follow the global layout default when (re)creating the active file:
 		// fresh installs (seeded layoutMode 'immersive') open on the immersive
-		// board; everyone else keeps the classic default. Only 'immersive' is
-		// passed through — other modes stay unpinned so the board keeps
-		// following the global setting.
-		const content = generateDefaultMarkdown(this.settings.layoutMode === 'immersive' ? 'immersive' : undefined);
+		// board; everyone else keeps the classic default. Both immersive tones
+		// pass through (each seeds its own `layout:` value); side/stacked stay
+		// unpinned so the board keeps following the global setting.
+		const content = generateDefaultMarkdown(
+			isImmersiveMode(this.settings.layoutMode) ? this.settings.layoutMode : undefined,
+		);
 		this.file = await this.app.vault.create(path, content);
 	}
 

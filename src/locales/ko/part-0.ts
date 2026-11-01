@@ -159,6 +159,7 @@ export const part0: Record<string, string> = {
 	"settings.layoutSide": "사이드바",
 	"settings.layoutStacked": "쌓임",
 	"settings.layoutImmersive": "몰입감",
+	"settings.layoutImmersiveLight": "몰입감(라이트)",
 	"view.sidebarResizeHint": "사이드바 크기를 조정하려면 드래그하세요.",
 	"view.stripResizeHint": "위젯 스트립의 크기를 조정하려면 드래그하세요.",
 	"settings.stylePreset": "스타일",

@@ -159,6 +159,7 @@ export const part0: Record<string, string> = {
 	"settings.layoutSide": "サイドバー",
 	"settings.layoutStacked": "積み上げ",
 	"settings.layoutImmersive": "没入型",
+	"settings.layoutImmersiveLight": "没入型（ライト）",
 	"view.sidebarResizeHint": "ドラッグしてサイドバーのサイズを変更します",
 	"view.stripResizeHint": "ドラッグしてウィジェット ストリップのサイズを変更します",
 	"settings.stylePreset": "スタイル",
