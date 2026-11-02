@@ -1025,14 +1025,23 @@ export class DashboardView extends ItemView implements HoverParent {
 			const el = child as HTMLElement;
 			const id = el.dataset?.immId;
 			if (!id) continue;
+			// Reused widget tiles (immWidgetEls) still carry strips from the
+			// previous render whose listeners close over the OLD grid and OLD
+			// commit closure (stampedRects against a detached grid). Strip
+			// them and re-bind fresh so both the drag math and the commit
+			// resolve against the CURRENT grid. attach is idempotent, so this
+			// is also what makes re-binding possible at all.
+			el.querySelectorAll?.('.dashboard-imm-resize-h, .dashboard-imm-resize-v, .dashboard-imm-resize-handle')
+				.forEach(n => n.remove());
 			attachImmersiveResizeHandle(el, id, () => this.immItems, next => {
 				// A resize keeps the tile pinned at its x/y; any PINNED tile its
 				// new size now covers must give way — planImmersive stamps x/y
 				// tiles verbatim with no mutual collision check, so without the
 				// demotion the overlap renders forever (the "cards overlap
 				// after resizing" bug). The stamped rects already carry the
-				// drag's live span writes.
-				this.commitImmersiveItems(displaceOverlappedBy(next, id, stampedRects(grid)));
+				// drag's live span writes. Read the grid from the tile: cached
+				// tiles may have re-parented since this closure was made.
+				this.commitImmersiveItems(displaceOverlappedBy(next, id, stampedRects((el.parentElement as HTMLElement | null) ?? grid)));
 			});
 			if (id.startsWith('widget:')) {
 				attachImmersiveWidgetDelete(el, removeId => void this.removeImmersiveItem(removeId));

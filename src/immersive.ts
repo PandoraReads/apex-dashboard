@@ -992,10 +992,18 @@ export function attachImmersiveResizeHandle(
 	onCommit: (items: GridItem[]) => void,
 ): void {
 	if (tile.querySelector('.dashboard-imm-resize-h')) return;
-	const grid = tile.parentElement;
-	if (!grid) return;
 
 	const startResize = (e: PointerEvent, axis: 'x' | 'y' | 'xy'): void => {
+		// Read the grid at PRESS time, not attach time. Widget tiles are
+		// CACHED across re-renders (immWidgetEls) and re-parented into a
+		// fresh grid, and this attach is skipped for them (strips exist) —
+		// a grid captured at attach time is the old DETACHED grid whose
+		// getBoundingClientRect is all zeros, so every drag computed garbage
+		// spans and widget tiles (pomodoro/expense/weather/music/countdown)
+		// silently stopped resizing while section tiles (rebuilt fresh each
+		// render) kept working.
+		const grid = tile.parentElement;
+		if (!grid) return;
 		if (grid.dataset.layoutLocked === 'true') return;
 		e.preventDefault();
 		e.stopPropagation();
