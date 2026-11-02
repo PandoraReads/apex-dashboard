@@ -2627,7 +2627,14 @@ export class DashboardView extends ItemView implements HoverParent {
 					}
 				}
 				await this.sync.addDocToCard(card.id, file.path);
-				await this.app.workspace.getLeaf('tab').openFile(file);
+				// Open the fresh note per the card's config (card edit modal):
+				// the in-dashboard popover editor by default — identical to
+				// clicking one of the card's docs — or a real editor tab.
+				if (card.newNoteOpenMode === 'tab') {
+					await this.app.workspace.getLeaf('tab').openFile(file);
+				} else {
+					this.openNotePopover(file);
+				}
 				new Notice(t('quickNote.created', { name: file.basename }));
 			} catch (err) {
 				console.error('[Dashboard] card new note failed:', err);

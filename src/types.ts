@@ -712,6 +712,10 @@ export interface DashboardCard {
 	 *  center, the historical default). Rendered as background-position
 	 *  percentages so the crop stays stable at any container size. */
 	coverPos?: ImageFocalPoint;
+	/** How "新建笔记到卡片" opens the freshly created note (per-card config,
+	 *  card edit modal). 'popover' (default) = the in-dashboard note editor,
+	 *  identical to clicking one of the card's docs; 'tab' = a real tab. */
+	newNoteOpenMode?: 'popover' | 'tab';
 	width: number;
 	size: CardSize;
 	gridCols: number;

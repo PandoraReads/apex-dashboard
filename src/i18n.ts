@@ -872,6 +872,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'cardEdit.searchDocs': 'Search & add documents',
 		'cardEdit.addSelected': 'Add selected',
 		'cardEdit.addSelectedCount': 'Add {count} documents',
+		'cardEdit.newNoteOpenMode': 'Open new note in',
+		'cardEdit.openPopover': 'Pop-up editor (default)',
+		'cardEdit.openTab': 'New tab',
 
 		// Sync defaults
 		'sync.memoTitle': '{date} memo',
@@ -3147,6 +3150,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'cardEdit.searchDocs': '搜索并添加文档',
 		'cardEdit.addSelected': '添加选中',
 		'cardEdit.addSelectedCount': '添加 {count} 个文档',
+		'cardEdit.newNoteOpenMode': '新建笔记打开方式',
+		'cardEdit.openPopover': '弹窗编辑（默认）',
+		'cardEdit.openTab': '标签页',
 
 		// Sync defaults
 		'sync.memoTitle': '{date} 备忘录',
@@ -5421,6 +5427,9 @@ const translations: Record<Language, Record<string, string>> = {
 		'cardEdit.searchDocs': '搜尋並新增文件',
 		'cardEdit.addSelected': '新增選中',
 		'cardEdit.addSelectedCount': '新增 {count} 個文件',
+		'cardEdit.newNoteOpenMode': '新建筆記開啟方式',
+		'cardEdit.openPopover': '彈窗編輯（預設）',
+		'cardEdit.openTab': '標籤頁',
 
 		// Sync defaults
 		'sync.memoTitle': '{date} 備忘錄',

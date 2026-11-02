@@ -347,7 +347,7 @@ export class SyncEngine {
 		this.scheduleDeferredWrite();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {

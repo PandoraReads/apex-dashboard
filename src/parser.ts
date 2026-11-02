@@ -44,7 +44,7 @@ import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-
 import { normalizeColumnPairs } from './column-pairs';
 import { clampSpanW, clampSpanH, isImmersiveMode, migrateLegacyHeight } from './immersive-grid';
 
-const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle']);
+const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode']);
 // 'notes', 'memo' and 'todo' are retired standalone section types: they parse
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
@@ -761,6 +761,10 @@ export function serialize(data: DashboardData): string {
 			}
 
 			if (card.noteStyle) lines.push(`noteStyle: ${card.noteStyle}`);
+
+			// "新建笔记到卡片" open mode: popover is the default and stays
+			// unpersisted — only an explicit tab choice writes a line.
+			if (card.newNoteOpenMode === 'tab') lines.push('newNoteOpenMode: tab');
 
 			if (card.type === 'generic') lines.push('type: generic');
 
@@ -2025,6 +2029,7 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 		title: block.title,
 		type: cardType,
 		noteStyle: metadata.noteStyle === 'cover' || metadata.noteStyle === 'plain' ? metadata.noteStyle : undefined,
+		newNoteOpenMode: metadata.newNoteOpenMode === 'tab' ? 'tab' : undefined,
 		column: columnName,
 		body: cleanBody,
 		tasks,

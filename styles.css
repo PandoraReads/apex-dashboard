@@ -12513,6 +12513,33 @@ button.dashboard-skillsec-import:hover {
 	border-color: var(--db-border-input-focus, var(--interactive-accent));
 }
 
+/* Native <select> wearing the input skin: Obsidian core pins a fixed
+   --input-height (~30px) on every <select>, and this family's roomy 8px
+   vertical padding then leaves a ~12px line box — the selected option's
+   text clips at the bottom. Release the height and rebalance the padding
+   (roomy right side keeps clear of the native chevron). Core also paints
+   a dark focus ring (box-shadow) around focused selects — drop it and let
+   the family's accent border speak alone. */
+.dashboard-library-config-modal select.dashboard-modal-input,
+.modal--dashboard .dashboard-modal select.dashboard-modal-input,
+.dashboard-modal-form select.dashboard-modal-input {
+	height: auto;
+	padding: 5px 30px 5px 12px;
+	line-height: 1.6;
+	/* Core paints selects with `box-shadow: var(--input-shadow)` — an inset
+	   1px ring that stacks on this family's 1px border and reads as a
+	   thicker edge. Drop it so the closed select matches text inputs. */
+	box-shadow: none;
+}
+
+.dashboard-library-config-modal select.dashboard-modal-input:focus,
+.modal--dashboard .dashboard-modal select.dashboard-modal-input:focus,
+.dashboard-modal-form select.dashboard-modal-input:focus {
+	outline: none;
+	box-shadow: none;
+	border-color: var(--db-border-input-focus, var(--interactive-accent));
+}
+
 .dashboard-modal-actions {
 	display: flex;
 	gap: 8px;
