@@ -11656,6 +11656,34 @@ button.dashboard-skillsec-import:hover {
 	background: var(--db-bg-card-hover);
 }
 
+/* Task cards: the LIST scrolls, the add-row and progress bar stay pinned to
+   the bottom of the card (mirrors the sticky-section rules at the top of the
+   file). Only meaningful when the card has a bounded height (immersive tiles
+   pin heights, sticky has min-height); auto-height cards in grid/side layouts
+   are unaffected — the flex column just sizes to content as before. The body
+   itself stops scrolling so the pinned rows can't be scrolled out of view. */
+.dashboard-card--task .dashboard-card-body {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.dashboard-card--task .dashboard-task-list {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	scrollbar-width: none;
+}
+
+.dashboard-card--task .dashboard-task-list::-webkit-scrollbar {
+	width: 0;
+}
+
+.dashboard-card--task .dashboard-task-add,
+.dashboard-card--task .dashboard-progress {
+	flex-shrink: 0;
+}
+
 .dashboard-task-item {
 	display: flex;
 	align-items: center;
