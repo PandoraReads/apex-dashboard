@@ -1058,6 +1058,21 @@ export class DashboardView extends ItemView implements HoverParent {
 		return !!this.data && isImmersiveLayout(this.plugin.settings, this.data) && this.data.immersiveEditable === false;
 	}
 
+	/** Re-wire the immersive GRID-LEVEL tile DnD + context menu after an
+	 *  in-place refresh. Both mid-session refresh paths clear
+	 *  `dndCleanupFns` (to drop the card-deck listeners of the swapped-out
+	 *  tiles) — but that array also carries the cleanup of
+	 *  `setupImmersiveDnD` / `setupImmersiveTileMenu`, whose whole-tile
+	 *  move-drag and right-click menu live on the SURVIVING grid. Without
+	 *  this re-wire the board keeps its looks yet silently loses tile
+	 *  dragging until the next full render (the "return from a note and
+	 *  cards can't be dragged; lock→edit layout restores them" bug). */
+	private rewireImmersiveGridDnD(kanban: HTMLElement): void {
+		if (!this.data || !isImmersiveLayout(this.plugin.settings, this.data)) return;
+		setupImmersiveDnD(kanban, () => this.immItems, next => this.commitImmersiveItems(next), this.dndCleanupFns);
+		setupImmersiveTileMenu(kanban, id => void this.removeImmersiveItem(id), this.dndCleanupFns);
+	}
+
 	private commitImmersiveItems(next: ImmersiveItem[]): void {
 		if (this.isLayoutLocked()) return;
 		const root = this.containerEl.children[1] as HTMLElement | undefined;
@@ -2514,6 +2529,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
 		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: isImmersiveLayout(this.plugin.settings, this.data) });
+		// The wipe above also dropped the grid-level tile DnD + menu (their
+		// cleanups lived in the same array) — re-wire them on the surviving grid.
+		this.rewireImmersiveGridDnD(kanban);
 		return true;
 	}
 
@@ -3101,6 +3119,11 @@ export class DashboardView extends ItemView implements HoverParent {
 			for (const fn of this.dndCleanupFns) fn();
 			this.dndCleanupFns = [];
 			setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: immersive });
+			// The wipe above also dropped the immersive grid's whole-tile
+			// move-drag + context menu (same cleanup array) — re-wire them,
+			// or the board looks normal yet tiles can't be dragged until a
+			// full re-render (lock→edit layout).
+			this.rewireImmersiveGridDnD(kanban);
 			if (immersive) this.attachImmersiveResizeHandles(kanban);
 		}
 	}

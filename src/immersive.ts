@@ -583,6 +583,13 @@ export function renderImmersiveRoot(opts: {
 		const editing = wand.getAttribute('aria-pressed') !== 'true';
 		setEditingState(editing);
 		imm.toggleClass('dashboard-imm--locked', !editing);
+		// Flip the drag guard in lockstep with the visual state: the class
+		// above only hides the edit affordances, while the tile drag/resize/
+		// menu handlers consult THIS dataset flag. The re-render echo also
+		// writes it (from the persisted data), but the press handlers must
+		// never observe a stale "locked" here — the visual wand said
+		// "editing" while a render echo failed, and dragging silently died.
+		grid.dataset.layoutLocked = editing ? 'false' : 'true';
 		opts.onToggleEditing?.();
 	});
 	setEditingState(data.immersiveEditable !== false);
