@@ -70,6 +70,7 @@ import type { App, TFile } from 'obsidian';
 import { renderMaterialLibrary } from '../src/material-render';
 import { MaterialLibraryView } from '../src/material-view';
 import { MATERIAL_MOVE_DRAG_TYPE } from '../src/material-dnd';
+import { upsertMaterialFolderPage } from '../src/material-model';
 import { AgentPromptModal } from '../src/agent-prompt-modal';
 import { MediaLightboxModal } from '../src/media-lightbox-modal';
 import { MediaTagEditModal } from '../src/media-tag-editor-modal';
@@ -156,6 +157,8 @@ function makeApp(
 	app: App;
 	renamed: Array<{ from: string; to: string }>;
 	openedNotes: string[];
+	/** Files opened through getLeaf().openFile() — the doc-kind route. */
+	openedFiles: string[];
 	storage: Record<string, string>;
 	/** Files an OS drop copied in (path + byte length), in drop order. */
 	created: Array<{ path: string; bytes: number }>;
@@ -178,6 +181,8 @@ function makeApp(
 	}
 	const renamed: Array<{ from: string; to: string }> = [];
 	const openedNotes: string[] = [];
+	/** Files opened through getLeaf().openFile() — the doc-kind route. */
+	const openedFiles: string[] = [];
 	const created: Array<{ path: string; bytes: number }> = [];
 	const mkdirs: string[] = [];
 	// In-memory localStorage: density + card style persist here (seeded so a
@@ -211,6 +216,11 @@ function makeApp(
 		},
 		workspace: {
 			openLinkText: async (linktext: string) => { openedNotes.push(linktext); },
+			// Doc kinds open like a file-tree double-click: getLeaf().openFile,
+			// routed by the view registry in real Obsidian (recorded here).
+			getLeaf: () => ({
+				openFile: async (file: { path: string }) => { openedFiles.push(file.path); },
+			}),
 		},
 		fileManager: {
 			renameFile: async (file: { path: string }, to: string) => {
@@ -230,7 +240,7 @@ function makeApp(
 		saveLocalStorage: (key: string, value: string) => { storage[key] = value; },
 		plugins: { plugins: {} },
 	} as unknown as App;
-	return { app, renamed, openedNotes, storage, created, mkdirs };
+	return { app, renamed, openedNotes, openedFiles, storage, created, mkdirs };
 }
 
 const SKILL_BUTTON: MaterialSkillButton = {
@@ -440,14 +450,15 @@ async function main(): Promise<void> {
 	assert.deepEqual(tilePaths(host), ['素材/article.md'], 'picking text shows only COVERED text files (notes.txt is gated out)');
 	pickType(0);
 	assert.equal(tilePaths(host).length, 4, 'picking all restores every kind');
-	// Menu shape: the four kinds in order, the active one checked.
+	// Menu shape: every kind in order (media trio + the five doc kinds), the
+	// active one checked.
 	const typeMenu = openTypeMenu();
 	assert.deepEqual(
 		typeMenu.items.map(i => i.title),
-		[t('material.typeAll'), t('material.typeImages'), t('material.typeVideos'), t('material.typeText')],
-		'menu lists all four kinds in order',
+		[t('material.typeAll'), t('material.typeImages'), t('material.typeVideos'), t('material.typeText'), t('material.typePdf'), t('material.typeEpub'), t('material.typeHtml'), t('material.typeExcalidraw'), t('material.typeCanvas')],
+		'menu lists every kind in order',
 	);
-	assert.deepEqual(typeMenu.items.map(i => i.checked), [true, false, false, false], 'the active kind is checked');
+	assert.deepEqual(typeMenu.items.map(i => i.checked), [true, false, false, false, false, false, false, false, false], 'the active kind is checked');
 
 	// Folder groups with in-place collapse.
 	const groupSelect = findByClass(host, 'dashboard-media-group-select')[0]!;
@@ -1393,9 +1404,10 @@ async function main(): Promise<void> {
 	// The view backs the hooks with settings; this harness mirrors that with
 	// an in-memory page list + a live config object the onConfigChange hook
 	// writes back into (so the getter reflects an applied page immediately).
+	// The save hook runs the SAME upsert as the view, so the same-name refresh
+	// behavior is what this section exercises end to end.
 	const pinLive: MaterialLibraryConfig = { includeFolders: ['素材'], excludeFolders: [], skillButtons: [] };
-	const pinPages: MaterialFolderPage[] = [];
-	let pinSeq = 0;
+	let pinPages: MaterialFolderPage[] = [];
 	const pinSavedCalls: Array<{ name: string; includes: string[]; excludes: string[] }> = [];
 	const pinRemovedIds: string[] = [];
 	const pinHost = new El('div');
@@ -1410,12 +1422,13 @@ async function main(): Promise<void> {
 			list: () => [...pinPages],
 			save: (name, cfg) => {
 				pinSavedCalls.push({ name, includes: [...cfg.includeFolders], excludes: [...cfg.excludeFolders] });
-				pinPages.push({ id: `pin-${pinSeq++}`, name, includeFolders: [...cfg.includeFolders], excludeFolders: [...cfg.excludeFolders] });
+				const { pages, updated } = upsertMaterialFolderPage(pinPages, name, cfg);
+				pinPages = pages;
+				return updated;
 			},
 			remove: id => {
 				pinRemovedIds.push(id);
-				const idx = pinPages.findIndex(p => p.id === id);
-				if (idx >= 0) pinPages.splice(idx, 1);
+				pinPages = pinPages.filter(p => p.id !== id);
 			},
 		},
 	});
@@ -1493,6 +1506,28 @@ async function main(): Promise<void> {
 	assert.deepEqual(pinLive.includeFolders, ['素材'], 'the live config takes the page folders');
 	assert.deepEqual(tilePaths(pinHost).length, 4, 'the waterfall rescopes without a remount');
 
+	// e2) same-name save = UPDATE (Rae): excludes configured AFTER a page was
+	//     saved flow into the row on re-save — the row refreshes in place
+	//     (same id, no look-alike stacked), the notice says "updated", and
+	//     applying the page restores the excludes too.
+	pinLive.excludeFolders = ['素材/私密'];
+	pinBtnEl.click(); // reopen (apply closed it)
+	const updInput = findTag(pinPopupOf(), 'input')[0] as unknown as El & { value: string };
+	updInput.value = '素材范围';
+	StubNotice.messages.length = 0;
+	(findTag(pinPopupOf(), 'button').find(b => b.textContent === t('common.save')) as unknown as El)!.click();
+	assert.equal(pinPages.length, 2, 'a same-name save updates instead of stacking a row');
+	assert.equal(pinPages.filter(p => p.name === '素材范围').length, 1, 'exactly one row keeps the name');
+	assert.deepEqual(pinPages.find(p => p.name === '素材范围')?.excludeFolders, ['素材/私密'], 'the refreshed row snapshots the excludes');
+	assert.deepEqual(StubNotice.messages, [t('material.pinUpdated', { name: '素材范围' })], 'the notice says updated, not saved');
+	assert.equal(
+		findByClass(pinRowNamed(pinPopupOf(), '素材范围'), 'dashboard-material-pin-scope')[0]!.textContent,
+		`素材 · ${t('material.pinExcludes', { count: 1 })}`,
+		'the summary now carries the exclude count',
+	);
+	pinRowNamed(pinPopupOf(), '素材范围').click();
+	assert.deepEqual(pinLive.excludeFolders, ['素材/私密'], 'applying the refreshed page restores the excludes');
+
 	// f) the other direction: the whole-vault page brings the outside file
 	//    back, and the active row follows.
 	pinBtnEl.click();
@@ -1515,6 +1550,106 @@ async function main(): Promise<void> {
 	pinBtnEl.click();
 	assert.equal(findByClass(bodyHost, 'dashboard-material-pinpop').length, 0, 'the toggle click closes the popup');
 	pinController.destroy();
+
+	// --- 17. Doc kinds: PDF/EPUB/HTML/Excalidraw/Canvas tile with covers -----
+	// Doc files tile WITHOUT any frontmatter cover (the coverless-md gate
+	// stays text-only): every doc kind mounts at its icon placeholder first,
+	// the async resolver backfills the real cover image in place (an EPUB
+	// resolving to "no cover" keeps the placeholder for good), the resolver
+	// runs once per file, and a click opens the file as its native view.
+	const DOC_VAULT = [
+		mediaFile('书/Deutsch Perfekt.pdf', 30, 900000),
+		mediaFile('书/Never Let Me Go.epub', 20, 800000),
+		mediaFile('简报/今日简报.html', 25, 12000),
+		mediaFile('画板/白板.canvas', 35, 3000),
+		mediaFile('画板/架构图.excalidraw.md', 45, 5000),
+		mediaFile('书/plain note.md', 50, 200), // coverless md stays gated out
+	];
+	const docEnv = makeApp(DOC_VAULT, {});
+	const docHost = new El('div');
+	bodyHost.appendChild(docHost);
+	const resolvedCovers: string[] = [];
+	const docController = renderMaterialLibrary(docHost as unknown as HTMLElement, {
+		app: docEnv.app,
+		getConfig: () => ({ includeFolders: [], excludeFolders: [], skillButtons: [] }),
+		onConfigChange: () => {},
+		onOpenSettings: () => {},
+		tagStore: null,
+		docCoverResolver: async item => {
+			resolvedCovers.push(item.path);
+			if (item.kind === 'epub') return null; // resolved to "no cover"
+			return { src: `data:image/png;base64,${item.kind}`, aspect: 0.7 };
+		},
+	});
+	// Every doc kind tiles (the waterfall scatters them across columns, so
+	// compare as a set — column assignment follows the aspect fallbacks).
+	assert.deepEqual(
+		[...tilePaths(docHost)].sort(),
+		['画板/架构图.excalidraw.md', '画板/白板.canvas', '书/Deutsch Perfekt.pdf', '简报/今日简报.html', '书/Never Let Me Go.epub'].sort(),
+		'doc kinds tile without frontmatter covers, coverless md stays out',
+	);
+	assert.equal(findByClass(docHost, 'dashboard-material-docph').length, 5, 'covers start as icon placeholders');
+	const docTileOf = (path: string): El => {
+		const hit = findByClass(docHost, 'dashboard-material-tile').find(el => el.dataset.materialPath === path);
+		assert.ok(hit, `tile for ${path}`);
+		return hit!;
+	};
+	const docThumbOf = (path: string): El => findByClass(docTileOf(path), 'dashboard-material-thumb')[0]!;
+	assert.equal(findByClass(docThumbOf('书/Deutsch Perfekt.pdf'), 'dashboard-material-docph-icon').length, 1, 'placeholder carries the type glyph');
+	assert.equal(
+		findByClass(docThumbOf('书/Deutsch Perfekt.pdf'), 'dashboard-material-docph-ext')[0]!.textContent,
+		'PDF',
+		'the extension strip names the format',
+	);
+	assert.equal(
+		findByClass(docThumbOf('画板/架构图.excalidraw.md'), 'dashboard-material-docph-ext')[0]!.textContent,
+		'EXCALIDRAW',
+		'the markdown-wrapped drawing names its kind, not the md extension',
+	);
+	await sleep(30);
+	// Backfill: every resolved tile now shows its cover img at the given
+	// aspect; the EPUB that resolved to null keeps the icon placeholder.
+	assert.equal(
+		findByClass(docThumbOf('书/Deutsch Perfekt.pdf'), 'dashboard-material-img')[0]!.getAttribute('src'),
+		'data:image/png;base64,pdf',
+		'generated cover backfills into the live tile',
+	);
+	assert.equal(findByClass(docThumbOf('书/Deutsch Perfekt.pdf'), 'dashboard-material-docph').length, 0, 'the placeholder left with the cover');
+	assert.equal(docThumbOf('书/Deutsch Perfekt.pdf').style.aspectRatio, '0.7', 'the cover aspect lands on the thumb');
+	assert.equal(findByClass(docThumbOf('书/Never Let Me Go.epub'), 'dashboard-material-docph').length, 1, 'a resolved-to-null cover keeps the icon tile');
+	assert.equal(findByClass(docThumbOf('书/Never Let Me Go.epub'), 'dashboard-material-img').length, 0, 'no img mounts for a null cover');
+	assert.equal(
+		docThumbOf('书/Never Let Me Go.epub').style.aspectRatio,
+		String(2 / 3),
+		'null covers settle at the EPUB default aspect',
+	);
+	assert.deepEqual([...new Set(resolvedCovers)].sort(), [
+		'书/Deutsch Perfekt.pdf', '书/Never Let Me Go.epub', '简报/今日简报.html', '画板/架构图.excalidraw.md', '画板/白板.canvas',
+	].sort(), 'every doc file resolves exactly once (fresh tiles, no re-render yet)');
+	// Click opens the native view the way a file-tree double-click does:
+	// getLeaf().openFile (view-registry routed), NOT openLinkText.
+	docTileOf('画板/白板.canvas').click();
+	await sleep(320);
+	assert.ok(docEnv.openedFiles.includes('画板/白板.canvas'), 'a doc tile click opens the file through openFile');
+	assert.ok(!docEnv.openedNotes.includes('画板/白板.canvas'), 'doc opens never touch the markdown link path');
+	// Type dropdown narrows to one doc kind.
+	const docTypeBtn = findByClass(findByClass(docHost, 'dashboard-material-type-toggle')[0]!, 'dashboard-toolbar-dropdown')[0]!;
+	docTypeBtn.click();
+	const docMenu = (Menu as unknown as { last: { items: Array<{ title: string; checked: boolean; click(): void }> } | null }).last!;
+	assert.equal(docMenu.items.length, 9, 'nine kind entries on a doc vault too');
+	docMenu.items[4]!.click(); // PDF
+	assert.deepEqual(tilePaths(docHost), ['书/Deutsch Perfekt.pdf'], 'picking PDF filters to PDF tiles');
+	// Type grouping splits doc kinds; headers carry localized names.
+	const docGroupSelect = findByClass(docHost, 'dashboard-media-group-select')[0]!;
+	docGroupSelect.value = 'type';
+	docGroupSelect.dispatchEvent({ type: 'change' });
+	const docHeaders = findByClass(docHost, 'dashboard-media-group-header');
+	assert.deepEqual(
+		docHeaders.map(h => findByClass(h, 'dashboard-media-group-name')[0]!.textContent),
+		[t('material.typePdf')],
+		'type groups show the localized doc kind name',
+	);
+	docController.destroy();
 
 	console.log('verify-material-render: all assertions passed');
 }

@@ -87,8 +87,9 @@ export function resolveImportTarget(opts: {
 	return { folder: fallback, tag: '' };
 }
 
-/** Only images and videos are library material; anything else is refused
- *  (a dropped note or PDF would tile as a coverless text file = invisible). */
+/** Only images and videos are drop-import material; anything else is refused
+ *  (dropped notes/PDFs land by drag-copy elsewhere — the OS drop zone stays
+ *  media-only by design). */
 export function isImportableName(name: string): boolean {
 	const dot = name.lastIndexOf('.');
 	if (dot <= 0 || dot === name.length - 1) return false;

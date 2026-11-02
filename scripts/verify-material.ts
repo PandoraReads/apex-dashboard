@@ -39,7 +39,8 @@ import {
 	materialKindFor, normalizeIncludeFolders, buildMaterialItems,
 	filterMaterialItems, sortMaterialItems, groupMaterialItems, paginateMaterial,
 	materialColumnCount, assignWaterfall, materialSkillVars, effectiveMaterialTemplate,
-	sanitizeMaterialConfig, sanitizeMaterialFolderPages,
+	sanitizeMaterialConfig, sanitizeMaterialFolderPages, upsertMaterialFolderPage,
+	isDocKind, MATERIAL_DOC_ASPECTS, MATERIAL_TYPE_CHOICES,
 } from '../src/material-model';
 import { IMAGE_EXTS, VIDEO_EXTS } from '../src/media-section';
 
@@ -76,6 +77,40 @@ assert.equal(materialKindFor('mp4'), 'video');
 assert.equal(materialKindFor('txt'), 'text', 'non-media extensions type as text');
 assert.equal(materialKindFor('md'), 'text');
 assert.equal(materialKindFor(''), 'text', 'extensionless files type as text');
+
+// --- 1b. doc kinds ---------------------------------------------------------
+// PDF/EPUB/HTML/Canvas/Excalidraw scan as their own kind; the Excalidraw
+// plugin's markdown wrapper (note.excalidraw.md) must NOT fall through to the
+// coverless 'text' kind, and doc aspects/filters cover every doc kind.
+assert.equal(materialKindFor('pdf'), 'pdf');
+assert.equal(materialKindFor('epub'), 'epub');
+assert.equal(materialKindFor('html'), 'html');
+assert.equal(materialKindFor('htm'), 'html');
+assert.equal(materialKindFor('canvas'), 'canvas');
+assert.equal(materialKindFor('excalidraw'), 'excalidraw');
+assert.equal(materialKindFor('md', '深入浅出 TCP-IP.excalidraw'), 'excalidraw', '.excalidraw.md wrapper kinds as excalidraw');
+assert.equal(materialKindFor('md', '普通笔记'), 'text', 'plain md with a basename stays text');
+const DOC_FILES = [
+	rec('书/Deutsch Perfekt.pdf'),
+	rec('书/Never Let Me Go.epub'),
+	rec('简报/今日简报.html'),
+	rec('画板/读书笔记.canvas'),
+	rec('画板/架构图.excalidraw.md'),
+];
+const docItems = buildMaterialItems(DOC_FILES, () => [], { includeFolders: [], excludeFolders: [] });
+assert.deepEqual(docItems.map(r => r.kind), ['pdf', 'epub', 'html', 'canvas', 'excalidraw'], 'doc files kind by extension (input order preserved)');
+for (const kind of ['pdf', 'epub', 'html', 'excalidraw', 'canvas'] as const) {
+	assert.ok(MATERIAL_DOC_ASPECTS[kind]! > 0, `doc aspect fallback defined for ${kind}`);
+	const choice = MATERIAL_TYPE_CHOICES.find(c => c.key === kind);
+	assert.ok(choice, `type choice exists for ${kind}`);
+	assert.ok(isDocKind(kind), `${kind} is a doc kind`);
+}
+assert.equal(isDocKind('image'), false);
+assert.equal(isDocKind('text'), false);
+// Type filter picks a doc kind; type grouping splits doc kinds into buckets.
+assert.equal(filterMaterialItems(docItems, { query: '', kind: 'epub', tags: [] }).length, 1);
+const docByType = groupMaterialItems(docItems, 'type', '未设置');
+assert.deepEqual(docByType.map(g => g.key).sort(), ['canvas', 'epub', 'excalidraw', 'html', 'pdf'], 'type grouping splits every doc kind');
 
 const whole = buildMaterialItems(FILES, p => TAGS[p] ?? [], { includeFolders: [], excludeFolders: [] });
 // 7 files: 5 media + notes.txt + temp.md — everything in the vault except
@@ -270,5 +305,27 @@ assert.deepEqual(pages[0], { id: 'p1', name: '素材范围', includeFolders: ['�
 assert.equal(pages[0]!.includeFolders.length, 1, 'the empty include entry folds away');
 assert.ok(pages[1]!.id.startsWith('mp_'), 'a missing id regenerates');
 assert.equal(pages[1]!.name, '无 id', 'the id-less entry otherwise survives');
+
+
+// --- 10b. upsertMaterialFolderPage (same-name saves refresh the row) --------
+// A page is a living snapshot of scope + excludes: re-saving under a name
+// that already exists UPDATES that row (id kept, excludes refreshed) instead
+// of stacking a look-alike (Rae — pages saved before excludes were configured
+// must pick them up on re-save).
+const upBase = sanitizeMaterialFolderPages([
+	{ id: 'mp_x', name: '灵感博物馆', includeFolders: ['00_inbox/idea'], excludeFolders: [] },
+]);
+const upA = upsertMaterialFolderPage(upBase, ' 视频笔记库 ', { includeFolders: ['00_inbox/video'], excludeFolders: ['00_inbox/video/assets'] });
+assert.equal(upA.updated, false, 'a new name inserts');
+assert.equal(upA.pages.length, 2);
+assert.equal(upA.pages[1]!.name, '视频笔记库', 'the inserted name is trimmed');
+assert.deepEqual(upA.pages[1]!.includeFolders, ['00_inbox/video'], 'the snapshot normalizes includes');
+assert.deepEqual(upA.pages[1]!.excludeFolders, ['00_inbox/video/assets'], 'the snapshot carries excludes');
+const upB = upsertMaterialFolderPage(upA.pages, '灵感博物馆', { includeFolders: ['00_inbox/idea'], excludeFolders: ['00_inbox/idea/assets', '00_inbox/idea/drafts'] });
+assert.equal(upB.updated, true, 'a same-name save updates in place');
+assert.equal(upB.pages.length, 2, 'no look-alike row stacks');
+assert.equal(upB.pages[0]!.id, 'mp_x', 'the updated row keeps its id');
+assert.deepEqual(upB.pages[0]!.excludeFolders, ['00_inbox/idea/assets', '00_inbox/idea/drafts'], 'excludes flow into the refreshed row');
+assert.ok(upsertMaterialFolderPage([], 'A', { includeFolders: [], excludeFolders: [] }).pages[0]!.id.startsWith('mp_'), 'a fresh insert generates an id');
 
 console.log('verify-material: all assertions passed');

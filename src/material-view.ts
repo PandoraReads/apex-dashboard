@@ -13,7 +13,7 @@ import { t } from './i18n';
 import { renderMaterialLibrary, type MaterialRenderController } from './material-render';
 import { MaterialConfigModal } from './material-config-modal';
 import { NoteOpener } from './note-opener';
-import { sanitizeMaterialConfig, sanitizeMaterialFolderPages } from './material-model';
+import { sanitizeMaterialConfig, sanitizeMaterialFolderPages, upsertMaterialFolderPage } from './material-model';
 import { agentTargets } from './agent-dispatch';
 import { applyAppearance, refreshAppearanceOnRoot } from './appearance';
 
@@ -105,16 +105,15 @@ export class MaterialLibraryView extends ItemView {
 			// Pin-button pages follow the same settings-sync path as hearts.
 			folderPages: {
 				list: (): MaterialFolderPage[] => sanitizeMaterialFolderPages(this.plugin.settings.materialFolderPages),
-				save: (name: string, cfg: MaterialLibraryConfig): void => {
+				/** Same-name saves UPDATE the page in place: pages are living
+				 *  snapshots of scope + excludes, so re-saving after tweaking
+				 *  the excluded folders refreshes the row (Rae). */
+				save: (name: string, cfg: MaterialLibraryConfig): boolean => {
 					const prev = sanitizeMaterialFolderPages(this.plugin.settings.materialFolderPages);
-					const page: MaterialFolderPage = {
-						id: `mp_${Date.now().toString(36)}_${prev.length}`,
-						name,
-						includeFolders: [...cfg.includeFolders],
-						excludeFolders: [...cfg.excludeFolders],
-					};
-					this.plugin.settings = { ...this.plugin.settings, materialFolderPages: [...prev, page] };
+					const { pages, updated } = upsertMaterialFolderPage(prev, name, cfg);
+					this.plugin.settings = { ...this.plugin.settings, materialFolderPages: pages };
 					void this.plugin.saveSettings();
+					return updated;
 				},
 				remove: (id: string): void => {
 					const prev = sanitizeMaterialFolderPages(this.plugin.settings.materialFolderPages);

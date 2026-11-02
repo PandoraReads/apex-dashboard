@@ -216,9 +216,9 @@ export function resolveVaultImage(app: App, relativePath: string): string | null
 	const file = app.vault.getFileByPath(relativePath);
 	if (!file) return null;
 
-	const adapter = app.vault.adapter;
-	if ('getResourcePath' in adapter && typeof (adapter as { getResourcePath: (path: string) => string }).getResourcePath === 'function') {
-		return (adapter as { getResourcePath: (path: string) => string }).getResourcePath(relativePath);
+	const adapter = app.vault.adapter as { getResourcePath?: (path: string) => string } | null | undefined;
+	if (adapter && typeof adapter.getResourcePath === 'function') {
+		return adapter.getResourcePath(relativePath);
 	}
 
 	const parts = relativePath.split('/');
