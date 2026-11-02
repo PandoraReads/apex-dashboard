@@ -133,6 +133,10 @@ Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido,
 
 ## Novidades
 
+### 3.9.5
+- **Tipos de documento na biblioteca de material** — PDF, EPUB, páginas HTML salvas, desenhos do Excalidraw e quadros do Canvas agora aparecem como cartões: capas de EPUB são extraídas do livro, PDFs renderizam a primeira página, páginas HTML ganham um instantâneo da primeira tela, desenhos e quadros são esboçados como miniaturas, e o que não tem capa mostra um cartão com o ícone do tipo; o filtro e o agrupamento por tipo foram ampliados, e um clique abre cada arquivo nativamente (HTML Reader, visualização de PDF, quadros — extensões sem visualização vão para o app padrão do sistema)
+- **Páginas fixadas atualizam ao salvar de novo** — salvar novamente com o nome de uma página existente agora atualiza essa página com as pastas excluídas atuais em vez de empilhar uma linha duplicada; corrigido o clique em HTML e outros arquivos que não são notas abrindo um arquivo em branco
+
 ### 3.9.4
 - **Páginas de pastas da biblioteca de materiais (alfinete)** — um novo botão de alfinete à direita do coração de favoritos salva o escopo de varredura e as pastas excluídas atuais como uma página nomeada; um clique numa página salva troca as pastas de uma vez, o × remove na hora e as páginas sincronizam entre dispositivos via data.json
 

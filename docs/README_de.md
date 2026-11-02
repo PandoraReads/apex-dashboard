@@ -133,6 +133,10 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 
 ## Was ist neu
 
+### 3.9.5
+- **Dokumenttypen in der Materialbibliothek** — PDF, EPUB, gespeicherte HTML-Seiten, Excalidraw-Zeichnungen und Canvas-Boards erscheinen jetzt als Kacheln: EPUB-Cover werden aus dem Buch extrahiert, PDFs rendern die erste Seite, HTML-Seiten erhalten einen Erstbild-Schnappschuss, Zeichnungen und Boards werden als Miniaturen skizziert, und alles ohne Cover zeigt eine Typsymbol-Karte; Typfilter und Typgruppierung wurden erweitert, ein Klick öffnet jede Datei nativ (HTML Reader, PDF-Ansicht, Boards — Erweiterungen ohne Ansicht gehen an die Standard-App des Systems)
+- **Pin-Seiten per erneuten Speichern aktualisieren** — erneutes Speichern unter einem bestehenden Seitennamen aktualisiert die Seite mit den aktuellen ausgeschlossenen Ordnern, statt eine doppelte Zeile zu stapeln; behoben: Klick auf HTML- und andere Nicht-Notiz-Dateien öffnete eine leere Datei
+
 ### 3.9.4
 - **Ordnerseiten in der Materialbibliothek (Pin)** — eine neue Pin-Schaltfläche rechts vom Favoriten-Herz speichert den aktuellen Scan-Bereich und die ausgeschlossenen Ordner als benannte Seite; ein Klick auf eine gespeicherte Seite wechselt die OrdnerEinstellungen auf einen Schlag, das × löscht sofort, und die Seiten synchronisieren über data.json geräteübergreifend
 

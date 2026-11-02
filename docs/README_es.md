@@ -133,6 +133,10 @@ Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, consi
 
 ## Novedades
 
+### 3.9.5
+- **Tipos de documento en la biblioteca de material** — PDF, EPUB, páginas HTML guardadas, dibujos de Excalidraw y pizarras de Canvas ahora aparecen como tarjetas: las portadas de EPUB se extraen del libro, los PDF renderizan su primera página, las páginas HTML obtienen una captura de la primera pantalla, los dibujos y pizarras se esbozan como miniaturas, y lo que no tiene portada muestra una tarjeta con el icono del tipo; el filtro y la agrupación por tipo se ampliaron, y un clic abre cada archivo de forma nativa (HTML Reader, vista PDF, pizarras — las extensiones sin vista van a la app predeterminada del sistema)
+- **Las páginas fijadas se actualizan al volver a guardar** — guardar de nuevo con el nombre de una página existente ahora actualiza esa página con las carpetas excluidas actuales en lugar de apilar una fila duplicada; corregido que al hacer clic en HTML y otros archivos que no son notas se abriera un archivo en blanco
+
 ### 3.9.4
 - **Páginas de carpetas en la biblioteca de materiales (chincheta)** — un nuevo botón de chincheta a la derecha del corazón de favoritos guarda el ámbito de escaneo y las carpetas excluidas actuales como una página con nombre; un clic en una página guardada cambia la configuración de carpetas de una vez, la × elimina al instante y las páginas se sincronizan entre dispositivos vía data.json
 
