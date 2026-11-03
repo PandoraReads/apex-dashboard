@@ -92,12 +92,6 @@ function readTaskInsertPosition(app: App): 'start' | 'end' {
 	return lookupDashboardPlugin(app)?.settings?.calendarTaskInsertPosition === 'end' ? 'end' : 'start';
 }
 
-/** Configured fallback chain (投放顺序); unknown/hand-edited values → 'auto'. */
-function readTaskFallback(app: App): import('./types').CalendarTaskFallback {
-	const raw = lookupDashboardPlugin(app)?.settings?.calendarTaskFallback;
-	return raw === 'day' || raw === 'today' || raw === 'dashboard' ? raw : 'auto';
-}
-
 /**
  * Full-screen month grid: navigate any month, toggle tasks inline (writes back
  * via onToggle), click a task to open its source note. Receives a fully indexed
@@ -459,7 +453,7 @@ export class DayAgendaModal extends Modal {
 				}
 				target = res;
 			} else {
-				target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app), targetCfg, readTaskFallback(this.app));
+				target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app), targetCfg);
 			}
 		} catch (err) {
 			console.error('[Dashboard] add task failed:', err);

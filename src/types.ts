@@ -57,11 +57,6 @@ export interface CalendarTaskTarget {
 	templatePath?: string;
 }
 
-/** Fallback chain for calendar-added tasks (used when no fixed
- *  CalendarTaskTarget is configured). See DashboardSettings. */
-export const CALENDAR_TASK_FALLBACKS = ['auto', 'day', 'today', 'dashboard'] as const;
-export type CalendarTaskFallback = typeof CALENDAR_TASK_FALLBACKS[number];
-
 export interface DashboardSettings {
 	/** Path of the ACTIVE workspace file (no .md extension). */
 	dashboardFile: string;
@@ -137,16 +132,6 @@ export interface DashboardSettings {
 	    NEW note per task (optionally template-seeded). Unset = the historical
 	    daily-note chain (clicked day → today → dashboard → create). */
 	calendarTaskTarget?: CalendarTaskTarget;
-	/** Destination chain used when calendarTaskTarget is unset (the "fallback
-	    order" a calendar-added task travels). Only consulted on that path.
-	    - 'auto': clicked day's note → today's note → dashboard checklist →
-	      create the clicked day's note (historical behavior);
-	    - 'day': the clicked day's note only, created when missing — the task
-	      always lives on the day it was added to;
-	    - 'today': today's note only, created when missing (clicked-day tasks
-	      still show on the clicked day via their date markers);
-	    - 'dashboard': the dashboard file's checklist only. */
-	calendarTaskFallback: CalendarTaskFallback;
 	/** Habit check-in widget: boolean daily check-offs tracked per habit. */
 	widgetHabitEnabled: boolean;
 	/** Expense tracker widget: quick expense/income entry in the sidebar. */
@@ -471,7 +456,6 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	calendarExcludeFolders: [],
 	calendarTaskFilter: 'all',
 	calendarTaskInsertPosition: 'start',
-	calendarTaskFallback: 'auto',
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	widgetSkillsEnabled: false,
