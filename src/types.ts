@@ -282,6 +282,10 @@ export interface DashboardSettings {
 	 *  localStorage so the collection follows the vault across devices.
 	 *  Optional so old data.json loads. */
 	materialFavorites?: string[];
+	/** Named folder-setting snapshots for the material toolbar's pin button:
+	 *  one click swaps the scan scope + excludes to a saved page. Optional so
+	 *  old data.json loads. */
+	materialFolderPages?: MaterialFolderPage[];
 	readingEnabled: boolean;
 	readingSoundEnabled: boolean;
 	taskTemplates: TaskTemplate[];
@@ -525,6 +529,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	mediaTags: {},
 	materialConfig: { includeFolders: [], excludeFolders: [], skillButtons: [] },
 	materialFavorites: [],
+	materialFolderPages: [],
 	readingEnabled: false,
 	readingSoundEnabled: true,
 	taskTemplates: [],
@@ -1342,6 +1347,18 @@ export interface MaterialLibraryConfig {
 	 *  button notices about the missing setting instead of guessing).
 	 *  Optional so old data.json loads. */
 	archiveFolder?: string;
+}
+
+/** One saved folder-settings "page" for the material toolbar's pin button: a
+ *  user-named snapshot of the scan scope + excluded folders that swaps in with
+ *  one click, so frequent scope switches don't re-open the settings modal. */
+export interface MaterialFolderPage {
+	id: string;
+	name: string;
+	/** Scan scope snapshot (empty = whole vault), like includeFolders. */
+	includeFolders: string[];
+	/** Excluded-folder snapshot, like excludeFolders. */
+	excludeFolders: string[];
 }
 
 export interface DashboardColumn {

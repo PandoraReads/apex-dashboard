@@ -29,17 +29,21 @@ import { renderSectionRail } from './section-rail';
 import { momentOf } from './datetime';
 import { MATERIAL_DROPZONE_CLASS, wireMaterialDrop } from './material-drop';
 import { wireMaterialFolderMove } from './material-dnd';
-import type { MaterialLibraryConfig, MaterialSkillButton } from './types';
+import { DocCoverCache, defaultDocCoverResolver, type DocCover, type DocCoverResolver } from './material-covers';
+import type { MaterialFolderPage, MaterialLibraryConfig, MaterialSkillButton } from './types';
 import {
 	assignWaterfall,
 	buildMaterialItems,
 	effectiveMaterialTemplate,
 	filterMaterialItems,
 	groupMaterialItems,
+	isDocKind,
 	materialColumnCount,
 	materialSkillVars,
+	MATERIAL_DOC_ASPECTS,
 	MATERIAL_GROUP_PAGE_SIZE,
 	MATERIAL_IMAGE_ASPECT,
+	MATERIAL_TYPE_CHOICES,
 	MATERIAL_VIDEO_ASPECT,
 	normalizeImportFolder,
 	paginateMaterial,
@@ -77,6 +81,19 @@ export interface MaterialFavoritesHooks {
 	toggle(path: string): boolean;
 }
 
+/** Saved folder-setting pages (pin button) hooks — the view backs them with
+ *  settings so the pages follow the vault across devices like favorites. */
+export interface MaterialFolderPagesHooks {
+	/** Sanitized saved pages, newest last. */
+	list(): MaterialFolderPage[];
+	/** Snapshot the given config's scan scope + excludes under a name; a
+	 *  same-name save UPDATES the page in place. Returns whether an existing
+	 *  page was refreshed. */
+	save(name: string, cfg: MaterialLibraryConfig): boolean;
+	/** Drop one saved page. */
+	remove(id: string): void;
+}
+
 export interface MaterialRenderContext {
 	app: App;
 	/** Fresh config per render — a GETTER, not a snapshot object: settings
@@ -93,6 +110,11 @@ export interface MaterialRenderContext {
 	 *  same behavior as dashboard card clicks. Absent → plain openLinkText. */
 	openNote?: (file: TFile) => void;
 	favorites?: MaterialFavoritesHooks;
+	/** Absent → the pin button hides (the feature needs somewhere to store). */
+	folderPages?: MaterialFolderPagesHooks;
+	/** Doc-kind cover resolver override (tests inject deterministic fakes);
+	 *  absent → the shipped pdf/epub/html/excalidraw/canvas pipeline. */
+	docCoverResolver?: DocCoverResolver;
 }
 
 /** Controller handed back to the view: external refresh + teardown. */
@@ -132,6 +154,33 @@ function readStoredDensity(app: App): MaterialDensity {
 function readStoredCardStyle(app: App): MaterialCardStyle {
 	const stored = app.loadLocalStorage(CARD_STYLE_STORAGE_KEY) as string | null;
 	return stored === 'plain' ? 'plain' : 'polaroid';
+}
+
+/** Mount a themed popup at the BODY anchored under a toolbar button. Body-level
+ *  chrome must not read as an OS sheet, so the active theme's --db-* tokens
+ *  are copied onto it; `align: 'right'` anchors the RIGHT edges (buttons in
+ *  the toolbar's right cluster would push a left-anchored popup off-screen). */
+function mountThemedBodyPopup(anchor: HTMLElement, cls: string, align: 'left' | 'right'): HTMLElement {
+	const popup = activeDocument.body.createDiv({ cls });
+	const dashboardRoot = anchor.closest<HTMLElement>('.apex-dashboard-root');
+	if (dashboardRoot) {
+		const rs = getComputedStyle(dashboardRoot);
+		['--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-border-card',
+			'--db-text', '--db-text-muted', '--db-accent', '--db-radius-md', '--db-radius-sm', '--db-font',
+			'--db-bg-input', '--db-bg-hover', '--db-bg-btn', '--db-text-normal', '--db-border-input'].forEach(v => {
+			const val = rs.getPropertyValue(v).trim();
+			if (val) popup.style.setProperty(v, val);
+		});
+	}
+	const rect = anchor.getBoundingClientRect();
+	const winW = typeof window.innerWidth === 'number' ? window.innerWidth : 0;
+	popup.setCssProps({
+		position: 'fixed',
+		top: `${rect.bottom + 4}px`,
+		...(align === 'right' ? { right: `${Math.max(0, winW - rect.right)}px` } : { left: `${rect.left}px` }),
+		zIndex: '10000',
+	});
+	return popup;
 }
 
 /** Render the whole material library into `host`. Returns a controller. */
@@ -174,8 +223,10 @@ export function renderMaterialLibrary(
 	/** Measured image aspects keyed by path — survives re-renders. */
 	const aspectCache = new Map<string, number>();
 	/** Waterfall blocks holding tiles whose aspects are still being probed
-	 *  (see renderTilesBlock): laid out once, when the probes settle. */
-	const pendingBlocks = new Map<HTMLElement, { gen: number; tiles: Array<{ el: HTMLElement; item: MaterialItem }> }>();
+	 *  (see renderTilesBlock): laid out once, when the probes settle. Doc
+	 *  tiles built while their cover was generating are rebuilt at flush
+	 *  time, so they mount in final form. */
+	const pendingBlocks = new Map<HTMLElement, { gen: number; tiles: Array<{ el: HTMLElement; item: MaterialItem }>; opener?: (item: MaterialItem) => void }>();
 	/** Render generation: stale async probes/relayouts no-op. */
 	let generation = 0;
 	let filterPopup: HTMLElement | null = null;
@@ -191,13 +242,13 @@ export function renderMaterialLibrary(
 	/** Type filter as ONE dropdown button (Rae): four always-visible pills spent
 	 *  a whole toolbar segment on a choice that changes rarely. The scope now
 	 *  rides on a single button — icon plus the current label, because a bare
-	 *  grid glyph would read as a view switch rather than "every kind". Picking
-	 *  rebuilds the button so its face follows the selection. */
+	 *  grid glyph would read as "view switch" rather than "every kind". Picking
+	 *  rebuilds the button so its face follows the selection. Doc kinds
+	 *  (pdf/epub/html/excalidraw/canvas) join the list from the model's shared
+	 *  choices table — type-group headers label from the same source. */
 	const TYPE_CHOICES: ReadonlyArray<{ key: MaterialKindFilter; labelKey: string; icon: string }> = [
 		{ key: 'all', labelKey: 'material.typeAll', icon: 'layout-grid' },
-		{ key: 'image', labelKey: 'material.typeImages', icon: 'image' },
-		{ key: 'video', labelKey: 'material.typeVideos', icon: 'film' },
-		{ key: 'text', labelKey: 'material.typeText', icon: 'file-text' },
+		...MATERIAL_TYPE_CHOICES,
 	];
 	const typeToggle = toolbar.createDiv({ cls: 'dashboard-material-type-toggle' });
 	const buildTypeToggle = (): void => {
@@ -323,19 +374,8 @@ export function renderMaterialLibrary(
 
 	function openFilterPopup(): void {
 		closeFilterPopup();
-		filterPopup = activeDocument.body.createDiv({ cls: 'dashboard-library-filter-popup' });
-		const dashboardRoot = filterBtn.closest<HTMLElement>('.apex-dashboard-root');
-		if (dashboardRoot) {
-			const rs = getComputedStyle(dashboardRoot);
-			['--db-bg', '--db-bg-card', '--db-bg-card-hover', '--db-border-card',
-				'--db-text', '--db-text-muted', '--db-accent', '--db-radius-md', '--db-radius-sm', '--db-font',
-				'--db-bg-input', '--db-bg-hover', '--db-bg-btn', '--db-text-normal', '--db-border-input'].forEach(v => {
-				const val = rs.getPropertyValue(v).trim();
-				if (val) filterPopup!.style.setProperty(v, val);
-			});
-		}
-		const rect = filterBtn.getBoundingClientRect();
-		filterPopup.setCssProps({ position: 'fixed', top: `${rect.bottom + 4}px`, left: `${rect.left}px`, zIndex: '10000' });
+		closePinPopup();
+		filterPopup = mountThemedBodyPopup(filterBtn, 'dashboard-library-filter-popup', 'left');
 
 		renderFilterPopup();
 		outsideClickHandler = (e: MouseEvent): void => {
@@ -380,6 +420,128 @@ export function renderMaterialLibrary(
 		favoritesOnly = !favoritesOnly;
 		currentPage = 1;
 		render();
+	});
+
+	// Folder-settings pin (Rae): named snapshots of the scan scope + excluded
+	// folders, one click to swap in. Directly right of the heart: click opens
+	// a popup that saves the CURRENT settings under a typed name or picks an
+	// existing page — frequent scope switches stop needing the settings modal.
+	let pinPopup: HTMLElement | null = null;
+	let pinOutsideClick: ((e: MouseEvent) => void) | null = null;
+	/** Case-insensitive set equality — the pin rows mark the page whose
+	 *  folders match the live config. */
+	const foldersEqual = (a: readonly string[], b: readonly string[]): boolean => {
+		if (a.length !== b.length) return false;
+		const lower = new Set(b.map(f => f.toLowerCase()));
+		return a.every(f => lower.has(f.toLowerCase()));
+	};
+	const pinScopeSummary = (page: Pick<MaterialFolderPage, 'includeFolders' | 'excludeFolders'>): string => {
+		const scope = page.includeFolders.length > 0 ? page.includeFolders.join(', ') : t('material.pinScopeAll');
+		return page.excludeFolders.length > 0
+			? `${scope} · ${t('material.pinExcludes', { count: page.excludeFolders.length })}`
+			: scope;
+	};
+	function closePinPopup(): void {
+		if (pinOutsideClick) {
+			activeDocument.removeEventListener('click', pinOutsideClick);
+			pinOutsideClick = null;
+		}
+		if (pinPopup) { pinPopup.remove(); pinPopup = null; }
+	}
+	/** (Re)build the pin popup in place: save-current row on top, the saved
+	 *  pages below — always re-read through the hooks so saves/deletes show. */
+	function renderPinPopup(): void {
+		if (!pinPopup || !ctx.folderPages) return;
+		const pages = ctx.folderPages.list();
+		const live = ctx.getConfig();
+		pinPopup.empty();
+		pinPopup.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('material.pinSaveCurrent') });
+		const saveRow = pinPopup.createDiv({ cls: 'dashboard-material-pin-save' });
+		const nameInput = saveRow.createEl('input', {
+			cls: 'dashboard-media-filter-folder dashboard-material-pin-input',
+			attr: { type: 'text', placeholder: t('material.pinNamePlaceholder') },
+		});
+		const saveCurrent = (): void => {
+			const name = nameInput.value.trim();
+			if (!name) { new Notice(t('material.pinNameRequired')); return; }
+			// Same-name saves refresh the existing page: a page is a living
+			// snapshot of scope + excludes, so re-saving after configuring the
+			// excluded folders picks them up (they used to be frozen at the
+			// first save, which is how saved pages came back without them).
+			const updated = ctx.folderPages!.save(name, ctx.getConfig());
+			nameInput.value = '';
+			new Notice(updated ? t('material.pinUpdated', { name }) : t('material.pinSaved', { name }));
+			renderPinPopup();
+		};
+		nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveCurrent(); } });
+		saveRow.createEl('button', {
+			cls: 'dashboard-library-filter-popup-clear dashboard-material-pin-savebtn',
+			text: t('common.save'),
+			attr: { type: 'button' },
+		}).addEventListener('click', (ev) => { ev.stopPropagation(); saveCurrent(); });
+
+		pinPopup.createDiv({ cls: 'dashboard-library-quickfilter-label', text: t('material.pinSavedPages') });
+		if (pages.length === 0) {
+			pinPopup.createDiv({ cls: 'dashboard-library-config-hint', text: t('material.pinEmpty') });
+			return;
+		}
+		for (const page of pages) {
+			const row = pinPopup.createDiv({
+				cls: 'dashboard-material-pin-row'
+					+ (foldersEqual(page.includeFolders, live.includeFolders) && foldersEqual(page.excludeFolders, live.excludeFolders) ? ' active' : ''),
+				attr: { role: 'button' },
+			});
+			const main = row.createDiv({ cls: 'dashboard-material-pin-main' });
+			main.createDiv({ cls: 'dashboard-material-pin-name', text: page.name });
+			main.createDiv({ cls: 'dashboard-material-pin-scope', text: pinScopeSummary(page) });
+			const del = row.createSpan({
+				cls: 'dashboard-material-pin-del',
+				text: '×',
+				attr: { title: t('material.pinDelete'), 'aria-label': t('material.pinDelete') },
+			});
+			del.addEventListener('click', (ev) => {
+				ev.stopPropagation();
+				ctx.folderPages!.remove(page.id);
+				renderPinPopup();
+			});
+			row.addEventListener('click', () => {
+				// Only the folder settings ride the page — every other config
+				// field (import/archive destinations, skill buttons) stays.
+				ctx.onConfigChange({
+					...ctx.getConfig(),
+					includeFolders: [...page.includeFolders],
+					excludeFolders: [...page.excludeFolders],
+				});
+				currentPage = 1;
+				closePinPopup();
+				new Notice(t('material.pinApplied', { name: page.name }));
+				render();
+			});
+		}
+	}
+	function openPinPopup(): void {
+		closeFilterPopup();
+		pinPopup = mountThemedBodyPopup(pinBtn, 'dashboard-library-filter-popup dashboard-material-pinpop', 'right');
+		renderPinPopup();
+		pinOutsideClick = (e: MouseEvent): void => {
+			if (!pinPopup) return;
+			const target = e.target as Node;
+			if (pinPopup.contains(target) || pinBtn.contains(target)) return;
+			if (target.instanceOf(Element) && target.closest('.modal-container')) return;
+			closePinPopup();
+		};
+		window.setTimeout(() => activeDocument.addEventListener('click', pinOutsideClick!), 0);
+	}
+	const pinBtn = toolbar.createDiv({
+		cls: 'dashboard-library-view-btn dashboard-material-pin-btn',
+		attr: { 'aria-label': t('material.pin'), title: t('material.pin'), role: 'button' },
+	});
+	setIcon(pinBtn, 'pin');
+	// No storage hooks (harness mounts without them) → the button hides.
+	if (!ctx.folderPages) pinBtn.addClass('is-hidden');
+	pinBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		if (pinPopup) closePinPopup(); else openPinPopup();
 	});
 
 	// Card style switch (Rae): flips between the original cover-only tiles and
@@ -469,6 +631,7 @@ export function renderMaterialLibrary(
 		mounter?.disconnect();
 		releaseVideoMedia(resultArea);
 		closeFilterPopup();
+		closePinPopup();
 		if (imgPoolSweepTimer !== null) {
 			window.clearTimeout(imgPoolSweepTimer);
 			imgPoolSweepTimer = null;
@@ -661,20 +824,42 @@ export function renderMaterialLibrary(
 	/** Resolved text-tile covers keyed by path — survives re-renders so
 	 *  probing and layout can share the same resolution. '' = no cover. */
 	const textCoverCache = new Map<string, string>();
+	/** Generated doc-kind covers (pdf/epub/html/excalidraw/canvas), path +
+	 *  mtime keyed with in-flight dedup; null = resolved to "no cover" (icon
+	 *  tile). Survives re-renders like every other cache here. */
+	const docCovers = new DocCoverCache(ctx.docCoverResolver ?? defaultDocCoverResolver);
 
-	/** Effective tile aspect: video placeholder 16:9, everything else (gated
-	 *  text covers included) the probed ratio (4/3 until it settles). */
+	/** Synchronous doc-cover read for the render loop. undefined = not
+	 *  resolved yet (tile falls back to the icon placeholder until the async
+	 *  pipeline backfills it). */
+	function docCoverOf(item: MaterialItem): DocCover | null | undefined {
+		if (!isDocKind(item.kind)) return null;
+		const file = fileOf(item.path);
+		if (!file) return null;
+		return docCovers.get(item.path, file.stat.mtime);
+	}
+
+	/** Effective tile aspect: video placeholder 16:9, doc kinds their format
+	 *  default (A4 / book cover / viewport / sketchpad) until a generated
+	 *  cover settles, everything else the probed ratio (4/3 until it
+	 *  settles). */
 	function aspectOf(item: MaterialItem): number {
 		if (item.kind === 'video') return MATERIAL_VIDEO_ASPECT;
-		return aspectCache.get(item.path) ?? MATERIAL_IMAGE_ASPECT;
+		const cached = aspectCache.get(item.path);
+		if (cached) return cached;
+		if (isDocKind(item.kind)) return MATERIAL_DOC_ASPECTS[item.kind] ?? MATERIAL_IMAGE_ASPECT;
+		return MATERIAL_IMAGE_ASPECT;
 	}
 
 	/** Aspects that need no async probe: cached images/text-covers, plus the
-	 *  kinds that render at a fixed ratio (video). */
+	 *  kinds that render at a fixed ratio (video). Doc kinds are ready once
+	 *  their cover is RESOLVED — a null resolution mounts at the format
+	 *  default immediately; an unresolved one holds. */
 	function isLayoutReady(item: MaterialItem): boolean {
 		if (item.kind === 'image' || (item.kind === 'text' && textCoverOf(item) !== '')) {
 			return aspectCache.has(item.path);
 		}
+		if (isDocKind(item.kind)) return docCoverOf(item) !== undefined;
 		return true;
 	}
 
@@ -686,8 +871,17 @@ export function renderMaterialLibrary(
 		return typeof ImageCtor === 'function' && !Platform.isMobile;
 	}
 
-	/** Kinds whose tile ratio comes from decoding an image (needs a probe). */
+	/** Kinds whose tile ratio comes from decoding an image (needs a probe):
+	 *  images and gated text covers as before; doc kinds while their cover is
+	 *  still generating (or generated but unmeasured, e.g. an EPUB's cover
+	 *  bytes). A doc item resolved to "no cover" needs nothing. */
 	function isProbeable(item: MaterialItem): boolean {
+		if (isDocKind(item.kind)) {
+			const cover = docCoverOf(item);
+			if (cover === undefined) return true;
+			if (cover === null) return false;
+			return !cover.aspect && !aspectCache.has(item.path);
+		}
 		return item.kind === 'image' || (item.kind === 'text' && textCoverOf(item) !== '');
 	}
 
@@ -798,6 +992,52 @@ export function renderMaterialLibrary(
 		}, 1000);
 	}
 
+	/** Icon-tile placeholder while a doc cover is still generating (or when
+	 *  none could be produced): centered type glyph + extension strip, in the
+	 *  same slot a cover image would occupy. */
+	function buildDocPlaceholder(thumb: HTMLElement, item: MaterialItem): void {
+		const ph = thumb.createDiv({ cls: 'dashboard-material-docph' });
+		const iconHost = ph.createDiv({ cls: 'dashboard-material-docph-icon' });
+		setIcon(iconHost, MATERIAL_TYPE_CHOICES.find(c => c.key === item.kind)?.icon ?? 'file');
+		ph.createDiv({
+			cls: 'dashboard-material-docph-ext',
+			text: item.kind === 'excalidraw' ? 'EXCALIDRAW' : (item.ext || item.kind).toUpperCase(),
+		});
+	}
+
+	/** Swap a generated cover into a live icon tile (the async resolution
+	 *  finished after the tile had already mounted at its placeholder). */
+	function applyDocCoverInPlace(item: MaterialItem, cover: DocCover): void {
+		for (const tile of Array.from(resultArea.querySelectorAll<HTMLElement>('.dashboard-material-tile'))) {
+			if (tile.dataset.materialPath !== item.path) continue;
+			const thumb = tile.querySelector<HTMLElement>('.dashboard-material-thumb');
+			const ph = thumb?.querySelector<HTMLElement>('.dashboard-material-docph');
+			if (!thumb || !ph) continue;
+			ph.remove();
+			adoptMaterialImg(thumb, item.path, cover.src, item.basename);
+		}
+	}
+
+	/** Kick off (or join) cover generation for one doc item and backfill the
+	 *  live tile when it lands: image in place, aspect into the cache, then
+	 *  one relayout pass. Covers without a known aspect are probed like any
+	 *  other image (probeAspect resolves 0 where probing is unavailable,
+	 *  which just pins the format default). */
+	function ensureDocCoverThenApply(item: MaterialItem): void {
+		const gen = generation;
+		void docCovers.ensure(item, app).then(cover => {
+			if (gen !== generation || !cover) return;
+			const apply = (aspect: number): void => {
+				if (aspect > 0) aspectCache.set(item.path, aspect);
+				else if (!aspectCache.has(item.path)) aspectCache.set(item.path, aspectOf(item));
+				applyDocCoverInPlace(item, cover);
+				relayout();
+			};
+			if (cover.aspect !== undefined) apply(cover.aspect);
+			else void probeAspect(cover.src).then(apply);
+		});
+	}
+
 	function buildTile(item: MaterialItem, openItem: (item: MaterialItem) => void): HTMLElement {
 		const polaroid = cardStyle.value === 'polaroid';
 		// Detached tile (global createDiv): built outside the DOM, then placed
@@ -821,6 +1061,15 @@ export function renderMaterialLibrary(
 		if (item.kind === 'text') {
 			// Text tiles are cover-gated upstream, so a cover always exists.
 			adoptMaterialImg(thumb, item.path, textCoverOf(item), item.basename);
+		} else if (isDocKind(item.kind)) {
+			// Doc kinds always tile: generated cover when it resolves, the
+			// icon placeholder while pending (or for good when there is
+			// nothing to show). Building the tile also starts generation so
+			// the cover arrives even in environments without image probing.
+			const cover = docCoverOf(item);
+			if (cover) adoptMaterialImg(thumb, item.path, cover.src, item.basename);
+			else buildDocPlaceholder(thumb, item);
+			if (cover === undefined) ensureDocCoverThenApply(item);
 		} else {
 			const src = resolveVaultImage(app, item.path);
 			if (src && item.kind === 'image') {
@@ -955,6 +1204,30 @@ export function renderMaterialLibrary(
 	/** Items of the last render, keyed by path (relayout + lightbox order). */
 	const lastItems = new Map<string, MaterialItem>();
 
+	/** Probe one item's aspect (images, gated text covers) or resolve + probe
+	 *  a doc-kind cover. Returns true when work went async — `done` fires
+	 *  exactly once when it settles; false when the item resolved
+	 *  synchronously (already cached in that case). Aspect writes are
+	 *  cache-only, safe across generations. */
+	function startItemProbe(item: MaterialItem, done: () => void): boolean {
+		const settle = (aspect: number): void => {
+			aspectCache.set(item.path, aspect > 0 ? aspect : aspectOf(item));
+			done();
+		};
+		if (isDocKind(item.kind)) {
+			void docCovers.ensure(item, app).then(cover => {
+				if (cover && cover.aspect !== undefined) { settle(cover.aspect); return; }
+				if (cover) { void probeAspect(cover.src).then(settle); return; }
+				settle(0);
+			});
+			return true;
+		}
+		const src = item.kind === 'text' ? textCoverOf(item) : resolveVaultImage(app, item.path);
+		if (!src) { aspectCache.set(item.path, aspectOf(item)); return false; }
+		void probeAspect(src).then(settle);
+		return true;
+	}
+
 	/** Probe the page's unmeasured images (and text-tile covers). Settled
 	 *  probes land in the cache and flush the blocks holding deferred tiles
 	 *  in one pass — nothing ever lays out at the fallback ratio only to jump
@@ -968,18 +1241,7 @@ export function renderMaterialLibrary(
 			if (gen !== generation) return;
 			while (inflight < 8 && queued.length > 0) {
 				const item = queued.shift()!;
-				const src = item.kind === 'text' ? textCoverOf(item) : resolveVaultImage(app, item.path);
-				if (!src) { aspectCache.set(item.path, aspectOf(item)); continue; }
-				inflight++;
-				void probeAspect(src).then(aspect => {
-					inflight--;
-					if (gen !== generation) return;
-					// Cache the fallback too: a broken image must still mount
-					// (an uncached path would defer its tile forever and
-					// re-probe it on every render).
-					aspectCache.set(item.path, aspect > 0 ? aspect : aspectOf(item));
-					pump();
-				});
+				if (startItemProbe(item, () => { inflight--; pump(); })) inflight++;
 			}
 			if (queued.length === 0 && inflight === 0) flushPendingBlocks(gen);
 		};
@@ -987,13 +1249,24 @@ export function renderMaterialLibrary(
 	}
 
 	/** Lay out the blocks whose tiles waited on aspect probes — one pass, all
-	 *  at their final ratios. */
+	 *  at their final ratios. Doc tiles whose covers resolved while they
+	 *  waited are rebuilt first (they were built as icon placeholders; the
+	 *  deferred elements are detached, so swapping the record's entry is
+	 *  enough). */
 	function flushPendingBlocks(gen: number): void {
 		if (gen !== generation) return;
 		for (const [colsHost, record] of pendingBlocks) {
 			pendingBlocks.delete(colsHost);
 			if (record.gen !== gen) continue;
-			layoutTiles(colsHost, record.tiles);
+			const tiles = record.opener
+				? record.tiles.map(t => {
+					if (!isDocKind(t.item.kind)) return t;
+					const cover = docCoverOf(t.item);
+					if (!cover || !t.el.querySelector('.dashboard-material-docph')) return t;
+					return { el: buildTile(t.item, record.opener!), item: t.item };
+				})
+				: record.tiles;
+			layoutTiles(colsHost, tiles);
 		}
 	}
 
@@ -1012,7 +1285,10 @@ export function renderMaterialLibrary(
 			stat: { mtime: f.stat.mtime, ctime: f.stat.ctime, size: f.stat.size },
 		}));
 		const all = buildMaterialItems(records, path => tagStore?.getTags(path) ?? [], config);
-		const queue = all.filter(it => !aspectCache.has(it.path) && isProbeable(it));
+		// Doc kinds stay out of the background warm-up: their covers read
+		// whole files (EPUB/PDF archives can be huge) — they generate on
+		// first page view instead and cache from there.
+		const queue = all.filter(it => !isDocKind(it.kind) && !aspectCache.has(it.path) && isProbeable(it));
 		let inflight = 0;
 		const pump = (): void => {
 			if (warmUpStopped) return;
@@ -1248,18 +1524,35 @@ export function renderMaterialLibrary(
 		const ready = probingSupported() ? tiles.filter(({ item }) => isLayoutReady(item)) : tiles;
 		layoutTiles(colsHost, ready);
 		if (ready.length < tiles.length) {
-			pendingBlocks.set(colsHost, { gen: generation, tiles });
+			pendingBlocks.set(colsHost, { gen: generation, tiles, opener });
 		}
 	}
 
+	/** Open a doc-kind file the way a file-tree double-click does:
+	 *  leaf.openFile routes by the view registry (HTML Reader's html-view,
+	 *  the PDF view, canvas boards, Excalidraw's markdown takeover) and —
+	 *  verified against app.js — anything WITHOUT a registered view falls
+	 *  back to the system's default app (EPUB → the reader). openLinkText
+	 *  must NOT be used here: it resolves markdown link semantics and, on a
+	 *  miss, CREATES an empty file under that name — html tiles opened a
+	 *  blank name-only file that way (Rae). */
+	function openDocFile(file: TFile): void {
+		void app.workspace.getLeaf(false).openFile(file);
+	}
+
 	/** Lightbox over the same-kind files of the given display order; text
-	 *  items open as notes instead (nothing to preview in a media lightbox),
-	 *  honoring the workspace open-note hook when the view provides one. */
+	 *  notes open through the popover-or-tab hook, doc kinds open as their
+	 *  native view (see openDocFile), media opens the lightbox. */
 	function makeLightboxOpener(order: readonly MaterialItem[]) {
 		return (item: MaterialItem): void => {
-			if (item.kind === 'text') {
+			if (item.kind !== 'image' && item.kind !== 'video') {
 				const file = fileOf(item.path);
-				if (ctx.openNote && file) ctx.openNote(file);
+				if (!file) return;
+				if (isDocKind(item.kind)) {
+					openDocFile(file);
+					return;
+				}
+				if (ctx.openNote) ctx.openNote(file);
 				else void app.workspace.openLinkText(item.path, '', false);
 				return;
 			}
@@ -1351,14 +1644,7 @@ export function renderMaterialLibrary(
 			if (finished) return;
 			while (inflight < 8 && queued.length > 0) {
 				const item = queued.shift()!;
-				const src = item.kind === 'text' ? textCoverOf(item) : resolveVaultImage(app, item.path);
-				if (!src) { aspectCache.set(item.path, aspectOf(item)); continue; }
-				inflight++;
-				void probeAspect(src).then(aspect => {
-					inflight--;
-					aspectCache.set(item.path, aspect > 0 ? aspect : aspectOf(item));
-					pump();
-				});
+				if (startItemProbe(item, () => { inflight--; pump(); })) inflight++;
 			}
 			if (queued.length === 0 && inflight === 0) finish();
 		};

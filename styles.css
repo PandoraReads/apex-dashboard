@@ -30498,6 +30498,65 @@ button.dashboard-capturebar-glyph:hover {
 	fill: currentColor;
 }
 
+/* Folder-settings pin (right cluster, beside the heart): themed body popup
+   reusing the filter-popup shell. Save-current row on top, one row per saved
+   page — name + scope summary, whole row applies, × deletes, the row whose
+   folders match the live config carries the accent. */
+.dashboard-material-pin-btn.is-hidden { display: none; }
+.dashboard-material-pinpop { width: 300px; }
+.dashboard-material-pin-save {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+.dashboard-material-pin-save .dashboard-media-filter-folder {
+	flex: 1;
+	min-width: 0;
+	margin-top: 0;
+}
+.dashboard-material-pin-savebtn { flex-shrink: 0; white-space: nowrap; }
+.dashboard-material-pin-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: var(--db-radius-sm, 6px);
+	cursor: pointer;
+}
+.dashboard-material-pin-row:hover { background: var(--db-bg-hover, rgba(0, 0, 0, 0.05)); }
+.dashboard-material-pin-row.active {
+	background: color-mix(in srgb, var(--db-accent, #d4a24e) 12%, transparent);
+}
+.dashboard-material-pin-main { flex: 1; min-width: 0; }
+.dashboard-material-pin-name {
+	font-size: 0.8125em;
+	font-weight: 600;
+	color: var(--db-text, inherit);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.dashboard-material-pin-row.active .dashboard-material-pin-name {
+	color: var(--db-accent, inherit);
+}
+.dashboard-material-pin-scope {
+	font-size: 0.75em;
+	color: var(--db-text-muted, var(--text-muted, #888888));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.dashboard-material-pin-del {
+	flex-shrink: 0;
+	padding: 0 4px;
+	font-size: 1em;
+	line-height: 1;
+	color: var(--db-text-muted, var(--text-muted, #888888));
+	border-radius: var(--db-radius-sm, 6px);
+}
+.dashboard-material-pin-del:hover { color: #e0245e; }
+
 /* Type filter is ONE dropdown button (Rae) — the segmented pill row is gone,
    so the toolbar hands its width back to search/sort/group. Only the wrapper
    needs material-side rules; the button itself wears the shared
@@ -30739,6 +30798,52 @@ button.dashboard-capturebar-glyph:hover {
 	background:
 		linear-gradient(135deg, color-mix(in srgb, var(--db-accent, #8b5cf6) 14%, transparent), transparent 60%),
 		rgba(128, 128, 128, 0.12);
+}
+
+/* Doc-kind placeholder (PDF/EPUB/HTML/Excalidraw/Canvas while a cover
+   generates, or for good when none exists): fills the thumb slot with a
+   quiet type glyph + extension strip, in the same visual family as the
+   video placeholder above. */
+.dashboard-material-docph {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	width: 100%;
+	height: 100%;
+	min-height: 64px;
+	background:
+		linear-gradient(160deg, rgba(255, 255, 255, 0.55), transparent 55%),
+		linear-gradient(135deg, color-mix(in srgb, var(--db-accent, #8b5cf6) 8%, transparent), transparent 62%),
+		#eceae4;
+}
+
+.dashboard-material-docph-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #8f8b82;
+	opacity: 0.9;
+}
+
+.dashboard-material-docph-icon svg {
+	width: 26px;
+	height: 26px;
+}
+
+.dashboard-material-docph-ext {
+	max-width: 88%;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: rgba(51, 50, 46, 0.08);
+	font-size: 0.62em;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	color: #6f6b63;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Caption stays IN the paper flow. It must never pick up the media section's

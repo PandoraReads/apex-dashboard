@@ -133,6 +133,13 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 
 ## Nouveautés
 
+### 3.9.5
+- **Types de documents dans la bibliothèque de matériel** — PDF, EPUB, pages HTML enregistrées, dessins Excalidraw et tableaux Canvas s'affichent désormais en vignettes : les couvertures EPUB sont extraites du livre, les PDF affichent leur première page, les pages HTML obtiennent un instantané du premier écran, dessins et tableaux sont esquissés en miniatures, et tout fichier sans couverture affiche une carte à icône de type ; le filtre et le groupement par type s'élargissent, et un clic ouvre chaque fichier en natif (HTML Reader, vue PDF, tableaux — les extensions sans vue passent par l'app par défaut du système)
+- **Les pages épinglées se mettent à jour en réenregistrant** — réenregistrer sous un nom de page existant actualise désormais cette page avec les dossiers exclus actuels au lieu d'empiler une ligne dupliquée ; corrigé : cliquer sur HTML et autres fichiers hors notes ouvrait un fichier vide
+
+### 3.9.4
+- **Pages de dossiers de la bibliothèque de matériaux (épingle)** — un nouveau bouton épingle à droite du cœur des favoris enregistre le périmètre de scan et les dossiers exclus actuels en page nommée ; un clic sur une page enregistrée échange les dossiers en un geste, le × supprime à la volée, et les pages se synchronisent entre appareils via data.json
+
 ### 3.9.3
 - **Archivage dans la bibliothèque de matériel** — un nouveau bouton d'archivage dans la barre d'actions droite déplace la sélection vers le dossier d'archivage configuré ; une notification invite à le régler s'il est vide
 - **Notes référencées dans la visionneuse** — la vue image/vidéo liste en bas toutes les notes qui lient ou intègrent l'élément, avec un saut en un clic

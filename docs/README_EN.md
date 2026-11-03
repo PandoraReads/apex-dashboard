@@ -133,6 +133,13 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.9.5
+- **Material library doc kinds** — PDF, EPUB, saved HTML pages, Excalidraw drawings and Canvas boards now tile in the material library: EPUB covers are extracted from the book, PDFs render their first page, HTML pages get a first-screen snapshot, drawings and boards are sketched as thumbnails, and anything without a cover shows a type icon card; the type filter and type grouping grew accordingly, and a click opens each file natively (HTML Reader, the PDF view, boards — extensions without a view go to the system's default app)
+- **Pin pages re-save to update** — re-saving under an existing page name now refreshes that page with the current excluded folders instead of stacking a duplicate row; fixed clicking HTML and other non-note files opening a blank file
+
+### 3.9.4
+- **Material library folder pages (pin)** — a new pin button right of the favorites heart saves the current scan scope and excluded folders as a named page; click a saved page to swap the folder settings in one go, remove pages inline with ×, and the pages sync across devices via data.json
+
 ### 3.9.3
 - **Material library archive** — a new archive button on the right action rail moves the selection into the archive folder configured in settings, with a notice prompting the setup when unset
 - **Lightbox backlinks** — the image/video viewer lists every note that links or embeds the asset at the bottom; click to jump

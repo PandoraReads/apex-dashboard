@@ -8,11 +8,12 @@
 
 import { ItemView, WorkspaceLeaf, TAbstractFile, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
+import type { MaterialFolderPage, MaterialLibraryConfig } from './types';
 import { t } from './i18n';
 import { renderMaterialLibrary, type MaterialRenderController } from './material-render';
 import { MaterialConfigModal } from './material-config-modal';
 import { NoteOpener } from './note-opener';
-import { sanitizeMaterialConfig } from './material-model';
+import { sanitizeMaterialConfig, sanitizeMaterialFolderPages, upsertMaterialFolderPage } from './material-model';
 import { agentTargets } from './agent-dispatch';
 import { applyAppearance, refreshAppearanceOnRoot } from './appearance';
 
@@ -77,7 +78,13 @@ export class MaterialLibraryView extends ItemView {
 			// render() so settings edits (scan scope, skill buttons) apply on
 			// the next refresh instead of after a view reopen.
 			getConfig: () => this.config(),
-			onConfigChange: () => { /* settings persist through the modal */ },
+			// Persist-only: the renderer re-reads the getter on its own next
+			// render, so saving must not double-refresh (the pin button's page
+			// swap calls this then renders once).
+			onConfigChange: cfg => {
+				this.plugin.settings = { ...this.plugin.settings, materialConfig: cfg };
+				void this.plugin.saveSettings();
+			},
 			onOpenSettings: () => this.openSettings(),
 			openNote: (file) => this.opener?.open(file),
 			tagStore: this.plugin.mediaTagService ?? null,
@@ -93,6 +100,28 @@ export class MaterialLibraryView extends ItemView {
 					this.plugin.settings = { ...this.plugin.settings, materialFavorites: next };
 					void this.plugin.saveSettings();
 					return next.includes(path);
+				},
+			},
+			// Pin-button pages follow the same settings-sync path as hearts.
+			folderPages: {
+				list: (): MaterialFolderPage[] => sanitizeMaterialFolderPages(this.plugin.settings.materialFolderPages),
+				/** Same-name saves UPDATE the page in place: pages are living
+				 *  snapshots of scope + excludes, so re-saving after tweaking
+				 *  the excluded folders refreshes the row (Rae). */
+				save: (name: string, cfg: MaterialLibraryConfig): boolean => {
+					const prev = sanitizeMaterialFolderPages(this.plugin.settings.materialFolderPages);
+					const { pages, updated } = upsertMaterialFolderPage(prev, name, cfg);
+					this.plugin.settings = { ...this.plugin.settings, materialFolderPages: pages };
+					void this.plugin.saveSettings();
+					return updated;
+				},
+				remove: (id: string): void => {
+					const prev = sanitizeMaterialFolderPages(this.plugin.settings.materialFolderPages);
+					this.plugin.settings = {
+						...this.plugin.settings,
+						materialFolderPages: prev.filter(page => page.id !== id),
+					};
+					void this.plugin.saveSettings();
 				},
 			},
 		});

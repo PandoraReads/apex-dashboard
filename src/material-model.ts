@@ -12,13 +12,29 @@
  * column.
  */
 
-import type { AgentTarget, MaterialLibraryConfig, MaterialSkillButton } from './types';
+import type { AgentTarget, MaterialFolderPage, MaterialLibraryConfig, MaterialSkillButton } from './types';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 
 /** File extensions the material library types specially (superset: images +
  * videos); every other extension scans in as a 'text' item. */
 export const MATERIAL_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp']);
 export const MATERIAL_VIDEO_EXTS = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v']);
+/** Structured non-media formats the library shows as their own kind (Rae —
+ * PDF/EPUB books, saved HTML pages, Excalidraw drawings and Canvas boards all
+ * get tiles, each with a best-effort generated cover). */
+export const MATERIAL_DOC_KIND_BY_EXT: Readonly<Record<string, MaterialKind>> = {
+	pdf: 'pdf',
+	html: 'html',
+	htm: 'html',
+	epub: 'epub',
+	canvas: 'canvas',
+	excalidraw: 'excalidraw',
+};
+/** Kinds beyond the original media/text trio. */
+export const MATERIAL_DOC_KINDS: readonly MaterialKind[] = ['pdf', 'html', 'epub', 'excalidraw', 'canvas'];
+export function isDocKind(kind: MaterialKind): boolean {
+	return kind !== 'image' && kind !== 'video' && kind !== 'text';
+}
 
 /** Minimal file record the model needs — a structural subset of TFile so
  *  tests feed plain objects and the view feeds real TFiles. */
@@ -29,14 +45,14 @@ export interface MaterialFileRecord {
 	stat: { mtime: number; ctime: number; size: number };
 }
 
-/** One material asset in display terms. 'text' is every non-media file —
- *  notes, PDFs, anything in the vault; tiles show their frontmatter cover
- *  when one exists, an extension placeholder otherwise. */
+/** One material asset in display terms. 'text' is plain markdown/unknown —
+ *  only notes with a resolvable frontmatter cover become tiles; the doc kinds
+ *  (pdf/html/epub/excalidraw/canvas) always tile, cover generated for them. */
 export interface MaterialItem {
 	path: string;
 	basename: string;
 	ext: string;
-	kind: 'image' | 'video' | 'text';
+	kind: MaterialKind;
 	mtime: number;
 	ctime: number;
 	size: number;
@@ -49,7 +65,34 @@ export interface MaterialItem {
 	tags: string[];
 }
 
-export type MaterialKindFilter = 'all' | 'image' | 'video' | 'text';
+export type MaterialKind = 'image' | 'video' | 'text' | 'pdf' | 'html' | 'epub' | 'excalidraw' | 'canvas';
+export type MaterialKindFilter = 'all' | MaterialKind;
+
+/** Type-filter choices shared by the toolbar dropdown and the type-group
+ *  headers (label keys resolve through i18n; icons verified against the
+ *  Obsidian Lucide dictionary). */
+export const MATERIAL_TYPE_CHOICES: ReadonlyArray<{ key: MaterialKind; labelKey: string; icon: string }> = [
+	{ key: 'image', labelKey: 'material.typeImages', icon: 'image' },
+	{ key: 'video', labelKey: 'material.typeVideos', icon: 'film' },
+	{ key: 'text', labelKey: 'material.typeText', icon: 'file-text' },
+	{ key: 'pdf', labelKey: 'material.typePdf', icon: 'book' },
+	{ key: 'epub', labelKey: 'material.typeEpub', icon: 'book-open' },
+	{ key: 'html', labelKey: 'material.typeHtml', icon: 'code' },
+	{ key: 'excalidraw', labelKey: 'material.typeExcalidraw', icon: 'pen-tool' },
+	{ key: 'canvas', labelKey: 'material.typeCanvas', icon: 'layout-dashboard' },
+];
+
+/** Aspect fallbacks for doc kinds before their generated cover settles (or
+ *  for good when no cover could be produced): A4 for PDFs, a book cover for
+ *  EPUB, a browser viewport for saved HTML, portrait sketchpads for
+ *  Excalidraw, landscape boards for Canvas. */
+export const MATERIAL_DOC_ASPECTS: Readonly<Record<string, number>> = {
+	pdf: 1 / 1.414,
+	epub: 2 / 3,
+	html: 4 / 3,
+	excalidraw: 1 / 1.35,
+	canvas: 16 / 9,
+};
 export type MaterialSortBy = 'modified' | 'created' | 'name' | 'size';
 export type MaterialGroupMode = 'none' | 'folder' | 'tag' | 'type';
 export type MaterialDensity = 'small' | 'medium' | 'large';
@@ -86,9 +129,16 @@ export const MATERIAL_VIDEO_ASPECT = 16 / 9;
  *  instead of a full-height gray box. */
 export const MATERIAL_TEXT_ASPECT = 5 / 2;
 
-export function materialKindFor(ext: string): 'image' | 'video' | 'text' {
-	if (MATERIAL_IMAGE_EXTS.has(ext)) return 'image';
-	if (MATERIAL_VIDEO_EXTS.has(ext)) return 'video';
+/** Type one file by extension. The basename matters for the Excalidraw
+ *  plugin's markdown-wrapped format (`note.excalidraw.md` — extension 'md'
+ *  with an `.excalidraw` basename tail), which must not scan in as a plain
+ *  coverless note. */
+export function materialKindFor(ext: string, basename?: string): MaterialKind {
+	const e = ext.toLowerCase();
+	if (MATERIAL_DOC_KIND_BY_EXT[e]) return MATERIAL_DOC_KIND_BY_EXT[e]!;
+	if (e === 'md' && basename && basename.toLowerCase().endsWith('.excalidraw')) return 'excalidraw';
+	if (MATERIAL_IMAGE_EXTS.has(e)) return 'image';
+	if (MATERIAL_VIDEO_EXTS.has(e)) return 'video';
 	return 'text';
 }
 
@@ -155,7 +205,7 @@ export function buildMaterialItems(
 			path: file.path,
 			basename: file.basename,
 			ext: file.extension,
-			kind: materialKindFor(file.extension),
+			kind: materialKindFor(file.extension, file.basename),
 			mtime: file.stat.mtime,
 			ctime: file.stat.ctime,
 			size: file.stat.size,
@@ -201,8 +251,9 @@ export function sortMaterialItems(items: readonly MaterialItem[], sortBy: Materi
 
 /** Group display-ordered items. Folder mode keys by the sub-folder below the
  *  scan root (label = that sub-folder's own name); tag mode fans an item out
- *  one bucket per tag; type mode splits image/video/text. Buckets sort
- *  alphabetically (numeric-aware); the not-set bucket always goes last. */
+ *  one bucket per tag; type mode splits by kind (image/video/text + every
+ *  doc kind). Buckets sort alphabetically (numeric-aware); the not-set bucket
+ *  always goes last. */
 export function groupMaterialItems(items: readonly MaterialItem[], mode: MaterialGroupMode, notSetLabel: string): MaterialGroup[] {
 	if (mode === 'none') return [];
 	const buckets = new Map<string, MaterialItem[]>();
@@ -324,5 +375,56 @@ export function sanitizeMaterialConfig(raw: unknown, validAgents: readonly Agent
 		skillButtons: buttons,
 		importFolder: typeof obj.importFolder === 'string' ? normalizeImportFolder(obj.importFolder) : '',
 	archiveFolder: typeof obj.archiveFolder === 'string' ? normalizeImportFolder(obj.archiveFolder) : '',
+	};
+}
+
+/** Sanitize saved folder-setting pages (old/garbage data.json entries): keep
+ *  only entries with a usable name, normalizing folder lists the same way the
+ *  live config does. */
+export function sanitizeMaterialFolderPages(raw: unknown): MaterialFolderPage[] {
+	if (!Array.isArray(raw)) return [];
+	const strList = (v: unknown): string[] => Array.isArray(v)
+		? v.filter((x): x is string => typeof x === 'string')
+		: [];
+	const out: MaterialFolderPage[] = [];
+	for (const entry of raw) {
+		if (!entry || typeof entry !== 'object') continue;
+		const e = entry as Record<string, unknown>;
+		const name = typeof e.name === 'string' ? e.name.trim() : '';
+		if (!name) continue;
+		out.push({
+			id: typeof e.id === 'string' && e.id ? e.id : `mp_${Date.now().toString(36)}_${out.length}`,
+			name,
+			includeFolders: normalizeIncludeFolders(strList(e.includeFolders)),
+			excludeFolders: strList(e.excludeFolders),
+		});
+	}
+	return out;
+}
+
+/** Save-or-update one folder page (pin button): a page saved under a name
+ *  that already exists is REFRESHED in place — a page is a living snapshot of
+ *  the scan scope + excludes, so re-saving after tweaking the excluded
+ *  folders updates the same row instead of stacking a look-alike (Rae hit
+ *  exactly that: pages saved before excludes were configured never picked
+ *  them up). Returns the new list and whether an existing row was updated. */
+export function upsertMaterialFolderPage(
+	pages: readonly MaterialFolderPage[],
+	name: string,
+	cfg: Pick<MaterialLibraryConfig, 'includeFolders' | 'excludeFolders'>,
+): { pages: MaterialFolderPage[]; updated: boolean } {
+	const trimmed = name.trim();
+	const existingIndex = pages.findIndex(p => p.name === trimmed);
+	const page: MaterialFolderPage = {
+		id: existingIndex >= 0 ? pages[existingIndex]!.id : `mp_${Date.now().toString(36)}_${pages.length}`,
+		name: trimmed,
+		includeFolders: normalizeIncludeFolders(cfg.includeFolders),
+		excludeFolders: [...cfg.excludeFolders],
+	};
+	return {
+		pages: existingIndex >= 0
+			? pages.map((p, i) => (i === existingIndex ? page : p))
+			: [...pages, page],
+		updated: existingIndex >= 0,
 	};
 }
