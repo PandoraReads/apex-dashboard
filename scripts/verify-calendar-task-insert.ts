@@ -281,6 +281,92 @@ async function main(): Promise<void> {
 		assert.ok(out.includes(line), '20b: task line kept verbatim');
 	}
 
+	// 21. fallback 'day': a future day with no note NEVER falls back to today's
+	//     journal — the clicked day's note is created instead (the "投放顺序"
+	//     option that keeps tasks on the day they were added to).
+	{
+		const { app, store } = makeApp({ [todayPath]: 'Today only\n' });
+		const line = `- [ ] future only 📅 ${futureIso}`;
+		const target = await insertTaskForDay(app, futureIso, line, 'Dashboard/dashboard', 'start', undefined, 'day');
+		assert.equal(target?.kind, 'daily-created', '21: kind');
+		assert.equal(target?.file.path, futurePath, "21: created the clicked day's note");
+		assert.ok(store.get(futurePath)!.includes(line), '21: line in the new day note');
+		assert.ok(!store.get(todayPath)!.includes('future only'), '21: today untouched');
+	}
+
+	// 22. fallback 'day' with the clicked day's note present -> plain insert.
+	{
+		const { app } = makeApp({ [futurePath]: 'Pre-seeded\n', [todayPath]: 'Today\n' });
+		const target = await insertTaskForDay(app, futureIso, '- [ ] x', undefined, 'start', undefined, 'day');
+		assert.equal(target?.kind, 'daily-top', '22: kind');
+		assert.equal(target?.file.path, futurePath, '22: clicked day note');
+	}
+
+	// 23. fallback 'today': even a day that HAS its own note writes to today.
+	{
+		const { app, store } = makeApp({ [futurePath]: 'Pre-seeded\n', [todayPath]: 'Today\n' });
+		const target = await insertTaskForDay(app, futureIso, '- [ ] x', undefined, 'end', undefined, 'today');
+		assert.equal(target?.file.path, todayPath, '23: pinned to today');
+		assert.ok(store.get(todayPath)!.includes('- [ ] x'), '23: written to today');
+		assert.ok(!store.get(futurePath)!.includes('- [ ] x'), '23: clicked day note untouched');
+	}
+
+	// 24. fallback 'today' with no note at all -> today's note is created
+	//     (never the clicked day's, never the dashboard).
+	{
+		const { app, store } = makeApp({ 'Dashboard/dashboard.md': '- [ ] Existing\n' });
+		const target = await insertTaskForDay(app, futureIso, '- [ ] x', 'Dashboard/dashboard', 'start', undefined, 'today');
+		assert.equal(target?.file.path, todayPath, "24: today's note created");
+		assert.ok(store.get(todayPath)!.includes('- [ ] x'), '24: line written');
+		assert.ok(!store.get('Dashboard/dashboard.md')!.includes('- [ ] x'), '24: dashboard untouched');
+	}
+
+	// 25. fallback 'dashboard': the board checklist wins over any daily note.
+	{
+		const { app, store } = makeApp({ [futurePath]: 'Pre-seeded\n', [todayPath]: 'Today\n', 'Dashboard/dashboard.md': '- [ ] Existing\n' });
+		const target = await insertTaskForDay(app, futureIso, '- [ ] x', 'Dashboard/dashboard', 'start', undefined, 'dashboard');
+		assert.equal(target?.kind, 'dashboard-list', '25: kind');
+		assert.ok(store.get('Dashboard/dashboard.md')!.includes('- [ ] x'), '25: written to the board');
+		assert.ok(!store.get(futurePath)!.includes('- [ ] x'), '25: clicked day untouched');
+	}
+
+	// 26. An unknown/hand-edited fallback value behaves like 'auto'.
+	{
+		const { app } = makeApp({ [todayPath]: 'Today\n' });
+		const target = await insertTaskForDay(
+			app, futureIso, '- [ ] x', undefined, 'start', undefined,
+			'bogus' as unknown as Parameters<typeof insertTaskForDay>[6],
+		);
+		assert.equal(target?.file.path, todayPath, '26: unknown value falls back to the auto chain');
+	}
+
+	// 27. The fallback chain is a first-class setting: default 'auto', exposed
+	//     as a dropdown, read by the modal, and labelled in every language.
+	{
+		const { readFileSync } = await import('node:fs');
+		const typesSrc = readFileSync('src/types.ts', 'utf-8');
+		const settingsSrc = readFileSync('src/settings.ts', 'utf-8');
+		const modalSrc = readFileSync('src/calendar-modal.ts', 'utf-8');
+		const enSrc = readFileSync('src/i18n.ts', 'utf-8');
+
+		assert.ok(typesSrc.includes("calendarTaskFallback: 'auto',"), '27a: default is the historical auto chain');
+		assert.ok(/calendarTaskFallback:\s*CalendarTaskFallback;/.test(typesSrc), '27b: setting is typed');
+		for (const opt of ['auto', 'day', 'today', 'dashboard']) {
+			assert.ok(settingsSrc.includes(`addOption('${opt}',`), `27c: '${opt}' option in the settings dropdown`);
+		}
+		assert.ok(settingsSrc.includes('calendarTaskFallback: next'), '27d: the dropdown persists the choice');
+		assert.ok(modalSrc.includes('readTaskFallback(this.app)'), '27e: the day agenda reads the setting');
+		assert.ok(modalSrc.includes('targetCfg, readTaskFallback'), '27f: …and forwards it into insertTaskForDay');
+		for (const lang of ['de', 'es', 'fr', 'ja', 'ko', 'pt-BR', 'ru', 'th']) {
+			const src = readFileSync(`src/locales/${lang}/part-6.ts`, 'utf-8');
+			assert.ok(src.includes('"settings.calendarTaskFallback"'), `27g: ${lang} label`);
+			assert.ok(src.includes('"settings.calendarTaskFallbackDashboard"'), `27g: ${lang} options`);
+		}
+		for (const key of ['settings.calendarTaskFallback', 'settings.calendarTaskFallbackDesc', 'settings.calendarTaskFallbackDashboard']) {
+			assert.ok(enSrc.includes(`'${key}'`), `27h: ${key} present in i18n.ts`);
+		}
+	}
+
 	// Sanity: returned targets always describe the written line.
 	{
 		const { app } = makeApp({ [todayPath]: 'x\n' });
@@ -290,7 +376,7 @@ async function main(): Promise<void> {
 		assert.equal(target.writtenLine, '- [ ] y', 'sanity: writtenLine');
 	}
 
-	console.log('verify-calendar-task-insert: 20 scenarios + sanity OK');
+	console.log('verify-calendar-task-insert: 27 scenarios + sanity OK');
 }
 
 void main();

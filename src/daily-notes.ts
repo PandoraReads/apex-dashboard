@@ -206,7 +206,8 @@ function appendAtFileEnd(content: string, taskLine: string): { content: string; 
 }
 
 /**
- * Write a calendar-added task line for `iso`:
+ * Write a calendar-added task line for `iso`. `fallback` picks the destination
+ * chain (settings → "投放顺序"); the default 'auto' is the historical order:
  *
  *  1. the clicked day's daily note exists -> insert per `position`: 'start' at
  *     its TOP (right below frontmatter), 'end' at its bottom;
@@ -218,6 +219,11 @@ function appendAtFileEnd(content: string, taskLine: string): { content: string; 
  *  4. last resort (no dashboard file either) -> create the daily note for the
  *     clicked day (template-seeded) with the task, matching the classic behavior.
  *
+ * 'day' shortens the chain to the clicked day's note, creating it when missing
+ * (step 1 → step 4). 'today' pins the task to today's journal (creating it when
+ * missing) so nothing ever lands on a date the user did not ask for. 'dashboard'
+ * jumps straight to the dashboard checklist (step 3).
+ *
  * Returns null only when the core Daily Notes plugin is disabled AND the
  * dashboard file is missing — callers surface the enable-hint Notice.
  */
@@ -228,6 +234,7 @@ export async function insertTaskForDay(
 	dashboardFile?: string,
 	position: 'start' | 'end' = 'start',
 	customTarget?: import('./types').CalendarTaskTarget,
+	fallback: import('./types').CalendarTaskFallback = 'auto',
 ): Promise<TaskInsertTarget | null> {
 	// 0. User-pinned destination: a specific file (insert per position), or a
 	// folder with one YYYY-MM-DD note per day (created on the day's first
@@ -258,9 +265,16 @@ export async function insertTaskForDay(
 	}
 
 	// 1.+2. The clicked day's note first, then today's (skipped when the
-	// clicked day IS today).
+	// clicked day IS today). The configured fallback narrows this chain:
+	// 'day' keeps only the clicked day, 'today' only today's note, and
+	// 'dashboard' skips notes entirely (handled below).
 	const todayIso = nowMoment().format('YYYY-MM-DD');
-	for (const dayIso of iso === todayIso ? [iso] : [iso, todayIso]) {
+	const chain = fallback === 'day'
+		? [iso]
+		: fallback === 'today' ? [todayIso]
+			: fallback === 'dashboard' ? []
+				: (iso === todayIso ? [iso] : [iso, todayIso]);
+	for (const dayIso of chain) {
 		const notePath = dailyNotePathFor(app, dayIso);
 		if (!notePath) break; // Daily Notes plugin disabled — no note possible.
 		const note = app.vault.getAbstractFileByPath(notePath);
@@ -269,8 +283,12 @@ export async function insertTaskForDay(
 		}
 	}
 
-	// 3. No daily note for either day: the dashboard file's first checkbox list.
-	const rawPath = (dashboardFile ?? '').trim();
+	// 3. No daily note in the chain: the dashboard file's first checkbox list.
+	// 'day' and 'today' skip this hop — those chains own their destination and
+	// create the note instead (step 4), so a task never silently lands on the
+	// board when the user asked for a journal note.
+	const wantsNote = fallback === 'day' || fallback === 'today';
+	const rawPath = wantsNote ? '' : (dashboardFile ?? '').trim();
 	if (rawPath) {
 		const dashPath = rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`;
 		const dash = app.vault.getFileByPath(dashPath);
@@ -282,8 +300,9 @@ export async function insertTaskForDay(
 		}
 	}
 
-	// 4. Last resort: create the clicked day's daily note with the task.
-	const created = await appendTaskToDailyNote(app, iso, taskLine);
+	// 4. Last resort: create the daily note for the chain's target day (the
+	// clicked day, or today under the 'today' fallback) with the task.
+	const created = await appendTaskToDailyNote(app, fallback === 'today' ? todayIso : iso, taskLine);
 	if (!created) return null;
 	const raw = await app.vault.read(created);
 	const line = Math.max(raw.split('\n').indexOf(taskLine), 0);

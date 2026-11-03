@@ -57,6 +57,11 @@ export interface CalendarTaskTarget {
 	templatePath?: string;
 }
 
+/** Fallback chain for calendar-added tasks (used when no fixed
+ *  CalendarTaskTarget is configured). See DashboardSettings. */
+export const CALENDAR_TASK_FALLBACKS = ['auto', 'day', 'today', 'dashboard'] as const;
+export type CalendarTaskFallback = typeof CALENDAR_TASK_FALLBACKS[number];
+
 export interface DashboardSettings {
 	/** Path of the ACTIVE workspace file (no .md extension). */
 	dashboardFile: string;
@@ -132,6 +137,16 @@ export interface DashboardSettings {
 	    NEW note per task (optionally template-seeded). Unset = the historical
 	    daily-note chain (clicked day → today → dashboard → create). */
 	calendarTaskTarget?: CalendarTaskTarget;
+	/** Destination chain used when calendarTaskTarget is unset (the "fallback
+	    order" a calendar-added task travels). Only consulted on that path.
+	    - 'auto': clicked day's note → today's note → dashboard checklist →
+	      create the clicked day's note (historical behavior);
+	    - 'day': the clicked day's note only, created when missing — the task
+	      always lives on the day it was added to;
+	    - 'today': today's note only, created when missing (clicked-day tasks
+	      still show on the clicked day via their date markers);
+	    - 'dashboard': the dashboard file's checklist only. */
+	calendarTaskFallback: CalendarTaskFallback;
 	/** Habit check-in widget: boolean daily check-offs tracked per habit. */
 	widgetHabitEnabled: boolean;
 	/** Expense tracker widget: quick expense/income entry in the sidebar. */
@@ -456,6 +471,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	calendarExcludeFolders: [],
 	calendarTaskFilter: 'all',
 	calendarTaskInsertPosition: 'start',
+	calendarTaskFallback: 'auto',
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	widgetSkillsEnabled: false,
@@ -721,6 +737,11 @@ export interface DashboardCard {
 	 *  card edit modal). 'popover' (default) = the in-dashboard note editor,
 	 *  identical to clicking one of the card's docs; 'tab' = a real tab. */
 	newNoteOpenMode?: 'popover' | 'tab';
+	/** What happens to a top-level task after it's checked complete (per-card
+	 *  config, task-list config button). 'end' (default) = move to the list's
+	 *  bottom, the historical behavior; 'stay' = keep its slot; 'afterUnfinished'
+	 *  = drop just past the last unfinished task (before the completed block). */
+	taskCompleteBehavior?: 'stay' | 'end' | 'afterUnfinished';
 	width: number;
 	size: CardSize;
 	gridCols: number;
@@ -1431,6 +1452,9 @@ export interface RenderCallbacks {
 	onCardDelete(cardId: string): void;
 	/** Sticky-card pin-to-top: move the card to the first slot of its section. */
 	onCardPinTop(cardId: string, columnName: string): void;
+	/** Task-list per-card config: where a completed task lands. 'end' is the
+	 *  historical default and persists as undefined (no metadata line). */
+	onTaskCompleteBehaviorChange?(card: DashboardCard, value: 'stay' | 'afterUnfinished' | undefined): void;
 	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;
 	onTaskDelete(cardId: string, taskPath: number[]): void;

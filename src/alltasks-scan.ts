@@ -51,6 +51,9 @@ interface CacheEntry {
 }
 
 const moduleCache = new Map<string, CacheEntry>();
+/** Paths whose next scan must read from disk instead of the vault's cached
+ *  snapshot. Set by invalidatePath after this plugin writes a file. */
+const freshReadPaths = new Set<string>();
 
 const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
 /** Plugin's own reminder marker: `⏰ YYYY-MM-DD( HH:MM)` at end of line (time optional). */
@@ -266,13 +269,21 @@ export async function collectVaultTasks(
 		const fc = app.metadataCache.getFileCache(file);
 		const cacheMtime = (fc as { mtime?: number } | null)?.mtime;
 		const cacheFresh = fc != null && typeof cacheMtime === 'number' && cacheMtime >= file.stat.mtime;
-		if (fc && cacheFresh && !fc.listItems?.some(li => li.task !== undefined)) {
+		// A path we were told to invalidate (a write that just happened here)
+		// must bypass the metadata pre-filter entirely: that cache is the LAST
+		// thing Obsidian updates, so a just-edited note can still look
+		// "task-free" and be skipped.
+		const forced = freshReadPaths.delete(file.path);
+		if (!forced && fc && cacheFresh && !fc.listItems?.some(li => li.task !== undefined)) {
 			continue;
 		}
 
 		let content: string;
 		try {
-			content = await app.vault.cachedRead(file);
+			// Forced paths read from DISK: `cachedRead` can hand back the vault's
+			// pre-write snapshot for a beat after `vault.modify`, which is how a
+			// just-added calendar task stayed invisible until the next view switch.
+			content = forced ? await app.vault.read(file) : await app.vault.cachedRead(file);
 		} catch {
 			continue;
 		}
@@ -284,9 +295,11 @@ export async function collectVaultTasks(
 	return all;
 }
 
-/** Drop cache entries for a path (e.g. after a failed toggle) so the next scan re-reads. */
+/** Drop cache entries for a path (e.g. after a toggle or a calendar add) so the
+ *  next scan re-reads it — from disk, bypassing both caches. */
 export function invalidatePath(path: string): void {
 	moduleCache.delete(path);
+	freshReadPaths.add(path);
 }
 
 /**

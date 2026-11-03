@@ -198,6 +198,11 @@ export class SyncEngine {
 	async toggleTask(cardId: string, taskPath: TaskPath, checked: boolean): Promise<void> {
 		if (!this.data) return;
 
+		// Per-card completion behavior (task-list config button). Undefined
+		// keeps the historical move-to-bottom.
+		const card = this.data.columns.flatMap(col => col.cards).find(c => c.id === cardId);
+		const behavior = card?.taskCompleteBehavior ?? 'end';
+
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) => {
 			let next = updateTaskAt(tasks, taskPath, (t) => {
 				if (t.children && t.children.length > 0) {
@@ -213,8 +218,22 @@ export class SyncEngine {
 			if (checked && taskPath.length === 1) {
 				const target = next[taskPath[0]!];
 				if (target) {
-					const without = removeTaskAt(next, taskPath).tasks;
-					next = [...without, target];
+					if (behavior === 'stay') {
+						// Keep the task's slot — no reorder at all.
+					} else if (behavior === 'afterUnfinished') {
+						// Drop the completed task just past the LAST unfinished
+						// top-level task (i.e. on top of the completed block).
+						// With no unfinished tasks left this lands at the end.
+						const without = removeTaskAt(next, taskPath).tasks;
+						let insertIdx = 0;
+						for (let i = 0; i < without.length; i++) {
+							if (!without[i]!.checked) insertIdx = i + 1;
+						}
+						next = [...without.slice(0, insertIdx), target, ...without.slice(insertIdx)];
+					} else {
+						const without = removeTaskAt(next, taskPath).tasks;
+						next = [...without, target];
+					}
 				}
 			}
 
@@ -347,7 +366,7 @@ export class SyncEngine {
 		this.scheduleDeferredWrite();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {

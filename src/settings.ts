@@ -1796,6 +1796,28 @@ export class DashboardSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		// Fallback chain for calendar-added tasks: which note a task travels to
+		// when the clicked day has no daily note yet. Replaces the implicit
+		// "clicked day → today → dashboard → create" order with an explicit,
+		// user-visible choice.
+		new Setting(card)
+			.setName(t('settings.calendarTaskFallback'))
+			.setDesc(t('settings.calendarTaskFallbackDesc'))
+			.addDropdown(d => d
+				.addOption('auto', t('settings.calendarTaskFallbackAuto'))
+				.addOption('day', t('settings.calendarTaskFallbackDay'))
+				.addOption('today', t('settings.calendarTaskFallbackToday'))
+				.addOption('dashboard', t('settings.calendarTaskFallbackDashboard'))
+				.setValue(this.plugin.settings.calendarTaskFallback ?? 'auto')
+				.onChange(async (value) => {
+					const next = value === 'day' || value === 'today' || value === 'dashboard' ? value : 'auto';
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarTaskFallback: next,
+					};
+					await this.plugin.saveSettings();
+				}));
+
 		// Fixed destination override: default chain (daily note → dashboard),
 		// a specific file, a folder with one YYYY-MM-DD note per day, or a
 		// folder with a NEW note per task (template-seeded, see below).

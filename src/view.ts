@@ -309,6 +309,17 @@ export class DashboardView extends ItemView implements HoverParent {
 			e.stopPropagation();
 			new SkillWidgetConfigModal(this.app, this.plugin).open();
 		}) as EventListener);
+		// Calendar day-agenda add → rescan the live calendar surfaces. Needed
+		// because a dashboard-file destination (a day with no daily note) is
+		// skipped by the vault-event fan-out (record() ignores the dashboard's
+		// own path), so the grid — and every agenda click that reads its
+		// snapshot — stayed frozen until a view-switch rebuild. Dispatched on
+		// .apex-dashboard-root by calendar-modal (bubbles up here); stable
+		// host so render() rebuilds don't need to re-arm it.
+		this.containerEl.addEventListener('dashboard-calendar-refresh', (() => {
+			this.refreshSidebarCalendarNow();
+			refreshCalendarSections(this.containerEl as HTMLElement);
+		}) as EventListener);
 		this.startReminderChecker();
 		this.startWeatherRefresh();
 		this.startDayRolloverChecker();
@@ -1647,13 +1658,17 @@ export class DashboardView extends ItemView implements HoverParent {
 				void this.sync.deleteCard(cardId);
 				new Notice(t('card.deleted'));
 			},
-			onCardPinTop: (cardId: string, columnName: string) => {
-				// One-click pin-to-top on sticky cards: reuse the optimistic
-				// same-column move path. Already first -> skip the pointless write.
-				const col = this.data?.columns.find(c => c.name === columnName);
-				if (!col || col.cards[0]?.id === cardId) return;
-				void this.handleMoveCard(cardId, columnName, 0);
-			},
+		onCardPinTop: (cardId: string, columnName: string) => {
+			// One-click pin-to-top on sticky cards: reuse the optimistic
+			// same-column move path. Already first -> skip the pointless write.
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.cards[0]?.id === cardId) return;
+			void this.handleMoveCard(cardId, columnName, 0);
+		},
+		onTaskCompleteBehaviorChange: (card: DashboardCard, value: 'stay' | 'afterUnfinished' | undefined) => {
+			// 'end' (undefined) is the default and clears the metadata line.
+			void this.sync.updateCard(card.id, { taskCompleteBehavior: value });
+		},
 			onCheckboxToggle: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTask(cardId, taskPath, checked),
 			onTaskAdd: (cardId: string, text: string, parentPath?: number[]) => this.sync.addTask(cardId, text, parentPath),
 			onTaskDelete: async (cardId: string, taskPath: number[]) => {

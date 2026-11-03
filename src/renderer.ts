@@ -3197,6 +3197,35 @@ export function renderCard(card: DashboardCard, columnName: string, sectionType:
 			e.stopPropagation();
 			callbacks.onTaskSaveToDaily(card);
 		});
+
+		// Task-list per-card config: where a checked-complete task lands.
+		// 'end' is the historical default and shows no persisted marker.
+		const behavior = card.taskCompleteBehavior ?? 'end';
+		const cfgBtn = actions.createEl('button', {
+			cls: 'dashboard-card-btn',
+			attr: { 'aria-label': t('renderer.taskListBehavior') },
+		});
+		setIcon(cfgBtn, 'settings-2');
+		cfgBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			const menu = new Menu();
+			const options: Array<{ value: 'stay' | 'end' | 'afterUnfinished'; label: string }> = [
+				{ value: 'stay', label: t('taskBehavior.stay') },
+				{ value: 'end', label: t('taskBehavior.end') },
+				{ value: 'afterUnfinished', label: t('taskBehavior.afterUnfinished') },
+			];
+			for (const opt of options) {
+				menu.addItem(item => {
+					item.setTitle(opt.label).onClick(() => {
+						if (opt.value === behavior) return;
+						// 'end' is the default → persist undefined.
+						callbacks.onTaskCompleteBehaviorChange?.(card, opt.value === 'end' ? undefined : opt.value);
+					});
+					if (opt.value === behavior) item.setIcon('check');
+				});
+			}
+			menu.showAtMouseEvent(e);
+		});
 	}
 
 	// One-click pin-to-top: moves the card to the first slot of its section

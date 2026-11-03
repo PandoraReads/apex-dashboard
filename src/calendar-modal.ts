@@ -6,6 +6,7 @@ import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskDayTimeRange, byDayT
 import {
 	CALENDAR_TASK_FILTERS,
 	filterTasksByDay,
+	invalidatePath,
 	toIsoDate,
 	buildTaskLine,
 	type CalendarTaskFilter,
@@ -21,6 +22,10 @@ interface CalendarModalCallbacks {
 	onToggle: (task: VaultTask, nextChecked: boolean) => Promise<void> | void;
 	/** Open a task's source note, optionally scrolling to the task's line. */
 	onOpenNote?: (file: TFile, line?: number) => void;
+	/** A day-agenda add/toggle just wrote to the vault. The surface that
+	 *  opened the agenda uses this to rescan + re-render its own grid (the
+	 *  snapshot it hands to the NEXT agenda open would otherwise stay stale). */
+	onTaskWritten?: () => void;
 }
 
 /** Minimal plugin surface needed to persist the calendar task filter. */
@@ -28,6 +33,28 @@ type DashboardPluginHandle = {
 	settings?: DashboardSettings;
 	saveSettings?: () => Promise<void>;
 };
+
+/**
+ * Nudge the live calendar surfaces (sidebar widget grid + embedded calendar
+ * sections) to rescan right after an in-modal task add.
+ *
+ * The vault-event fan-out cannot be relied on here: a day with no daily note
+ * falls back to writing into the DASHBOARD file (insertTaskForDay step 3),
+ * and the view deliberately skips its own dashboard-file events ("the engine
+ * owns that state"). The write then never reaches the calendar rescan, so the
+ * grid keeps its pre-add snapshot — the day's agenda (built from that
+ * snapshot) shows nothing until a view-switch rebuilds it.
+ *
+ * Dispatched as a bubbling CustomEvent on the kanban (repo convention for
+ * modal → board requests) so this module stays free of a calendar-widget /
+ * calendar-section import cycle (both of them import this file).
+ */
+function requestCalendarRefresh(targetPath?: string): void {
+	if (targetPath) invalidatePath(targetPath);
+	// Bubbles from the board root up to the view's stable containerEl listener.
+	const root = activeDocument.querySelector<HTMLElement>('.apex-dashboard-root');
+	root?.dispatchEvent(new CustomEvent('dashboard-calendar-refresh', { bubbles: true }));
+}
 
 /** Live plugin lookup (same pattern as renderer.ts's countdown settings path). */
 function lookupDashboardPlugin(app: App): DashboardPluginHandle | undefined {
@@ -63,6 +90,12 @@ function readTaskTarget(app: App): import('./types').CalendarTaskTarget | undefi
  *  (including an unreachable plugin) keeps the historical 'start' behavior. */
 function readTaskInsertPosition(app: App): 'start' | 'end' {
 	return lookupDashboardPlugin(app)?.settings?.calendarTaskInsertPosition === 'end' ? 'end' : 'start';
+}
+
+/** Configured fallback chain (投放顺序); unknown/hand-edited values → 'auto'. */
+function readTaskFallback(app: App): import('./types').CalendarTaskFallback {
+	const raw = lookupDashboardPlugin(app)?.settings?.calendarTaskFallback;
+	return raw === 'day' || raw === 'today' || raw === 'dashboard' ? raw : 'auto';
 }
 
 /**
@@ -243,6 +276,9 @@ export class CalendarMonthModal extends Modal {
 
 	private async toggle(task: VaultTask, nextChecked: boolean): Promise<void> {
 		await this.cb.onToggle(task, nextChecked);
+		// A task living in the dashboard file toggles without a vault event
+		// reaching the view — nudge the grid so its dots/rows stay truthful.
+		requestCalendarRefresh(task.path);
 		task.checked = nextChecked;
 		this.render();
 	}
@@ -423,7 +459,7 @@ export class DayAgendaModal extends Modal {
 				}
 				target = res;
 			} else {
-				target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app), targetCfg);
+				target = await insertTaskForDay(this.app, this.iso, line, this.dashboardFile, readTaskInsertPosition(this.app), targetCfg, readTaskFallback(this.app));
 			}
 		} catch (err) {
 			console.error('[Dashboard] add task failed:', err);
@@ -441,8 +477,23 @@ export class DayAgendaModal extends Modal {
 			{ path: target.file.path },
 		), 3000);
 
+		// Refresh the grid behind the dialog NOW: a dashboard-file destination
+		// (no daily note for that day) never reaches the view's vault-event
+		// fan-out, so without this nudge the card keeps its pre-add snapshot
+		// until the next view switch / full re-render.
+		requestCalendarRefresh(target.file.path);
+		// Direct, DOM-independent nudge: the surface that opened this agenda
+		// rescans its own grid. The event above is a broadcast (it has to find
+		// the live root), this one always reaches the opener.
+		this.cb.onTaskWritten?.();
+		// Second pass a beat later: Obsidian's vault index can lag behind the
+		// write — worst case a note this very add created — and a single
+		// rescan then runs against a file list that does not contain it.
+		window.setTimeout(() => this.cb.onTaskWritten?.(), 400);
+
 		// Optimistic: show the new task immediately at its time slot. The
-		// calendar section also re-scans automatically on the vault write event.
+		// vault write also refreshes the grid via the board listener / event
+		// debounce, but that path can land after the user closes this dialog.
 		// The row mirrors what scanFileTasks will parse back from the line; a
 		// task anchored entirely to OTHER days (cross-day groups) shows there,
 		// not in this agenda, so it is not appended here.
@@ -474,6 +525,9 @@ export class DayAgendaModal extends Modal {
 
 	private async toggle(task: VaultTask, nextChecked: boolean): Promise<void> {
 		await this.cb.onToggle(task, nextChecked);
+		// Same dashboard-file blind spot as the full-screen modal's toggle.
+		requestCalendarRefresh(task.path);
+		this.cb.onTaskWritten?.();
 		task.checked = nextChecked;
 		this.onOpen();
 	}

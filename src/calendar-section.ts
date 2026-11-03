@@ -202,12 +202,12 @@ export function renderCalendarSection(
 				: undefined,
 			onDayLeave: hoverEnabled ? (): void => closeDayPreview() : undefined,
 			onBarClick: (iso: string) => {
-				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile).open();
+				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => { void reloadInPlace(); } }, settings.dashboardFile).open();
 			},
 			// Day numbers (month) / day headers (week): open the day agenda with
 			// the add-task input focused — tap-type-Enter adds in one flow.
 			onDayNumClick: (iso: string) => {
-				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile, true).open();
+				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => { void reloadInPlace(); } }, settings.dashboardFile, true).open();
 			},
 		};
 		const { label } = view === 'week'
@@ -236,6 +236,18 @@ export function renderCalendarSection(
 	prev.addEventListener('click', () => shift(-1));
 	next.addEventListener('click', () => shift(1));
 
+	/** Re-scan + re-render the grid in place (navigation + filter state live in
+	 *  this closure). Also the callback a day agenda fires after it writes a
+	 *  task, so the card updates without a view switch. */
+	async function reloadInPlace(): Promise<void> {
+		try {
+			await rescan();
+		} catch {
+			return; // keep the last good grid on a transient scan failure
+		}
+		renderGrid();
+	}
+
 	async function initialLoad(): Promise<void> {
 		try {
 			await rescan();
@@ -246,16 +258,8 @@ export function renderCalendarSection(
 		}
 		syncChrome();
 		renderGrid();
-		// In-place reload entry point for vault task changes: re-scan and
-		// re-render the grid only (navigation + filter state live in this closure).
-		sectionReloaders.set(host, async (): Promise<void> => {
-			try {
-				await rescan();
-			} catch {
-				return; // keep the last good grid on a transient scan failure
-			}
-			renderGrid();
-		});
+		// In-place reload entry point for vault task changes.
+		sectionReloaders.set(host, reloadInPlace);
 	}
 
 	void initialLoad();
