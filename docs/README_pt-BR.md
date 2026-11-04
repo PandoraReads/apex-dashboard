@@ -4,7 +4,7 @@
 
 ## Captura de tela
 
-![Apex Dashboard](screenshot1.png)
+![Apex Dashboard](../screenshot1.png)
 
 **Idioma / Language**: [English](README_EN.md) | [简体中文](../README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | **Português (Brasil)** | [Русский](README_ru.md) | [ไทย](README_th.md)
 
@@ -115,8 +115,8 @@ Combine seções, mova cartões e reordene tarefas e links. Recolha seções men
 
 ## Temas
 
-![Themes Preview](screenshot2.png)
-![Themes Preview](screenshot3.png)
+![Themes Preview](../screenshot2.png)
+![Themes Preview](../screenshot3.png)
 
 13 temas feitos à mão, cada um com identidade visual própria:
 
@@ -172,7 +172,7 @@ Todos os temas suportam tanto o modo claro quanto o escuro do Obsidian.
 Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido, considere me pagar um café para apoiar o desenvolvimento contínuo.
 
 <p align="center">
-  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+  <img src="../buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
 </p>
 
 ## Novidades

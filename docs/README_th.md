@@ -4,7 +4,7 @@
 
 ## ภาพหน้าจอ
 
-![Apex Dashboard](screenshot1.png)
+![Apex Dashboard](../screenshot1.png)
 
 **ภาษา / Language**: [English](README_EN.md) | [简体中文](../README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | **ไทย**
 
@@ -115,8 +115,8 @@
 
 ## ธีม
 
-![Themes Preview](screenshot2.png)
-![Themes Preview](screenshot3.png)
+![Themes Preview](../screenshot2.png)
+![Themes Preview](../screenshot3.png)
 
 ธีมที่ปรับแต่งมาอย่างพิถีพิถัน 13 แบบ แต่ละแบบมีเอกลักษณ์ทางภาพชัดเจน:
 
@@ -172,7 +172,7 @@
 หาก Apex Dashboard ทำให้ workflow ประจำวันใน Obsidian ของคุณราบรื่นขึ้น โปรดพิจารณาซื้อกาแฟให้ผมเพื่อสนับสนุนการพัฒนาต่อไป
 
 <p align="center">
-  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+  <img src="../buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
 </p>
 
 ## มีอะไรใหม่
