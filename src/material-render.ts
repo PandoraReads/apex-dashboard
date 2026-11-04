@@ -863,12 +863,14 @@ export function renderMaterialLibrary(
 		return true;
 	}
 
-	/** Image probing available (desktop with a working Image constructor —
-	 *  mobile and the node harnesses skip it and mount everything at the
-	 *  fallback ratios, exactly as before). */
+	/** Image probing available wherever the Image constructor works — mobile
+	 *  included: the tiles' <img> already loads these very resource URLs, so
+	 *  probing them costs a cache hit, not a second download. This is what
+	 *  gives phones the true Pinterest-style masonry (varying card heights)
+	 *  instead of a uniform 4:3 grid. Only the node harnesses lack Image. */
 	function probingSupported(): boolean {
 		const ImageCtor = (globalThis as { Image?: typeof Image }).Image;
-		return typeof ImageCtor === 'function' && !Platform.isMobile;
+		return typeof ImageCtor === 'function';
 	}
 
 	/** Kinds whose tile ratio comes from decoding an image (needs a probe):
@@ -1277,7 +1279,11 @@ export function renderMaterialLibrary(
 	 *  renders; destroy() stops it. */
 	let warmUpStopped = false;
 	function warmAspectCache(): void {
-		if (!probingSupported()) return;
+		// Desktop only: this decodes EVERY image of the scan scope in the
+		// background — fine on a laptop, too heavy for a phone. Phones and
+		// tablets still get true ratios for what they actually view via the
+		// page-level probeAspects path.
+		if (!probingSupported() || Platform.isMobile) return;
 		const records: MaterialFileRecord[] = app.vault.getFiles().map(f => ({
 			path: f.path,
 			basename: f.basename,
