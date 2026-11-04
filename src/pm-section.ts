@@ -507,8 +507,9 @@ function renderProjectCard(
 }
 
 /** The card's mid+money body: labeled field grid (with the armed alarm on
- *  the key date) and the ALWAYS-rendered money strip — unfilled values show
- *  N/A (Rae) so the layout never shifts up when data is missing. */
+ *  the key date) and the money strip. Unfilled values show N/A (Rae) so the
+ *  layout never shifts up when data is missing; sections whose projects carry
+ *  no money at all can hide the strip via showMoney: false. */
 function renderPmCardBody(
 	card: HTMLElement,
 	fm: Record<string, unknown>,
@@ -538,6 +539,7 @@ function renderPmCardBody(
 	field('package', t('pm.f.deliverables'), pmField(fm, 'deliverables'));
 	field('footprints', t('pm.f.nextStep'), pmField(fm, 'nextStep'));
 
+	if (cfg.showMoney === false) return;
 	const income = pmIncome(fm);
 	const payment = pmField(fm, 'payment');
 	const strip = card.createDiv({ cls: 'dashboard-pmsec-money' });
@@ -553,5 +555,4 @@ function renderPmCardBody(
 		cls: `dashboard-pmsec-money-value dashboard-pmsec-money-value--muted${payment ? '' : ' dashboard-pmsec-money-value--na'}`,
 		text: payment || 'N/A',
 	});
-	void cfg;
 }

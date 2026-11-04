@@ -274,6 +274,13 @@ assert.ok(!serialize(bareData).includes('stages:'), 'default-equal stages omitte
 	assert.equal(noOrder.columns[0]!.pmConfig!.order, undefined, 'no order stays unset');
 	const withPin = parse(serialize({ ...bareData, columns: [{ ...bareData.columns[0]!, pmConfig: { ...bareData.columns[0]!.pmConfig!, pinned: ['P/b.md', 'P/a.md'] } }] }));
 	assert.deepEqual(withPin.columns[0]!.pmConfig!.pinned, ['P/b.md', 'P/a.md'], 'pinned round-trips');
+	// showMoney: only the opt-out persists; true normalizes to absent (= show).
+	const moneyOff = parse(serialize({ ...bareData, columns: [{ ...bareData.columns[0]!, pmConfig: { ...bareData.columns[0]!.pmConfig!, showMoney: false } }] }));
+	assert.equal(moneyOff.columns[0]!.pmConfig!.showMoney, false, 'showMoney:false round-trips');
+	assert.ok(serialize(moneyOff).includes('showMoney: false'), 'showMoney serialized');
+	const moneyOn = parse(serialize({ ...bareData, columns: [{ ...bareData.columns[0]!, pmConfig: { ...bareData.columns[0]!.pmConfig!, showMoney: true } }] }));
+	assert.equal(moneyOn.columns[0]!.pmConfig!.showMoney, undefined, 'showMoney:true normalizes to absent (default)');
+	assert.ok(!serialize(moneyOn).includes('showMoney'), 'default stays out of the file');
 }
 
 // Scheduled/start markers parse like due (display strips, chip keeps value).

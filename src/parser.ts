@@ -721,6 +721,9 @@ export function serialize(data: DashboardData): string {
 			if (mc.pinned && mc.pinned.length > 0) {
 				lines.push(`      pinned: [${mc.pinned.map(x => JSON.stringify(x)).join(', ')}]`);
 			}
+			if (mc.showMoney === false) {
+				lines.push('      showMoney: false');
+			}
 			if (mc.archiveFolder) {
 				lines.push(`      archiveFolder: ${JSON.stringify(mc.archiveFolder)}`);
 			}
@@ -1939,6 +1942,7 @@ function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 		...(sortMode ? { sortMode } : {}),
 		...(raw.groupView === 'blocks' || raw.groupView === 'kanban' ? { groupView: raw.groupView } : raw.groupView === true ? { groupView: 'blocks' as const } : {}),
 		...(pinned.length > 0 ? { pinned } : {}),
+		...(raw.showMoney === false ? { showMoney: false as const } : {}),
 	};
 }
 

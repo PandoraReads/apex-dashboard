@@ -134,6 +134,18 @@ const app = makeApp([
 	assert.ok(hasText(money[0]!, '¥12,000'), 'income value');
 	assert.ok(hasText(money[0]!, '尾款 30% 未收'), 'payment value');
 
+	// showMoney: false drops the strip (sections without any money); the
+	// labeled field grid and the foot row stay untouched.
+	{
+		const elM = new El('div');
+		renderPmSection(elM as unknown as HTMLElement, column({ ...config, showMoney: false }), app);
+		assert.equal(findByClass(elM, 'dashboard-pmsec-money').length, 0, 'money strip hidden by showMoney: false');
+		assert.equal(findByClass(elM, 'dashboard-pmsec-money-value').length, 0, 'no money values either');
+		assert.equal(findByClass(elM, 'dashboard-pmsec-field').length, 6, 'field grid unaffected');
+		assert.ok(hasText(elM, 'Acme'), 'field values still render');
+		assert.equal(findByClass(elM, 'dashboard-pmsec-foot-btn').length, 2, 'foot buttons unaffected');
+	}
+
 	// Bottom row: work note + skill buttons, always visible.
 	const footBtns = findByClass(el, 'dashboard-pmsec-foot-btn');
 	assert.equal(footBtns.length, 2, 'work note + skill in the bottom row');
