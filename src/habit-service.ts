@@ -97,7 +97,7 @@ function normalizeData(raw: unknown): HabitData {
 			if (!DATE_RE.test(date) || !dayCounts || typeof dayCounts !== 'object' || Array.isArray(dayCounts)) continue;
 			const valid: Record<string, number> = {};
 			for (const [id, count] of Object.entries(dayCounts)) {
-				if (habitIds.has(id) && Number.isSafeInteger(count) && (count as number) > 0 && (count as number) <= 1_000_000) valid[id] = count as number;
+				if (habitIds.has(id) && Number.isSafeInteger(count) && (count) > 0 && (count) <= 1_000_000) valid[id] = count;
 			}
 			if (Object.keys(valid).length > 0) counts[date] = valid;
 		}

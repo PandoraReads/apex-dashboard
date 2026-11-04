@@ -279,8 +279,8 @@ export async function fetchLyric(id: number): Promise<LyricLine[]> {
 	const text = json.lrc?.lyric;
 	const lines = typeof text === 'string' ? parseLrc(text) : [];
 	if (lyricCache.size >= LYRIC_CACHE_CAP) {
-		const oldest = lyricCache.keys().next().value as number | undefined;
-		if (oldest !== undefined) lyricCache.delete(oldest);
+		const oldest = lyricCache.keys().next();
+		if (typeof oldest.value === 'number') lyricCache.delete(oldest.value);
 	}
 	lyricCache.set(id, lines);
 	return lines;
@@ -312,8 +312,8 @@ export async function backfillCovers(tracks: MusicTrack[]): Promise<MusicTrack[]
 		for (const detail of details) {
 			if (!detail.picUrl) continue;
 			if (coverCache.size >= COVER_CACHE_CAP) {
-				const oldest = coverCache.keys().next().value as number | undefined;
-				if (oldest !== undefined) coverCache.delete(oldest);
+				const oldest = coverCache.keys().next();
+				if (typeof oldest.value === 'number') coverCache.delete(oldest.value);
 			}
 			coverCache.set(detail.id, detail.picUrl);
 		}

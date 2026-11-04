@@ -25,7 +25,7 @@ export function updateSchedule(content: string, task: PipelineTask, patch: Sched
 	const lines = content.split('\n');
 	const line = locateScheduleTask(content, task);
 	const entry = { line, raw: lines[line]!, task: parseTasks(lines[line]!)[0]! };
-	const current = entry.task!;
+	const current = entry.task;
 	assertScheduleFresh(current, task, patch);
 	const next = { start: current.start, end: current.end, due: current.deadline, scheduled: current.scheduled, ...patch };
 	for (const value of Object.values(next)) if (value && !validStamp(value)) throw new Error(t('gantt.invalid'));

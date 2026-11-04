@@ -24,7 +24,7 @@ import { App, Notice, Platform } from 'obsidian';
 import { parse as parseYaml } from 'yaml';
 import type { AgentTarget, SkillSectionGroup } from './types';
 import { t } from './i18n';
-import { expandHomePath } from './skill-registry';
+import { expandHomePath, type NodeFsLike, type NodeOsLike } from './skill-registry';
 
 // ── Store definitions ───────────────────────────────────────────────────
 
@@ -166,9 +166,8 @@ export function desktopSkillFs(): SkillFs | undefined {
 	const nodeRequire = (window as unknown as { require?: DesktopRequire }).require;
 	if (!nodeRequire) return undefined;
 	try {
-		const fs = nodeRequire('fs') as typeof import('fs');
-		const os = nodeRequire('os') as typeof import('os');
-		const { Buffer } = nodeRequire('buffer') as typeof import('buffer');
+		const fs = nodeRequire('fs') as NodeFsLike;
+		const os = nodeRequire('os') as NodeOsLike;
 		return {
 			list: async dir => {
 				const entries = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -194,9 +193,9 @@ export function desktopSkillFs(): SkillFs | undefined {
 			readTextHead: async (path, bytes) => {
 				const handle = await fs.promises.open(path, 'r');
 				try {
-					const buf = Buffer.alloc(bytes);
+					const buf = new Uint8Array(bytes);
 					const { bytesRead } = await handle.read(buf, 0, bytes, 0);
-					return buf.subarray(0, bytesRead).toString('utf8');
+					return new TextDecoder().decode(buf.subarray(0, bytesRead));
 				} finally {
 					await handle.close();
 				}

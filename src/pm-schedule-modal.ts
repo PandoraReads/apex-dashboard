@@ -52,10 +52,10 @@ export class PmScheduleModal extends Modal {
 		const save = actions.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.save') });
 		save.addEventListener('click', () => {
 			const patch: SchedulePatch = Object.fromEntries(Object.entries(inputs).map(([key, input]) => {
-				const original = input!.dataset.originalValue || '';
+				const original = input.dataset.originalValue || '';
 				const initialDisplay = original ? `${original.slice(0, 10)}T${original.slice(11) || '00:00'}` : '';
-				if (input!.value === initialDisplay) return [key, original];
-				const changed = input!.value.replace('T', ' ');
+				if (input.value === initialDisplay) return [key, original];
+				const changed = input.value.replace('T', ' ');
 				return [key, !original.includes(' ') && changed.endsWith(' 00:00') ? changed.slice(0, 10) : changed];
 			}));
 			if (mode?.value === 'point') { patch.start = ''; patch.scheduled = ''; }

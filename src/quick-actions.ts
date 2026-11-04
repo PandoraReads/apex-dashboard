@@ -235,19 +235,6 @@ export function renderQuickActions(
 
 }
 
-/** Warm-toned color presets for the quick-buttons widget: light creams and
- *  blushes read as soft panels on light themes; the deep set gives dark-theme
- *  users matching warm options. Shared by the background and button pickers. */
-const COLOR_PRESETS_WARM = [
-	'#fdf3e3', '#fce9dc', '#fbe4e4', '#f9e8ef', '#f5e9d7',
-	'#3b2c21', '#4a2b1e', '#3d2028', '#453019', '#2f2317',
-];
-
-let activePalettePopup: HTMLElement | null = null;
-
-
-
-
 export class AddActionModal extends Modal {
 	private onSelect: (action: QuickAction) => void;
 	private activeTab: 'file' | 'command' = 'file';

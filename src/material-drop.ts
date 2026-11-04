@@ -84,7 +84,7 @@ function filesOf(dt: DragPayload): ImportableFile[] {
 function zoneOf(target: EventTarget | null | undefined): HTMLElement | null {
 	const el = target as HTMLElement | null;
 	if (!el || typeof el.closest !== 'function') return null;
-	return el.closest(ZONE_SELECTOR) as HTMLElement | null;
+	return el.closest(ZONE_SELECTOR);
 }
 
 /** Where a drop on `target` would land, per the current grouping mode. */
@@ -159,7 +159,7 @@ export function wireMaterialDrop(hooks: MaterialDropHooks): () => void {
 	};
 
 	const onLeave = (e: Event): void => {
-		if (!isFileDrag(e as unknown as DragLikeEvent)) return;
+		if (!isFileDrag(e)) return;
 		// Depth-counted: crossing into a child fires its own leave/enter pair.
 		depth = Math.max(0, depth - 1);
 		if (depth === 0) clearState();

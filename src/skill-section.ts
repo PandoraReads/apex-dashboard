@@ -16,7 +16,7 @@
  */
 
 import { App, Menu, Notice, setIcon } from 'obsidian';
-import type { DashboardColumn, DashboardSettings, SkillsSectionConfig, SkillCardButton, SkillSectionGroup } from './types';
+import type { DashboardColumn, DashboardSettings, SkillsSectionConfig, SkillCardButton } from './types';
 import { t } from './i18n';
 import {
 	copySkillPath, desktopSkillFs, effectiveSkillGroups, getSkillLibraryStore, groupSkillEntries,

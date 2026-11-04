@@ -1,4 +1,4 @@
-import { App, Modal, Notice, setIcon } from 'obsidian';
+import { App, Modal, setIcon } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { AgentTarget, SkillShortcut } from './types';
 import { t } from './i18n';

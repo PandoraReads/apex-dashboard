@@ -4,7 +4,7 @@ import { applyModalTheme } from './modal-theme';
 import type { PomodoroService } from './pomodoro-service';
 import { renderPomodoroTagList } from './pomodoro-tag-manager';
 import { WidgetBackgroundModal, type WidgetPluginHandle } from './widget-background';
-import type { DashboardSettings, WidgetBackground } from './types';
+import type { WidgetBackground } from './types';
 
 /**
  * Pomodoro widget settings — the card gear's dialog. Gathers the stopwatch

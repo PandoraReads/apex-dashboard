@@ -59,7 +59,7 @@ function folderZoneOf(ev: MoveDragEvent, isFolderMode: boolean): HTMLElement | n
 	if (!isFolderMode) return null;
 	const el = ev.target as HTMLElement | null;
 	if (!el || typeof el.closest !== 'function') return null;
-	const zone = el.closest(ZONE_SELECTOR) as HTMLElement | null;
+	const zone = el.closest<HTMLElement>(ZONE_SELECTOR);
 	if (!zone) return null;
 	// '' means the bare results area (the OS-drop fallback) — not a folder.
 	const key = zone.dataset.importKey;
@@ -103,7 +103,7 @@ export function wireMaterialFolderMove(hooks: MaterialMoveHooks): () => void {
 		const ev = e as unknown as MoveDragEvent;
 		if (hooks.getGroupMode() !== 'folder') return;
 		const el = ev.target as HTMLElement | null;
-		const tile = el && typeof el.closest === 'function' ? (el.closest(TILE_SELECTOR) as HTMLElement | null) : null;
+		const tile = el && typeof el.closest === 'function' ? el.closest<HTMLElement>(TILE_SELECTOR) : null;
 		if (!tile) return;
 		const path = tile.dataset.materialPath;
 		if (!path) return;

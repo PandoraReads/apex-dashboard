@@ -145,8 +145,26 @@ function escapeRegExp(text: string): string {
  *  Cyrillic, Thai) have no ASCII word boundaries and match as substrings. */
 const ASCII_TERM = /^[A-Za-z0-9'\- ]+$/;
 
+/** Longest-first alternation over the raw terms (no HTML escaping — the DOM
+ *  flavor below never deals in markup). Longest-first makes phrases win over
+ *  their own substrings; null when nothing is matchable. */
+function buildTermRegex(terms: readonly string[]): RegExp | null {
+	const usable = terms.filter(term => term.length > 0);
+	if (usable.length === 0) return null;
+	const sorted = [...usable].sort((a, b) => b.length - a.length);
+	const alternation = sorted
+		.map(term => {
+			const pattern = escapeRegExp(term);
+			return ASCII_TERM.test(term) ? `\\b${pattern}\\b` : pattern;
+		})
+		.join('|');
+	return new RegExp(alternation, 'gi');
+}
+
 /** Escape `text`, then wrap every occurrence of a term in the accent span.
- *  Longest-first alternation makes phrases win over their own substrings. */
+ *  Longest-first alternation makes phrases win over their own substrings.
+ *  String flavor kept for the verification harness; the tour itself renders
+ *  through renderTextWithTerms below. */
 export function highlightTextWithTerms(text: string, terms: readonly string[]): string {
 	const escaped = escapeHtml(text);
 	const usable = terms.filter(term => term.length > 0);
@@ -162,6 +180,25 @@ export function highlightTextWithTerms(text: string, terms: readonly string[]): 
 		new RegExp(alternation, 'gi'),
 		match => `<span class="apex-tour-term">${match}</span>`,
 	);
+}
+
+/** DOM flavor of the same highlighting: plain text runs go in as text nodes
+ *  and only our own accent span is ever created, so no markup from the copy
+ *  (or a locale file) can reach the document. */
+export function renderTextWithTerms(parent: HTMLElement, text: string, terms: readonly string[]): void {
+	const pattern = buildTermRegex(terms);
+	if (!pattern) {
+		parent.appendChild(document.createTextNode(text));
+		return;
+	}
+	let last = 0;
+	for (const match of text.matchAll(pattern)) {
+		const idx = match.index ?? 0;
+		if (idx > last) parent.appendChild(document.createTextNode(text.slice(last, idx)));
+		parent.createSpan({ cls: 'apex-tour-term', text: match[0] });
+		last = idx + match[0].length;
+	}
+	if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
 }
 
 /** Map the BCP-47 locale (i18n.ts's getLocale) back to a plugin language,
@@ -185,6 +222,6 @@ export function localeToTourLanguage(locale: string): Language {
 }
 
 /** Locale-aware entry point used by the tour card renderer. */
-export function highlightTourTerms(text: string): string {
-	return highlightTextWithTerms(text, TOUR_TERMS[localeToTourLanguage(getLocale())]);
+export function renderTourTerms(parent: HTMLElement, text: string): void {
+	renderTextWithTerms(parent, text, TOUR_TERMS[localeToTourLanguage(getLocale())]);
 }

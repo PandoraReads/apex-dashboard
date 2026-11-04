@@ -19,7 +19,7 @@ export function parseGanttBlocks(content: string): GanttBlock[] {
 			const task = value as Record<string, unknown>;
 			if (typeof task.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(task.id) || taskIds.has(task.id) || typeof task.text !== 'string' || !task.text.trim()) return invalid();
 			taskIds.add(task.id);
-			for (const key of ['start', 'end', 'due', 'scheduled']) if (task[key] !== undefined && (typeof task[key] !== 'string' || (task[key] && !validStamp(task[key] as string)))) return invalid();
+			for (const key of ['start', 'end', 'due', 'scheduled']) if (task[key] !== undefined && (typeof task[key] !== 'string' || (task[key] && !validStamp(task[key])))) return invalid();
 			const start = String(task.start || task.scheduled || '');
 			if (start && task.end && start > `${task.end}${String(task.end).length === 10 ? ' 23:59' : ''}`) return invalid();
 			return { line, id: task.id, text: task.text, checked: task.checked === true, kind: task.kind === 'milestone' ? 'milestone' : 'task',
@@ -28,7 +28,7 @@ export function parseGanttBlocks(content: string): GanttBlock[] {
 				...(task.scheduled ? { scheduled: String(task.scheduled) } : {}),
 				...(task.due ? { deadline: String(task.due), due: String(task.due) } : {}) };
 		});
-		return { id: raw.id, title: typeof raw.title === 'string' ? raw.title : raw.id, tasks, from: match.index!, to: match.index! + match[0].length, raw };
+		return { id: raw.id, title: typeof raw.title === 'string' ? raw.title : raw.id, tasks, from: match.index, to: match.index + match[0].length, raw };
 	});
 }
 export function updateGanttBlock(content: string, chartId: string, taskId: string, patch: SchedulePatch, original?: PipelineTask): string {

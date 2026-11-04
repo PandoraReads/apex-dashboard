@@ -28,7 +28,7 @@
 import type { App, HoverParent } from 'obsidian';
 import { Menu, setIcon } from 'obsidian';
 import { t } from './i18n';
-import type { DashboardData, DashboardSettings, ImmersiveItem, RenderCallbacks } from './types';
+import type { DashboardData, DashboardSettings, RenderCallbacks } from './types';
 import type { DashboardColumn } from './types';
 import type DashboardPlugin from './main';
 import type { PomodoroService } from './pomodoro-service';
@@ -51,7 +51,6 @@ import {
 import { renderQuickNoteRegion } from './quick-note-section';
 import { renderWorkspaceSwitcher } from './workspace-switcher';
 import { startGuardedDrag } from './drag-guard';
-import { IMM_ITEM_DRAG_TYPE } from './dnd';
 import {
 	DEFAULT_SECTION_SPAN,
 	planImmersive,
@@ -66,7 +65,6 @@ import {
 	IMM_ROW_UNIT,
 	IMM_TILE_GAP,
 	normalizeImmersive,
-	packImmersive,
 	pxToRows,
 	rowsToPx,
 	sectionItemId,
@@ -652,17 +650,6 @@ export function setupImmersiveDnD(
 ): void {
 	let srcId: string | null = null;
 	let srcTile: HTMLElement | null = null;
-
-	const tileOf = (el: Element | null): HTMLElement | null =>
-		(el?.closest('[data-imm-id]') as HTMLElement | null) ?? null;
-
-	const clearIndicators = (): void => {
-		// Two simple queries (not a comma list): the restricted selector
-		// engines we run under (mini-dom tests) only take one simple selector.
-		for (const cls of ['dashboard-imm-tile--over-left', 'dashboard-imm-tile--over-right']) {
-			grid.querySelectorAll('.' + cls).forEach(el => (el as HTMLElement).removeClass(cls));
-		}
-	};
 
 	// The MOVE gesture is POINTER-DRIVEN (like resize): press a handle
 	// surface, drag past a small threshold, release to drop. HTML5 drag-and-

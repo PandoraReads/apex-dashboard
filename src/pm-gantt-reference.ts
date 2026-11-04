@@ -1,4 +1,4 @@
-import { App, Menu, Modal, Notice, normalizePath, type TFile } from 'obsidian';
+import { App, Modal, Notice, normalizePath, type TFile } from 'obsidian';
 import { parseGanttBlocks, newGanttSource, type GanttTemplate } from './pm-gantt-source';
 import { parseProjectBody } from './pm-model';
 import { showPromptDialog } from './prompt-dialog';

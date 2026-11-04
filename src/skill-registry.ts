@@ -80,6 +80,40 @@ export function parseSkillDocName(content: string, fallback: string): string {
 type ListEntry = { path: string; name: string; isDir: boolean };
 type DesktopRequire = (name: string) => unknown;
 
+/** Minimal typed surface of Node's fs/os behind the require seam. Local
+ *  interfaces instead of `typeof import('fs')` — the marketplace scanner's
+ *  type-checked lint resolves this file without @types/node, and a dangling
+ *  `typeof import(...)` cast degrades to any there (every downstream access
+ *  then trips no-unsafe-*). Structurally satisfied by the real modules. */
+export interface NodeDirentLike {
+	name: string;
+	isDirectory(): boolean;
+	isSymbolicLink(): boolean;
+}
+export interface NodeStatLike {
+	mtimeMs: number;
+	isDirectory(): boolean;
+}
+export interface NodeFileHandleLike {
+	read(buffer: Uint8Array, offset: number, length: number, position: number): Promise<{ bytesRead: number }>;
+	close(): Promise<void>;
+}
+export interface NodeFsLike {
+	promises: {
+		readdir(dir: string, opts: { withFileTypes: true }): Promise<readonly NodeDirentLike[]>;
+		stat(path: string): Promise<NodeStatLike>;
+		open(path: string, flags: string): Promise<NodeFileHandleLike>;
+		access(path: string): Promise<void>;
+		mkdir(path: string, opts: { recursive: boolean }): Promise<void>;
+		writeFile(path: string, data: Uint8Array): Promise<void>;
+		readFile(path: string, encoding: 'utf8'): Promise<string>;
+		readFile(path: string): Promise<Uint8Array>;
+	};
+}
+export interface NodeOsLike {
+	homedir(): string;
+}
+
 /** Generic one-level scan of a skills directory: skill folders with a
  *  SKILL.md inside (name from frontmatter, folder as fallback) plus bare
  *  *.md files (basename). Used for both the vault adapter and desktop
@@ -153,11 +187,11 @@ export async function discoverFolderSkills(foldersCsv: string): Promise<string[]
 	if (!foldersCsv.trim() || !Platform.isDesktop) return [];
 	const nodeRequire = (window as unknown as { require?: DesktopRequire }).require;
 	if (!nodeRequire) return [];
-	let fs: typeof import('fs');
+	let fs: NodeFsLike;
 	let home: string;
 	try {
-		fs = nodeRequire('fs') as typeof import('fs');
-		home = (nodeRequire('os') as typeof import('os')).homedir();
+		fs = nodeRequire('fs') as NodeFsLike;
+		home = (nodeRequire('os') as NodeOsLike).homedir();
 	} catch {
 		return [];
 	}
