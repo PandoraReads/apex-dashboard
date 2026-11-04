@@ -16,10 +16,14 @@
  *    missing templates reject; the folder-config save merge carries
  *    templatePath (regression: the inline view.ts merge dropped it) and the
  *    parser round-trips it.
+ * 6. New-note open mode — the popover opt-in round-trips through the library
+ *    YAML block, the 'tab' default persists as nothing, and the config
+ *    dialog / view wiring honors it.
  *
  * Run: `npm run test:library-new-note`
  */
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { App, Menu, TFile } from 'obsidian';
 import { renderLibrarySection } from '../src/library-section';
 import { buildNewNoteProps, createNoteWithProps, pickFolderFromMenu, yamlFrontmatter } from '../src/library-new-note';
@@ -512,6 +516,46 @@ async function main(): Promise<void> {
 		})).columns[0]!.libraryConfig!;
 		assert.deepEqual(multi.templatePaths, ['T1.md', 'T2.md', 'T3.md'], 'every template survives the round-trip');
 		assert.equal(multi.templatePath, 'T1.md', 'the legacy key mirrors the first entry');
+	}
+
+	// New-note open mode: the popover opt-in round-trips through the library
+	// block; the 'tab' default persists as nothing (no YAML line).
+	{
+		const md = [
+			'---',
+			'columns:',
+			'  - name: 资料库',
+			'    color: "#6366f1"',
+			'    type: library',
+			'    library:',
+			'      viewMode: grid',
+			'      sortBy: modified',
+			'      sortDesc: true',
+			'      newNoteOpenMode: popover',
+			'---',
+			'',
+			'## 资料库',
+		].join('\n');
+		const parsed = parse(md).columns[0]!.libraryConfig!;
+		assert.equal(parsed.newNoteOpenMode, 'popover', 'popover opt-in parses out of the library block');
+		const round = parse(serialize({ ...parse(md), columns: parse(md).columns })).columns[0]!.libraryConfig!;
+		assert.equal(round.newNoteOpenMode, 'popover', 'popover opt-in survives the serialize round-trip');
+
+		const plain = parse(md.replace('      newNoteOpenMode: popover\n', '')).columns[0]!.libraryConfig!;
+		assert.equal(plain.newNoteOpenMode, undefined, 'absent key = the tab default');
+		const plainMd = md.replace('      newNoteOpenMode: popover\n', '');
+		const plainRound = parse(serialize({ ...parse(plainMd), columns: parse(plainMd).columns })).columns[0]!.libraryConfig!;
+		assert.equal(plainRound.newNoteOpenMode, undefined, 'the tab default writes no YAML line');
+
+		// Wiring: the config dialog hosts the select, the save normalizes the
+		// default away, and the view opens the popover only on the opt-in.
+		const modalSrc = readFileSync('src/library-config-modal.ts', 'utf-8');
+		assert.ok(modalSrc.includes("t('library.newNoteOpenMode')"), 'config dialog hosts the open-mode select');
+		assert.ok(modalSrc.includes("newNoteOpenMode: this.config.newNoteOpenMode === 'popover' ? 'popover' : undefined"), 'save keeps only the popover opt-in');
+		const viewSrc = readFileSync('src/view.ts', 'utf-8');
+		assert.ok(viewSrc.includes("column.libraryConfig?.newNoteOpenMode === 'popover'"), 'view opens the popover only on the opt-in');
+		assert.ok(viewSrc.includes('void this.refreshSectionAfterCreate(column.name, file)'), 'creation schedules the explicit section refresh');
+		assert.ok(viewSrc.includes('private async refreshSectionAfterCreate'), 'the refresh waits for metadata indexing');
 	}
 
 	console.log('template pipeline + folder-config regression: PASS');

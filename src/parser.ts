@@ -310,6 +310,10 @@ export function serialize(data: DashboardData): string {
 			} else if (lc.templatePath) {
 				lines.push(`      templatePath: "${escapeYamlString(lc.templatePath)}"`);
 			}
+			// Only the popover opt-in persists ('tab' is the default).
+			if (lc.newNoteOpenMode === 'popover') {
+				lines.push('      newNoteOpenMode: popover');
+			}
 			if (lc.taskGroupBy) {
 				lines.push(`      taskGroupBy: ${lc.taskGroupBy}`);
 			}
@@ -1544,6 +1548,7 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		folderFilter: Array.isArray(raw.folderFilter) ? raw.folderFilter.map((v: unknown) => String(v)) : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
 		includeFolders: Array.isArray(raw.includeFolders) ? raw.includeFolders.map((v: unknown) => String(v)) : undefined,
+		newNoteOpenMode: raw.newNoteOpenMode === 'popover' ? 'popover' : undefined,
 		// Multi-template list wins; the legacy single key upgrades into it.
 		templatePaths: (() => {
 			const list = Array.isArray(raw.templatePaths)

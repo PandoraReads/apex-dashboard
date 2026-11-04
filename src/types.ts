@@ -821,6 +821,10 @@ export interface LibraryConfig {
 	 *  scans, images/videos scans). Matched by path prefix, case-insensitive;
 	 *  files inside them never reach the section. */
 	excludeFolders?: string[];
+	/** Where the toolbar "new note" opens the fresh note: the in-dashboard
+	 *  popover editor, or a real editor tab (the historical library behavior,
+	 *  so 'tab' is the default and persists as undefined). */
+	newNoteOpenMode?: 'popover' | 'tab';
 	/** Media sections (images/videos): when non-empty, ONLY files under these
 	 *  folders reach the section (excludes still subtract within the scope).
 	 *  Empty = whole vault. */

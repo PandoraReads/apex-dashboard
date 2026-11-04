@@ -141,6 +141,18 @@ export class LibraryConfigModal extends Modal {
 		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.newNoteTemplateHint') });
 		const tplEditor = new TemplateFilesEditor(this.app, tplSection, sectionTemplatePaths(this.config));
 
+		// Where the toolbar "new note" opens the fresh note. 'tab' is the
+		// historical library behavior → the default, persisted as undefined.
+		const openModeRow = tplSection.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		openModeRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('library.newNoteOpenMode') });
+		const openModeSelect = openModeRow.createEl('select', { cls: 'dashboard-library-filter-property' });
+		openModeSelect.createEl('option', { attr: { value: 'tab' }, text: t('library.openTab') });
+		openModeSelect.createEl('option', { attr: { value: 'popover' }, text: t('library.openPopover') });
+		openModeSelect.value = this.config.newNoteOpenMode === 'popover' ? 'popover' : 'tab';
+		openModeSelect.addEventListener('change', () => {
+			this.config.newNoteOpenMode = openModeSelect.value === 'popover' ? 'popover' : undefined;
+		});
+
 		footer.createEl('button', {
 			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
 			text: t('common.save'),
@@ -158,6 +170,7 @@ export class LibraryConfigModal extends Modal {
 				visibleProperties: picked.length > 0 ? picked : undefined,
 				templatePaths: templates.length > 0 ? templates : undefined,
 				templatePath: templates[0],
+				newNoteOpenMode: this.config.newNoteOpenMode === 'popover' ? 'popover' : undefined,
 			});
 			this.close();
 		});

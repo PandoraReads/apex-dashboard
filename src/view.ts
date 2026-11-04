@@ -2783,10 +2783,23 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  hand-authored scan folders (dashboard-file YAML) follows the folder
 	 *  branch — queryVaultFiles scopes its results to those folders, so the
 	 *  global path would hide the note.
-	 *  The section refresh rides the vault-'create' debounce (registerVaultListeners
-	 *  → flushVaultRefresh → refreshSectionsFor) — an inline refresh could beat
-	 *  metadataCache indexing and briefly render the section without the new
-	 *  note. */
+	 *  The section refresh is explicit (refreshSectionAfterCreate, once the
+	 *  note's frontmatter is indexed): the vault-'create' debounce alone
+	 *  freezes whole-vault scans on immersive boards, and the tab path only
+	 *  masked that because the workspace switch-in did a full re-render. */
+	/** Refresh one scanning section once a just-created note is metadata-
+	 *  indexed (frontmatter resolved). Polling the cache — instead of
+	 *  refreshing immediately — keeps a filter-matching note from being
+	 *  rendered invisible by an unindexed first pass; a 2s cap means a
+	 *  cache-less edge case still refreshes rather than never. */
+	private async refreshSectionAfterCreate(columnName: string, file: TFile): Promise<void> {
+		const start = Date.now();
+		while (Date.now() - start < 2000 && !this.app.metadataCache.getFileCache(file)) {
+			await new Promise(resolve => window.setTimeout(resolve, 50));
+		}
+		this.refreshSectionInPlace(columnName);
+	}
+
 	private async handleLibraryNewNote(columnName: string, pos?: { x: number; y: number }): Promise<void> {
 		if (this.libraryNewNoteInFlight) return;
 		this.libraryNewNoteInFlight = true;
@@ -2843,7 +2856,22 @@ export class DashboardView extends ItemView implements HoverParent {
 						throw err;
 					}
 				}
-				await this.app.workspace.getLeaf('tab').openFile(file);
+				// Open the fresh note per the section's config (library config
+				// modal): a real editor tab — the historical library behavior —
+				// or the in-dashboard popover editor when opted in.
+				if (column.libraryConfig?.newNoteOpenMode === 'popover') {
+					this.openNotePopover(file);
+				} else {
+					await this.app.workspace.getLeaf('tab').openFile(file);
+				}
+				// The vault-'create' debounce alone cannot be trusted to show
+				// the note: immersive boards freeze whole-vault scans on vault
+				// events (anti-strobing), and the tab path only looked alive
+				// because the switch-in full render masked it. Refresh the
+				// section explicitly once the note's frontmatter is indexed —
+				// an immediate pass could beat the cache and hide a
+				// filter-matching note.
+				void this.refreshSectionAfterCreate(column.name, file);
 				new Notice(t('quickNote.created', { name: file.basename }));
 				if (skipped.length > 0) {
 					new Notice(t('library.newNoteSkipped', { props: skipped.join(', ') }));
