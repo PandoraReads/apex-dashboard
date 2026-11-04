@@ -12,7 +12,7 @@ interface MemFile extends TFile {
 	path: string;
 }
 
-function makeApp(files: Record<string, string>, opts: { dailyNotes?: boolean; folder?: string } = {}): {
+function makeApp(files: Record<string, string>, opts: { dailyNotes?: boolean; folder?: string; template?: string } = {}): {
 	app: App;
 	store: Map<string, string>;
 } {
@@ -32,7 +32,7 @@ function makeApp(files: Record<string, string>, opts: { dailyNotes?: boolean; fo
 		},
 		internalPlugins: {
 			getPluginById: (id: string) => id === 'daily-notes' && opts.dailyNotes !== false
-				? { enabled: true, instance: { options: { folder: opts.folder ?? 'daily', format: 'YYYY-MM-DD' } } }
+				? { enabled: true, instance: { options: { folder: opts.folder ?? 'daily', format: 'YYYY-MM-DD', template: opts.template } } }
 				: undefined,
 		},
 	};
@@ -145,6 +145,31 @@ async function main(): Promise<void> {
 		await insertTaskForDay(app, futureIso, '- [ ] second', undefined, 'end', { kind: 'folder', path: 'Tasks' });
 		const out = store.get(`Tasks/${futureIso}.md`)!;
 		assert.ok(out.includes('- [ ] first') && out.indexOf('- [ ] first') < out.indexOf('- [ ] second'), '10b: appended after first');
+	}
+
+	// 10b. Custom FOLDER target + core Daily Notes TEMPLATE configured: the
+	//      created day note is seeded with the template body ({{date}} resolves
+	//      to the TASK's day, not now), the task line lands after it, and the
+	//      returned line index points at the task line.
+	{
+		const tplPath = 'templates/daily.md';
+		const { app, store } = makeApp({
+			[todayPath]: 'x\n',
+			[tplPath]: '---\ntype: daily\n---\n\n# {{date}} Journal\n\n## Tasks\n',
+		}, { template: tplPath });
+		const line = `- [ ] seeded 📅 ${futureIso}`;
+		const t1 = await insertTaskForDay(app, futureIso, line, undefined, 'end', { kind: 'folder', path: 'Tasks' });
+		assert.equal(t1?.file.path, `Tasks/${futureIso}.md`, '10b: created day note in folder');
+		const out = store.get(`Tasks/${futureIso}.md`)!;
+		assert.ok(out.includes(`# ${futureIso} Journal`), '10b: template body seeded with the day resolved');
+		assert.ok(!out.includes('{{date}}'), '10b: no unsubstituted template var left');
+		assert.ok(out.includes(line), '10b: task line written');
+		assert.equal(t1?.line, out.split('\n').indexOf(line), '10b: returned index points at the task line');
+		// Second task on the same day appends to the EXISTING note — template
+		// is not re-seeded.
+		await insertTaskForDay(app, futureIso, '- [ ] second', undefined, 'end', { kind: 'folder', path: 'Tasks' });
+		const out2 = store.get(`Tasks/${futureIso}.md`)!;
+		assert.equal((out2.match(new RegExp(`# ${futureIso} Journal`, 'g')) ?? []).length, 1, '10b: template not re-applied on append');
 	}
 
 	// 11. 'note' target passed through insertTaskForDay must NOT take the
@@ -290,7 +315,7 @@ async function main(): Promise<void> {
 		assert.equal(target.writtenLine, '- [ ] y', 'sanity: writtenLine');
 	}
 
-	console.log('verify-calendar-task-insert: 20 scenarios + sanity OK');
+	console.log('verify-calendar-task-insert: 21 scenarios + sanity OK');
 }
 
 void main();

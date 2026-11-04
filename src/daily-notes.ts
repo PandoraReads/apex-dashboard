@@ -253,8 +253,17 @@ export async function insertTaskForDay(
 			return await insertIntoNote(app, dayNote, await app.vault.read(dayNote), taskLine, position);
 		}
 		if (clean) await ensureFolder(app, clean);
-		const created = await app.vault.create(notePath, `${taskLine}\n`);
-		return { file: created, line: 0, writtenLine: taskLine, kind: 'daily-created' };
+		// Seed the created day note with the core Daily Notes template
+		// ({{date}}/{{time}} resolve to THIS day, not now), so the "one note
+		// per day" journal starts like a real diary entry instead of a bare
+		// task line. No template configured / unreadable → bare note (same as
+		// before). The task line goes after the seeded body.
+		const dnOpts = getDailyNotesOptions(app);
+		let seeded = dnOpts ? await readDailyTemplateContent(app, dnOpts, momentOf(iso)) : '';
+		if (seeded && !seeded.endsWith('\n')) seeded += '\n';
+		const content = `${seeded}${taskLine}\n`;
+		const created = await app.vault.create(notePath, content);
+		return { file: created, line: content.split('\n').length - 2, writtenLine: taskLine, kind: 'daily-created' };
 	}
 
 	// 1.+2. The clicked day's note first, then today's (skipped when the
