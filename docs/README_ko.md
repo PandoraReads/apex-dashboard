@@ -4,7 +4,7 @@
 
 ## 스크린샷
 
-![Apex Dashboard](screenshot1.png)
+![Apex Dashboard](../screenshot1.png)
 
 **언어 / Language**: [English](README_EN.md) | [简体中文](../README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | **한국어** | [Español](README_es.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
@@ -115,8 +115,8 @@ WeRead나 TickTick 계정이 있다면 해당 섹션을 추가해 책장을 확�
 
 ## 테마
 
-![Themes Preview](screenshot2.png)
-![Themes Preview](screenshot3.png)
+![Themes Preview](../screenshot2.png)
+![Themes Preview](../screenshot3.png)
 
 각기 다른 시각적 정체성을 가진 13가지 수제 테마:
 
@@ -172,7 +172,7 @@ WeRead나 TickTick 계정이 있다면 해당 섹션을 추가해 책장을 확�
 Apex Dashboard가 여러분의 일상적인 Obsidian 워크플로우를 더 부드럽게 만들어준다면, 지속적인 개발을 지원하기 위해 커피 한 잔을 사주시는 것을 고려해 주세요.
 
 <p align="center">
-  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+  <img src="../buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
 </p>
 
 ## 새 소식

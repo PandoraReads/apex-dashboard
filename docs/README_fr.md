@@ -4,7 +4,7 @@
 
 ## Capture d'écran
 
-![Apex Dashboard](screenshot1.png)
+![Apex Dashboard](../screenshot1.png)
 
 **Langue / Language**: [English](README_EN.md) | [简体中文](../README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | **Français** | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
@@ -115,8 +115,8 @@ Combinez les sections, déplacez les cartes et réordonnez tâches et liens. Rep
 
 ## Thèmes
 
-![Aperçu des thèmes](screenshot2.png)
-![Aperçu des thèmes](screenshot3.png)
+![Aperçu des thèmes](../screenshot2.png)
+![Aperçu des thèmes](../screenshot3.png)
 
 13 thèmes façonnés à la main, chacun avec une identité visuelle distincte :
 
@@ -172,7 +172,7 @@ Tous les thèmes prennent en charge les modes clair et sombre d'Obsidian.
 Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir un café pour soutenir le développement continu.
 
 <p align="center">
-  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+  <img src="../buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
 </p>
 
 ## Nouveautés
