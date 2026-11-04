@@ -169,20 +169,6 @@ export class MaterialConfigModal extends Modal {
 				});
 				label.value = button.label;
 				label.addEventListener('input', () => this.patchButton(index, { label: label.value }));
-				const skillName = top.createEl('input', {
-					cls: 'dashboard-modal-input',
-					attr: { type: 'text', placeholder: t('material.cfgSkillName') },
-				});
-				skillName.value = button.skillName;
-				skillName.addEventListener('input', () => this.patchButton(index, { skillName: skillName.value }));
-				const agentSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
-				for (const target of agentTargets()) {
-					const pick = agentPickerOption(target);
-					const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } });
-					opt.disabled = pick.disabled;
-					opt.selected = target === button.agent;
-				}
-				agentSel.addEventListener('change', () => this.patchButton(index, { agent: agentSel.value as MaterialSkillButton['agent'] }));
 				const del = top.createEl('button', {
 					cls: 'dashboard-pipeline-cfg-icon-btn dashboard-pipeline-cfg-icon-btn--danger',
 					attr: { type: 'button', 'aria-label': t('common.delete') },
@@ -193,13 +179,34 @@ export class MaterialConfigModal extends Modal {
 					renderButtons();
 				});
 
-				const tpl = row.createEl('input', {
+				// Skill name + agent on their own indented row: squeezed onto
+				// the icon row they wrapped it (Rae, 2026-11-04).
+				const nameRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
+				const skillName = nameRow.createEl('input', {
+					cls: 'dashboard-modal-input',
+					attr: { type: 'text', placeholder: t('material.cfgSkillName') },
+				});
+				skillName.value = button.skillName;
+				skillName.addEventListener('input', () => this.patchButton(index, { skillName: skillName.value }));
+				const agentSel = nameRow.createEl('select', {
+					cls: 'dashboard-pipeline-cfg-select dashboard-pipeline-cfg-select--agent',
+				});
+				for (const target of agentTargets()) {
+					const pick = agentPickerOption(target);
+					const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } });
+					opt.disabled = pick.disabled;
+					opt.selected = target === button.agent;
+				}
+				agentSel.addEventListener('change', () => this.patchButton(index, { agent: agentSel.value as MaterialSkillButton['agent'] }));
+
+				const tplRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
+				const tpl = tplRow.createEl('input', {
 					cls: 'dashboard-modal-input',
 					attr: { type: 'text', placeholder: t('quickNote.skillTemplate') },
 				});
 				tpl.value = button.promptTemplate;
 				tpl.addEventListener('input', () => this.patchButton(index, { promptTemplate: tpl.value }));
-				const expand = row.createEl('button', {
+				const expand = tplRow.createEl('button', {
 					cls: 'dashboard-pipeline-cfg-icon-btn dashboard-pipeline-cfg-prompt-expand',
 					attr: { type: 'button', 'aria-label': t('pipeline.cfgPromptView') },
 				});
@@ -211,9 +218,12 @@ export class MaterialConfigModal extends Modal {
 					}).open();
 				});
 
-				const directRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
-				directRow.createSpan({ cls: 'dashboard-pipeline-cfg-hint', text: t('agent.directSend') });
+				// Checkbox first, label to its right (Rae): the old hint-span
+				// pattern wrapped — the hint class is flex-basis:100%, so the
+				// text claimed the whole row and pushed the box below it.
+				const directRow = row.createDiv({ cls: 'dashboard-library-config-inline-row' });
 				const direct = directRow.createEl('input', { cls: 'dashboard-pipeline-cfg-toggle', attr: { type: 'checkbox' } });
+				directRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('agent.directSend') });
 				direct.checked = button.directSend === true;
 				direct.addEventListener('change', () => this.patchButton(index, { directSend: direct.checked }));
 			});

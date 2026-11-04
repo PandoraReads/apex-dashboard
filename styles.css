@@ -3906,7 +3906,9 @@ button.dashboard-skillsec-import:hover {
 .modal--dashboard .dashboard-modal .dashboard-modal-input.dashboard-modal-input:not(.dashboard-section-name-input):is(input[type='text'], input[type='search']),
 .modal-container .dashboard-workspace-path-input.dashboard-workspace-path-input,
 .modal-container .dashboard-settings-folder-input.dashboard-settings-folder-input {
-	border: 1px solid var(--db-border-input, var(--background-modifier-border)) !important;
+	/* Rest: a grey derived from the surface's own text color — always visible
+	   regardless of theme (Rae: 静默态恒有灰色细线). Focus below goes accent. */
+	border: 1px solid color-mix(in srgb, var(--db-text, var(--text-normal)) 22%, transparent) !important;
 	border-radius: var(--db-radius-sm, 6px) !important;
 	padding: 8px 12px !important;
 	background: var(--db-bg-input, var(--background-modifier-form-field)) !important;
@@ -3919,7 +3921,7 @@ button.dashboard-skillsec-import:hover {
 .modal--dashboard .dashboard-modal .dashboard-modal-input.dashboard-modal-input:is(input[type='text'], input[type='search']):focus,
 .modal-container .dashboard-workspace-path-input.dashboard-workspace-path-input:focus,
 .modal-container .dashboard-settings-folder-input.dashboard-settings-folder-input:focus {
-	border-color: var(--db-border-input-focus, var(--interactive-accent)) !important;
+	border-color: var(--db-accent, var(--interactive-accent)) !important;
 	box-shadow: none !important;
 }
 
@@ -26187,6 +26189,122 @@ button.dashboard-pipeline-cfg-icon-btn svg {
 	height: 14px;
 }
 
+/* ── Config-modal control unification (Rae, 2026-11-04) ─────────────────────
+   One look for every field inside the section config modals: the pipeline-cfg
+   family used to fall through to Obsidian's core input paint, which some
+   appearances render borderless next to the bordered media-filter fields.
+   Scoped to the config-modal skeleton so in-board uses of the same classes
+   keep their own paint. */
+.dashboard-library-config-modal .dashboard-pipeline-cfg-input,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-textarea,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-select,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-input,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-textarea,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-select {
+	border: 1px solid var(--db-border-input, var(--background-modifier-border));
+	border-radius: var(--db-radius-sm, 6px);
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.75em;
+	padding: 5px 8px;
+	box-shadow: none;
+}
+
+.dashboard-library-config-modal .dashboard-pipeline-cfg-input:focus,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-textarea:focus,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-select:focus,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-input:focus,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-textarea:focus,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-select:focus {
+	border-color: var(--db-border-input-focus, var(--interactive-accent));
+	outline: none;
+}
+
+/* Border COLOR layer (Rae, 2026-11-04): rest = a grey you can ALWAYS see.
+   Neither the theme's --db-border-input (8-12% alpha on several themes) nor
+   the appearance's --background-modifier-border (uncontrolled contrast
+   against the mirrored modal surface) is reliably visible, so the hairline
+   derives from the surface's OWN text color — light surfaces get a dark
+   grey, dark surfaces a light grey. Hover deepens it; focus goes accent. */
+.dashboard-library-config-modal .dashboard-media-filter-folder,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-input,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-textarea,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-select,
+.modal--dashboard .dashboard-modal .dashboard-media-filter-folder,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-input,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-textarea,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-select {
+	border-color: color-mix(in srgb, var(--db-text, var(--text-normal)) 22%, transparent);
+}
+
+.dashboard-library-config-modal .dashboard-media-filter-folder:hover,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-input:hover,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-textarea:hover,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-select:hover,
+.modal--dashboard .dashboard-modal .dashboard-media-filter-folder:hover,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-input:hover,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-textarea:hover,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-select:hover {
+	border-color: color-mix(in srgb, var(--db-text, var(--text-normal)) 36%, transparent);
+}
+
+.dashboard-library-config-modal .dashboard-media-filter-folder:focus,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-input:focus,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-textarea:focus,
+.dashboard-library-config-modal .dashboard-pipeline-cfg-select:focus,
+.modal--dashboard .dashboard-modal .dashboard-media-filter-folder:focus,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-input:focus,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-textarea:focus,
+.modal--dashboard .dashboard-modal .dashboard-pipeline-cfg-select:focus {
+	border-color: var(--db-accent, var(--interactive-accent));
+	box-shadow: none;
+	outline: none;
+}
+
+/* Boxed inputs riding a skill-card row flex to fill the space left of the
+   icon buttons beside them (tpl + expand, name + picker). */
+.dashboard-pipeline-cfg-skill-row .dashboard-modal-input {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Inline-row labels never wrap; the field beside them gives way instead. */
+.dashboard-library-config-inline-label {
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.dashboard-library-config-inline-row .dashboard-media-filter-folder,
+.dashboard-library-config-inline-row .dashboard-pipeline-cfg-input {
+	flex: 1 1 120px;
+	min-width: 0;
+	width: auto;
+	margin-top: 0;
+}
+
+/* Skill-card column alignment: every row below the icon row starts at the
+   label input's left edge (icon 24px + row gap 6px), so the fields read as
+   one aligned column instead of staggered starts. */
+.dashboard-pipeline-cfg-skill > .dashboard-pipeline-cfg-skill-row + .dashboard-pipeline-cfg-skill-row,
+.dashboard-pipeline-cfg-skill > .dashboard-pipeline-cfg-name-row,
+.dashboard-pipeline-cfg-skill > .dashboard-library-config-inline-row {
+	margin-left: 30px;
+}
+
+/* Quick-note config: the muted mini-label rides its select/checkbox on one
+   row instead of stacking above it. */
+.dashboard-quicknote-cfg-field-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-quicknote-cfg-field-row .dashboard-quicknote-cfg-cmd-id {
+	margin-top: 0;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
 .dashboard-pipeline-cfg-hint {
 	font-size: 0.68em;
 	color: var(--db-text-muted, var(--text-muted));
@@ -30971,4 +31089,129 @@ button.dashboard-capturebar-glyph:hover {
 	.dashboard-material-railbtn { width: 30px; height: 30px; }
 	.dashboard-material-actionrail button.dashboard-material-railbtn { width: 30px; height: 30px; }
 	.dashboard-material-railbtn svg { width: 15px; height: 15px; }
+}
+
+/* ===== Onboarding tour (first-install walkthrough) =====
+   Body-level overlay: a pointer-transparent mask with a spotlight hole over
+   the current step's target plus a floating hint card (see
+   src/onboarding-tour.ts). Desktop only — the tour never auto-starts on
+   mobile. body.apex-tour-active also force-reveals the three hover-gated
+   controls the tour points at, so the spotlighted target is actually
+   visible without a hover. */
+body.apex-tour-active .dashboard-workspace-switcher {
+	opacity: 1;
+}
+
+body.apex-tour-active .dashboard-banner-edit-btn,
+body.apex-tour-active .dashboard-sidebar-pin-btn {
+	opacity: 1;
+	color: rgba(255, 255, 255, 0.85);
+}
+
+.apex-tour-root {
+	position: fixed;
+	inset: 0;
+	z-index: 10000; /* above every plugin-made layer; native modals pause the tour instead of fighting it */
+	pointer-events: none;
+}
+
+/* Spotlight hole: transparent box with a huge-spread shadow painting the
+   dim mask around it (classic trick — no clip-path, no mask dependency). */
+.apex-tour-hole {
+	position: absolute;
+	border-radius: 10px;
+	border: 2px solid var(--interactive-accent);
+	box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.55);
+	transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+.apex-tour-hole--hidden {
+	display: none;
+}
+
+.apex-tour-card {
+	position: absolute;
+	width: 320px;
+	max-width: calc(100vw - 32px);
+	box-sizing: border-box;
+	padding: 14px 16px;
+	border-radius: 12px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+	color: var(--text-normal);
+	pointer-events: auto;
+	transition: opacity 0.15s ease;
+}
+
+/* Centered intro/outro cards: inline left/top cleared by the runner, the
+   class owns the transform. */
+.apex-tour-card--centered {
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}
+
+/* While a step settles (ensure/modal-wait/anchor poll) everything stays dim. */
+.apex-tour-pending .apex-tour-card,
+.apex-tour-pending .apex-tour-hole {
+	opacity: 0;
+}
+
+.apex-tour-step-no {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	margin-bottom: 6px;
+}
+
+.apex-tour-title {
+	margin: 0 0 8px;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
+}
+
+.apex-tour-body {
+	margin: 0 0 12px;
+	font-size: var(--font-ui-small);
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+/* Feature-name accent inside step copy (分区 / 小组件 / 设置 …), added by
+   the tour's own term highlighter. --text-error is red in every stock theme;
+   the fallback keeps it red in themes that leave the token unset. */
+.apex-tour-term {
+	color: var(--text-error, #e5484d);
+	font-weight: 600;
+}
+
+.apex-tour-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.apex-tour-btn {
+	padding: 5px 14px;
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--interactive-normal);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+}
+
+.apex-tour-btn:hover {
+	background: var(--interactive-hover);
+}
+
+.apex-tour-btn--ghost {
+	background: transparent;
+	color: var(--text-muted);
+	border-color: transparent;
+}
+
+.apex-tour-btn--ghost:hover {
+	color: var(--text-normal);
+	background: transparent;
 }

@@ -141,7 +141,10 @@ export class SkillCardButtonsModal extends Modal {
 				this.renderRows();
 			});
 
-			const tpl = row.createEl('input', {
+			// Template + its expand button share one row (the bare input used
+			// to stretch full width and strand the button on its own line).
+			const tplRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
+			const tpl = tplRow.createEl('input', {
 				cls: 'dashboard-modal-input',
 				attr: { type: 'text', placeholder: t('quickNote.skillTemplate') },
 			});
@@ -149,7 +152,7 @@ export class SkillCardButtonsModal extends Modal {
 			tpl.addEventListener('input', () => this.patchRow(index, { promptTemplate: tpl.value }));
 			// Long prompts: expand into a tall popup editor (pipeline-config
 			// idiom) — a single-line input can't even be scrolled readably.
-			const expandBtn = row.createEl('button', {
+			const expandBtn = tplRow.createEl('button', {
 				cls: 'dashboard-pipeline-cfg-icon-btn dashboard-pipeline-cfg-prompt-expand',
 				attr: { type: 'button', 'aria-label': t('pipeline.cfgPromptView'), title: t('pipeline.cfgPromptView') },
 			});
@@ -161,13 +164,14 @@ export class SkillCardButtonsModal extends Modal {
 				}).open();
 			});
 
-			// Direct send: skip the confirm dialog entirely.
-			const directRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
-			directRow.createSpan({ cls: 'dashboard-pipeline-cfg-hint', text: t('agent.directSend') });
+			// Checkbox first, label to its right (Rae) — the hint class is
+			// flex-basis:100% and used to push the box onto its own line.
+			const directRow = row.createDiv({ cls: 'dashboard-library-config-inline-row' });
 			const direct = directRow.createEl('input', {
 				cls: 'dashboard-pipeline-cfg-toggle',
 				attr: { type: 'checkbox' },
 			});
+			directRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('agent.directSend') });
 			direct.checked = button.directSend === true;
 			direct.addEventListener('change', () => this.patchRow(index, { directSend: direct.checked }));
 		});

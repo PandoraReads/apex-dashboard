@@ -228,8 +228,10 @@ export class QuickNoteConfigModal extends Modal {
 			this.iconPickBtn(top, skill.icon || 'sparkles', icon => this.updateSkill(i, { icon }));
 			this.textInput(top, skill.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, label => this.updateSkill(i, { label }));
 			this.delBtn(top, () => { this.skills = this.skills.filter((_, idx) => idx !== i); this.renderBody(); });
-			card.createDiv({ cls: 'dashboard-quicknote-cfg-cmd-id', text: t('quickNote.skillTarget') });
-			const target = card.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
+			// Target label rides its select on one row (used to stack above it).
+			const targetRow = card.createDiv({ cls: 'dashboard-quicknote-cfg-field-row' });
+			targetRow.createSpan({ cls: 'dashboard-quicknote-cfg-cmd-id', text: t('quickNote.skillTarget') });
+			const target = targetRow.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const agent of agentTargets()) {
 				const pick = agentPickerOption(agent);
 				const opt = target.createEl('option', { text: pick.label, attr: { value: agent } });
