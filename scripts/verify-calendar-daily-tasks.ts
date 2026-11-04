@@ -55,8 +55,8 @@ assert.ok(modalSrc.includes('private dedupe(tasks: VaultTask[])'),
 	'dedupe helper exists');
 assert.ok(modalSrc.includes('this.dedupe([...this.tasks, ...(await this.loadDailyNoteTasks())])'),
 	'onOpen merges scanned + note tasks through the dedupe');
-assert.ok(/dayTasks\.sort\(byDayTaskTime\(this\.iso\)\)/.test(modalSrc),
-	'merged list uses the agenda time sort');
+assert.ok(/\[\.\.\.tasks\]\.sort\(byDayTaskTime\(this\.iso\)\)/.test(modalSrc),
+	'merged list uses the agenda time sort (renderDayList paints in that order)');
 
 // Settings tab: toggle wired to the persisted setting.
 assert.ok(settingsSrc.includes('t(\'settings.calendarIncludeDailyTasks\')'),

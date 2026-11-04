@@ -10,6 +10,8 @@ import { defaultWidgetSize, displaceOverlappedBy, isImmersiveMode, widgetItemId 
 import type { PreserveScope } from './preserve-scope';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
 import { refreshCalendarSections } from './calendar-section';
+import { refreshOpenDayAgendas } from './calendar-modal';
+import { invalidatePath } from './alltasks-scan';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
 import { refreshAlbumWidgets, destroyAlbumWidgets } from './album-widget';
@@ -318,8 +320,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// .apex-dashboard-root by calendar-modal (bubbles up here); stable
 		// host so render() rebuilds don't need to re-arm it.
 		this.containerEl.addEventListener('dashboard-calendar-refresh', (() => {
-			this.refreshSidebarCalendarNow();
-			refreshCalendarSections(this.containerEl as HTMLElement);
+			this.refreshCalendarSurfaces();
 		}) as EventListener);
 		this.startReminderChecker();
 		this.startWeatherRefresh();
@@ -2062,9 +2063,36 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Close any previously open popover so its embedded leaf is detached
 		// before we open a fresh one.
 		this.popoverModal?.close();
-		const modal = new NotePopoverModal(this.app, file, subpath, line);
+		const modal = new NotePopoverModal(this.app, file, subpath, line, (edited) => {
+			this.onNoteEditedInPopover(edited);
+		});
 		this.popoverModal = modal;
 		modal.open();
+	}
+
+	/** A note was edited inside the in-dashboard editor and the modal has
+	 *  closed. Its embedded MarkdownView flushes to disk only on close, and
+	 *  the surfaces showing that note's tasks hold snapshots taken before it
+	 *  opened: the calendar grids paint cells from their last scan, each open
+	 *  day agenda paints the list it was opened with. The vault-event fan-out
+	 *  cannot be relied on either — it debounces 500ms behind the write (so a
+	 *  quick close-then-look sees the old text) and skips the dashboard file
+	 *  itself by design. Re-read from disk and repaint those surfaces. */
+	private onNoteEditedInPopover(file: TFile): void {
+		// The editor's write landed without our scan cache seeing it: force the
+		// next scan of this note to read the file from disk (bypassing both the
+		// mtime cache and the metadata pre-filter, which reindexes lazily).
+		invalidatePath(file.path);
+		this.refreshCalendarSurfaces();
+	}
+
+	/** Repaint the task surfaces that keep a snapshot: the sidebar calendar
+	 *  (task dots), every embedded calendar grid (in place), and any open day
+	 *  agenda. All three are no-ops when nothing they show changed. */
+	private refreshCalendarSurfaces(): void {
+		this.refreshSidebarCalendarNow();
+		refreshCalendarSections(this.containerEl as HTMLElement);
+		refreshOpenDayAgendas();
 	}
 
 	/** Opens a note on card click. Honors the "disable popover" setting: when
@@ -3110,6 +3138,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			// Cards whose tasks mirror today's daily note (and only those) need
 			// a re-read; the helper renders only when the lists actually differ.
 			void this.refreshDailyLinkedCards();
+			// Day agendas hold the list they were opened with; an edit made in a
+			// tab (the popover path nudges on close, see onNoteEditedInPopover)
+			// still leaves them stale. They repaint only on a visible change.
+			refreshOpenDayAgendas();
 			// Keeps its own extra debounce: the stats recompute walks the vault.
 			this.debouncedRefreshBannerStats();
 		}

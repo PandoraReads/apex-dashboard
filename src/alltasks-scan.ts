@@ -303,6 +303,30 @@ export function invalidatePath(path: string): void {
 }
 
 /**
+ * Signature of what a task list actually SHOWS — source, order, checked state,
+ * display text and the day/time markers. Object identity and the fields the
+ * scanner merely reports (mtime/ctime/originalLine) are deliberately excluded:
+ * every rescan builds new objects, so identity comparisons would always differ.
+ *
+ * Surfaces that keep a painted snapshot (calendar grid cells, the day agenda
+ * rows) compare against the signature they last rendered and skip the repaint
+ * when it is unchanged. Our own writes echo back through the vault debounce,
+ * and repainting identical content reads as a flicker.
+ */
+export function tasksSnapshotSignature(tasks: readonly VaultTask[]): string {
+	const parts: string[] = [];
+	for (const t of tasks) {
+		parts.push([
+			t.path, t.line, t.checked ? '1' : '0', t.text,
+			t.priority ?? '', t.start ?? '', t.end ?? '', t.time ?? '', t.endTime ?? '',
+			t.reminder ?? '', t.due ?? '', t.scheduled ?? '', t.scheduledTime ?? '',
+			t.completion ?? '', t.completionTime ?? '',
+		].join('\u0001'));
+	}
+	return parts.join('\u0002');
+}
+
+/**
  * Atomically flip a task's checkbox in its source file. The task is located
  * by a check-state-insensitive skeleton of its original line at the recorded
  * position (then, if the file shifted, by a unique skeleton match) — the

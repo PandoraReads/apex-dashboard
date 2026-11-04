@@ -54,10 +54,17 @@ assert.ok(modalSrc.includes("querySelector<HTMLElement>('.apex-dashboard-root')"
 {
 	const listenIdx = viewSrc.indexOf("addEventListener('dashboard-calendar-refresh'");
 	assert.ok(listenIdx > 0, 'view listens for the refresh request');
-	const block = viewSrc.slice(listenIdx, listenIdx + 700);
-	assert.ok(block.includes('this.refreshSidebarCalendarNow()'),
+	const block = viewSrc.slice(listenIdx, listenIdx + 300);
+	assert.ok(block.includes('this.refreshCalendarSurfaces()'),
+		'the listener goes through the shared surface refresher');
+	// The refresher owns the actual work (shared with the note-editor close
+	// path, which has the same stale-snapshot problem).
+	const helperIdx = viewSrc.indexOf('private refreshCalendarSurfaces(');
+	assert.ok(helperIdx > 0, 'the shared refresher exists');
+	const helper = viewSrc.slice(helperIdx, helperIdx + 400);
+	assert.ok(helper.includes('this.refreshSidebarCalendarNow()'),
 		'the sidebar calendar widget re-scans (dots + day agendas)');
-	assert.ok(block.includes('refreshCalendarSections('),
+	assert.ok(helper.includes('refreshCalendarSections('),
 		'embedded calendar sections re-scan as well');
 	assert.ok(viewSrc.slice(Math.max(0, listenIdx - 400), listenIdx).includes('this.containerEl'),
 		'the listener rides containerEl (stable across render rebuilds)');

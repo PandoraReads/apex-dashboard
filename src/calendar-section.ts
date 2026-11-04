@@ -8,6 +8,7 @@ import {
 	indexTasksByDay,
 	invalidatePath,
 	isCalendarRelevant,
+	tasksSnapshotSignature,
 	toIsoDate,
 	toggleTaskInFile,
 	type CalendarTaskFilter,
@@ -24,8 +25,11 @@ import { closeDayPreview, scheduleDayPreview } from './calendar-widget';
  *  Mirrors the sidebar widget's widgetReloaders discipline. */
 const sectionReloaders = new WeakMap<HTMLElement, () => Promise<void>>();
 
-/** Re-scan tasks and re-render every live calendar section's grid in place.
- *  Returns true when at least one section was refreshed. */
+/** Re-scan and refresh every live calendar section under `kanban` (or any
+ *  container holding them). Returns true when at least one section was
+ *  refreshed. The reload itself skips the repaint when the scan shows the
+ *  same thing as the grid (see reloadInPlace), so repeated nudges for one
+ *  edit cost a cached scan but no flicker. */
 export function refreshCalendarSections(kanban: HTMLElement): boolean {
 	let any = false;
 	const sections = kanban.querySelectorAll<HTMLElement>('.dashboard-calendar-section');
@@ -79,6 +83,11 @@ export function renderCalendarSection(
 	let filter: CalendarTaskFilter = readCalendarTaskFilter(app);
 	/** Latest unfiltered scan (the filter is applied per render, like the modal). */
 	let byDay = new Map<string, VaultTask[]>();
+	/** Signature of the scan the grid currently shows. A reload whose scan
+	 *  matches it is a no-op repaint (our own write echoing back through the
+	 *  vault debounce, an unrelated note edit) and is skipped — rebuilding a
+	 *  month grid with identical content still reads as a blink. */
+	let renderedSignature = '';
 
 	// Month | Week segmented toggle (both buttons visible, active one accented).
 	const viewToggle = nav.createDiv({ cls: 'dashboard-library-view-toggle dashboard-calendar-view-toggle' });
@@ -198,6 +207,15 @@ export function renderCalendarSection(
 		byDay = indexTasksByDay(tasks);
 	}
 
+	/** Everything the grid derives from the scan: which tasks land on which
+	 *  day, their order, and their visible fields. */
+	function scanSignature(): string {
+		const days = [...byDay.keys()].sort();
+		const parts: string[] = [];
+		for (const day of days) parts.push(`${day}\u0003${tasksSnapshotSignature(byDay.get(day) ?? [])}`);
+		return parts.join('\u0004');
+	}
+
 	function renderGrid(): void {
 		// Cells are about to be replaced (nav, toggle, reload); any open hover
 		// preview is anchored to a cell that's being discarded.
@@ -231,6 +249,7 @@ export function renderCalendarSection(
 			? renderWeekTimeGrid(body, weekStart, viewByDay, gridOpts)
 			: renderMonthGrid(body, year, month, viewByDay, gridOpts);
 		labelEl.textContent = label;
+		renderedSignature = scanSignature();
 	}
 
 	/** Navigate by one month (month view) or one week (week view). */
@@ -262,6 +281,10 @@ export function renderCalendarSection(
 		} catch {
 			return; // keep the last good grid on a transient scan failure
 		}
+		// Nothing the grid shows changed (an out-of-view edit, our own write
+		// echoing back, the add flow's second pass landing on the same state):
+		// rebuilding would flash identical content for no reason.
+		if (scanSignature() === renderedSignature) return;
 		renderGrid();
 	}
 

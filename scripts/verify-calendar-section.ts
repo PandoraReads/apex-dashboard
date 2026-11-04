@@ -33,6 +33,9 @@ function makeVault(files: Record<string, string>): { app: App; store: Map<string
 		vault: {
 			getMarkdownFiles: () => [...store.keys()].map(fileOf),
 			cachedRead: async (f: MemFile) => store.get(f.path) ?? '',
+			// Forced (post-write) reads bypass the vault cache: invalidatePath
+			// routes those to vault.read, so a toggle's rescan sees the new line.
+			read: async (f: MemFile) => store.get(f.path) ?? '',
 			// Write-back path used by toggleTaskInFile: run the transform, store
 			// the result, bump mtime so the next scan re-reads the file.
 			process: async (f: MemFile, cb: (data: string) => string) => {
@@ -55,6 +58,9 @@ const SETTINGS = {
 } as unknown as DashboardSettings;
 
 const flush = (): Promise<void> => new Promise(r => setTimeout(r, 10));
+/** Toggles go through the section's 150ms coalescing timer before the grid is
+ *  rescanned and repainted — wait past it (plus the scan's own yield). */
+const flushGrid = (): Promise<void> => new Promise(r => setTimeout(r, 260));
 
 async function main(): Promise<void> {
 	// Globals the rendered grid touches: bare createDiv() in calendar-grid's
@@ -118,7 +124,7 @@ async function main(): Promise<void> {
 		.find(c => (c.parent ? c.parent.textContent.includes('Beta') : false))!;
 	assert.ok(betaCheck, '2: checkbox rendered for full-mode task');
 	betaCheck.click();
-	await flush();
+	await flushGrid();
 	assert.ok((store.get('notes/timed.md') ?? '').includes(`- [x] Beta ⏰ ${todayIso} 09:30`), '2: file updated to checked');
 	const body2 = findByClass(host, 'dashboard-calendar-section-body')[0]!;
 	assert.ok(findByClass(body2, 'dashboard-calendar-event').some(e => e.hasClass('is-done')), '2: row re-rendered as done');
