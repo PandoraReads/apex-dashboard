@@ -168,10 +168,27 @@ export function renderCalendarSection(
 			new Notice(t('alltasks.toggleFailed'));
 			return;
 		}
-		// Optimistic flip; the vault-event debounce re-scans for the truth.
+		// Optimistic flip; a rescan follows via scheduleGridRefresh (the
+		// agenda always nudges onTaskWritten right after, and the vault-event
+		// debounce re-scans for the truth). An immediate renderGrid here used
+		// to stack with those into 3+ back-to-back grid rebuilds — the
+		// "completing a task flickers" report.
 		task.checked = nextChecked;
-		renderGrid();
+		scheduleGridRefresh();
 	};
+
+	// Coalesce every "the grid is stale" nudge (toggle, agenda onTaskWritten,
+	// the add-flow's 400ms second pass, …) into ONE rescan + re-render. A
+	// toggle used to trigger several within milliseconds — each a full grid
+	// rebuild, and the stack read as a flicker.
+	let gridRefreshTimer: number | null = null;
+	function scheduleGridRefresh(): void {
+		if (gridRefreshTimer !== null) window.clearTimeout(gridRefreshTimer);
+		gridRefreshTimer = window.setTimeout(() => {
+			gridRefreshTimer = null;
+			void reloadInPlace();
+		}, 150);
+	}
 
 	async function rescan(): Promise<void> {
 		// Always include the dashboard file itself: its checkbox lists are the
@@ -202,12 +219,12 @@ export function renderCalendarSection(
 				: undefined,
 			onDayLeave: hoverEnabled ? (): void => closeDayPreview() : undefined,
 			onBarClick: (iso: string) => {
-				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => { void reloadInPlace(); } }, settings.dashboardFile).open();
+				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => scheduleGridRefresh() }, settings.dashboardFile).open();
 			},
 			// Day numbers (month) / day headers (week): open the day agenda with
 			// the add-task input focused — tap-type-Enter adds in one flow.
 			onDayNumClick: (iso: string) => {
-				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => { void reloadInPlace(); } }, settings.dashboardFile, true).open();
+				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => scheduleGridRefresh() }, settings.dashboardFile, true).open();
 			},
 		};
 		const { label } = view === 'week'

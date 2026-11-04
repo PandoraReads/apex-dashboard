@@ -153,6 +153,27 @@ async function main(): Promise<void> {
 		assert.equal(store.get(todayPath), once, '3n: re-write is idempotent');
 	}
 
+	// 3o. Round-trip identity: a list written by the mirror and read back keeps
+	//     every VISIBLE field (text / checked / reminder / nesting). The parse
+	//     adds bookkeeping fields (collapsed), so the view's daily-linked
+	//     signature normalizes to exactly this shape — a raw JSON compare would
+	//     make our own mirror echo look like an external edit and repaint.
+	{
+		const { app, store } = makeApp({ [todayPath]: `${HEADING}\n` });
+		const original: TaskItem[] = [
+			{ text: 'parent', checked: true, children: [{ text: 'child', checked: false, reminder: '2026-11-04 09:00' }] },
+			{ text: 'plain', checked: false },
+		];
+		const shape = (tasks: TaskItem[]): unknown[] => tasks.map(task => [
+			task.text, task.checked, task.reminder ?? '', shape(task.children ?? []),
+		]);
+		await writeCardTasksToToday(app, 'My tasks', original);
+		const back = await readCardTasksFromToday(app, 'My tasks');
+		assert.ok(back, '3o: block readable after write');
+		assert.equal(JSON.stringify(shape(back)), JSON.stringify(shape(original)), '3p: visible fields round-trip unchanged');
+		assert.ok(store.get(todayPath)!.includes('- [x] parent'), '3q: checked state persisted');
+	}
+
 	// 3g. No block yet → appended as a new section at the note's end.
 	{
 		const { app, store } = makeApp({ [todayPath]: '## Journal\n- [ ] x\n' });

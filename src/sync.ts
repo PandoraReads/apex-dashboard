@@ -248,6 +248,32 @@ export class SyncEngine {
 	}
 
 	async toggleTask(cardId: string, taskPath: TaskPath, checked: boolean): Promise<void> {
+		this.applyTaskToggle(cardId, taskPath, checked);
+		await this.commitTasks(cardId);
+	}
+
+	/**
+	 * In-place companion of toggleTask: the renderer has already mirrored the
+	 * checked state AND the completion-behavior reorder into the DOM (and
+	 * re-stamped the shifted task paths), so this must NOT notify — the echo
+	 * would rebuild the section and fight the optimistic DOM (the flicker
+	 * this exists to kill). Daily-linked cards ride the same path: the note
+	 * mirror lands first, so the vault-event read-back (re-read the note →
+	 * compare signature) sees the NEW state and never re-renders.
+	 */
+	toggleTaskQuiet(cardId: string, taskPath: TaskPath, checked: boolean): void {
+		this.applyTaskToggle(cardId, taskPath, checked);
+		void (async () => {
+			// Mirror BEFORE the silent dashboard write fires its vault event:
+			// a daily-linked card's read-back must see the new state, or the
+			// next debounced refresh would render the old one back over the
+			// in-place mirror.
+			await this.mirrorTasksToDaily(cardId);
+			await this.writeToDisk(true);
+		})();
+	}
+
+	private applyTaskToggle(cardId: string, taskPath: TaskPath, checked: boolean): void {
 		if (!this.data) return;
 
 		// Per-card completion behavior (task-list config button). Undefined
@@ -291,7 +317,6 @@ export class SyncEngine {
 
 			return next;
 		});
-		await this.commitTasks(cardId);
 	}
 
 	async reorderTask(cardId: string, fromPath: TaskPath, toPath: TaskPath, before: boolean): Promise<void> {
@@ -1244,6 +1269,12 @@ export class SyncEngine {
 
 		if (!silent) {
 			this.notifyCallbacks('local');
+		} else {
+			// Silent = no re-render, but the view must still ADOPT this data
+			// object: every mutation above replaced `this.data` with a new
+			// graph, and a stale view-side reference makes later signature
+			// comparisons (daily-linked cards) read the pre-mutation state.
+			this.notifyCallbacks('local-silent');
 		}
 	}
 

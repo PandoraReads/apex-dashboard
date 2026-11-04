@@ -1,6 +1,15 @@
 import type { DashboardData } from './types';
 
-export type DashboardUpdateSource = 'local' | 'external';
+/** Where a data update came from.
+ *  - `local`: this view mutated the board; render only what changed.
+ *  - `external`: the file changed underneath us; render everything.
+ *  - `local-silent`: this view mutated the board AND already painted the new
+ *    state in place (quiet task toggle, collapse). The view must ADOPT the new
+ *    data object without rendering — skipping the callback entirely would leave
+ *    its `data` reference pointing at a superseded graph, and later signature
+ *    comparisons (daily-linked cards) would compute before/after from the stale
+ *    copy and conclude "nothing changed". */
+export type DashboardUpdateSource = 'local' | 'external' | 'local-silent';
 
 export type DashboardRenderPlan =
 	| { kind: 'none' }
@@ -23,6 +32,8 @@ export function planDashboardUpdate(
 	source: DashboardUpdateSource,
 ): DashboardRenderPlan {
 	if (!previous || source === 'external') return { kind: 'full' };
+	// The caller already painted this mutation in place; never re-render it.
+	if (source === 'local-silent') return { kind: 'none' };
 	// A per-workspace layout flip rebuilds the whole board shell.
 	if (previous.immersiveEditable !== next.immersiveEditable) return { kind: 'full' };
 	if (previous.layout !== next.layout) return { kind: 'full' };

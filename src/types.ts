@@ -1471,7 +1471,12 @@ export interface RenderCallbacks {
 	 *  behavior, daily-note task source, and the heading level used when the
 	 *  title is written into the daily note. */
 	onTaskCardConfigSave?(card: DashboardCard, config: TaskCardConfig): void;
-	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
+	/** Quiet checkbox toggle: the renderer already mirrored the checked state
+	 *  and the completion-behavior reorder into the DOM, so this persists
+	 *  WITHOUT the notify echo (which would rebuild the section and flicker).
+	 *  Daily-linked cards (tasksFromDaily) use it too — their old loud path
+	 *  rebuilt the section on every check. */
+	onCheckboxToggleQuiet(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;
 	onTaskDelete(cardId: string, taskPath: number[]): void;
 	onTaskReorder(cardId: string, fromPath: number[], toPath: number[], before: boolean): void;

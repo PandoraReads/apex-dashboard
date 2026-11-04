@@ -303,34 +303,28 @@ export function invalidatePath(path: string): void {
 }
 
 /**
- * Atomically flip a task's checkbox in its source file. Matches the exact
- * original line at its recorded position, then (if the file shifted) by a
- * unique full-line match; refuses to write if the line can't be located
- * unambiguously.
+ * Atomically flip a task's checkbox in its source file. The task is located
+ * by a check-state-insensitive skeleton of its original line at the recorded
+ * position (then, if the file shifted, by a unique skeleton match) — the
+ * scanned originalLine goes stale after the first flip because the in-place
+ * surfaces (day agenda, todo cards) keep toggling the SAME task object, and
+ * matching the stale `- [ ]`/`- [x]` text verbatim would silently no-op the
+ * second toggle. Refuses to write if the line can't be located unambiguously.
  */
 export async function toggleTaskInFile(app: App, task: VaultTask, nextChecked: boolean): Promise<boolean> {
 	let wrote = false;
 	try {
 		await app.vault.process(task.file, (data: string) => {
 			const lines = data.split('\n');
-			const target = task.originalLine;
-			const wantOpen = target.indexOf('- [ ]');
-			const wantDone = target.indexOf('- [x]');
-			let replacement: string;
-			if (nextChecked) {
-				replacement = wantOpen === -1 ? target : target.slice(0, wantOpen) + '- [x]' + target.slice(wantOpen + 5);
-			} else {
-				replacement = wantDone === -1 ? target : target.slice(0, wantDone) + '- [ ]' + target.slice(wantDone + 5);
-			}
-			if (replacement === target) {
-				wrote = false;
-				return data;
-			}
-			let idx = lines[task.line] === target ? task.line : -1;
+			// Skeleton: normalize any checkbox marker to `- [ ]` so a line that
+			// was already flipped once still matches its scanned original.
+			const skeletonOf = (line: string): string => line.replace(/\[([ xX])\]/, '[ ]');
+			const skeleton = skeletonOf(task.originalLine);
+			let idx = task.line < lines.length && skeletonOf(lines[task.line] ?? '') === skeleton ? task.line : -1;
 			if (idx === -1) {
 				const hits: number[] = [];
 				for (let i = 0; i < lines.length; i++) {
-					if (lines[i] === target) hits.push(i);
+					if (skeletonOf(lines[i] ?? '') === skeleton) hits.push(i);
 				}
 				if (hits.length === 1) idx = hits[0]!;
 			}
@@ -338,8 +332,33 @@ export async function toggleTaskInFile(app: App, task: VaultTask, nextChecked: b
 				wrote = false;
 				return data;
 			}
+			// Flip whatever marker the file CURRENTLY holds, not the stale scan.
+			const current = lines[idx]!;
+			let replacement = current;
+			if (nextChecked) {
+				const openAt = current.indexOf('- [ ]');
+				if (openAt !== -1) replacement = current.slice(0, openAt) + '- [x]' + current.slice(openAt + 5);
+			} else {
+				// Prefer the list-item marker form, fall back to a bare checkbox.
+				let at = current.indexOf('- [x]');
+				if (at === -1) at = current.indexOf('- [X]');
+				if (at !== -1) {
+					replacement = current.slice(0, at) + '- [ ]' + current.slice(at + 5);
+				} else {
+					const bare = /\[([xX])\]/.exec(current);
+					if (bare) replacement = current.slice(0, bare.index) + '[ ]' + current.slice(bare.index + 3);
+				}
+			}
+			if (replacement === current) {
+				wrote = false;
+				return data;
+			}
 			lines[idx] = replacement;
 			wrote = true;
+			// Keep the task object truthful so the NEXT in-place toggle (and
+			// any mirror write keyed off originalLine) sees the current state.
+			task.line = idx;
+			task.originalLine = replacement;
 			return lines.join('\n');
 		});
 	} catch (err) {

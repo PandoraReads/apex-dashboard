@@ -2,7 +2,7 @@ import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Plat
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskCardConfig } from './types';
+import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskCardConfig, TaskItem } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, isImmersiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
 import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, carryImmersivePlacement, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
@@ -376,6 +376,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.pendingInitialData = data;
 			return;
 		}
+		// Quiet mutation whose DOM was already patched in place: adopt the new
+		// data graph (this.data is set above) but never paint. Must come BEFORE
+		// the suppression check so it cannot consume that one-shot flag.
+		if (source === 'local-silent') return;
 		if (this.suppressNextRender) {
 			this.suppressNextRender = false;
 			return;
@@ -1669,7 +1673,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		onTaskCardConfigSave: (card: DashboardCard, config: TaskCardConfig) => {
 			void this.applyTaskCardConfig(card, config);
 		},
-			onCheckboxToggle: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTask(cardId, taskPath, checked),
+		onCheckboxToggleQuiet: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTaskQuiet(cardId, taskPath, checked),
 			onTaskAdd: (cardId: string, text: string, parentPath?: number[]) => this.sync.addTask(cardId, text, parentPath),
 			onTaskDelete: async (cardId: string, taskPath: number[]) => {
 				const confirmed = await showConfirmDialog(this.app, {
@@ -1938,10 +1942,21 @@ export class DashboardView extends ItemView implements HoverParent {
 
 	/** Identity of the daily-linked cards' current task lists; null when no
 	 *  card is in that mode (nothing to watch). */
+	/** Signature over what the card actually SHOWS (text / checked / reminder /
+	 *  nesting) — not the raw TaskItem graphs. A note round-trip through
+	 *  writeCardTasksToToday → readCardTasksFromToday re-creates the tasks, so
+	 *  fields the note cannot carry (collapsed, transient ids) would make our
+	 *  own mirror echo look like a change and repaint the whole board. */
 	private dailyLinkedTasksSignature(): string | null {
 		const cards = (this.data?.columns ?? []).flatMap(col => col.cards).filter(c => c.tasksFromDaily);
 		if (cards.length === 0) return null;
-		return JSON.stringify(cards.map(card => [card.id, card.tasks]));
+		const shape = (tasks: TaskItem[]): unknown[] => tasks.map(task => [
+			task.text,
+			task.checked,
+			task.reminder ?? '',
+			shape(task.children ?? []),
+		]);
+		return JSON.stringify(cards.map(card => [card.id, shape(card.tasks)]));
 	}
 
 	/**

@@ -301,6 +301,13 @@ export class DayAgendaModal extends Modal {
 	 *  Also armed by addTask itself so consecutive Enter-adds keep the input
 	 *  focused across the content rebuild. */
 	private focusAddInput: boolean;
+	/** Rows currently rendered, keyed by their task object — the toggle path
+	 *  flips a row's state and re-orders rows in place instead of rebuilding
+	 *  the dialog (which flashed on every check). */
+	private rowByTask = new Map<VaultTask, HTMLElement>();
+	/** The exact list the current rows were rendered from (scanned tasks +
+	 *  merged daily-note tasks) — the toggle's re-sort walks it. */
+	private renderedTasks: VaultTask[] = [];
 
 	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks, dashboardFile?: string, focusAddInput = false) {
 		super(app);
@@ -377,8 +384,14 @@ export class DayAgendaModal extends Modal {
 			body.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
 		} else {
 			const list = body.createDiv({ cls: 'dashboard-alltasks-list' });
+			// Row registry for the toggle's in-place update (a full onOpen()
+			// rebuild per check was the agenda's flicker).
+			this.rowByTask = new Map();
+			this.renderedTasks = dayTasks;
 			for (const task of dayTasks.sort(byDayTaskTime(this.iso))) {
-				list.appendChild(this.renderRow(task));
+				const row = this.renderRow(task);
+				this.rowByTask.set(task, row);
+				list.appendChild(row);
 			}
 		}
 
@@ -577,11 +590,34 @@ export class DayAgendaModal extends Modal {
 
 	private async toggle(task: VaultTask, nextChecked: boolean): Promise<void> {
 		await this.cb.onToggle(task, nextChecked);
-		// Same dashboard-file blind spot as the full-screen modal's toggle.
-		requestCalendarRefresh(task.path);
+		// The vault-event debounce rescans ordinary notes, so the broadcast is
+		// only needed for the dashboard-file blind spot (the fallback write
+		// destination whose vault events the view deliberately skips).
+		if (this.dashboardFile && task.path.replace(/\.md$/i, '') === this.dashboardFile.replace(/\.md$/i, '')) {
+			requestCalendarRefresh(task.path);
+		}
 		this.cb.onTaskWritten?.();
+		// In-place row update instead of a full onOpen() rebuild — the rebuild
+		// re-created every input and row on each check and read as a flash.
 		task.checked = nextChecked;
-		this.onOpen();
+		const row = this.rowByTask.get(task);
+		if (row) {
+			row.toggleClass('is-done', nextChecked);
+			// The click handler preventDefaults the native flip, so the
+			// checkbox never checked itself — mirror the state on the input
+			// too, or it only looks right after a reopen rebuilds the row.
+			const check = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+			if (check) check.checked = nextChecked;
+			const list = row.parentElement;
+			if (list) {
+				// Restore the agenda sort (done tasks sink): appendChild on
+				// existing nodes MOVES them — no rebuild, listeners intact.
+				for (const t of [...this.renderedTasks].sort(byDayTaskTime(this.iso))) {
+					const r = this.rowByTask.get(t);
+					if (r) list.appendChild(r);
+				}
+			}
+		}
 	}
 
 	onClose(): void {

@@ -3484,6 +3484,109 @@ function toggleCollapseInPlace(
 }
 
 
+/**
+ * Mirror a checkbox toggle into the task-list DOM WITHOUT a rebuild — the
+ * section rebuild on every check was the "complete a task → whole card
+ * flashes" bug. All rows (parents and children) are flat siblings of one
+ * .dashboard-task-list, each stamped with its data-task-path JSON.
+ *
+ * Mirrors exactly what sync.applyTaskToggle does to the data:
+ * 1. own row's done styling; parent toggles cascade to their subtree;
+ * 2. child toggles recalc every ancestor (checked = ALL children checked,
+ *    recalcChecked semantics);
+ * 3. completing a TOP-LEVEL task applies the per-card completion behavior:
+ *    'end' moves the block to the bottom, 'afterUnfinished' drops it just
+ *    past the last unfinished top-level row, 'stay' keeps the slot. The
+ *    moved rows are re-parented via appendChild/insertBefore (existing
+ *    nodes, listeners intact), then every shifted data-task-path is
+ *    re-stamped so edit/drag handlers keep targeting the right tasks.
+ */
+function mirrorTaskToggleInPlace(
+	list: HTMLElement,
+	item: HTMLElement,
+	path: number[],
+	checked: boolean,
+	behavior: 'stay' | 'end' | 'afterUnfinished',
+): void {
+	const rows = Array.from(list.querySelectorAll<HTMLElement>(':scope > .dashboard-task-item'));
+	const pathOf = (row: HTMLElement): number[] => {
+		try { return JSON.parse(row.dataset.taskPath ?? '[]') as number[]; } catch { return []; }
+	};
+	const checkboxOf = (row: HTMLElement): HTMLInputElement | null =>
+		row.querySelector<HTMLInputElement>('input.dashboard-task-checkbox');
+	const setRowState = (row: HTMLElement, done: boolean): void => {
+		row.querySelector<HTMLElement>('.dashboard-task-text')?.toggleClass('dashboard-task-text--done', done);
+	};
+
+	setRowState(item, checked);
+
+	const idx = path[0] ?? -1;
+	if (path.length === 1) {
+		// Parent toggle: sync replaces every child's checked flag too.
+		for (const row of rows) {
+			const p = pathOf(row);
+			if (p.length > 1 && p[0] === idx) {
+				const cb = checkboxOf(row);
+				if (cb) cb.checked = checked;
+				setRowState(row, checked);
+			}
+		}
+	} else {
+		// Child toggle: ancestors recompute depth-by-depth (a grandparent's
+		// state depends on the parent's FRESH state, so ascend in order).
+		for (let d = 1; d < path.length; d++) {
+			const prefix = path.slice(0, d);
+			for (const row of rows) {
+				const p = pathOf(row);
+				if (p.length !== d || prefix.some((v, i) => p[i] !== v)) continue;
+				const childRows = rows.filter((r) => {
+					const cp = pathOf(r);
+					return cp.length === d + 1 && prefix.every((v, i) => cp[i] === v);
+				});
+				const allChecked = childRows.every(r => checkboxOf(r)?.checked ?? false);
+				const cb = checkboxOf(row);
+				if (cb) cb.checked = allChecked;
+				setRowState(row, allChecked);
+			}
+		}
+	}
+
+	// Completion-behavior reorder: top-level completions only.
+	if (path.length !== 1 || !checked || behavior === 'stay') return;
+	const block = rows.filter(r => pathOf(r)[0] === idx);
+	if (block.length === 0) return;
+	const isBlock = new Set(block);
+	const others = rows.filter(r => !isBlock.has(r));
+	if (behavior === 'end') {
+		for (const r of block) list.appendChild(r);
+	} else {
+		const unfinished = others.filter(r =>
+			pathOf(r).length === 1 && !(checkboxOf(r)?.checked ?? false));
+		const anchor = unfinished[unfinished.length - 1];
+		if (anchor) {
+			let pos: ChildNode | null = anchor.nextSibling;
+			for (const r of block) {
+				list.insertBefore(r, pos);
+				pos = r.nextSibling;
+			}
+		} else {
+			const first = list.firstElementChild;
+			for (const r of block) list.insertBefore(r, first);
+		}
+	}
+	// The move shifted every later task's index — re-stamp paths so the
+	// rows' edit/drag/delete handlers keep targeting the right tasks.
+	let top = -1;
+	for (const row of Array.from(list.querySelectorAll<HTMLElement>(':scope > .dashboard-task-item'))) {
+		const p = pathOf(row);
+		if (p.length === 0) continue;
+		if (p.length === 1) top++;
+		if (p[0] !== top) {
+			row.dataset.taskPath = JSON.stringify(p.length === 1 ? [top] : [top, ...p.slice(1)]);
+		}
+	}
+}
+
 function renderTaskItem(
 	list: HTMLElement,
 	task: TaskItem,
@@ -3620,7 +3723,14 @@ function renderTaskItem(
 	});
 	checkbox.checked = task.checked;
 	checkbox.addEventListener('change', () => {
-		callbacks.onCheckboxToggle(card.id, path, checkbox.checked);
+		// EVERY card mirrors the toggle into the DOM and persists quietly —
+		// daily-linked (tasksFromDaily) cards included. Their old loud path
+		// (sync.toggleTask → notify echo) rebuilt the whole section on every
+		// check/uncheck; the quiet path's note round-trip (vault event →
+		// re-read → same content → signature guard) confirms the state
+		// without ever re-rendering.
+		mirrorTaskToggleInPlace(list, item, path, checkbox.checked, card.taskCompleteBehavior ?? 'end');
+		callbacks.onCheckboxToggleQuiet(card.id, path, checkbox.checked);
 	});
 
 	const label = item.createSpan({

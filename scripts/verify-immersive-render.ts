@@ -85,7 +85,7 @@ const app = {
 const nope = (): void => {};
 const callbacks = {
 	onCardEdit: nope, onOpenNoteInPopover: nope, onCardDelete: nope,
-	onCheckboxToggle: nope, onTaskAdd: nope, onTaskDelete: nope,
+	onCheckboxToggleQuiet: nope, onTaskAdd: nope, onTaskDelete: nope,
 	onTaskReorder: nope, onTaskMoveToCard: nope, onTaskEdit: nope,
 	onCardAdd: nope, onColumnAdd: nope, onRequestAddSection: nope,
 	onColumnMove: nope, onColumnMoveBeside: nope, onColumnHeightChange: nope,
