@@ -556,6 +556,12 @@ async function main(): Promise<void> {
 		assert.ok(viewSrc.includes("column.libraryConfig?.newNoteOpenMode === 'popover'"), 'view opens the popover only on the opt-in');
 		assert.ok(viewSrc.includes('void this.refreshSectionAfterCreate(column.name, file)'), 'creation schedules the explicit section refresh');
 		assert.ok(viewSrc.includes('private async refreshSectionAfterCreate'), 'the refresh waits for metadata indexing');
+
+		// Sort/f config changes refresh the section in place; the immersive
+		// swap must carry the full pinned height triple (min/max/height), not
+		// just minHeight — otherwise the tile grows to content for a frame and
+		// the fit pass snaps it back (the "cards flash taller on sort" glitch).
+		assert.ok(viewSrc.includes('carryImmersivePlacement(oldEl, newEl)'), 'the in-place swap uses the shared placement carrier');
 	}
 
 	console.log('template pipeline + folder-config regression: PASS');

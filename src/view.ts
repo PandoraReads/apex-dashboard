@@ -5,7 +5,7 @@ import type { AppWithCommands } from './obsidian-internal';
 import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskCardConfig } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, isImmersiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
-import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
+import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, carryImmersivePlacement, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
 import { defaultWidgetSize, displaceOverlappedBy, isImmersiveMode, widgetItemId } from './immersive-grid';
 import type { PreserveScope } from './preserve-scope';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
@@ -2602,15 +2602,15 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Immersive: the tile's grid placement lives inline on the element (the
 		// packer wrote it); the fresh node would drop back to auto placement and
 		// fly to the end of the grid — carry the placement over too.
-		const gridCol = oldEl.style.gridColumn;
-		const gridRow = oldEl.style.gridRow;
-		const minH = oldEl.style.minHeight;
+		// carryImmersivePlacement also copies the height/min/max triple the fit
+		// pass pinned — copying only minHeight (the old hand-rolled set) left
+		// the swapped tile unpinned for a frame: the box grew to its content
+		// (the internal scrollers need the explicit height to engage), then the
+		// next fit snapped it back — the visible "cards flash taller on sort"
+		// glitch on library sections whose content overflows the tile.
 		const immId = oldEl.getAttribute('data-imm-id');
-		if (immId) newEl.setAttribute('data-imm-id', immId);
+		if (immId) carryImmersivePlacement(oldEl, newEl);
 		oldEl.replaceWith(newEl);
-		if (gridCol) newEl.style.gridColumn = gridCol;
-		if (gridRow) newEl.style.gridRow = gridRow;
-		if (minH) newEl.style.minHeight = minH;
 		// The swapped-in node carries no resize grip — re-attach it (the
 		// method is idempotent) so the tile keeps its corner handle.
 		if (immId && isImmersiveLayout(this.plugin.settings, this.data)) {
