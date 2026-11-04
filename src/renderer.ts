@@ -135,6 +135,26 @@ function relativeLuminance(r: number, g: number, b: number): number {
 let taskDragSource: { cardId: string; taskPath: number[] } | null = null;
 let docDragSource: { cardId: string; docPath: number[] } | null = null;
 
+// One-shot focus hint for consecutive task adds: the add input records the
+// card on Enter, and the section rebuild (the write's in-place refresh
+// replaces the input element) re-focuses the fresh input within a short
+// window. Cleared on expiry or when the user points somewhere else, so a
+// later unrelated rebuild never steals focus.
+const pendingTaskAddFocus: { cardId: string | null; at: number } = { cardId: null, at: 0 };
+let taskAddFocusGuardInstalled = false;
+
+function installTaskAddFocusGuard(): void {
+	if (taskAddFocusGuardInstalled) return;
+	taskAddFocusGuardInstalled = true;
+	// User explicitly points somewhere else (anything that is not an add-task
+	// input) → stop re-focusing across rebuilds.
+	(activeDocument ?? document).addEventListener('pointerdown', (e) => {
+		const target = e.target as HTMLElement | null;
+		if (target?.closest?.('.dashboard-task-input')) return;
+		pendingTaskAddFocus.cardId = null;
+	}, true);
+}
+
 // Set once per render pass by renderDashboard so the deep doc/wikilink renderers
 // can attach hover previews and open the note popover without threading these
 // through every function signature. Mirrors the docDragSource module-level idiom.
@@ -3817,9 +3837,27 @@ function renderTaskBody(container: HTMLElement, card: DashboardCard, callbacks: 
 		attr: { type: 'text', placeholder: t('renderer.addTask') },
 	});
 	const taskSuggest = attachFileSuggest(input, app);
+	// Consecutive adds: Enter commits, the write rebuilds this section in
+	// place (a fresh input element), and the pending hint re-focuses it so
+	// the user can keep typing the next task without a mouse round-trip.
+	// The focus is deferred to the next frame: renderTaskBody may still be
+	// building a detached tree (refreshSectionInPlace swaps the node in only
+	// after render returns), and focus() on a detached element is a silent
+	// no-op — this was why the hint never took. The hint is intentionally
+	// NOT consumed here: the optimistic rebuild is followed by the
+	// vault-event debounced rebuild, which would otherwise steal focus right
+	// back; each rebuild re-arms its own rAF and the last attached input wins.
+	if (pendingTaskAddFocus.cardId === card.id && Date.now() - pendingTaskAddFocus.at < 5000) {
+		window.requestAnimationFrame(() => {
+			if (pendingTaskAddFocus.cardId === card.id && input.isConnected) input.focus();
+		});
+	}
 	input.addEventListener('keydown', (e) => {
 		if (taskSuggest.isActive()) return;
 		if (e.key === 'Enter' && input.value.trim()) {
+			pendingTaskAddFocus.cardId = card.id;
+			pendingTaskAddFocus.at = Date.now();
+			installTaskAddFocusGuard();
 			callbacks.onTaskAdd(card.id, input.value.trim());
 			input.value = '';
 		}

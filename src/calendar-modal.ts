@@ -291,8 +291,10 @@ export class DayAgendaModal extends Modal {
 	 *  destination when the day has no daily note yet. */
 	private readonly dashboardFile?: string;
 	/** Focus the add-task input on open — for entries that imply "add something"
-	 *  (calendar day-number clicks) rather than "browse the day" (bar clicks). */
-	private readonly focusAddInput: boolean;
+	 *  (calendar day-number clicks) rather than "browse the day" (bar clicks).
+	 *  Also armed by addTask itself so consecutive Enter-adds keep the input
+	 *  focused across the content rebuild. */
+	private focusAddInput: boolean;
 
 	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks, dashboardFile?: string, focusAddInput = false) {
 		super(app);
@@ -514,6 +516,10 @@ export class DayAgendaModal extends Modal {
 		}
 		titleInput.value = '';
 		for (const g of groups) { g.date.value = ''; g.time.value = ''; }
+		// Consecutive adds: onOpen rebuilds the content (fresh input element),
+		// so arm the focus flag to keep the add input focused for the next
+		// task — type-Enter-type-Enter without touching the mouse.
+		this.focusAddInput = true;
 		this.onOpen();
 	}
 
