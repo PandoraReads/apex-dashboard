@@ -27,12 +27,13 @@ export function todayDailyNote(app: App): TFile | null {
 }
 
 /**
- * Tasks under the card's `### <title>` block in today's note.
+ * Tasks under the card's heading block in today's note.
  *
+ * `level` is the card's configured heading depth (default 3 = `### title`).
  * Returns null when there is nothing to read yet (core plugin off, no note, or
  * no block) — callers show an empty list rather than inventing tasks.
  */
-export async function readCardTasksFromToday(app: App, title: string): Promise<TaskItem[] | null> {
+export async function readCardTasksFromToday(app: App, title: string, level = 3): Promise<TaskItem[] | null> {
 	const clean = title.trim();
 	if (!clean) return null;
 	const file = todayDailyNote(app);
@@ -43,7 +44,11 @@ export async function readCardTasksFromToday(app: App, title: string): Promise<T
 	} catch {
 		return null;
 	}
-	const section = extractDailyTasksBlock(raw, dailyBlockHeading(clean));
+	// Try the configured level first, then the historical ### block: a level
+	// change (or a note block written before it was configured) must not make
+	// the existing list invisible.
+	const section = extractDailyTasksBlock(raw, dailyBlockHeading(clean, level))
+		?? (level === 3 ? null : extractDailyTasksBlock(raw, dailyBlockHeading(clean)));
 	if (section === null) return null;
 	return extractCardParts(section).tasks;
 }
@@ -57,15 +62,43 @@ function appendBlock(raw: string, heading: string, tasks: TaskItem[]): string {
 }
 
 /**
- * Write the card's task tree into today's `### <title>` block, creating the
- * note (template-seeded) and/or the block when missing.
+ * Rename the card's block in `file` to the configured heading level.
+ *
+ * Changing the heading level would otherwise APPEND a second block next to the
+ * old one (same title, different depth) and duplicate every task in the note.
+ * Rewriting the existing heading line MOVES the block instead. Returns true
+ * when a line actually changed.
+ */
+export async function retitleCardBlock(app: App, file: TFile, title: string, level: number): Promise<boolean> {
+	const clean = title.trim();
+	if (!clean) return false;
+	const want = dailyBlockHeading(clean, level);
+	const raw = await app.vault.read(file);
+	const lines = raw.split(/\r?\n/);
+	let changed = false;
+	for (let i = 0; i < lines.length; i++) {
+		const m = /^(#{1,6})\s+(.+?)\s*$/.exec(lines[i] ?? '');
+		if (!m || m[2] !== clean) continue;
+		if (lines[i] === want) continue;
+		lines[i] = want;
+		changed = true;
+	}
+	if (!changed) return false;
+	await app.vault.modify(file, lines.join(raw.includes('\r\n') ? '\r\n' : '\n'));
+	return true;
+}
+
+/**
+ * Write the card's task tree into today's heading block (`### <title>` by
+ * default, or the card's configured `level`), creating the note
+ * (template-seeded) and/or the block when missing.
  *
  * The block's task lines are REPLACED by the card's list — the card is an
  * editor for that section, so deletions must propagate. Non-task prose inside
  * the section is preserved. Returns false when the core Daily notes plugin is
  * disabled.
  */
-export async function writeCardTasksToToday(app: App, title: string, tasks: TaskItem[]): Promise<boolean> {
+export async function writeCardTasksToToday(app: App, title: string, tasks: TaskItem[], level = 3): Promise<boolean> {
 	const clean = title.trim();
 	if (!clean) return false;
 	if (!getDailyNotesConfig(app)) return false;
@@ -74,7 +107,7 @@ export async function writeCardTasksToToday(app: App, title: string, tasks: Task
 	if (!file) return false;
 
 	const raw = await app.vault.read(file);
-	const heading = dailyBlockHeading(clean);
+	const heading = dailyBlockHeading(clean, level);
 	// The note is the source of truth here, so the block's task lines are
 	// REWRITTEN to match the card (a deleted task must really disappear) while
 	// any prose in the section is kept.

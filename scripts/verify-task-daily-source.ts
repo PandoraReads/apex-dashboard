@@ -213,11 +213,14 @@ async function main(): Promise<void> {
 		assert.ok(sync.includes("'taskCompleteBehavior' | 'tasksFromDaily'"), '5f: updateCard accepts the flag');
 
 		const renderer = readFileSync('src/renderer.ts', 'utf8');
-		assert.ok(renderer.includes("t('renderer.tasksFromDaily')"), '5g: task card menu item');
-		assert.ok(renderer.includes('onTaskDailySyncChange'), '5h: menu routes through the callback');
+		assert.ok(renderer.includes('new TaskCardConfigModal(app, card'), '5g: the gear opens the config dialog');
+		assert.ok(renderer.includes('onTaskCardConfigSave'), '5h: dialog saves through the callback');
+
+		const modal = readFileSync('src/task-card-config-modal.ts', 'utf8');
+		assert.ok(modal.includes("t('renderer.tasksFromDaily')"), '5h2: dialog hosts the daily-source toggle');
 
 		const view = readFileSync('src/view.ts', 'utf8');
-		assert.ok(view.includes('private async setCardTasksFromDaily'), '5i: view handles the toggle');
+		assert.ok(view.includes('private async applyTaskCardConfig'), '5i: view applies the config in one pass');
 		assert.ok(view.includes('getDailyNotesConfig(this.app)'), '5j: enabling requires the core Daily notes plugin');
 		assert.ok(view.includes('void this.refreshDailyLinkedCards();'), '5k: note edits re-read the cards');
 		assert.ok(view.includes('writeCardTasksToToday(this.app, card.title'), '5l: enabling seeds the note first (no task loss)');

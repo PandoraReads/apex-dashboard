@@ -2,7 +2,7 @@ import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Plat
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem } from './types';
+import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskCardConfig } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, isImmersiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
 import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
@@ -81,7 +81,7 @@ import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
 import { dailyBlockHeading, mergeDailyTasksBlock } from './daily-note-block';
 import { getOrCreateDailyNote, ensureFolder, getDailyNotesConfig } from './daily-notes';
-import { readCardTasksFromToday, writeCardTasksToToday } from './daily-task-source';
+import { readCardTasksFromToday, retitleCardBlock, todayDailyNote, writeCardTasksToToday } from './daily-task-source';
 import { createMemoNote } from './memo-note';
 import type { App } from 'obsidian';
 import { dashboardMarkdownPath, planDashboardUpdate, type DashboardUpdateSource } from './render-update';
@@ -1666,12 +1666,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (!col || col.cards[0]?.id === cardId) return;
 			void this.handleMoveCard(cardId, columnName, 0);
 		},
-		onTaskCompleteBehaviorChange: (card: DashboardCard, value: 'stay' | 'afterUnfinished' | undefined) => {
-			// 'end' (undefined) is the default and clears the metadata line.
-			void this.sync.updateCard(card.id, { taskCompleteBehavior: value });
-		},
-		onTaskDailySyncChange: (card: DashboardCard, enabled: boolean) => {
-			void this.setCardTasksFromDaily(card, enabled);
+		onTaskCardConfigSave: (card: DashboardCard, config: TaskCardConfig) => {
+			void this.applyTaskCardConfig(card, config);
 		},
 			onCheckboxToggle: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTask(cardId, taskPath, checked),
 			onTaskAdd: (cardId: string, text: string, parentPath?: number[]) => this.sync.addTask(cardId, text, parentPath),
@@ -1848,13 +1844,21 @@ export class DashboardView extends ItemView implements HoverParent {
 			const path = folder ? `${folder}/${fileName}` : fileName;
 
 			const title = card.title?.trim() || t('notice.memoUntitled');
-			const heading = dailyBlockHeading(title);
+			// Heading depth is per-card config (default ### Title).
+			const heading = dailyBlockHeading(title, card.dailyHeadingLevel ?? 3);
 			const block = `${heading}\n${serializeTasksForNote(card.tasks)}`;
 
 			if (folder) await ensureFolder(this.app, folder);
 
 			const existing = this.app.vault.getAbstractFileByPath(path);
 			if (existing instanceof TFile) {
+				// A heading-level change moves the old block instead of leaving a
+				// stale copy behind (which would duplicate the task list).
+				try {
+					await retitleCardBlock(this.app, existing, title, card.dailyHeadingLevel ?? 3);
+				} catch (err) {
+					console.error('[Dashboard] retitle daily block failed:', err);
+				}
 				const raw = await this.app.vault.read(existing);
 				// Merge, don't overwrite: existing entries are updated to the
 				// card's state, new card entries are appended, and task lines
@@ -1877,29 +1881,56 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	/**
-	 * Turn "load tasks from today's daily note" on or off for one task card.
+	 * Persist the task-card config modal (gear button) in one pass.
 	 *
-	 * On: the note's `### <card title>` block becomes the single source of
-	 * truth — the card stops persisting its own list (parser.serialize skips it)
-	 * and is hydrated from the note right away. Off: the tasks hydrated so far
-	 * stay on the card and are written back into the dashboard file.
+	 * Completion behavior + heading level ride a single updateCard write. The
+	 * "load from today's daily note" toggle keeps the seed-before-flag rule:
+	 * enabling drops the card's own task lines from the dashboard file, so the
+	 * note must own them first. A heading level change MOVES the existing note
+	 * block instead of appending a second copy — see retitleCardBlock.
 	 */
-	private async setCardTasksFromDaily(card: DashboardCard, enabled: boolean): Promise<void> {
-		if (enabled && !getDailyNotesConfig(this.app)) {
+	private async applyTaskCardConfig(card: DashboardCard, config: TaskCardConfig): Promise<void> {
+		let wantDaily = config.tasksFromDaily;
+		const enabling = wantDaily && card.tasksFromDaily !== true;
+		if (enabling && !getDailyNotesConfig(this.app)) {
+			// Only the daily-note source is refused — the other two settings
+			// still apply, so the dialog never silently drops them.
 			new Notice(t('notice.dailyNotesDisabled'), 5000);
-			return;
+			wantDaily = card.tasksFromDaily === true;
 		}
-		if (enabled) {
-			// Seed the note BEFORE the flag lands: enabling drops the card's own
-			// task lines from the dashboard file, so a card whose note has no
-			// block yet must hand its list over first — never drop tasks.
-			const existing = await readCardTasksFromToday(this.app, card.title ?? '');
-			if (existing === null && card.tasks.length > 0) {
-				await writeCardTasksToToday(this.app, card.title ?? '', card.tasks);
+
+		const level = config.dailyHeadingLevel;
+		const prevLevel = card.dailyHeadingLevel ?? 3;
+		// Moving the block beats re-creating it: without this the next mirror
+		// write lands under a NEW heading and the old block keeps its tasks,
+		// duplicating the list inside the note.
+		if (card.tasksFromDaily && level !== prevLevel) {
+			const file = todayDailyNote(this.app);
+			if (file) {
+				try {
+					await retitleCardBlock(this.app, file, card.title ?? '', level);
+				} catch (err) {
+					console.error('[Dashboard] retitle daily block failed:', err);
+				}
 			}
 		}
-		await this.sync.updateCard(card.id, { tasksFromDaily: enabled ? true : undefined });
-		if (enabled) {
+
+		if (enabling) {
+			// Seed the note before the flag lands, using the freshly picked
+			// heading level (that is how the block the card will read is
+			// written). Same never-drop-tasks rationale as above.
+			const existing = await readCardTasksFromToday(this.app, card.title ?? '', level);
+			if (existing === null && card.tasks.length > 0) {
+				await writeCardTasksToToday(this.app, card.title ?? '', card.tasks, level);
+			}
+		}
+
+		await this.sync.updateCard(card.id, {
+			taskCompleteBehavior: config.taskCompleteBehavior === 'end' ? undefined : config.taskCompleteBehavior,
+			tasksFromDaily: wantDaily ? true : undefined,
+			dailyHeadingLevel: level === 3 ? undefined : level,
+		});
+		if (wantDaily) {
 			await this.sync.refreshDailyLinkedTasks();
 			if (this.data) this.render(this.data);
 		}

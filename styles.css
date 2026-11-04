@@ -12496,6 +12496,28 @@ button.dashboard-skillsec-import:hover {
 	color: var(--db-text, var(--text-normal));
 }
 
+/* Task-card config modal (gear button): inline checkbox row + muted hint
+   under a field, so a multi-option dialog reads as grouped settings rather
+   than a stack of bare labels. */
+.dashboard-modal-check-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dashboard-modal-check-row label {
+	margin-bottom: 0;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.dashboard-modal-hint {
+	margin-top: 4px;
+	font-size: 0.82em;
+	line-height: 1.45;
+	color: var(--db-text-muted, var(--text-muted));
+}
+
 .dashboard-modal-input {
 	width: 100%;
 	padding: 8px 12px;

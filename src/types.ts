@@ -732,6 +732,11 @@ export interface DashboardCard {
 	 *  written back into it, so no task list is persisted in the dashboard
 	 *  file. Undefined (default) = the card owns its own task list. */
 	tasksFromDaily?: boolean;
+	/** Task cards only: markdown heading level (1-6) used for the card title
+	 *  when its tasks are written into a daily note ("save to daily" /
+	 *  `tasksFromDaily` mirroring). Undefined = 3 (`### Title`), the
+	 *  historical default, and stays unpersisted. */
+	dailyHeadingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
 	width: number;
 	size: CardSize;
 	gridCols: number;
@@ -1433,6 +1438,18 @@ export interface DashboardData {
 	columns: DashboardColumn[];
 }
 
+/** Task-card config modal payload (gear button on a todo card). */
+export interface TaskCardConfig {
+	/** Where a checked-complete task lands. 'end' is the historical default
+	 *  and persists as undefined (no metadata line). */
+	taskCompleteBehavior: 'stay' | 'end' | 'afterUnfinished';
+	/** Load the list from today's daily note (the note owns the tasks). */
+	tasksFromDaily: boolean;
+	/** Heading depth for the card title when written into the daily note;
+	 *  3 (`###`) is the default and persists as undefined. */
+	dailyHeadingLevel: 1 | 2 | 3 | 4 | 5 | 6;
+}
+
 export interface RenderCallbacks {
 	onCardEdit(card: DashboardCard): void;
 	/** subpath is the raw `#heading` / `#^block` fragment of a wikilink, when present. */
@@ -1442,13 +1459,10 @@ export interface RenderCallbacks {
 	onCardDelete(cardId: string): void;
 	/** Sticky-card pin-to-top: move the card to the first slot of its section. */
 	onCardPinTop(cardId: string, columnName: string): void;
-	/** Task-list per-card config: where a completed task lands. 'end' is the
-	 *  historical default and persists as undefined (no metadata line). */
-	onTaskCompleteBehaviorChange?(card: DashboardCard, value: 'stay' | 'afterUnfinished' | undefined): void;
-	/** Task-list per-card config: mirror the card's tasks to/from today's
-	 *  daily note (`tasksFromDaily`). Enabling reads the note's title block;
-	 *  disabling keeps the tasks hydrated so far in the card itself. */
-	onTaskDailySyncChange?(card: DashboardCard, enabled: boolean): void;
+	/** Task-card config modal (gear button) saved in one shot: completion
+	 *  behavior, daily-note task source, and the heading level used when the
+	 *  title is written into the daily note. */
+	onTaskCardConfigSave?(card: DashboardCard, config: TaskCardConfig): void;
 	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;
 	onTaskDelete(cardId: string, taskPath: number[]): void;

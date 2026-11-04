@@ -14,9 +14,25 @@ import type { TaskItem } from './types';
  *   deleted them from the card) are LEFT UNTOUCHED.
  */
 
-/** The exact heading line a saved block starts with. */
-export function dailyBlockHeading(title: string): string {
-	return `### ${title}`;
+/** The exact heading line a saved block starts with. `level` is the card's
+ *  configured markdown heading depth (1-6); 3 (`###`) is the historical
+ *  default and the value used when unset. */
+export function dailyBlockHeading(title: string, level = 3): string {
+	const lv = Math.min(6, Math.max(1, Math.round(level) || 3));
+	return `${'#'.repeat(lv)} ${title}`;
+}
+
+/** Markdown heading level of a raw line (`### x` → 3), 0 for non-headings. */
+function headingLevelOf(line: string): number {
+	const m = /^(#{1,6})\s/.exec(line);
+	return m ? m[1]!.length : 0;
+}
+
+/** Section depth implied by `heading` itself — the boundary for "where does
+ *  this block end": any heading at the same or a shallower level closes it. */
+function sectionLevelOf(heading: string): number {
+	const lv = headingLevelOf(heading);
+	return lv > 0 ? lv : 3;
 }
 
 /** Count occurrences of the heading line — used by tests to prove idempotence. */
@@ -36,9 +52,14 @@ export function extractDailyTasksBlock(md: string, heading: string): string | nu
 	const lines = md.split(/\r?\n/);
 	const idx = lines.findIndex((line) => line.trim() === heading);
 	if (idx === -1) return null;
+	const sectionLevel = sectionLevelOf(heading);
 	let end = lines.length;
 	for (let i = idx + 1; i < lines.length; i++) {
-		if (/^#{1,3} /.test(lines[i] ?? '')) {
+		const lv = headingLevelOf(lines[i] ?? '');
+		// Same or shallower heading closes the block. With the default ###
+		// block this is exactly the old 1-3 boundary; a #### block keeps its
+		// own ##### subheadings inside (deeper levels do not close it).
+		if (lv > 0 && lv <= sectionLevel) {
 			end = i;
 			break;
 		}
@@ -102,9 +123,11 @@ export function replaceDailyTasksBlock(
 	const idx = lines.findIndex((line) => line.trim() === heading);
 	if (idx === -1) return null;
 
+	const sectionLevel = sectionLevelOf(heading);
 	let end = lines.length;
 	for (let i = idx + 1; i < lines.length; i++) {
-		if (/^#{1,3} /.test(lines[i] ?? '')) {
+		const lv = headingLevelOf(lines[i] ?? '');
+		if (lv > 0 && lv <= sectionLevel) {
 			end = i;
 			break;
 		}
@@ -148,12 +171,14 @@ export function mergeDailyTasksBlock(
 	const idx = lines.findIndex((line) => line.trim() === heading);
 	if (idx === -1) return { content: md, replaced: false, updated: 0, appended: 0 };
 
+	const sectionLevel = sectionLevelOf(heading);
 	/** End of the section starting at `start` (exclusive), trailing blank
 	 *  separator lines excluded — they belong to the surrounding text. */
 	const sectionEndOf = (start: number): number => {
 		let end = lines.length;
 		for (let i = start + 1; i < lines.length; i++) {
-			if (/^#{1,3} /.test(lines[i] ?? '')) {
+			const lv = headingLevelOf(lines[i] ?? '');
+			if (lv > 0 && lv <= sectionLevel) {
 				end = i;
 				break;
 			}

@@ -16,6 +16,7 @@ import { renderPipelineSection } from './pipeline-section';
 import { renderSkillSection } from './skill-section';
 import { renderPmSection } from './pm-section';
 import { renderQuickNoteRegion } from './quick-note-section';
+import { TaskCardConfigModal } from './task-card-config-modal';
 import { resolveVaultImage } from './banner';
 import { focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
 import { ITEM_DRAG_TYPE } from './dnd';
@@ -3218,9 +3219,9 @@ export function renderCard(card: DashboardCard, columnName: string, sectionType:
 			callbacks.onTaskSaveToDaily(card);
 		});
 
-		// Task-list per-card config: where a checked-complete task lands.
-		// 'end' is the historical default and shows no persisted marker.
-		const behavior = card.taskCompleteBehavior ?? 'end';
+		// Task-list per-card config. The options outgrew a dropdown menu
+		// (completion behavior, daily-note task source, heading level), so the
+		// gear opens a proper dialog that saves all three in one write.
 		const cfgBtn = actions.createEl('button', {
 			cls: 'dashboard-card-btn',
 			attr: { 'aria-label': t('renderer.taskListBehavior') },
@@ -3228,32 +3229,9 @@ export function renderCard(card: DashboardCard, columnName: string, sectionType:
 		setIcon(cfgBtn, 'settings-2');
 		cfgBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
-			const menu = new Menu();
-			const options: Array<{ value: 'stay' | 'end' | 'afterUnfinished'; label: string }> = [
-				{ value: 'stay', label: t('taskBehavior.stay') },
-				{ value: 'end', label: t('taskBehavior.end') },
-				{ value: 'afterUnfinished', label: t('taskBehavior.afterUnfinished') },
-			];
-			for (const opt of options) {
-				menu.addItem(item => {
-					item.setTitle(opt.label).onClick(() => {
-						if (opt.value === behavior) return;
-						// 'end' is the default → persist undefined.
-						callbacks.onTaskCompleteBehaviorChange?.(card, opt.value === 'end' ? undefined : opt.value);
-					});
-					if (opt.value === behavior) item.setIcon('check');
-				});
-			}
-			// Separate concern: where the task LIST comes from. On = mirror
-			// today's `### <card title>` block in the daily note (the note is
-			// the source of truth); off = the card owns its own list.
-			menu.addSeparator();
-			menu.addItem(item => {
-				item.setTitle(t('renderer.tasksFromDaily'))
-					.setChecked(card.tasksFromDaily === true)
-					.onClick(() => callbacks.onTaskDailySyncChange?.(card, card.tasksFromDaily !== true));
-			});
-			menu.showAtMouseEvent(e);
+			new TaskCardConfigModal(app, card, (config) => {
+				callbacks.onTaskCardConfigSave?.(card, config);
+			}).open();
 		});
 	}
 

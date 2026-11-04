@@ -10,9 +10,9 @@
  * 3. sync.ts wiring: toggleTask honors all three behaviors — 'stay' keeps
  *    the slot, 'end' moves to the bottom, 'afterUnfinished' inserts just
  *    past the last unfinished task.
- * 4. renderer/view wiring: the task-card config button opens a Menu with
- *    the three options and routes through onTaskCompleteBehaviorChange →
- *    sync.updateCard.
+ * 4. renderer/view wiring: the task-card config button opens the settings
+ *    dialog (all three options), and saving routes through
+ *    onTaskCardConfigSave → applyTaskCardConfig → sync.updateCard.
  *
  * Run: `npm run test:task-complete-behavior`
  */
@@ -76,17 +76,21 @@ function run(): void {
 	assert.ok(/if \(!without\[i\]!\.checked\) insertIdx = i \+ 1;/.test(src),
 		'afterUnfinished inserts past the last unfinished top-level task');
 
-	// 4. renderer/view wiring.
+	// 4. renderer/view wiring — the gear opens the config dialog, which saves
+	//    all three settings in one updateCard write.
 	const rendererSrc = readFileSync('src/renderer.ts', 'utf-8');
 	assert.ok(rendererSrc.includes("t('renderer.taskListBehavior')"),
 		'task cards render the behavior config button');
-	assert.ok(rendererSrc.includes("'taskBehavior.stay'") && rendererSrc.includes("'taskBehavior.afterUnfinished'"),
-		'config menu offers all three options');
-	assert.ok(rendererSrc.includes("opt.value === 'end' ? undefined : opt.value"),
-		"choosing 'end' persists undefined (clears the metadata line)");
+	assert.ok(rendererSrc.includes('new TaskCardConfigModal(app, card'),
+		'config button opens the settings dialog');
+	const modalSrc = readFileSync('src/task-card-config-modal.ts', 'utf-8');
+	assert.ok(modalSrc.includes("['stay', 'end', 'afterUnfinished']"),
+		'config dialog offers all three options');
 	const viewSrc = readFileSync('src/view.ts', 'utf-8');
-	assert.ok(viewSrc.includes("onTaskCompleteBehaviorChange: (card: DashboardCard, value: 'stay' | 'afterUnfinished' | undefined) =>"),
-		'view routes the callback through sync.updateCard');
+	assert.ok(viewSrc.includes("config.taskCompleteBehavior === 'end' ? undefined : config.taskCompleteBehavior"),
+		"choosing 'end' persists undefined (clears the metadata line)");
+	assert.ok(viewSrc.includes('private async applyTaskCardConfig'),
+		'view applies the dialog in one updateCard write');
 }
 
 run();

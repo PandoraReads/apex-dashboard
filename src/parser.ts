@@ -44,7 +44,7 @@ import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-
 import { normalizeColumnPairs } from './column-pairs';
 import { clampSpanW, clampSpanH, isImmersiveMode, migrateLegacyHeight } from './immersive-grid';
 
-const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode', 'taskCompleteBehavior', 'tasksFromDaily']);
+const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode', 'taskCompleteBehavior', 'tasksFromDaily', 'dailyHeadingLevel']);
 // 'notes', 'memo' and 'todo' are retired standalone section types: they parse
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
@@ -773,6 +773,11 @@ export function serialize(data: DashboardData): string {
 			// Task card mirrored from today's daily note: the note owns the task
 			// list, so only the flag is persisted here (see daily-task-source).
 			if (card.tasksFromDaily) lines.push('tasksFromDaily: true');
+			// Heading depth of the card-title block written into the daily note:
+			// 3 (###) is the default and stays unpersisted.
+			if (card.dailyHeadingLevel && card.dailyHeadingLevel !== 3) {
+				lines.push(`dailyHeadingLevel: ${card.dailyHeadingLevel}`);
+			}
 
 			if (card.type === 'generic') lines.push('type: generic');
 
@@ -2042,6 +2047,12 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 			? metadata.taskCompleteBehavior
 			: undefined,
 		tasksFromDaily: metadata.tasksFromDaily === 'true' ? true : undefined,
+		dailyHeadingLevel: (() => {
+			const lv = Number(metadata.dailyHeadingLevel);
+			return Number.isInteger(lv) && lv >= 1 && lv <= 6 && lv !== 3
+				? lv as 1 | 2 | 3 | 4 | 5 | 6
+				: undefined;
+		})(),
 		column: columnName,
 		body: cleanBody,
 		tasks,

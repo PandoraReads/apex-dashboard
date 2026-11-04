@@ -201,7 +201,7 @@ export class SyncEngine {
 		const card = (this.data?.columns ?? []).flatMap(col => col.cards).find(c => c.id === cardId);
 		if (!card?.tasksFromDaily) return;
 		try {
-			await writeCardTasksToToday(this.app, card.title ?? '', card.tasks);
+			await writeCardTasksToToday(this.app, card.title ?? '', card.tasks, card.dailyHeadingLevel ?? 3);
 		} catch (err) {
 			console.error('[Dashboard] daily-note task mirror failed:', err);
 		}
@@ -218,7 +218,7 @@ export class SyncEngine {
 		const cards = this.dailyLinkedCards();
 		if (cards.length === 0) return false;
 		for (const card of cards) {
-			const tasks = await readCardTasksFromToday(this.app, card.title ?? '');
+			const tasks = await readCardTasksFromToday(this.app, card.title ?? '', card.dailyHeadingLevel ?? 3);
 			card.tasks = tasks ?? [];
 		}
 		return true;
@@ -418,7 +418,7 @@ export class SyncEngine {
 		this.scheduleDeferredWrite();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior' | 'tasksFromDaily'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior' | 'tasksFromDaily' | 'dailyHeadingLevel'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {
