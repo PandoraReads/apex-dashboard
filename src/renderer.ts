@@ -3224,6 +3224,15 @@ export function renderCard(card: DashboardCard, columnName: string, sectionType:
 					if (opt.value === behavior) item.setIcon('check');
 				});
 			}
+			// Separate concern: where the task LIST comes from. On = mirror
+			// today's `### <card title>` block in the daily note (the note is
+			// the source of truth); off = the card owns its own list.
+			menu.addSeparator();
+			menu.addItem(item => {
+				item.setTitle(t('renderer.tasksFromDaily'))
+					.setChecked(card.tasksFromDaily === true)
+					.onClick(() => callbacks.onTaskDailySyncChange?.(card, card.tasksFromDaily !== true));
+			});
 			menu.showAtMouseEvent(e);
 		});
 	}

@@ -3,6 +3,7 @@ import { App, TFile } from 'obsidian';
 import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
 import { isImmersiveMode } from './immersive-grid';
+import { readCardTasksFromToday, writeCardTasksToToday } from './daily-task-source';
 import { t } from './i18n';
 import {
 	type TaskPath,
@@ -176,6 +177,53 @@ export class SyncEngine {
 		};
 	}
 
+	/** Cards whose task list mirrors today's daily note (`tasksFromDaily`). */
+	private dailyLinkedCards(): DashboardCard[] {
+		return (this.data?.columns ?? []).flatMap(col => col.cards).filter(card => card.tasksFromDaily);
+	}
+
+	/**
+	 * Persist the dashboard file, then mirror each affected card's task list
+	 * into today's daily note.
+	 *
+	 * Task mutators call this instead of `writeToDisk` so a card in
+	 * `tasksFromDaily` mode keeps the note — its single source of truth — in
+	 * step with every edit (toggle / add / delete / reorder / edit / nest).
+	 */
+	private async commitTasks(...cardIds: string[]): Promise<void> {
+		await this.writeToDisk();
+		for (const cardId of cardIds) await this.mirrorTasksToDaily(cardId);
+	}
+
+	/** Write one card's tasks into its `### <title>` block in today's note.
+	 *  No-op for cards that own their task list. */
+	private async mirrorTasksToDaily(cardId: string): Promise<void> {
+		const card = (this.data?.columns ?? []).flatMap(col => col.cards).find(c => c.id === cardId);
+		if (!card?.tasksFromDaily) return;
+		try {
+			await writeCardTasksToToday(this.app, card.title ?? '', card.tasks);
+		} catch (err) {
+			console.error('[Dashboard] daily-note task mirror failed:', err);
+		}
+	}
+
+	/**
+	 * Re-read every `tasksFromDaily` card's task list from today's daily note.
+	 *
+	 * Such cards persist no tasks of their own (parser.serialize skips them), so
+	 * this is how their tasks reach the board — after each load and whenever the
+	 * note itself changes. Returns false when no card is in that mode.
+	 */
+	async refreshDailyLinkedTasks(): Promise<boolean> {
+		const cards = this.dailyLinkedCards();
+		if (cards.length === 0) return false;
+		for (const card of cards) {
+			const tasks = await readCardTasksFromToday(this.app, card.title ?? '');
+			card.tasks = tasks ?? [];
+		}
+		return true;
+	}
+
 	async archiveTasks(columnName: string): Promise<void> {
 		if (!this.data) return;
 
@@ -192,7 +240,11 @@ export class SyncEngine {
 				};
 			}),
 		};
-		await this.writeToDisk();
+		// Archive touches every card in the column, daily-linked ones included.
+		const touched = (this.data.columns.find(col => col.name === columnName)?.cards ?? [])
+			.filter(card => card.tasksFromDaily)
+			.map(card => card.id);
+		await this.commitTasks(...touched);
 	}
 
 	async toggleTask(cardId: string, taskPath: TaskPath, checked: boolean): Promise<void> {
@@ -239,7 +291,7 @@ export class SyncEngine {
 
 			return next;
 		});
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async reorderTask(cardId: string, fromPath: TaskPath, toPath: TaskPath, before: boolean): Promise<void> {
@@ -247,7 +299,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			moveTaskBeside(tasks, fromPath, toPath, before));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async moveTaskToCard(
@@ -294,7 +346,7 @@ export class SyncEngine {
 				}),
 			})),
 		};
-		await this.writeToDisk();
+		await this.commitTasks(srcCardId, destCardId);
 	}
 
 	async editTask(cardId: string, taskPath: TaskPath, newText: string): Promise<void> {
@@ -302,7 +354,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			updateTaskAt(tasks, taskPath, (t) => ({ ...t, text: newText })));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async addTask(cardId: string, text: string, parentPath?: TaskPath): Promise<void> {
@@ -315,7 +367,7 @@ export class SyncEngine {
 				// Top-level additions land at the TOP of the list so the newest
 				// item is visible without scrolling past the existing ones.
 				: [node, ...tasks]);
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async deleteTask(cardId: string, taskPath: TaskPath): Promise<void> {
@@ -323,7 +375,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			removeTaskAt(tasks, taskPath).tasks);
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async nestTask(cardId: string, taskPath: TaskPath): Promise<void> {
@@ -331,7 +383,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			demoteToChild(tasks, taskPath));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async nestTaskInto(cardId: string, srcPath: TaskPath, destPath: TaskPath): Promise<void> {
@@ -339,7 +391,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			nestIntoTarget(tasks, srcPath, destPath));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async unnestTask(cardId: string, taskPath: TaskPath): Promise<void> {
@@ -347,7 +399,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			promoteToTopLevel(tasks, taskPath));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	/**
@@ -366,7 +418,7 @@ export class SyncEngine {
 		this.scheduleDeferredWrite();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior' | 'tasksFromDaily'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {
@@ -386,7 +438,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			updateTaskAt(tasks, taskPath, (t) => ({ ...t, reminder })));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async deleteCard(cardId: string): Promise<void> {
@@ -1146,6 +1198,8 @@ export class SyncEngine {
 		if (this.data && serialize(newData) === serialize(this.data)) return;
 
 		this.data = newData;
+		// Cards mirrored from today's daily note hold no tasks of their own:/n		// hydrate them before the first render.
+		await this.refreshDailyLinkedTasks();
 		this.notifyCallbacks('external');
 	}
 

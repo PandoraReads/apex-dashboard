@@ -80,7 +80,8 @@ import { pmKeyDate } from './pm-model';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
 import { dailyBlockHeading, mergeDailyTasksBlock } from './daily-note-block';
-import { getOrCreateDailyNote, ensureFolder } from './daily-notes';
+import { getOrCreateDailyNote, ensureFolder, getDailyNotesConfig } from './daily-notes';
+import { readCardTasksFromToday, writeCardTasksToToday } from './daily-task-source';
 import { createMemoNote } from './memo-note';
 import type { App } from 'obsidian';
 import { dashboardMarkdownPath, planDashboardUpdate, type DashboardUpdateSource } from './render-update';
@@ -1669,6 +1670,9 @@ export class DashboardView extends ItemView implements HoverParent {
 			// 'end' (undefined) is the default and clears the metadata line.
 			void this.sync.updateCard(card.id, { taskCompleteBehavior: value });
 		},
+		onTaskDailySyncChange: (card: DashboardCard, enabled: boolean) => {
+			void this.setCardTasksFromDaily(card, enabled);
+		},
 			onCheckboxToggle: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTask(cardId, taskPath, checked),
 			onTaskAdd: (cardId: string, text: string, parentPath?: number[]) => this.sync.addTask(cardId, text, parentPath),
 			onTaskDelete: async (cardId: string, taskPath: number[]) => {
@@ -1870,6 +1874,56 @@ export class DashboardView extends ItemView implements HoverParent {
 			console.error('[Dashboard] saveTasksToDaily failed:', err);
 			new Notice(t('notice.dailySaveError'), 4000);
 		}
+	}
+
+	/**
+	 * Turn "load tasks from today's daily note" on or off for one task card.
+	 *
+	 * On: the note's `### <card title>` block becomes the single source of
+	 * truth — the card stops persisting its own list (parser.serialize skips it)
+	 * and is hydrated from the note right away. Off: the tasks hydrated so far
+	 * stay on the card and are written back into the dashboard file.
+	 */
+	private async setCardTasksFromDaily(card: DashboardCard, enabled: boolean): Promise<void> {
+		if (enabled && !getDailyNotesConfig(this.app)) {
+			new Notice(t('notice.dailyNotesDisabled'), 5000);
+			return;
+		}
+		if (enabled) {
+			// Seed the note BEFORE the flag lands: enabling drops the card's own
+			// task lines from the dashboard file, so a card whose note has no
+			// block yet must hand its list over first — never drop tasks.
+			const existing = await readCardTasksFromToday(this.app, card.title ?? '');
+			if (existing === null && card.tasks.length > 0) {
+				await writeCardTasksToToday(this.app, card.title ?? '', card.tasks);
+			}
+		}
+		await this.sync.updateCard(card.id, { tasksFromDaily: enabled ? true : undefined });
+		if (enabled) {
+			await this.sync.refreshDailyLinkedTasks();
+			if (this.data) this.render(this.data);
+		}
+	}
+
+	/** Identity of the daily-linked cards' current task lists; null when no
+	 *  card is in that mode (nothing to watch). */
+	private dailyLinkedTasksSignature(): string | null {
+		const cards = (this.data?.columns ?? []).flatMap(col => col.cards).filter(c => c.tasksFromDaily);
+		if (cards.length === 0) return null;
+		return JSON.stringify(cards.map(card => [card.id, card.tasks]));
+	}
+
+	/**
+	 * Re-read the daily-linked cards after an .md change, re-rendering only when
+	 * their task lists actually differ. Covers a hand edit in today's note and
+	 * our own mirror writes echoing back through the vault watcher (those arrive
+	 * unchanged, so no second paint).
+	 */
+	private async refreshDailyLinkedCards(): Promise<void> {
+		const before = this.dailyLinkedTasksSignature();
+		if (before === null) return;
+		await this.sync.refreshDailyLinkedTasks();
+		if (before !== this.dailyLinkedTasksSignature() && this.data) this.render(this.data);
 	}
 
 	private async archiveCompletedTasks(columnName: string): Promise<void> {
@@ -2979,6 +3033,9 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (changedMd) {
 			this.refreshRecentDocs();
 			this.refreshSidebarCalendarNow();
+			// Cards whose tasks mirror today's daily note (and only those) need
+			// a re-read; the helper renders only when the lists actually differ.
+			void this.refreshDailyLinkedCards();
 			// Keeps its own extra debounce: the stats recompute walks the vault.
 			this.debouncedRefreshBannerStats();
 		}

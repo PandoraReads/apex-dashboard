@@ -242,6 +242,7 @@ export const part1: Record<string, string> = {
 	"renderer.cardNewNote": "บันทึกใหม่ในการ์ดใบนี้",
 	"renderer.pinToTop": "ปักหมุดไว้ด้านบน",
 	"renderer.taskListBehavior": "พฤติกรรมรายการ",
+	"renderer.tasksFromDaily": "โหลดงานจากโน้ตประจำวันของวันนี้",
 	"taskBehavior.stay": "คงตำแหน่งเดิม",
 	"taskBehavior.end": "ย้ายไปท้ายสุด",
 	"taskBehavior.afterUnfinished": "ย้ายไปหลังรายการที่ยังไม่เสร็จ",

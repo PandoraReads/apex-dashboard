@@ -44,7 +44,7 @@ import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-
 import { normalizeColumnPairs } from './column-pairs';
 import { clampSpanW, clampSpanH, isImmersiveMode, migrateLegacyHeight } from './immersive-grid';
 
-const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode', 'taskCompleteBehavior']);
+const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode', 'taskCompleteBehavior', 'tasksFromDaily']);
 // 'notes', 'memo' and 'todo' are retired standalone section types: they parse
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
@@ -770,6 +770,9 @@ export function serialize(data: DashboardData): string {
 			// unpersisted — only 'stay' / 'afterUnfinished' write a line.
 			if (card.taskCompleteBehavior === 'stay') lines.push('taskCompleteBehavior: stay');
 			if (card.taskCompleteBehavior === 'afterUnfinished') lines.push('taskCompleteBehavior: afterUnfinished');
+			// Task card mirrored from today's daily note: the note owns the task
+			// list, so only the flag is persisted here (see daily-task-source).
+			if (card.tasksFromDaily) lines.push('tasksFromDaily: true');
 
 			if (card.type === 'generic') lines.push('type: generic');
 
@@ -849,7 +852,7 @@ export function serialize(data: DashboardData): string {
 				lines.push(`> ${card.blockquote}`);
 			}
 
-			if (card.tasks.length > 0) {
+			if (card.tasks.length > 0 && !card.tasksFromDaily) {
 				const writeTask = (task: TaskItem, indent: number) => {
 					const prefix = indent > 0 ? '    '.repeat(indent) : '';
 					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text.replace(/\n/g, TASK_NEWLINE_ESCAPE)}`;
@@ -2038,6 +2041,7 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 		taskCompleteBehavior: metadata.taskCompleteBehavior === 'stay' || metadata.taskCompleteBehavior === 'afterUnfinished'
 			? metadata.taskCompleteBehavior
 			: undefined,
+		tasksFromDaily: metadata.tasksFromDaily === 'true' ? true : undefined,
 		column: columnName,
 		body: cleanBody,
 		tasks,

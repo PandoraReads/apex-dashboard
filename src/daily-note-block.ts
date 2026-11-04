@@ -24,6 +24,28 @@ export function countDailyBlock(md: string, heading: string): number {
 	return md.split(/\r?\n/).filter((line) => line.trim() === heading).length;
 }
 
+/**
+ * Raw text of the `heading` section (everything below it, up to the next
+ * level 1-3 heading), or null when the note has no such heading.
+ *
+ * Used by cards in "load tasks from today's daily note" mode: the card's task
+ * list is read from — and written back to — exactly this section, so the note
+ * stays the single source of truth and nothing is duplicated.
+ */
+export function extractDailyTasksBlock(md: string, heading: string): string | null {
+	const lines = md.split(/\r?\n/);
+	const idx = lines.findIndex((line) => line.trim() === heading);
+	if (idx === -1) return null;
+	let end = lines.length;
+	for (let i = idx + 1; i < lines.length; i++) {
+		if (/^#{1,3} /.test(lines[i] ?? '')) {
+			end = i;
+			break;
+		}
+	}
+	return lines.slice(idx + 1, end).join('\n');
+}
+
 interface MergeOutcome {
 	content: string;
 	/** false = heading absent, caller should prepend the whole block instead. */
@@ -45,6 +67,64 @@ function taskLine(task: TaskItem, indent: number): string {
 function taskLineText(raw: string): string {
 	const m = raw.match(TASK_LINE);
 	return m ? (m[3] ?? '').replace(/ ⏰ .*$/, '').trim() : '';
+}
+
+/** Serialize a whole task tree as checkbox lines (no trailing newline). */
+function serializeBlock(tasks: TaskItem[]): string {
+	const out: string[] = [];
+	const walk = (task: TaskItem, indent: number): void => {
+		out.push(taskLine(task, indent));
+		for (const child of task.children ?? []) walk(child, indent + 1);
+	};
+	for (const task of tasks) walk(task, 0);
+	return out.join('\n');
+}
+
+/**
+ * Rewrite the `heading` section's TASK LINES to exactly `tasks`, keeping any
+ * non-task lines (prose) that live in the section.
+ *
+ * This is the write half of a card in "load tasks from today's daily note"
+ * mode: there the note is the source of truth and the card is its editor, so a
+ * deleted task must really disappear (unlike `mergeDailyTasksBlock`, whose
+ * save-to-daily contract keeps note-only lines). Hand-added note tasks are not
+ * lost: they were read into the card first, so they come back through `tasks`.
+ *
+ * Returns null when the note has no such heading (caller appends a fresh block).
+ */
+export function replaceDailyTasksBlock(
+	md: string,
+	heading: string,
+	tasks: TaskItem[],
+): string | null {
+	const eol = md.includes('\r\n') ? '\r\n' : '\n';
+	const lines = md.split(/\r?\n/);
+	const idx = lines.findIndex((line) => line.trim() === heading);
+	if (idx === -1) return null;
+
+	let end = lines.length;
+	for (let i = idx + 1; i < lines.length; i++) {
+		if (/^#{1,3} /.test(lines[i] ?? '')) {
+			end = i;
+			break;
+		}
+	}
+
+	const prose = lines.slice(idx + 1, end).filter((line) => !TASK_LINE.test(line));
+	while (prose.length > 0 && (prose[0] ?? '').trim() === '') prose.shift();
+	while (prose.length > 0 && (prose[prose.length - 1] ?? '').trim() === '') prose.pop();
+	// Keep the blank separator the section had before the next heading.
+	const sectionEndsBlank = end > idx + 1 && (lines[end - 1] ?? '').trim() === '';
+
+	const body = serializeBlock(tasks);
+	const rebuilt = [
+		heading,
+		...(body ? body.split('\n') : []),
+		...(prose.length > 0 && body ? [''] : []),
+		...prose,
+		...(sectionEndsBlank ? [''] : []),
+	];
+	return [...lines.slice(0, idx), ...rebuilt, ...lines.slice(end)].join(eol);
 }
 
 /**

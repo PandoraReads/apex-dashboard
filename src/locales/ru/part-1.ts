@@ -242,6 +242,7 @@ export const part1: Record<string, string> = {
 	"renderer.cardNewNote": "Новая заметка на этой карточке.",
 	"renderer.pinToTop": "Закрепить вверху",
 	"renderer.taskListBehavior": "Поведение списка",
+	"renderer.tasksFromDaily": "Загружать задачи из сегодняшней заметки",
 	"taskBehavior.stay": "Оставить на месте",
 	"taskBehavior.end": "Переместить в конец",
 	"taskBehavior.afterUnfinished": "Переместить после невыполненных",

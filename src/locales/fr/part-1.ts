@@ -242,6 +242,7 @@ export const part1: Record<string, string> = {
 	"renderer.cardNewNote": "Nouvelle note dans cette carte",
 	"renderer.pinToTop": "Épingler en haut",
 	"renderer.taskListBehavior": "Comportement de la liste",
+	"renderer.tasksFromDaily": "Charger les tâches de la note quotidienne du jour",
 	"taskBehavior.stay": "Garder en place",
 	"taskBehavior.end": "Déplacer à la fin",
 	"taskBehavior.afterUnfinished": "Déplacer après les non terminées",

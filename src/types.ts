@@ -726,6 +726,12 @@ export interface DashboardCard {
 	 *  bottom, the historical behavior; 'stay' = keep its slot; 'afterUnfinished'
 	 *  = drop just past the last unfinished task (before the completed block). */
 	taskCompleteBehavior?: 'stay' | 'end' | 'afterUnfinished';
+	/** Task cards only: mirror the task list to/from today's daily note.
+	 *  When true the card's `### <title>` block in today's note is the single
+	 *  source of truth — tasks are read from it on load and every card edit is
+	 *  written back into it, so no task list is persisted in the dashboard
+	 *  file. Undefined (default) = the card owns its own task list. */
+	tasksFromDaily?: boolean;
 	width: number;
 	size: CardSize;
 	gridCols: number;
@@ -1439,6 +1445,10 @@ export interface RenderCallbacks {
 	/** Task-list per-card config: where a completed task lands. 'end' is the
 	 *  historical default and persists as undefined (no metadata line). */
 	onTaskCompleteBehaviorChange?(card: DashboardCard, value: 'stay' | 'afterUnfinished' | undefined): void;
+	/** Task-list per-card config: mirror the card's tasks to/from today's
+	 *  daily note (`tasksFromDaily`). Enabling reads the note's title block;
+	 *  disabling keeps the tasks hydrated so far in the card itself. */
+	onTaskDailySyncChange?(card: DashboardCard, enabled: boolean): void;
 	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;
 	onTaskDelete(cardId: string, taskPath: number[]): void;

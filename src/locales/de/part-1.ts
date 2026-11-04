@@ -242,6 +242,7 @@ export const part1: Record<string, string> = {
 	"renderer.cardNewNote": "Neue Notiz in dieser Karte",
 	"renderer.pinToTop": "Oben anheften",
 	"renderer.taskListBehavior": "Listenverhalten",
+	"renderer.tasksFromDaily": "Aufgaben aus der heutigen Tagesnotiz laden",
 	"taskBehavior.stay": "Position beibehalten",
 	"taskBehavior.end": "Ans Ende verschieben",
 	"taskBehavior.afterUnfinished": "Hinter Unerledigtes verschieben",

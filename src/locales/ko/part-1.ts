@@ -242,6 +242,7 @@ export const part1: Record<string, string> = {
 	"renderer.cardNewNote": "이 카드의 새 메모",
 	"renderer.pinToTop": "상단에 고정",
 	"renderer.taskListBehavior": "목록 동작",
+	"renderer.tasksFromDaily": "오늘의 데일리 노트에서 할 일 불러오기",
 	"taskBehavior.stay": "제자리 유지",
 	"taskBehavior.end": "맨 아래로 이동",
 	"taskBehavior.afterUnfinished": "미완료 항목 뒤로 이동",

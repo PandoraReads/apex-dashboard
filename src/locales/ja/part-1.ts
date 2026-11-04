@@ -242,6 +242,7 @@ export const part1: Record<string, string> = {
 	"renderer.cardNewNote": "このカードの新しいメモ",
 	"renderer.pinToTop": "先頭にピン留めする",
 	"renderer.taskListBehavior": "リストの動作",
+	"renderer.tasksFromDaily": "今日のデイリーノートからタスクを読み込む",
 	"taskBehavior.stay": "位置を変えない",
 	"taskBehavior.end": "末尾へ移動",
 	"taskBehavior.afterUnfinished": "未完了の後ろへ移動",
