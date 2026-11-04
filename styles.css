@@ -12562,6 +12562,49 @@ button.dashboard-skillsec-import:hover {
 	border-color: var(--db-border-input-focus, var(--interactive-accent));
 }
 
+/* Library config modal: unify every text input / select to ONE skin. The
+   dialog mixes several control families (.dashboard-library-filter-*,
+   .dashboard-media-filter-folder, .dashboard-library-config-number, plain
+   selects) each with its own border color, and Obsidian core additionally
+   paints `box-shadow: var(--input-shadow)` (inset 1px ring) plus a dark
+   focus ring on native fields — stacked edges read as black borders on
+   some controls, accent-only on others, invisible on the rest. Normalize
+   to the .dashboard-modal-input family: single 1px theme border, no shadow
+   ring, accent on focus. */
+.dashboard-library-config-modal :is(input[type='text'], input[type='search'], input[type='number']) {
+	border: 1px solid var(--db-border-input, var(--background-modifier-border)) !important;
+	box-shadow: none !important;
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+	color: var(--db-text, var(--text-normal));
+	border-radius: var(--db-radius-sm, 6px);
+	outline: none !important;
+	transition: border-color 0.15s ease;
+}
+
+.dashboard-library-config-modal :is(input[type='text'], input[type='search'], input[type='number']):focus {
+	border-color: var(--db-border-input-focus, var(--interactive-accent)) !important;
+}
+
+.dashboard-library-config-modal select {
+	height: auto;
+	padding: 5px 26px 5px 10px;
+	line-height: 1.6;
+	border: 1px solid var(--db-border-input, var(--background-modifier-border)) !important;
+	/* Core paints selects with `box-shadow: var(--input-shadow)` — drop it so
+	   the closed select shows a single edge like the text inputs above. */
+	box-shadow: none !important;
+	background: var(--db-bg-input, var(--background-modifier-form-field));
+	color: var(--db-text, var(--text-normal));
+	border-radius: var(--db-radius-sm, 6px);
+	outline: none !important;
+	transition: border-color 0.15s ease;
+}
+
+.dashboard-library-config-modal select:focus {
+	border-color: var(--db-border-input-focus, var(--interactive-accent)) !important;
+	box-shadow: none !important;
+}
+
 .dashboard-modal-actions {
 	display: flex;
 	gap: 8px;
