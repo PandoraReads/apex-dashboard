@@ -5,6 +5,7 @@ import {
 	isPlayableByFee,
 	mapSearchSong,
 	mapSongUrl,
+	mapTrackIds,
 	mergePicUrls,
 	parseLrc,
 	toHttps,
@@ -130,6 +131,15 @@ ok(extractPlaylistId('  3778678 ') === '3778678', 'bare id with whitespace');
 ok(extractPlaylistId('https://music.163.com/#/song?id=1') === null, 'non-playlist link rejected');
 ok(extractPlaylistId('hello') === null, 'garbage rejected');
 ok(extractPlaylistId('') === null, 'empty rejected');
+
+// ---------- mapTrackIds (v6 playlist detail trackIds -> ordered ids) ----------
+
+ok(mapTrackIds([{ id: 3 }, { id: 1 }, { id: 2 }]).join() === '3,1,2', 'playlist order preserved, not sorted');
+ok(mapTrackIds(Array.from({ length: 12 }, (_, i) => ({ id: 100 + i }))).length === 12,
+	'a 12-track playlist keeps all 12 ids (legacy endpoint capped imports at 10)');
+ok(mapTrackIds([{ id: 1 }, { id: 'x' }, null, {}, { id: 2 }]).join() === '1,2', 'malformed entries drop out');
+ok(mapTrackIds(Array.from({ length: 1005 }, (_, i) => ({ id: i }))).length === 1000, 'mega-playlists capped at 1000');
+ok(mapTrackIds('nope').length === 0 && mapTrackIds(undefined).length === 0 && mapTrackIds([]).length === 0, 'non-array or empty -> empty list');
 
 // ---------- toHttps ----------
 

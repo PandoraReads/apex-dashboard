@@ -17,7 +17,10 @@ export interface NeteaseSong {
 
 interface NeteaseSearchResponse { result?: { songs?: NeteaseSong[] }; }
 
-interface NeteasePlaylistResponse { result?: { name?: string; tracks?: NeteaseSong[] }; }
+/** /api/v6/playlist/detail with n=0: the full ordered trackIds list (the
+    legacy /api/playlist/detail endpoint returns at most 10 tracks and its
+    trackCount field lies about the real total). */
+interface NeteaseV6PlaylistResponse { playlist?: { name?: string; trackIds?: unknown[] }; }
 
 interface NeteaseSongDetailResponse { songs?: NeteaseSong[]; }
 
@@ -46,6 +49,18 @@ const NETEASE_HEADERS: Record<string, string> = {
 
 /** 128 kbps MP3, the highest unauthenticated streams NetEase hands out. */
 const BITRATE = 128000;
+
+/** Client-identity cookies every official NetEase client sends. With only the
+    auth pair the URL API signs vuutv-ticket URLs and load-balances them across
+    CDN nodes — the m704/m804 hosts answer Electron's media requests with 403,
+    killing ~3/4 of a logged-in playlist as MEDIA_ELEMENT_ERROR (verified
+    2026-11: 63/83 tracks). With these cookies the server issues legacy direct
+    links (m701/m801) that play everywhere. Anonymous requests keep the bare
+    headers: that path has always received direct links. */
+const PC_CLIENT_COOKIES = '; os=pc; appver=2.10.13';
+
+/** Upper bound on one playlist import (20 batched detail requests). */
+const PLAYLIST_IMPORT_CAP = 1000;
 
 /** Song URLs are signed with expi=1200s; cache a little under that. */
 const SONG_URL_TTL = 18 * 60 * 1000;
@@ -179,6 +194,17 @@ export function extractPlaylistId(input: string): string | null {
 	return null;
 }
 
+/** Ordered song ids out of a v6 playlist's trackIds; malformed entries drop
+    out and the list never grows past PLAYLIST_IMPORT_CAP. */
+export function mapTrackIds(trackIds: unknown): number[] {
+	if (!Array.isArray(trackIds)) return [];
+	const ids: number[] = [];
+	for (const entry of trackIds as { id?: unknown }[]) {
+		if (typeof entry?.id === 'number') ids.push(entry.id);
+	}
+	return ids.slice(0, PLAYLIST_IMPORT_CAP);
+}
+
 /** Merge fetched picUrls into a track list without mutating the input. */
 export function mergePicUrls(tracks: MusicTrack[], details: MusicTrack[]): MusicTrack[] {
 	const byId = new Map(details.map(d => [d.id, d] as const));
@@ -212,25 +238,26 @@ export interface NeteasePlaylist {
 }
 
 export async function fetchPlaylist(id: string): Promise<NeteasePlaylist> {
-	const url = `${NETEASE_BASE}/api/playlist/detail?id=${encodeURIComponent(id)}`;
+	const url = `${NETEASE_BASE}/api/v6/playlist/detail?id=${encodeURIComponent(id)}&n=0`;
 	const resp = await requestUrl({ url, headers: NETEASE_HEADERS });
-	const json = resp.json as NeteasePlaylistResponse;
-	const result = json.result;
-	const tracksRaw = result?.tracks;
-	if (!result || !Array.isArray(tracksRaw)) throw new Error('Invalid NetEase playlist response');
-	const tracks: MusicTrack[] = [];
-	for (const raw of tracksRaw) {
-		const track = mapSearchSong(raw);
-		if (track) tracks.push(track);
-	}
-	return { name: typeof result.name === 'string' ? result.name : '', tracks };
+	const json = resp.json as NeteaseV6PlaylistResponse;
+	const playlist = json.playlist;
+	if (!playlist || !Array.isArray(playlist.trackIds)) throw new Error('Invalid NetEase playlist response');
+	const ids = mapTrackIds(playlist.trackIds);
+	// n=0 returns ids only; full metadata comes from the batched detail
+	// endpoint. Its response order is not guaranteed, so reorder the result
+	// back to the playlist's own trackIds order.
+	const details = await fetchSongDetails(ids);
+	const byId = new Map(details.map(track => [track.id, track] as const));
+	const tracks = ids.map(songId => byId.get(songId)).filter((t): t is MusicTrack => !!t);
+	return { name: typeof playlist.name === 'string' ? playlist.name : '', tracks };
 }
 
 export async function fetchSongUrl(id: number, cookie = '', forceFresh = false): Promise<SongUrlInfo> {
 	const cached = cookie || forceFresh ? undefined : songUrlCache.get(id);
 	if (cached && Date.now() - cached.fetchedAt < SONG_URL_TTL) return cached.info;
 	const url = `${NETEASE_BASE}/api/song/enhance/player/url?ids=${encodeURIComponent(JSON.stringify([id]))}&br=${BITRATE}`;
-	const resp = await requestUrl({ url, headers: cookie ? { ...NETEASE_HEADERS, Cookie: cookie } : NETEASE_HEADERS, throw: false });
+	const resp = await requestUrl({ url, headers: cookie ? { ...NETEASE_HEADERS, Cookie: cookie + PC_CLIENT_COOKIES } : NETEASE_HEADERS, throw: false });
 	if (resp.status === 401) throw new Error('AUTH_EXPIRED');
 	if (resp.status >= 400) throw new Error('NetEase playback request failed');
 	const json = resp.json as NeteaseSongUrlResponse & { code?: number };

@@ -4,75 +4,124 @@
 
 ## Screenshot
 
-![Apex Dashboard](screenshot1.png)
+![Apex Dashboard](../screenshot1.png)
 
 **Sprache / Language**: [English](README_EN.md) | [简体中文](../README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [Español](README_es.md) | [Français](README_fr.md) | **Deutsch** | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
 ## Funktionen
 
-### 🗒️ Memo
-Halte Gedanken sofort mit einem integrierten Memo-Block fest. Jede Memo-Karte hat ein beschreibbares Textfeld — notiere Ideen, Besprechungsnotizen oder tägliche Reflexionen, ohne das Dashboard zu verlassen. Unterstützt `[[wikilinks]]`, die als klickbare Links gerendert werden.
+Beginne mit dem, was heute ansteht. Halte Notizen, Aufgaben, Materialien und alltägliche Werkzeuge auf einer Seite bereit.
 
-### ✅ Todo
-Verwalte Aufgaben mit interaktiven Checklisten. Aufgaben hinzufügen, neu anordnen, per Drag-and-Drop verschieben und abhaken. Eine Fortschrittsleiste zeigt den Fertigstellungsgrad auf einen Blick. Todo-Einträge unterstützen ebenfalls `[[wikilinks]]` zum Querverweisen von Notizen.
+**Hier geht es los:** Öffne das Dashboard über das Haus-Symbol in Obsidian links und wähle **+ Abschnitt hinzufügen** sowie einen Bereichstyp. Alternativ suche in der Befehlspalette nach **Apex Dashboard: Neuen Abschnitt hinzufügen**. Alle folgenden Anleitungen zum Hinzufügen von Bereichen beginnen hier. Widgets aktivierst du unter **Einstellungen → Apex Dashboard → Widgets**.
 
-### 📁 Projekte
-Organisiere deine Vault-Dokumente in Projektkarten. Jede Karte verlinkt auf zugehörige Notizen, zeigt ein Cover-Bild (sowohl lokale Vault-Bilder als auch Web-URLs werden unterstützt) und bietet eine Inline-Dokumentsuche, um schnell neue Dateien hinzuzufügen. Verwalte mehrere Dateitypen, darunter Markdown-Notizen, PDFs, Bilder, Audio und Video.
+### Ideen festhalten und Aufgaben daraus machen
 
-### 📝 Notizen
-Ein kompakter, listenförmiger Bereich zum Organisieren von Referenzdokumenten und Schnellzugriffsdateien. Zeigt bis zu 5 Karten pro Reihe ohne Cover-Bilder für maximale Dichte.
+Schreibe spontane Ideen und Besprechungsnotizen direkt auf Memo-Karten und speichere sie bei Bedarf als eigene Notizen. Aufgabenkarten helfen bei der Tagesplanung: verschieben, Erledigtes abhaken und den Fortschritt sehen.
 
-### 📅 Kalender
-Ein nativer Monatsraster-Kalender für alle Aufgaben mit Datum im gesamten Vault (kein Dataview oder externes Plugin nötig). Jede Tageszelle listet ihre Aufgaben; klicke auf einen Tag für seine Agenda. Öffne einen Vollbild-Kalender mit Monatsnavigation und Inline-Umschalten. Mehrtägige Ereignisse mit `[start::]` / `[end::]` erstrecken sich über mehrere Tage. Die vergrößerte Ansicht des Sidebar-Widgets ist auch als **Kalender-Bereich** verfügbar, der ins Board eingebettet ist — vollständiger Monatsraster (mit Mehrtage-Balken), Wochenzeitraster, Aufgabenfilter und Heute-Sprung; klicke auf eine Tageszahl, um eine Aufgabe für diesen Tag hinzuzufügen (geschrieben in die Tagesnotiz oder die Dashboard-Todoliste).
+**So startest du:** Füge **Haftnotizen** hinzu → **+ Karte hinzufügen** → wähle **Notiz** oder **Alles**. Beide Kartentypen können nebeneinander stehen. Mit `[[Notizname]]` verlinkst du bestehende Notizen.
 
-### 🔍 Dataview
-Frage deinen Vault mit einer integrierten DQL-Engine ab — kein Dataview-Plugin erforderlich. Füge einen Dataview-Bereich hinzu und schreibe Abfragen wie `TABLE file.name, rating FROM "Books" WHERE rating >= 4 SORT rating DESC`. Unterstützt `TABLE`-, `LIST`-, `TASK`-, `CALENDAR`- und `HEATMAP`-Ausgaben über Ordner, Tags und Links (`FROM`), mit `WHERE`-, `SORT`-, `GROUP BY`-, `FLATTEN`- und `LIMIT`-Klauseln, ~40 eingebauten Funktionen, allen impliziten `file.*`-Feldern, YAML-Frontmatter und Inline-Feldern (`[key:: value]`). Das Konfigurations-Modal validiert die Syntax live und liefert Ein-Klick-Beispielabfragen. `TASK`-Checkboxen schreiben zurück in die Quellnotiz, `CALENDAR` zeichnet einen Monatsraster und `HEATMAP` zeichnet ein Jahres-Beitragsraster aus jedem numerischen Feld. Ergebnisse werden bei Bedarf über den Aktualisieren-Button des Bereichs aktualisiert.
+**Weiter ordnen:** Ziehe eine Aufgabe unter eine andere, um eine Unteraufgabe anzulegen. Über die Glocke stellst du eine Erinnerung ein; die Aufgabe erscheint dann auch im Kalender-Widget. Erledigte Aufgaben lassen sich mit einem Klick archivieren.
 
-### 🌐 Web
-Bette jede beliebige Webseite direkt in einen Bereich ein — URL einfügen und die Seite wie ein Browserfenster innerhalb des Boards nutzen. Der **Auto-Modus** prüft vorab die Einbettungsrichtlinie der Website: einbettbare Seiten werden direkt als iframe geladen, bei Verweigerern wird auf eine Desktop-Webview umgeschaltet (mit eigenem dauerhaftem Login — empfohlen für Keep, Todoist Web und andere Apps mit Anmeldung); auf Mobilgeräten erscheint eine Fallback-Karte mit einem „Im Browser öffnen“-Button. Du kannst auch den iframe-/Webview-Modus erzwingen und die Seite für kompakte Web-Apps auf 0,5–2× skalieren. Bevorzuge auf Mobilgeräten https-Websites; das Einbetten ist leseorientiert — Pop-ups und Downloads gehören in einen echten Browser.
+**Speicherorte festlegen:** Unter **Einstellungen → Apex Dashboard → Allgemein** bestimmt **Memo-Notiz-Speicherpfad**, wo Memos als Notizen gespeichert werden. In **Aufgabenarchiveinstellungen** wählst du die heutige Tagesnotiz oder eine bestimmte Datei. Für eine Datei trägst du **Pfad der Aufgabenarchivdatei** ein.
 
-### 📡 RSS
-Abonniere Blogs und Newsfeeds direkt im Board: füge einen beliebigen RSS 2.0-/Atom-Link hinzu und die neuesten Artikel aus allen Feeds fließen in einer umgekehrt chronologischen Liste zusammen (Quellen-Tags, Unread-Punkte), mit Unread-Filter und „Alles als gelesen markieren“. Klicke auf einen Eintrag, um den vollständigen Artikel in einem Modal zu lesen — Feeds mit Volltext werden direkt gerendert, reine Zusammenfassungs-Feeds werden automatisch abgerufen und ihr Hauptinhalt extrahiert. Jeder Eintrag hat einen Download-Button, der den Artikel als Vault-Notiz speichert (datumspräfixierter Name, Quellen-Frontmatter, Original-Link) im konfigurierten Ordner; gespeicherte Einträge springen direkt zur Notiz. Feed-Inhalte werden 30 Minuten lokal zwischengespeichert; Gelesen- und Speicherstatus bleiben über Sitzungen hinweg erhalten.
+### Den Vault mit Ordnern und Datenbankansichten organisieren
 
-### 🖼️ Materialbibliothek
-Eine eigene Vollbildansicht (Sparkle-Symbol im Menüband oder Befehlspalette), die alle Bilder, Videos und Textdateien mit Cover des Tresors in einem frei fließenden Wasserfall versammelt. Suche, Typfilter, Tag-Filter, Ordner-/Tag-/Typ-Gruppierung, Favoriten und zwei Kartenstile (schlichtes Cover / Pin-Polaroid); der Lightbox bietet Radzoom, Ziehen zum Verschieben und Video-Breitenziehen und listet die Notizen, die das Material referenzieren, mit Ein-Klick-Sprung. Die rechte Aktionsleiste startet Skills, vergibt Stapel-Tags (vorhandene Tags sind ein Klick entfernt), verschiebt, archiviert (Zielordner in den Einstellungen), kopiert Pfade und löscht; Bilder oder Videos von außerhalb des Tresors hineingezogen werden nach den Gruppierregeln automatisch kopiert. Scanbereich, Standard-Ablageordner und Archivordner werden in den Einstellungen der Materialbibliothek konfiguriert.
+Mit **Ordner** suchst du nach Ablageort, mit **Bibliothek** sammelst du Notizen nach Zweck, Status oder Tag. Zusammen werden daraus Materialsammlungen, Leselisten oder Schreibboards.
 
-### ⚡ Quick Actions
-Hefte deine meistgenutzten Verknüpfungen an die Seitenleiste. Unterstützt zwei Aktionstypen: **Datei**-Links zum Öffnen beliebiger Dokumente und **Befehl**-Verknüpfungen zum Ausführen jedes Obsidian-Befehls. Enthält integrierte Voreinstellungen für New Journal und New Note.
+**Nach Ordner:** Füge **Ordner** hinzu und wähle in der Konfiguration einen Ordner. Zeige dessen Notizen bei Bedarf einschließlich Unterordnern an. Neue Notizen erscheinen, ohne sie manuell zu Karten hinzuzufügen.
 
-### 🌤️ Seitenleisten-Widgets
-Die linke Seitenleiste bietet 11 unabhängig ein-/ausschaltbare, per Drag-and-Drop umsortierbare Widgets:
+**Nach Kriterien:** Füge **Bibliothek** hinzu → lege Eigenschaften und Filter fest → wähle Karten, Liste, Tabelle oder Board. Sammle etwa Notizen mit dem Status „Wird gelesen“ aus mehreren Ordnern oder gruppiere Entwürfe nach Bearbeitungsstand.
 
-- **Wetter** — Wetter in Echtzeit mit aktueller Temperatur, gefühlter Temperatur, Luftfeuchtigkeit, Windgeschwindigkeit und einer 5-Tage-Vorhersage mit täglichen Höchst-/Tiefsttemperaturen. Basiert auf Open-Meteo (kein API-Schlüssel nötig). Stadtsuche mit Geocoding-Autovervollständigung für präzise Standorte
-- **Mondkalender** — Traditionelles chinesisches Mond-Datum, Feste und tägliche Tun/Lass-Empfehlungen
-- **Pomodoro-Timer** — Ein Fokus-Timer mit Aktivitätsauswahl und Arbeits-/Pausenzyklen, plus einem Donut-Diagramm der heutigen Aufschlüsselung; die Statistikansicht bietet Zielfortschritt, einen Effizienzwert, Trenddiagramme, eine 12-Wochen-Heatmap und eine Heute-Zeitlinie
-- **Lese-Tracker** — Verfolge deine Lesesitzungen mit einem integrierten Timer. Füge Bücher über die Douban-Suche oder manuelle Eingabe hinzu, stoppe deine Lesesitzungen und erfasse den Fortschritt mit Seitenzahlen. Jede Buchkarte zeigt Cover-Bild, Autor und Lesefortschrittsbalken
-- **Countdown** — Anpassbare Countdowns zu beliebigen Zieldaten, angezeigt als verbleibende Tage oder Stunden
-- **Jahresfortschritt** — Wie viel des laufenden Jahres bereits vergangen ist
-- **Kalender** — Monats-/Wochenraster, das alle Aufgaben mit Datum im gesamten Vault zusammenfasst; klicke auf einen Tag für seine Agenda und füge Aufgaben hinzu, die in die Tagesnotiz dieses Tages geschrieben werden; mehrtägige Ereignisse erstrecken sich über mehrere Tage
-- **Gewohnheiten-Check-in** — Tägliches Abhaken pro Gewohnheit, mit Nachtragen von gestern, Streaks und Heatmap-Statistiken
-- **Ausgaben-Tracker** — Schnelle Ausgaben-/Einnahmenerfassung (Notizen, Rückdatierung, eigene Kategorien) mit heutigen Summen und Wochen-/Monats-/Jahres-/Gesamtstatistiken; das Ledger bietet Filterung, Inline-Bearbeitung und CSV-Import/-Export
-- **Fotoalbum** — Ein digitaler Bilderrahmen für jeden Vault-Ordner: automatische Rotation mit Pausieren bei Hover, manuelles Vor/Zurück und ein Index-Badge, 1:1- oder 3:4-Panel-Verhältnis, vier Übergänge (Fade / Push links / Push rechts / Zoom), 3–60 s Intervall, Unterordner standardmäßig eingeschlossen. Das Eröffnungsfoto wird über die Zeit „geseedet“ (nicht immer dasselbe), das nächste wird vorgeladen, und Hinzufügen/Löschen/Umbenennen im Vault aktualisiert die Liste an Ort und Stelle, ohne deine Position zu verlieren
-- **Musik** — Suche und spiele kostenlose NetEase Cloud Music-Titel aus der Seitenleiste: optionale NetEase-Kontoanmeldung in den Einstellungen für kontoautorisierte Mitglieds-Titel, Playlist-Link zum Importieren einfügen, Lautstärke- und Wiederholen-Steuerung, persistente Playlist mit nachträglichem Cover-Abruf, und eine optionale schwebende Mini-Player-Leiste, die auch bei geschlossenem Dashboard weiterläuft (nur Desktop)
 
-Die Seitenleiste beherbergt auch den **Wochenkalender-Streifen** (kompakte 7 Tage, heute hervorgehoben), **zuletzt verwendete Dokumente** und den **Nach-oben-scrollen**-Button; Telefone erhalten dieselbe Widget-Leiste, und Widget-Daten werden geräteübergreifend per Vereinigungs-Zusammenführung synchronisiert.
+**Aus Vorlage beginnen:** In den Abschnitts-Einstellungen lassen sich Vorlagen für neue Notizen festlegen; Vorlagen-Eigenschaften übernimmt die neue Notiz, bei Namenskonflikt mit einem Abschnittsfilter gewinnt der Filterwert. Bei mehreren Vorlagen bietet der Neu-Button eine Auswahl, die erste ist Standard.
 
-### 🎨 Banner
-Ein anpassbares Banner mit inspirierendem Zitat und optionalem Hintergrundbild. Unterstützt sowohl lokale Vault-Bilder als auch Web-URLs. Doppelklicken zum Bearbeiten.
+### Projekte voranbringen
 
-### 🔄 Drag & Drop
-Ziehe Karten zwischen Bereichen, um deinen Arbeitsbereich neu zu organisieren. Ziehe Aufgabeneinträge innerhalb von Todo-Karten zum Neuanordnen. Ziehe Dokument-Links zwischen Projekt-/Notizkarten.
+Halte Ziele, Phasen, Meilensteine, Aufgaben und Dateien eines Projekts zusammen. So siehst du den aktuellen Stand und den nächsten Schritt. Mehrere Projekte lassen sich nach Phase oder Gruppe anzeigen und nach Abschluss archivieren.
 
-### 🧩 Eigene Bereiche
-**15 Bereichstypen** zum Kombinieren — **Todo**, **Memo**, **Sticky Notes**, **Notizen (Projektkarten)**, **Notizen (ohne Cover)**, **Dataview**, **Library**, **Ordner**, **Bilder**, **Videos**, **Kalender**, **Weread**, **TickTick**, **Web** und **RSS** — jeder mit seinem eigenen Layout und Verhalten, damit das Board zu deinem Workflow passt.
+**So startest du:** Füge **Projekte** hinzu → **Konfigurieren** → lege **Projektordner** und Phasen fest → **Neues Projekt**. Gib Name, Ziel und aktuelle Phase ein. Im Projekt ergänzt du Meilensteine, Aufgaben, Arbeitsnotizen oder Links auf bestehende Dateien. Lege vor dem Archivieren **Archivordner** in den Bereichseinstellungen fest.
 
-### 🕐 Zuletzt verwendete Dokumente
-Die Seitenleiste zeigt zuletzt bearbeitete Dateien mit relativen Zeitstempeln, sodass du direkt in deine letzte Arbeit zurückspringen kannst.
+### Den Tag im Kalender planen
+
+Der Kalender sammelt automatisch Aufgaben mit Fälligkeit, geplantem Termin oder Erinnerung aus den Notizen im gesamten Vault. Wechsle zwischen Monats- und Wochenansicht und hake Aufgaben direkt ab.
+
+**So startest du:** Füge **Kalender** hinzu oder aktiviere das Widget unter **Einstellungen → Apex Dashboard → Widgets → Kalender**. Auch das Widget kann Aufgaben anzeigen, anlegen und abschließen und lässt sich vergrößern.
+
+**Aufgaben anlegen:** Klicke auf ein Datum. Neue Aufgaben landen standardmäßig in der Tagesnotiz dieses Datums. Unter **Einstellungen → Apex Dashboard → Widgets → Kalender → Aufgabenziel** kannst du eine bestimmte Datei, Tagesnotizen in einem Ordner oder eine eigene Notiz je Aufgabe wählen. Ist die Tagesnotiz im Standardmodus nicht verfügbar, versucht das Plugin, in die Aufgabenliste des Dashboards zu schreiben.
+
+### Gewünschte Notizen und Aufgaben zusammen anzeigen
+
+Nutze eine Beispielabfrage für offene Aufgaben, diese Woche erstellte Notizen oder besonders gut bewertete Bücher. Ein zusätzliches Dataview-Plugin ist nicht nötig.
+
+**So startest du:** Füge **Datenansicht** hinzu → öffne die Konfiguration → wähle **Beispielabfragen** und passe Ordner sowie Bedingungen an. Nach Änderungen aktualisierst du die Ergebnisse mit der Schaltfläche des Bereichs.
+
+### Websites und abonnierte Artikel im Dashboard lesen
+
+Halte häufig besuchte Websites griffbereit, lies abonnierte Blogs an einem Ort und speichere interessante Artikel als Notizen.
+
+**Website öffnen:** Füge **Web** hinzu und trage die Adresse ein. Die Anzeige lässt sich skalieren. Auf dem Smartphone kannst du nicht einbettbare Websites im Browser öffnen.
+
+**Artikel abonnieren:** Füge **RSS** hinzu → klicke auf das Zahnrad → trage die Feed-Adresse der Website ein. Öffne Artikel zum Lesen oder speichere sie über den Download-Button im Vault. Den Zielordner wählst du in den Bereichseinstellungen.
+
+Mit einem WeRead- oder TickTick-Konto kannst du die entsprechenden Bereiche hinzufügen, um Bücher zu sehen, Markierungen zu importieren oder Aufgaben zu verwalten. Verbinde die Dienste zuerst in den Plugin-Einstellungen: Nutze bei WeRead **API-Schlüssel abrufen** und trage die Zugangsdaten ein; bei TickTick öffnest du am Desktop das Anmeldefenster.
+
+### Materialien visuell durchstöbern und ordnen
+
+Bündle Bilder, Videos, PDFs, EPUB-Bücher, HTML-Seiten, Excalidraw-Zeichnungen und Canvas-Boards. Suche nach Typ, Ordner oder Tag, markiere Favoriten und versehe mehrere Dateien zugleich mit Tags, verschiebe oder archiviere sie. Bei Bildern und Videos findest du auch die Notizen, die darauf verweisen.
+
+![Materialbibliothek: Bücher, Bilder und Dokumente mit Filter nach Dateityp](../assets/material-library.png)
+
+**So startest du:** Suche in der Befehlspalette nach **Apex Dashboard: Materialbibliothek öffnen** oder nutze das Bibliothekssymbol in Obsidian links. Wähle in den Bibliothekseinstellungen die anzuzeigenden Ordner. Ziehe Bilder oder Videos vom Computer hinein, um sie zu importieren. Direkt im Dashboard kannst du dafür **Bilder** oder **Videos** hinzufügen.
+
+**Direkt ablegen:** Hineingezogene Materialien landen im Importordner aus den Einstellungen; bei Ordner-Gruppierung direkt im Ordner der Gruppe, bei Tag-Gruppierung wird der Tag automatisch gesetzt.
+
+**Sammlungen speichern:** Lege einbezogene und ausgeschlossene Ordner fest, dann klicke auf die Pinnnadel → **Aktuelle Einstellungen als Seite speichern**. Benenne die Seite etwa „Bücherregal“ oder „Inspiration“. Eine gespeicherte Seite stellt ihre Ordnerauswahl wieder her; so wechselst du mit einem Klick zwischen Sammlungen.
+
+**Mit Materialien kreativ arbeiten:** Füge in den Bibliothekseinstellungen unter **An-Agent-Senden-Schaltflächen** einen Button hinzu. Wähle ein KI-Werkzeug auf deinem Computer und trage einen Skill-Namen oder eine Anweisung ein. Wähle Materialien aus und klicke den Button, um ihre Dateipfade zusammen mit der Anweisung weiterzugeben. Installiere das Werkzeug vorher und, wenn du einen Skill nutzt, auch diesen.
+
+### Häufige Aktionen mit einem Klick ausführen
+
+Mache häufig genutzte Notizen, das Anlegen der Tagesnotiz und wichtige Befehle zu Buttons. Die zuletzt verwendeten Dokumente in der Seitenleiste bringen dich zurück zur letzten Arbeit.
+
+**Zugriffe einrichten:** Unter **Einstellungen → Apex Dashboard → Allgemein → Gemeinsame Aktionen** konfigurierst du angeheftete Notizen, Befehle und neue Notizen aus Vorlagen. Bei den Schnellbuttons in der Seitenleiste fügt **+ Aktion hinzufügen** eine Datei oder einen Befehl hinzu.
+
+**KI-Skills aufrufen:** Wähle bei den häufigen Aktionen **Schaltfläche „Skill hinzufügen“.** und gib Button-Name, Skill und KI-Werkzeug an. Klicke den Button, ergänze die Anweisung, prüfe die Vorschau und sende sie. Installiere den Skill und aktiviere ein Plugin wie Claudian oder Copilot beziehungsweise die passende Desktop-App. Codex Desktop öffnet einen neuen Chat mit vorbereitetem Text; starte ihn mit Enter in Codex.
+
+### Alltagswerkzeuge nach Bedarf aktivieren
+
+Unter **Einstellungen → Apex Dashboard → Widgets** aktivierst und konfigurierst du die Werkzeuge. Platziere häufig genutzte zusammen und ändere die Reihenfolge durch Ziehen.
+
+| Was du tun möchtest | Aktivieren | Erste Schritte |
+| --- | --- | --- |
+| Konzentriert arbeiten | Pomodoro-Timer | Aktivität wählen, Timer starten und später die Sitzungen ansehen |
+| Lesefortschritt erfassen | Lese-Tracker | Buch suchen oder manuell anlegen und Seitenzahl eintragen |
+| Gewohnheit aufbauen | Gewohnheits-Tracker | Gewohnheit anlegen, täglich abhaken und Serie verfolgen |
+| Einnahmen und Ausgaben notieren | Spesen-Tracker | Betrag und Kategorie eingeben, Auswertung im Kassenbuch ansehen |
+| Auf ein Datum hinzählen | Countdown-Widget | Name und Zieldatum eintragen |
+| Geburtstage und Jahrestage merken | Jahrestage | Datum nach Sonnen- oder chinesischem Mondkalender und jährliche Erinnerung festlegen |
+| Wetter prüfen | Wetter | Stadt suchen und Wetter sowie Vorhersage ansehen |
+| Mondkalender und Feiertage ansehen | Mondkalender | Für das heutige Monddatum und Feiertage aktivieren |
+| Jahresfortschritt sehen | Jahresfortschritt | Aktivieren, um den verstrichenen Jahresanteil zu sehen |
+| Aufgaben ansehen und planen | Kalender | Datum anklicken, Aufgaben ansehen oder hinzufügen, Monat/Woche wechseln |
+| Fotos als Diashow anzeigen | Fotoalbum | Album hinzufügen, Bildordner und Wechselintervall wählen |
+| Musik bei der Arbeit hören | Musik-Player | Am Desktop Titel suchen oder NetEase-Playlist importieren; Anmeldung in den Musikeinstellungen, Wiedergabe gemäß Kontoberechtigung |
+| Dateien schnell finden | Dateisuche | Stichwörter eingeben und Vault-Dateien aus den Treffern öffnen |
+| Einen Gedanken festhalten | Schnelle Aufnahme | Text eingeben und sammeln; Speicherort wie in der Erfassung der häufigen Aktionen |
+| Einen KI-Skill starten | Widget für Fertigkeitsschaltflächen | Skill-Buttons und KI-Werkzeug konfigurieren, Vorschau prüfen und senden |
+| Datei öffnen oder Befehl ausführen | Schnellschaltflächen | Aktion hinzufügen, Datei oder Befehl wählen und benennen |
+
+### Die Seite passend einrichten
+
+Kombiniere Bereiche, verschiebe Karten und sortiere Aufgaben sowie Notizlinks. Weniger genutzte Bereiche klappst du über den Button neben dem Titel ein.
+
+**Anordnung ändern:** Ziehe eine Karte an der Titelleiste. Benenne Bereiche per Doppelklick auf den Titel um; ein Doppelklick auf das Banner ändert Zitat und Hintergrund. Farben wählst du aus den unten vorgestellten Themes.
+
+**Immersives Layout anpassen:** Aktiviere zuerst **Layout bearbeiten**. Verschiebe Karten, Bereiche und Widgets frei und ändere ihre Größe an der unteren rechten Ecke. Wähle danach **Layout sperren**. Den Posterhintergrund änderst du über die Anpassung des Erscheinungsbilds.
 
 ## Themes
 
-![Themes Preview](screenshot2.png)
-![Themes Preview](screenshot3.png)
+![Themes Preview](../screenshot2.png)
+![Themes Preview](../screenshot3.png)
 
 13 handgefertigte Themes, jedes mit eigenem visuellen Charakter:
 
@@ -102,6 +151,7 @@ Alle Themes unterstützen sowohl den hellen als auch den dunklen Modus von Obsid
 - **Anzahl letzter Dokumente** — steuere, wie viele letzte Dateien erscheinen
 - **Seitenleisten-Widgets** — Wetter, Heatmap, Pomodoro, Lesen, Countdown. Aktiviere/deaktiviere und konfiguriere jedes Widget unabhängig
 - **Leseeinstellungen** — Lese-Tracker umschalten, Sound beim Abschluss einer Sitzung ein-/ausschalten
+- **Eigene Skill-Ordner** — lokale Ordner (komma-getrennt), in denen Skill-Picker Skill-Namen finden; leer = aus, es wird nie etwas außerhalb des Tresors gelesen. Nur Desktop
 
 ## Installation
 
@@ -128,10 +178,18 @@ Alle Themes unterstützen sowohl den hellen als auch den dunklen Modus von Obsid
 Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spendiere mir gerne einen Kaffee, um die Weiterentwicklung zu unterstützen.
 
 <p align="center">
-  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+  <img src="../buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
 </p>
 
 ## Was ist neu
+
+### 3.9.6
+- **Einführungstour** — Eine Spotlight-Tour startet bei der Erstinstallation automatisch (nur Desktop): Sie hebt Schritt für Schritt die echten Bedienelemente hervor — Arbeitsoberfläche öffnen, Seiten wechseln, Banner bearbeiten, Seitenleiste anheften, Abschnitte hinzufügen — und schreitet beim Anklicken weiter; „Einführungstour erneut ansehen" in der Befehlspalette öffnet sie jederzeit
+- **Vereinheitlichte Konfigurationsdialoge** — Eingabefelder in allen Abschnitts-Dialogen zeigen jetzt im Ruhezustand eine graue Haarlinie und bei Fokus eine Akzentlinie; Inline-Beschriftungen umbrechen nie mehr; Skill-/Button-Karten lesen sich als eine ausgerichtete Spalte (Icon + Label + Löschen in der ersten Zeile, die folgenden eingerückt), Icon-Wahl, Eingaben und Buttons teilen sich ihre Zeile; der Direkt-Send-Haken sitzt links neben seinem Text
+- **Schlankere Hinweistexte** — 33 Konfigurations-Hinweise wurden im „leer = X"-Muster in allen 11 Sprachen neu geschrieben, ohne Erklärungen, die die Oberfläche schon zeigt; die herausgewanderten Regeln (Vorlagen-Eigenschaften, Ablege-Verhalten bei Gruppen, Skill-Ordner-Datenschutz) stehen jetzt in den README-Kapiteln
+- **Echtes Masonry auf Mobil** — Handys und Tablets erhalten den zweispaltigen gestaffelten Kartenfluss: Bilder legen sich in ihr echtes Seitenverhältnis, gemessen wird nur die sichtbare Seite statt des ganzen Tresors im Hintergrund
+- **Musik-Widget-Fixes** — Angefrage-Playback-Anfragen tragen jetzt die PC-Client-Cookies und umgehen die CDN-Knoten, die Electron mit 403 abwiesen (rund drei Viertel der Titel scheiterten stumm); Playlist-Importe nutzen den v6-Endpunkt, sodass Listen über 10 Titel nicht mehr abgeschnitten werden
+- **PM-Karten Geld-Leiste** — Neue Option „Einnahmen & Restzahlung anzeigen" blendet die Geld-Leiste für Abschnitte ohne Geldflüsse aus
 
 ### 3.9.5
 - **Dokumenttypen in der Materialbibliothek** — PDF, EPUB, gespeicherte HTML-Seiten, Excalidraw-Zeichnungen und Canvas-Boards erscheinen jetzt als Kacheln: EPUB-Cover werden aus dem Buch extrahiert, PDFs rendern die erste Seite, HTML-Seiten erhalten einen Erstbild-Schnappschuss, Zeichnungen und Boards werden als Miniaturen skizziert, und alles ohne Cover zeigt eine Typsymbol-Karte; Typfilter und Typgruppierung wurden erweitert, ein Klick öffnet jede Datei nativ (HTML Reader, PDF-Ansicht, Boards — Erweiterungen ohne Ansicht gehen an die Standard-App des Systems)

@@ -127,7 +127,8 @@ export class SkillWidgetConfigModal extends Modal {
 				getAgent: () => this.buttons[index]?.target ?? 'claudian',
 			}, name => this.patchRow(index, { skillName: name }));
 
-			const tpl = row.createEl('input', {
+			const tplRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
+			const tpl = tplRow.createEl('input', {
 				cls: 'dashboard-modal-input',
 				attr: { type: 'text', placeholder: t('quickNote.skillTemplate') },
 			});
@@ -135,12 +136,14 @@ export class SkillWidgetConfigModal extends Modal {
 			tpl.addEventListener('input', () => this.patchRow(index, { promptTemplate: tpl.value }));
 
 			// Direct send: skip the confirm dialog entirely.
-			const directRow = row.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
-			directRow.createSpan({ cls: 'dashboard-pipeline-cfg-hint', text: t('agent.directSend') });
+			// Checkbox first, label to its right (Rae) — the hint class is
+			// flex-basis:100% and used to push the box onto its own line.
+			const directRow = row.createDiv({ cls: 'dashboard-library-config-inline-row' });
 			const direct = directRow.createEl('input', {
 				cls: 'dashboard-pipeline-cfg-toggle',
 				attr: { type: 'checkbox' },
 			});
+			directRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('agent.directSend') });
 			direct.checked = skill.directSend === true;
 			direct.addEventListener('change', () => this.patchRow(index, { directSend: direct.checked }));
 		});

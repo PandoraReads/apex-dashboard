@@ -10,6 +10,11 @@ import { setLanguage, t, LANGUAGE_OPTIONS, type LanguageSetting } from './i18n';
 import { LanguagePickerModal } from './language-picker-modal';
 import { setRssReadRetentionDays } from './rss-store';
 import { DataviewGuideModal } from './dataview-guide-modal';
+import {
+	startOnboardingTour,
+	stopOnboardingTour,
+	shouldAutoStartOnboardingTour,
+} from './onboarding-tour';
 import { ThemeStudioModal } from './theme-studio-modal';
 
 /** Version of the CURRENT announcement content (DataviewGuideModal). The
@@ -123,6 +128,11 @@ export default class DashboardPlugin extends Plugin {
 	expenseService!: ExpenseService;
 	/** Desktop-only NetEase player; its detached <audio> must outlive views. */
 	musicService?: MusicService;
+	/** Ribbon house icon element — the onboarding tour spotlights it. */
+	dashboardRibbonEl: HTMLElement | null = null;
+	/** True only on the very first install (no data.json has ever existed);
+	 *  gates the onboarding tour's auto-start. */
+	private freshInstall = false;
 
 	async onload(): Promise<void> {
 			await this.loadSettings();
@@ -162,7 +172,7 @@ export default class DashboardPlugin extends Plugin {
 			registerMusicService(this.musicService);
 		}
 
-		this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
+		this.dashboardRibbonEl = this.addRibbonIcon('home', t('main.openDashboard'), () => this.openDashboard());
 		// square-sparkles (the material library icon, Rae) is newer than the
 		// Lucide dictionary bundled with the Obsidian builds in use — setIcon
 		// would render a blank. addIcon registers the official Lucide paths
@@ -284,6 +294,18 @@ export default class DashboardPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'start-onboarding-tour',
+			name: t('main.startOnboardingTour'),
+			callback: () => {
+				if (Platform.isMobile) {
+					new Notice(t('tour.desktopOnlyNotice'));
+					return;
+				}
+				startOnboardingTour(this);
+			},
+		});
+
+		this.addCommand({
 			id: 'toggle-banner-mode',
 			name: t('main.toggleBannerMode'),
 			callback: () => {
@@ -302,6 +324,14 @@ export default class DashboardPlugin extends Plugin {
 		this.addSettingTab(new DashboardSettingTab(this.app, this));
 
 		this.maybeShowDataviewGuide();
+
+		// First-install onboarding tour (desktop only, once ever — the gate
+		// re-checks both on layout ready so nothing races loadSettings).
+		this.app.workspace.onLayoutReady(() => {
+			if (shouldAutoStartOnboardingTour(this.freshInstall, this.settings.onboardingTourSeenVersion, Platform.isMobile)) {
+				startOnboardingTour(this);
+			}
+		});
 
 		// Registry hygiene: drop entries whose file vanished (sync lag, manual
 		// deletion). After layout ready so the vault file index is settled.
@@ -353,6 +383,7 @@ export default class DashboardPlugin extends Plugin {
 
 	onunload(): void {
 		// registerView cleanup is automatic
+		stopOnboardingTour();
 		teardownBasenameIndex(this.app);
 		registerMediaTagService(null);
 		void this.mediaTagService.flush();
@@ -432,8 +463,13 @@ export default class DashboardPlugin extends Plugin {
 		// (the author's own photo picks) — an upgrade with no saved background
 		// keeps its clean cards.
 		if (loaded === null) {
+			this.freshInstall = true;
 			this.settings = {
 				...this.settings,
+				// Silence the Dataview announcement on day one: a fresh user
+				// meets that section naturally in the onboarding tour's
+				// add-section step, and the tour owns the welcome moment.
+				dataviewGuideShownVersion: ANNOUNCE_VERSION,
 				// Fresh installs open on the flagship immersive board. NOT moved
 				// into DEFAULT_SETTINGS: upgraders whose data.json predates the
 				// layoutMode key must keep resolving their layout-less boards to

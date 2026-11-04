@@ -26,6 +26,7 @@ export class PmConfigModal extends Modal {
 	private stages: PmStage[];
 	private workNoteTemplate: string;
 	private archiveFolder: string;
+	private showMoney: boolean;
 	private skills: PmSkill[];
 	private readonly initialConfig: PmConfig | undefined;
 	private readonly onSave: (config: PmConfig) => void;
@@ -46,6 +47,7 @@ export class PmConfigModal extends Modal {
 		if (this.stages.length === 0) this.stages = defaultPmStages();
 		this.workNoteTemplate = cfg.workNoteTemplate ?? '';
 		this.archiveFolder = cfg.archiveFolder ?? '';
+		this.showMoney = cfg.showMoney !== false;
 		this.skills = (cfg.skills ?? []).map(skill => ({ ...skill }));
 	}
 
@@ -107,6 +109,18 @@ export class PmConfigModal extends Modal {
 		archiveInput.value = this.archiveFolder;
 		attachPathPicker(archiveRow, archiveInput, this.app, 'folder', (path) => { this.archiveFolder = path; });
 		archiveInput.addEventListener('change', () => { this.archiveFolder = archiveInput.value; });
+
+		// Card money strip: many projects (personal, internal) carry no
+		// income/final-payment at all — those sections can drop the strip.
+		// NOTE the toggle class sits on the CHECKBOX itself (it sizes it 16px).
+		const moneyRow = paths.createDiv({ cls: 'dashboard-library-config-inline-row' });
+		moneyRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pm.cfgShowMoney') });
+		const moneyToggle = moneyRow.createEl('input', {
+			cls: 'dashboard-pipeline-cfg-toggle',
+			attr: { type: 'checkbox' },
+		});
+		moneyToggle.checked = this.showMoney;
+		moneyToggle.addEventListener('change', () => { this.showMoney = moneyToggle.checked; });
 
 		// Skill buttons (pipeline's card editor pattern, project-scoped).
 		const skillsSec = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -189,15 +203,6 @@ export class PmConfigModal extends Modal {
 			label.value = skill.label;
 			label.addEventListener('input', () => { this.skills[index] = { ...skill, label: label.value }; });
 
-			const agentSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
-			for (const target of agentTargets()) {
-				const pick = agentPickerOption(target);
-				const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } });
-				opt.disabled = pick.disabled;
-			}
-			agentSel.value = skill.agent;
-			agentSel.addEventListener('change', () => { this.skills[index] = { ...skill, agent: agentSel.value as AgentTarget }; });
-
 			const nameRow = card.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
 			const name = nameRow.createEl('input', {
 				cls: 'dashboard-pipeline-cfg-input',
@@ -211,6 +216,18 @@ export class PmConfigModal extends Modal {
 					getAgent: () => this.skills[index]?.agent ?? 'claudian',
 				}, (skillName) => { this.skills[index] = { ...skill, skillName }; });
 			}
+			// Agent select rides the skill-name row (aligned under the label);
+			// the icon row stays [icon][label][del] only.
+			const agentSel = nameRow.createEl('select', {
+				cls: 'dashboard-pipeline-cfg-select dashboard-pipeline-cfg-select--agent',
+			});
+			for (const target of agentTargets()) {
+				const pick = agentPickerOption(target);
+				const opt = agentSel.createEl('option', { text: pick.label, attr: { value: target } });
+				opt.disabled = pick.disabled;
+			}
+			agentSel.value = skill.agent;
+			agentSel.addEventListener('change', () => { this.skills[index] = { ...skill, agent: agentSel.value as AgentTarget }; });
 
 			const tplRow = card.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
 			const tpl = tplRow.createEl('input', {
@@ -278,6 +295,7 @@ export class PmConfigModal extends Modal {
 			stages,
 			...(this.workNoteTemplate.trim() ? { workNoteTemplate: this.workNoteTemplate.trim() } : {}),
 			...(this.archiveFolder.trim() ? { archiveFolder: this.archiveFolder.trim() } : {}),
+			...(this.showMoney ? {} : { showMoney: false }),
 			...(skills.length > 0 ? { skills } : {}),
 		});
 		this.close();

@@ -20,7 +20,7 @@
 import { strict as assert } from 'node:assert';
 import { Notice } from 'obsidian';
 import { NeteaseAccount } from '../src/netease-account';
-import { fetchSongUrl } from '../src/netease-client';
+import { fetchPlaylist, fetchSongUrl, type NeteaseSong } from '../src/netease-client';
 import { MusicService } from '../src/music-service';
 import type { MusicTrack } from '../src/types';
 import { resetNetwork, calls } from './music-network-stub';
@@ -68,8 +68,43 @@ async function run(): Promise<void> {
 	await assert.rejects(fetchSongUrl(987654, 'MUSIC_U=expired'), /AUTH_EXPIRED/);
 	assert.equal(calls.length, 4);
 	assert.equal(calls[0]?.headers?.Cookie, undefined);
-	assert.equal(calls[1]?.headers?.Cookie, 'MUSIC_U=member');
-	assert.equal(calls[2]?.headers?.Cookie, 'MUSIC_U=other');
+	// Signed-in requests must carry the PC client cookies: without them the
+	// URL API hands out vuutv links on m704/m804 nodes that 403 Electron.
+	assert.equal(calls[1]?.headers?.Cookie, 'MUSIC_U=member; os=pc; appver=2.10.13');
+	assert.equal(calls[2]?.headers?.Cookie, 'MUSIC_U=other; os=pc; appver=2.10.13');
+
+	// ---------- fetchPlaylist: v6 endpoint, full list, order kept ----------
+
+	const songNode = (id: number): NeteaseSong =>
+		({ id, name: `T${id}`, duration: 1000, fee: 0, artists: [{ name: 'ar' }], album: {} });
+	const twelve = Array.from({ length: 12 }, (_, i) => 100 + i);
+	// The detail endpoint answers in ITS OWN order (here: reversed); the
+	// import must still come back in trackIds order.
+	resetNetwork([{ playlist: { name: 'big list', trackIds: twelve.map(id => ({ id })) } },
+		{ songs: [...twelve].reverse().map(songNode) }]);
+	const imported = await fetchPlaylist('17990160176');
+	assert.equal(calls[0]?.url, 'https://music.163.com/api/v6/playlist/detail?id=17990160176&n=0',
+		'imports go through the v6 endpoint (legacy one caps at 10 tracks)');
+	assert.ok(calls[1]?.url.startsWith('https://music.163.com/api/song/detail?ids='), 'metadata hydrated via the batched detail endpoint');
+	assert.equal(imported.name, 'big list');
+	assert.equal(imported.tracks.length, 12, 'a 12-track playlist imports all 12');
+	assert.deepEqual(imported.tracks.map(t => t.id), twelve, 'playlist order preserved regardless of detail response order');
+
+	// Chunking: 120 ids -> one v6 call + three 50-per-request detail calls.
+	const manyIds = Array.from({ length: 120 }, (_, i) => 500 + i);
+	resetNetwork([{ playlist: { trackIds: manyIds.map(id => ({ id })) } },
+		{ songs: manyIds.slice(0, 50).map(songNode) },
+		{ songs: manyIds.slice(50, 100).map(songNode) },
+		{ songs: manyIds.slice(100).map(songNode) }]);
+	assert.equal((await fetchPlaylist('42')).tracks.length, 120, 'all tracks across batched detail calls');
+	assert.equal(calls.length, 4, 'one v6 call + three 50-song detail calls');
+
+	// A structurally broken envelope throws; an EMPTY playlist still returns
+	// zero tracks so the localized importEmpty notice (not this error) shows.
+	resetNetwork([{ unrelated: true }]);
+	await assert.rejects(fetchPlaylist('42'), /Invalid NetEase playlist response/);
+	resetNetwork([{ playlist: { name: 'empty', trackIds: [] } }]);
+	assert.deepEqual(await fetchPlaylist('42'), { name: 'empty', tracks: [] });
 
 	// ---------- MusicService: -110 spaced retries + per-track skip notice ----------
 
@@ -133,7 +168,7 @@ async function run(): Promise<void> {
 	assert.equal(audio.src, 'https://m.music.126.net/recovered.mp3', 'recovered URL reached the audio element');
 	assert.equal(messages().length - seen, 0, 'no notice when a retry recovers');
 	assert.equal(calls.length, 2, 'two URL fetches (initial + one retry)');
-	assert.equal(calls[0]?.headers?.Cookie, 'MUSIC_U=member', 'member cookie sent');
+	assert.equal(calls[0]?.headers?.Cookie, 'MUSIC_U=member; os=pc; appver=2.10.13', 'member cookie + PC client cookies sent');
 
 	// Persistent -110: the retries exhaust and the skip is SILENT (Rae,
 	// 2026-10-02: per-track popups removed); playback advances to the next track.

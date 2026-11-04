@@ -272,6 +272,9 @@ export interface DashboardSettings {
 	quickNoteGuideShownVersion: string;
 	/** Last plugin version that showed the Dataview + community-group announcement. Empty = never shown. */
 	dataviewGuideShownVersion: string;
+	/** Onboarding tour version the user has already seen. Empty = never seen;
+	 *  written at tour START so a skipped or crashed tour still counts. */
+	onboardingTourSeenVersion: string;
 	countdownEnabled: boolean;
 	/** Multiple countdowns managed in settings; rendered in the sidebar. */
 	countdowns: CountdownConfig[];
@@ -514,6 +517,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	quickDailyEnabled: false,
 	quickNoteGuideShownVersion: '',
 	dataviewGuideShownVersion: '',
+	onboardingTourSeenVersion: '',
 	countdownEnabled: false,
 	habitBackground: { image: 'https://images.pexels.com/photos/4958013/pexels-photo-4958013.jpeg', opacity: 100, dim: 40, blur: 0, foreground: 'light' },
 	quickActionsBackground: { image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
@@ -1241,6 +1245,9 @@ export interface PmConfig {
 	cardSize?: 'compact';
 	/** Pinned project note paths — always render before everything else. */
 	pinned?: string[];
+	/** Card money strip (income + contract final payment). Absent = shown;
+	 *  false hides the strip for sections whose projects carry no money. */
+	showMoney?: boolean;
 	/** Selectable stages for the `stage` frontmatter field. */
 	stages: PmStage[];
 	/** Template note seeded by the "+ work note" button (vault path; empty =

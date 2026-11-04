@@ -362,7 +362,15 @@ export class PipelineConfigModal extends Modal {
 			label.value = skill.label;
 			label.addEventListener('input', () => { this.patchSkill(index, { label: label.value }); });
 
-			const stageSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
+			this.attachRemove(top, () => {
+				this.skills = this.skills.filter((_, i) => i !== index);
+				this.renderSkills();
+			});
+
+			// Stage + scope selectors on their own indented row: squeezed onto
+			// the icon row they wrapped it on narrow modals (Rae, 2026-11-04).
+			const selectorRow = card.createDiv({ cls: 'dashboard-pipeline-cfg-skill-row' });
+			const stageSel = selectorRow.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const stage of this.stages) {
 				const opt = stageSel.createEl('option', {
 					text: stage.label || stage.value || t('pipeline.cfgStageValue'),
@@ -372,18 +380,13 @@ export class PipelineConfigModal extends Modal {
 			}
 			stageSel.addEventListener('change', () => { this.patchSkill(index, { stage: stageSel.value }); });
 
-			const scopeSel = top.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
+			const scopeSel = selectorRow.createEl('select', { cls: 'dashboard-pipeline-cfg-select' });
 			for (const [value, key] of [['card', 'pipeline.cfgScopeCard'], ['stage', 'pipeline.cfgScopeStage']] as const) {
 				const opt = scopeSel.createEl('option', { text: t(key), attr: { value } });
 				opt.selected = value === skill.scope;
 			}
 			scopeSel.addEventListener('change', () => {
 				this.patchSkill(index, { scope: scopeSel.value === 'stage' ? 'stage' : 'card' });
-			});
-
-			this.attachRemove(top, () => {
-				this.skills = this.skills.filter((_, i) => i !== index);
-				this.renderSkills();
 			});
 
 			// Skill name + agent share one row: the agent select is a fixed

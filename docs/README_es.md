@@ -4,75 +4,124 @@
 
 ## Captura de pantalla
 
-![Apex Dashboard](screenshot1.png)
+![Apex Dashboard](../screenshot1.png)
 
 **Idioma / Language**: [English](README_EN.md) | [简体中文](../README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | **Español** | [Français](README_fr.md) | [Deutsch](README_de.md) | [Português (Brasil)](README_pt-BR.md) | [Русский](README_ru.md) | [ไทย](README_th.md)
 
 ## Características
 
-### 🗒️ Memo
-Captura ideas al instante con una libreta de memorandos integrada. Cada tarjeta de memo tiene un área de texto editable: anota ideas, notas de reuniones o reflexiones diarias sin salir de tu dashboard. Admite `[[wikilinks]]` que se muestran como enlaces clicables.
+Empieza por lo que necesitas hacer hoy. Reúne notas, tareas, materiales y herramientas cotidianas en una sola página.
 
-### ✅ Todo
-Gestiona tareas con listas de verificación interactivas. Añade, reordena, arrastra y suelta, y marca tareas como completadas. Una barra de progreso muestra el porcentaje de finalización de un vistazo. Los elementos de todo también admiten `[[wikilinks]]` para referencias cruzadas entre notas.
+**Dónde empezar:** Haz clic en el icono de inicio de la barra izquierda de Obsidian para abrir el panel y selecciona **+ Agregar sección** y un tipo de sección. También puedes buscar **Apex Dashboard: Agregar nueva sección** en la paleta de comandos. Todas las indicaciones para añadir secciones parten de aquí; los widgets se activan en **Ajustes → Apex Dashboard → Widgets**.
 
-### 📁 Projects
-Organiza los documentos de tu vault en tarjetas de proyecto. Cada tarjeta enlaza a notas relacionadas, muestra una imagen de portada (admite tanto imágenes locales del vault como URLs web) y ofrece búsqueda de documentos en línea para añadir archivos rápidamente. Gestiona múltiples tipos de archivo, incluidas notas Markdown, PDF, imágenes, audio y video.
+### Captura ideas y conviértelas en tareas
 
-### 📝 Notes
-Una sección compacta, en formato de lista, para organizar documentos de referencia y archivos de acceso rápido. Muestra hasta 5 tarjetas por fila sin imágenes de portada para máxima densidad.
+Escribe ideas y notas de reuniones en tarjetas de notas rápidas; guárdalas como notas independientes cuando quieras conservarlas. Las tarjetas de tareas permiten organizar el día: arrastra para reordenar, marca lo terminado y consulta el progreso.
 
-### 📅 Calendar
-Un calendario nativo de cuadrícula mensual con todas las tareas con fecha de tu vault (sin necesidad de dataview ni plugins externos). Cada celda del día lista sus tareas; haz clic en un día para ver su agenda. Abre un calendario a pantalla completa con navegación por meses y activación de tareas en línea. Los eventos de varios días con `[start::]` / `[end::]` se extienden a lo largo de varios días. La vista ampliada del widget de la barra lateral también está disponible como **sección Calendar** incrustada en el tablero — cuadrícula mensual completa (con barras de eventos multidía), cuadrícula semanal con horas, filtro de tareas y salto a hoy; haz clic en un número de día para añadir una tarea a ese día (se escribe en la nota diaria o en la lista de todos del dashboard).
+**Para empezar:** Añade una sección **Notas adhesivas** → **+ Agregar tarjeta** → elige **Nota** o **Todo**. Ambos tipos pueden convivir. Escribe `[[Nombre de la nota]]` para enlazar una nota existente.
 
-### 🔍 Dataview
-Consulta tu vault con un motor DQL integrado — no necesitas el plugin Dataview. Añade una sección Dataview y escribe consultas como `TABLE file.name, rating FROM "Books" WHERE rating >= 4 SORT rating DESC`. Admite salidas `TABLE`, `LIST`, `TASK`, `CALENDAR` y `HEATMAP` sobre carpetas, etiquetas y enlaces (`FROM`), con cláusulas `WHERE`, `SORT`, `GROUP BY`, `FLATTEN` y `LIMIT`, ~40 funciones integradas, todos los campos implícitos `file.*`, frontmatter YAML y campos en línea (`[key:: value]`). El modal de configuración valida la sintaxis en vivo e incluye consultas de ejemplo de un clic. Las casillas `TASK` se escriben de vuelta en la nota de origen, `CALENDAR` dibuja una cuadrícula mensual y `HEATMAP` dibuja una cuadrícula de contribuciones anual a partir de cualquier campo numérico. Los resultados se actualizan a demanda mediante el botón de actualización de la sección.
+**Organiza los detalles:** Arrastra una tarea debajo de otra para convertirla en subtarea. Pulsa su campana para añadir un recordatorio; aparecerá también en el widget de calendario. Archiva las tareas terminadas con un clic.
 
-### 🌐 Web
-Incrusta cualquier página web directamente en una sección — pega una URL y navega por ella como un panel de navegador dentro del tablero. El **modo automático** comprueba previamente la política de incrustación del sitio: los sitios que permiten ser enmarcados se incrustan directamente como iframe, mientras que los que lo rechazan cambian a un webview de escritorio (con su propio inicio de sesión persistente — recomendado para Keep, Todoist web y otras apps que requieren inicio de sesión); en móvil se muestra una tarjeta de respaldo con un botón para abrir en el navegador. También puedes forzar el modo iframe/webview y escalar la página de 0,5× a 2× para apps web densas. En móvil prefiere sitios https; la incrustación está orientada a la lectura — las ventanas emergentes y las descargas pertenecen a un navegador real.
+**Elige dónde guardar:** En **Ajustes → Apex Dashboard → generales**, usa **Ruta para guardar notas** para las notas guardadas desde tarjetas. En **Configuración del archivo de tareas**, elige la nota diaria de hoy o un archivo concreto; en este último caso, completa **Ruta del archivo de almacenamiento de tareas**.
 
-### 📡 RSS
-Suscríbete a blogs y fuentes de noticias directamente en el tablero: añade cualquier enlace RSS 2.0 / Atom y los últimos artículos de todas las fuentes fluyen juntos en una única lista cronológica inversa (etiquetas de fuente, puntos de no leído), con un filtro de no leídos y marcar todo como leído. Haz clic en una entrada para leer el artículo completo en un modal — las fuentes que incluyen el texto completo se muestran directamente, y las que solo ofrecen resumen se descargan y se les extrae automáticamente el contenido principal. Cada entrada tiene un botón de descarga que guarda el artículo como nota del vault (nombre con prefijo de fecha, frontmatter de origen, enlace original) en la carpeta configurada; las entradas guardadas saltan directamente a la nota. El contenido de las fuentes se almacena en caché localmente durante 30 minutos; el estado de leído y guardado persiste entre sesiones.
+### Organiza tu bóveda con carpetas y una base de datos
 
-### 🖼️ Biblioteca de material
-Una vista a pantalla completa (icono sparkle de la cinta o paleta de comandos) que reúne todas las imágenes, vídeos y textos con portada del vault en una cascada de diseño libre. Búsqueda, filtro por tipo, filtro por etiquetas, agrupación por carpeta/etiqueta/tipo, favoritos y dos estilos de tarjeta (portada simple / polaroid estilo Pin); el visor ofrece zoom con rueda, arrastre para desplazar y estiramiento del vídeo, y lista las notas que referencian el recurso con salto en un clic. La barra de acciones derecha despacha habilidades, etiqueta en lote (las etiquetas existentes están a un clic), mueve, archiva (destino configurado en ajustes), copia rutas y elimina; arrastra imágenes o vídeos desde fuera del vault y se copian siguiendo las reglas de agrupación. Alcance de escaneo, carpeta de destino y carpeta de archivo se configuran en los ajustes de la biblioteca.
+Usa **Carpeta** para buscar por ubicación y **Biblioteca** para reunir notas por finalidad, estado o etiqueta. Combínalos para crear colecciones de referencia, listas de lectura o tableros de escritura.
 
-### ⚡ Quick Actions
-Fija tus atajos más usados en la barra lateral. Admite dos tipos de acción: enlaces a **Archivo** para abrir cualquier documento, y atajos de **Comando** para ejecutar cualquier comando de Obsidian. Incluye presets integrados para Nuevo diario y Nueva nota.
+**Por carpeta:** Añade una sección **Carpeta** → elige una carpeta en su configuración. Consulta sus notas, incluidas las subcarpetas si lo deseas. Las nuevas notas aparecen sin añadirlas manualmente a tarjetas.
 
-### 🌤️ Widgets de la barra lateral
-La barra lateral izquierda cuenta con 11 widgets activables de forma independiente y reordenables arrastrando:
+**Por criterios:** Añade una sección **Biblioteca** → configura propiedades y filtros → elige tarjetas, lista, tabla o tablero. Por ejemplo, reúne notas marcadas como «En lectura» de distintas carpetas o agrupa borradores por su estado.
 
-- **Weather** — Clima en tiempo real con temperatura actual, sensación térmica, humedad, velocidad del viento y un pronóstico de 5 días con temperaturas máximas/mínimas diarias. Impulsado por Open-Meteo (sin necesidad de clave de API). Búsqueda de ciudades con autocompletado de geocodificación para una ubicación precisa
-- **Lunar Almanac** — Fecha lunar tradicional china, festividades y orientación diaria de qué hacer y qué evitar
-- **Pomodoro Timer** — Un temporizador de enfoque con selector de actividad y ciclos de trabajo/descanso, además de un gráfico de dona del desglose de hoy; la vista de estadísticas añade progreso de objetivo, una puntuación de eficiencia, gráficos de tendencia, un mapa de calor de 12 semanas y una línea de tiempo del día
-- **Reading Tracker** — Registra tus sesiones de lectura con un temporizador integrado. Añade libros desde la búsqueda de Douban o introduciéndolos manualmente, cronometra tus sesiones de lectura y registra el progreso con números de página. Cada tarjeta de libro muestra imagen de portada, autor y barra de progreso de lectura
-- **Countdown** — Cuentas regresivas personalizables hacia cualquier fecha objetivo, mostradas en días u horas restantes
-- **Year Progress** — Cuánto del año en curso ya ha transcurrido
-- **Calendar** — Cuadrícula de mes/semana que agrega todas las tareas con fecha de todo el vault; haz clic en un día para ver su agenda y añadir tareas que se escriben en la nota diaria de ese día; los eventos multidía se extienden a lo largo de varios días
-- **Habit Check-in** — Marcado diario por hábito, con relleno retroactivo del día anterior, rachas y estadísticas de mapa de calor
-- **Expense Tracker** — Registro rápido de gastos/ingresos (notas, fechas retroactivas, categorías personalizadas) con totales del día y estadísticas por semana/mes/año/histórico total; el libro mayor añade filtrado, edición en línea e importación/exportación CSV
-- **Photo Album** — Un marco de fotos digital para cualquier carpeta del vault: rotación automática con pausa al pasar el cursor, anterior/siguiente manual y una insignia de índice, relación de panel 1:1 o 3:4, cuatro transiciones (fundido / empuje a la izquierda / empuje a la derecha / zoom), intervalo de 3 a 60 s, subcarpetas incluidas por defecto. La foto inicial se semilla según la hora (nunca siempre la misma), la siguiente se precarga, y añadir/eliminar/cambiar el nombre de archivos en el vault actualiza la lista en el sitio sin perder tu posición
-- **Music** — Busca y reproduce canciones gratuitas de NetEase Cloud Music desde la barra lateral: inicio de sesión opcional con cuenta de NetEase en la configuración para canciones de membresía autorizadas por la cuenta, pega un enlace de playlist para importarla, controles de volumen y repetición, playlist persistente con relleno diferido de portadas, y una barra opcional de mini reproductor flotante que sigue funcionando con el dashboard cerrado (solo escritorio)
 
-La barra lateral también alberga la **tira de calendario semanal** (7 días compactos, hoy resaltado), los **documentos recientes** y el botón de **volver arriba**; los teléfonos obtienen la misma barra de widgets, y los datos de los widgets se combinan por unión entre dispositivos.
+**Empezar desde plantilla:** Los ajustes de sección permiten definir plantillas para notas nuevas; las propiedades de la plantilla pasan a la nota, y ante coincidencia con un filtro de sección gana el valor del filtro. Con varias plantillas, el botón de nota nueva ofrece un selector (la primera es la predeterminada).
 
-### 🎨 Banner
-Un banner personalizable con una cita inspiradora y una imagen de fondo opcional. Admite tanto imágenes locales del vault como URLs web. Doble clic para editar.
+### Haz avanzar tus proyectos
 
-### 🔄 Drag & Drop
-Arrastra tarjetas entre secciones para reorganizar tu espacio de trabajo. Arrastra elementos de tarea dentro de las tarjetas Todo para reordenarlos. Arrastra enlaces de documentos entre tarjetas de proyecto/nota.
+Reúne objetivos, etapas, hitos, tareas y archivos de cada proyecto. Comprueba en qué punto está y cuál es el siguiente paso. Consulta varios proyectos por etapa o grupo y archívalos al terminar.
 
-### 🧩 Secciones personalizadas
-**15 tipos de secciones** para combinar a tu gusto — **Todo**, **Memo**, **Sticky Notes**, **Notes (tarjetas de proyecto)**, **Notes (sin portada)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Calendar**, **Weread**, **TickTick**, **Web** y **RSS** — cada una con su propio diseño y comportamiento, para que el tablero se adapte a tu flujo de trabajo.
+**Para empezar:** Añade **Proyectos** → **Configurar** → define **Carpeta de proyectos** y las etapas → **Nuevo proyecto**, e introduce nombre, objetivo y etapa actual. Abre el proyecto para añadir hitos, tareas, notas de trabajo o enlaces a archivos existentes. Antes de archivarlo, configura **Carpeta de archivo** en la sección.
 
-### 🕐 Documentos recientes
-La barra lateral muestra los archivos editados recientemente con marcas de tiempo relativas, para que puedas volver a tu trabajo más reciente.
+### Planifica el día con el calendario
+
+El calendario reúne automáticamente las tareas con fecha de vencimiento, fecha programada o recordatorio de las notas de toda la bóveda. Alterna entre mes y semana y marca las tareas completadas directamente.
+
+**Para empezar:** Añade **Calendario** o activa el widget en **Ajustes → Apex Dashboard → Widgets → Calendario**. El widget también permite consultar, añadir y completar tareas, además de ampliar la vista.
+
+**Añade tareas:** Haz clic en una fecha; la tarea se guarda por defecto en la nota diaria correspondiente. En **Ajustes → Apex Dashboard → Widgets → Calendario → Destino de la tarea**, puedes elegir un archivo concreto, una nota por día en una carpeta o una nota independiente por tarea. En el modo predeterminado, si la nota diaria no está disponible, se intenta guardar en la lista de tareas del panel.
+
+### Reúne las notas y tareas que necesitas
+
+Consulta tareas pendientes, notas creadas esta semana o libros con mejores valoraciones partiendo de ejemplos listos para adaptar. No necesitas instalar el plugin Dataview.
+
+**Para empezar:** Añade **Vista de datos** → abre la configuración → elige **Consultas de ejemplo** y adapta las carpetas y condiciones. Usa el botón de actualización de la sección cuando cambie el contenido.
+
+### Lee páginas web y suscripciones desde el panel
+
+Mantén a mano tus sitios favoritos, lee los blogs que sigues en un mismo lugar y guarda artículos útiles como notas.
+
+**Abre una web:** Añade **Web** → introduce la dirección. Ajusta la escala de visualización. En el móvil, usa la opción de abrir en el navegador si un sitio no admite la vista integrada.
+
+**Suscríbete:** Añade **RSS** → pulsa el engranaje → introduce el enlace de suscripción del sitio. Haz clic en un artículo para leerlo o en descargar para guardarlo en la bóveda. Elige la carpeta de destino en la configuración de la sección.
+
+Si usas WeRead o TickTick, añade sus secciones para consultar la biblioteca, importar subrayados o gestionar tareas. Conéctalos primero en los ajustes del plugin: en WeRead, usa **Obtener clave API** e introduce la autorización; en TickTick, abre la ventana de acceso en el ordenador e inicia sesión.
+
+### Explora y organiza materiales de forma visual
+
+Reúne imágenes, vídeos, PDF, libros EPUB, páginas HTML, dibujos Excalidraw y tableros Canvas. Busca por tipo, carpeta o etiqueta; añade favoritos y etiqueta, mueve o archiva varios elementos a la vez. Al ver imágenes y vídeos, también puedes encontrar las notas que los citan.
+
+![Biblioteca de materiales: libros, imágenes y documentos con filtros por tipo de archivo](../assets/material-library.png)
+
+**Para empezar:** Busca **Apex Dashboard: Abrir biblioteca de material** en la paleta de comandos o pulsa el icono de la biblioteca de materiales en la barra izquierda de Obsidian. Selecciona las carpetas que quieres mostrar en sus ajustes. Arrastra imágenes o vídeos desde el ordenador para importarlos. Para mostrarlos directamente en el panel, añade **Imágenes** o **Vídeos**.
+
+**Suelta y listo:** Lo arrastrado desde el ordenador se guarda en la carpeta de importación de los ajustes; con agrupación por carpeta va directo a la carpeta del grupo, y con agrupación por etiqueta la etiqueta se aplica sola.
+
+**Guarda distintas colecciones:** Elige las carpetas incluidas y excluidas y pulsa la chincheta → **Guardar los ajustes actuales como página**. Ponle un nombre como «Biblioteca» o «Inspiración». Selecciona una página guardada para recuperar sus carpetas y cambiar de colección con un clic.
+
+**Crea con tus materiales:** En **Botones de envío al agente**, dentro de los ajustes de la biblioteca, añade un botón, selecciona una herramienta de IA del ordenador e introduce una habilidad o instrucción. Selecciona materiales y pulsa el botón para enviar sus rutas junto con la instrucción a la herramienta. Instala previamente la herramienta y, si utilizas una habilidad, también esa habilidad.
+
+### Accede a las acciones habituales con un clic
+
+Convierte tus notas frecuentes, la creación de la nota diaria y los comandos habituales en botones. Los documentos recientes de la barra lateral te ayudan a retomar el trabajo.
+
+**Configura accesos:** En **Ajustes → Apex Dashboard → generales → Acciones comunes**, configura notas fijadas, comandos o botones para crear notas desde plantillas. En los botones rápidos laterales, usa **+ Agregar acción** para añadir un archivo o comando.
+
+**Usa habilidades de IA:** En las acciones habituales, selecciona **Botón Agregar habilidad** e indica el nombre del botón, la habilidad y la herramienta. Pulsa el botón, añade indicaciones, revisa el mensaje y envíalo. Instala la habilidad y activa un plugin como Claudian o Copilot, o instala la aplicación de escritorio correspondiente. Con Codex Desktop se abre una conversación nueva con el mensaje preparado; pulsa Enter en Codex para ejecutarlo.
+
+### Activa las herramientas que necesites
+
+Ve a **Ajustes → Apex Dashboard → Widgets**, activa y configura los widgets. Agrupa los más usados y arrástralos para cambiar el orden.
+
+| Qué quieres hacer | Qué activar | Cómo empezar |
+| --- | --- | --- |
+| Concentrarte un rato | Temporizador Pomodoro | Elige una actividad, inicia el temporizador y revisa las sesiones |
+| Seguir tu lectura | Rastreador de lectura | Busca un libro o añádelo manualmente y registra la página |
+| Mantener un hábito | Rastreador de hábitos | Añade un hábito, márcalo cada día y consulta la racha |
+| Registrar ingresos y gastos | Rastreador de gastos | Introduce importe y categoría; consulta las estadísticas del registro |
+| Contar los días hasta una fecha | Widget de cuenta atrás | Añade nombre y fecha objetivo |
+| Recordar cumpleaños y aniversarios | Aniversarios | Añade una fecha solar o del calendario lunar chino y un recordatorio anual |
+| Consultar el tiempo | El tiempo | Selecciona una ciudad para ver el tiempo y la previsión |
+| Consultar fechas lunares y festivos | Calendario Lunar | Actívalo para ver la fecha lunar y los festivos |
+| Ver cuánto ha pasado del año | Progreso del año | Actívalo para consultar el progreso anual |
+| Consultar y planificar tareas | Calendario | Pulsa una fecha para consultar o añadir tareas; alterna mes/semana |
+| Mostrar fotos en rotación | Álbum de fotos | Añade un álbum, elige carpeta e intervalo |
+| Escuchar música al trabajar | Reproductor de música | En el ordenador, busca canciones o importa una lista de NetEase; inicia sesión en los ajustes de música, según los permisos de tu cuenta |
+| Encontrar archivos | Búsqueda de archivos | Escribe palabras clave y abre un archivo desde los resultados |
+| Capturar una idea | Captura rápida | Escribe y guarda; el destino sigue la configuración de captura de las acciones habituales |
+| Usar una habilidad de IA | Widget de botones de habilidad | Configura botones y herramienta de IA; revisa y envía el mensaje |
+| Abrir archivos o ejecutar comandos | Botones Rápidos | Añade una acción, elige archivo o comando y dale un nombre |
+
+### Adapta la página a tu forma de trabajar
+
+Combina secciones, mueve tarjetas y reordena tareas y enlaces. Pliega las secciones menos usadas con el botón junto al título.
+
+**Organiza la página:** Arrastra la cabecera de una tarjeta para moverla. Haz doble clic en el título de una sección para renombrarla o en el banner para cambiar la cita y el fondo. Elige colores entre los temas de abajo.
+
+**Ajusta el diseño inmersivo:** Activa **Editar diseño**, arrastra tarjetas, secciones y widgets, y cambia su tamaño desde la esquina inferior derecha. Al terminar, selecciona **Diseño de bloqueo**. Usa el botón de personalización de apariencia para cambiar el fondo del póster.
 
 ## Temas
 
-![Themes Preview](screenshot2.png)
-![Themes Preview](screenshot3.png)
+![Themes Preview](../screenshot2.png)
+![Themes Preview](../screenshot3.png)
 
 13 temas hechos a mano, cada uno con una identidad visual propia:
 
@@ -102,6 +151,7 @@ Todos los temas admiten tanto el modo claro como el oscuro de Obsidian.
 - **Número de documentos recientes** — controla cuántos archivos recientes aparecen
 - **Widgets de la barra lateral** — Weather, Heatmap, Pomodoro, Reading, Countdown. Activa/desactiva y configura cada widget de forma independiente
 - **Ajustes de lectura** — Activa el registro de lectura, habilita/deshabilita el sonido al completar una sesión
+- **Carpetas de habilidades personalizadas** — carpetas locales (separadas por comas) donde los selectores descubren nombres de habilidades; vacío lo desactiva y nunca se lee nada fuera del almacén. Solo escritorio
 
 ## Instalación
 
@@ -128,10 +178,18 @@ Todos los temas admiten tanto el modo claro como el oscuro de Obsidian.
 Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, considera invitarme a un café para apoyar el desarrollo continuo.
 
 <p align="center">
-  <img src="buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
+  <img src="../buy-me-a-coffee.png" alt="Buy Me a Coffee" width="640">
 </p>
 
 ## Novedades
+
+### 3.9.6
+- **Tour de bienvenida** — Un recorrido con foco se inicia automáticamente en la primera instalación (solo escritorio): resalta paso a paso los controles reales — abrir el espacio, cambiar de página, editar el banner, fijar la barra lateral, añadir secciones — y avanza al hacer clic en ellos; «Repetir tour de bienvenida» en la paleta de comandos lo reabre cuando quieras
+- **Diálogos de configuración unificados** — Los campos de todos los diálogos muestran ahora una línea gris en reposo y una línea de acento al enfocar; las etiquetas en línea ya no se parten; las tarjetas de habilidades/botones se leen como una columna alineada (icono + etiqueta + borrar en la primera fila, las siguientes sangradas), y selector de icono, campo y botón comparten su fila; la casilla de envío directo queda a la izquierda de su texto
+- **Textos de ayuda más breves** — 33 ayudas de configuración se reescribieron con el patrón «vacío = X» en los 11 idiomas, eliminando lo que la interfaz ya muestra; las reglas avanzadas que salieron (herencia de propiedades de plantilla, destino al soltar en grupos, privacidad de carpetas de habilidades) ahora viven en las secciones del README
+- **Masonry real en móvil** — Móviles y tabletas obtienen el flujo de tarjetas escalonadas a dos columnas: las imágenes se colocan con su proporción real, sondeando solo la página visible en lugar de todo el almacén en segundo plano
+- **Arreglos del widget de música** — Las peticiones con sesión ahora llevan las cookies del cliente PC y esquivan los nodos CDN que respondían 403 a Electron (tres cuartas partes de las pistas fallaban en silencio); la importación de listas usa el endpoint v6 y las listas de más de 10 pistas ya no se truncan
+- **Interruptor de ingresos en proyectos** — La nueva opción «Mostrar ingresos y pago final» oculta la franja de dinero en secciones sin flujo económico
 
 ### 3.9.5
 - **Tipos de documento en la biblioteca de material** — PDF, EPUB, páginas HTML guardadas, dibujos de Excalidraw y pizarras de Canvas ahora aparecen como tarjetas: las portadas de EPUB se extraen del libro, los PDF renderizan su primera página, las páginas HTML obtienen una captura de la primera pantalla, los dibujos y pizarras se esbozan como miniaturas, y lo que no tiene portada muestra una tarjeta con el icono del tipo; el filtro y la agrupación por tipo se ampliaron, y un clic abre cada archivo de forma nativa (HTML Reader, vista PDF, pizarras — las extensiones sin vista van a la app predeterminada del sistema)
