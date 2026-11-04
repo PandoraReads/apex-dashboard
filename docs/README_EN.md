@@ -10,64 +10,108 @@
 
 ## Features
 
-### 🗒️ Memo
-Capture thoughts instantly with a built-in memo pad. Each memo card has a writable textarea — jot down ideas, meeting notes, or daily reflections without leaving your dashboard. Supports `[[wikilinks]]` that render as clickable links.
+Start with what you need to do today. Keep notes, tasks, reference material, and everyday tools on one page.
 
-### ✅ Todo
-Manage tasks with interactive checklists. Add, reorder, drag-and-drop, and check off tasks. A progress bar shows completion percentage at a glance. Todo items also support `[[wikilinks]]` for cross-referencing notes.
+**Find your way in:** Click the home icon in Obsidian’s left ribbon to open the dashboard, then select **+ Add section** and a section type. You can also search the command palette for **Apex Dashboard: Add new section**. All “add a section” instructions below start here; enable widgets under **Settings → Apex Dashboard → Widgets**.
 
-### 📁 Projects
-Organize your vault documents into project cards. Each card links to related notes, displays a cover image (supports both local vault images and web URLs), and supports inline document search to add new files quickly. Manage multiple file types including Markdown notes, PDFs, images, audio, and video.
+### Capture ideas and turn them into tasks
 
-### 📝 Notes
-A compact, list-style section for organizing reference documents and quick-access files. Displays up to 5 cards per row without cover images for maximum density.
+Write meeting notes and passing thoughts directly on memo cards, then save them as notes when you want to keep them. Use todo cards for today’s tasks: drag to reorder, check off finished items, and see your progress at a glance.
 
-### 📅 Calendar
-A native month-grid calendar of every dated task across your vault (no dataview or external plugin needed). Each day cell lists its tasks; click a day for its agenda. Open a full-screen calendar with month navigation and inline toggling. Multi-day events with `[start::]` / `[end::]` span across days. The sidebar widget's enlarged view is also available as a **Calendar section** embedded in the board — full month grid (with multi-day bars), week time grid, task filter, and today jump; click a day number to add a task for that day (written into the daily note or the dashboard todo list).
+**Get started:** Add a **Sticky Notes** section → **+ Add card** → choose **Memo** or **Todo**. Both card types can live together. Type `[[Note name]]` to link an existing note.
 
-### 🔍 Dataview
-Query your vault with a built-in DQL engine — no Dataview plugin required. Add a Dataview section and write queries like `TABLE file.name, rating FROM "Books" WHERE rating >= 4 SORT rating DESC`. Supports `TABLE`, `LIST`, `TASK`, `CALENDAR`, and `HEATMAP` outputs over folders, tags, and links (`FROM`), with `WHERE`, `SORT`, `GROUP BY`, `FLATTEN`, and `LIMIT` clauses, ~40 built-in functions, all `file.*` implicit fields, YAML frontmatter, and inline fields (`[key:: value]`). The config modal validates syntax live and ships one-click sample queries. `TASK` checkboxes write back to the source note, `CALENDAR` plots a month grid, and `HEATMAP` plots a year contribution grid from any numeric field. Results refresh on demand via the section's refresh button.
+**Organize further:** Drag a task under another to make it a subtask. Click its bell to set a reminder; it will also appear in the calendar widget. Archive completed tasks with one click.
 
-### 🌐 Web
-Embed any web page right in a section — paste a URL and browse it like an in-board browser pane. **Auto mode** prechecks the site's framing policy: frameable sites embed directly as an iframe, while refusers switch to a desktop webview (with its own persistent login — recommended for Keep, Todoist web, and other sign-in apps); mobile shows a fallback card with an open-in-browser button. You can also force iframe/webview mode and scale the page 0.5–2× for dense web apps. Prefer https sites on mobile; embedding is read-oriented — popups and downloads belong in a real browser.
+**Choose where to save:** Under **Settings → Apex Dashboard → General**, use **Memo note save path** for memos saved as notes. In **Task archive settings**, choose today’s daily note or a specific file; for the latter, fill in **Task archive file path**.
 
-### 📡 RSS
-Subscribe to blogs and news feeds right on the board: add any RSS 2.0 / Atom link and the latest articles from all feeds flow together in one reverse-chronological list (source tags, unread dots), with an unread filter and mark-all-read. Click an entry to read the full article in a modal — feeds that ship full text render directly, summary-only feeds are fetched and main-content-extracted automatically. Every entry has a download button that saves the article as a vault note (date-prefixed name, source frontmatter, original link) into the configured folder; saved entries jump straight to the note. Feed content is cached locally for 30 minutes; read and saved state persist across sessions.
+### Organize your vault with folders and a database
 
-### 🖼️ Material library
-A dedicated full-screen view (ribbon sparkle icon or command palette) that gathers every image, video and covered text file in the vault into a free-form waterfall. Search, type filter, tag filter, folder/tag/type grouping, a favorites view and two card styles (plain cover / Pin-style polaroid); the lightbox offers wheel zoom, drag-to-pan and video width stretching, and lists the notes referencing the asset with one-click jumps. The right action rail dispatches skills, batch-tags (existing tags are one click away), moves, archives (destination configured in settings), copies paths and deletes; drag images or videos in from outside the vault and they are copied in following the grouping rules. Scan scope, default drop-in folder and archive folder all live in the material library settings.
+Use **Folder** to browse by location and **Library** to collect notes by purpose, status, or tag. Together, they turn scattered material into reference collections, reading lists, or writing boards.
 
-### ⚡ Quick Actions
-Pin your most-used shortcuts to the sidebar. Supports two action types: **File** links to open any document, and **Command** shortcuts to trigger any Obsidian command. Includes built-in presets for New Journal and New Note.
+**Browse folders:** Add a **Folder** section → choose a folder in its settings. Browse its notes together, including subfolders if needed. New notes appear without having to add them to cards manually.
 
-### 🌤️ Sidebar Widgets
-The left sidebar features 11 independently toggleable, drag-reorderable widgets:
+**Collect by criteria:** Add a **Library** section → set note properties and filters → choose cards, a list, a table, or a board. For example, collect notes marked “Reading” across folders, or group drafts by writing status.
 
-- **Weather** — Real-time weather with current temperature, feels-like, humidity, wind speed, and a 5-day forecast with daily high/low temperatures. Powered by Open-Meteo (no API key needed). City search with geocoding autocomplete for precise location
-- **Lunar Almanac** — Traditional Chinese lunar date, festivals, and daily do/don't guidance
-- **Pomodoro Timer** — A focus timer with activity selector and work/break cycles, plus a donut chart of today's breakdown; the stats view adds goal progress, an efficiency score, trend charts, a 12-week heatmap, and a today timeline
-- **Reading Tracker** — Track your reading sessions with a built-in timer. Add books from Douban search or manual input, time your reading sessions, and record progress with page numbers. Each book card shows cover image, author, and reading progress bar
-- **Countdown** — Customizable countdowns to any target dates, displayed as days or hours remaining
-- **Year Progress** — How much of the current year has already elapsed
-- **Calendar** — Month/week grid aggregating every dated task across the vault; click a day for its agenda and add tasks that write into that day's daily note; multi-day events span across days
-- **Habit Check-in** — Daily check-offs per habit, with yesterday backfill, streaks, and heatmap stats
-- **Expense Tracker** — Quick expense/income entry (notes, backdating, custom categories) with today's totals and week/month/year/all-time stats; the ledger adds filtering, inline editing, and CSV import/export
-- **Photo Album** — A digital photo frame for any vault folder: auto-rotation with hover pause, manual prev/next and an index badge, 1:1 or 3:4 panel ratio, four transitions (fade / push left / push right / zoom), 3–60s interval, subfolders included by default. The opening photo is time-seeded (never always the same one), the next one is preloaded, and vault add/delete/rename refreshes the list in place without losing your position
-- **Music** — Search and play free NetEase Cloud Music tracks from the sidebar: optional NetEase account login in settings for account-authorized member tracks, paste a playlist link to import, volume and repeat controls, persisted playlist with lazy cover backfill, and an optional floating mini player bar that keeps working with the dashboard closed (desktop only)
+### Move projects forward
 
-The sidebar also hosts the **week calendar strip** (compact 7 days, today highlighted), **recent documents**, and the **scroll-to-top** button; phones get the same widget bar, and widget data union-merges across devices.
+Keep goals, stages, milestones, tasks, and related files together. See where a project stands and what comes next. View multiple projects by stage or group, then archive them when finished.
 
-### 🎨 Banner
-A customizable banner with an inspirational quote and optional background image. Supports both local vault images and web URLs. Double-click to edit.
+**Get started:** Add a **Projects** section → **Configure** → set the **Projects folder** and stages → **New project**, then enter a name, goal, and current stage. Open a project to add milestones, tasks, work notes, or links to existing files. Before archiving, set an **Archive folder** in the section settings.
 
-### 🔄 Drag & Drop
-Drag cards between sections to reorganize your workspace. Drag task items within Todo cards to reorder. Drag document links between project/note cards.
+### Plan your day in the calendar
 
-### 🧩 Custom Sections
-**15 section types** to mix and match — **Todo**, **Memo**, **Sticky Notes**, **Notes (project cards)**, **Notes (no cover)**, **Dataview**, **Library**, **Folder**, **Images**, **Videos**, **Calendar**, **Weread**, **TickTick**, **Web**, and **RSS** — each with its own layout and behavior, so the board fits your workflow.
+The calendar automatically gathers tasks with due dates, scheduled times, or reminders from notes throughout your vault. Switch between month and week views, and check off tasks directly.
 
-### 🕐 Recent Documents
-The sidebar shows recently edited files with relative timestamps, so you can jump back into your latest work.
+**Get started:** Add a **Calendar** section or enable the calendar widget under **Settings → Apex Dashboard → Widgets → Calendar**. The widget also lets you view, add, and complete tasks, and can be enlarged.
+
+**Add tasks:** Click a date to add a task. By default, it goes into that date’s daily note. Under **Settings → Apex Dashboard → Widgets → Calendar → Task destination**, choose a specific file, daily notes in a folder, or a separate note for each task. In default mode, if the daily note is unavailable, the plugin tries the dashboard todo list.
+
+### Bring the notes and tasks you need into one view
+
+Start with a sample query to see unfinished tasks, notes created this week, or your highest-rated books. No separate Dataview plugin is needed.
+
+**Get started:** Add a **Dataview** section → open its configuration → choose **Sample queries**, then adapt the folders and conditions. Use the section’s refresh button when the content changes.
+
+### Read websites and subscriptions on your dashboard
+
+Keep favorite websites close, read the blogs you follow in one place, and save useful articles as notes.
+
+**Open a website:** Add a **Web** section → enter its URL. Adjust the display scale as needed. On phones, use the open-in-browser option for sites that cannot be embedded.
+
+**Subscribe to articles:** Add an **RSS** section → click the gear → enter the website’s feed URL. Click an article to read it or its download button to save it to your vault. Choose the save folder in the section settings.
+
+If you use WeRead or TickTick, add their sections to browse your bookshelf, import highlights, or manage tasks. Connect them in the plugin settings first: for WeRead, use **Get API key** and enter the authorization details; for TickTick, open the login window on desktop and sign in.
+
+### Browse and organize your materials visually
+
+Bring images, videos, PDFs, EPUB books, HTML pages, Excalidraw drawings, and Canvas boards together. Find them by type, folder, or tag; favorite frequently used items, or tag, move, and archive in batches. When viewing images and videos, you can also find the notes that reference them.
+
+![Material library: browse books, images, and documents, with file-type filters](../assets/material-library.png)
+
+**Get started:** Search the command palette for **Apex Dashboard: Open material library**, or click the material library icon in Obsidian’s left ribbon. Choose the folders to display in the library settings. Drag images or videos from your computer to import them. To display them directly on the dashboard, add an **Images** or **Videos** section.
+
+**Save different collections:** Choose folders to include and exclude, then click the toolbar’s pin → **Save current settings as a page**. Name the page “Bookshelf” or “Inspiration,” for example. Select a saved page to restore its folder settings and switch collections in one click.
+
+**Create with your materials:** In the library settings, add a button under **Send-to-agent buttons**, choose an AI tool on your computer, and enter a skill name or prompt. Select materials and click the button to pass their file paths along with the prompt to the AI tool. Install the tool first, and install the skill too if you use one.
+
+### Make everyday actions one click away
+
+Turn frequently opened notes, daily-note creation, and common commands into buttons. Recent documents in the sidebar also help you return to your last task.
+
+**Set up shortcuts:** Under **Settings → Apex Dashboard → General → Common Actions**, configure pinned notes, commands, or buttons that create notes from templates. In the sidebar’s quick buttons, use **+ Add action** to add a file or command.
+
+**Run AI skills:** In Common Actions, choose **Add skill button** and enter the button name, skill name, and AI tool. Click the button, add instructions, preview the message, and send it. Install the skill and enable a plugin such as Claudian or Copilot, or install the relevant desktop app. With Codex Desktop, a new chat opens with the message filled in; press Enter in Codex to run it.
+
+### Enable the everyday tools you need
+
+Go to **Settings → Apex Dashboard → Widgets**, enable your tools, and configure them. Keep frequently used ones together and drag to reorder.
+
+| What you want to do | Enable | How to start |
+| --- | --- | --- |
+| Focus for a while | Pomodoro timer | Choose an activity, start the timer, then review your focus history |
+| Track reading progress | Reading Tracker | Search for a book or add it manually, then record your page |
+| Build a habit | Habit Tracker | Add a habit, check in daily, and view your streak |
+| Record income and expenses | Expense Tracker | Enter an amount and category; view totals in the ledger |
+| Count down to a date | Countdown widget | Add a name and target date |
+| Remember birthdays and anniversaries | Anniversaries | Add a solar or Chinese lunar date and set an annual reminder |
+| Check the weather | Weather | Find your city to see current weather and forecasts |
+| Check lunar dates and holidays | Lunar Calendar | Enable it to see today’s lunar date and holidays |
+| See how far the year has progressed | Year Progress | Enable it to view annual progress |
+| View and plan tasks | Calendar | Click a date to view or add tasks; switch month/week views |
+| Rotate favorite photos | Photo Album | Add an album, choose an image folder and rotation interval |
+| Listen while you work | Music Player | On desktop, search songs or import a NetEase playlist; sign in through music settings, with playback subject to account permissions |
+| Find a file quickly | File Search | Enter keywords and open a vault file from the results |
+| Capture a quick thought | Quick Capture | Type and collect; the save location follows Common Actions’ capture settings |
+| Run an AI skill | Skill buttons widget | Configure skill buttons and an AI tool, then preview and send |
+| Open a file or run a command | Quick Buttons | Add an action, choose a file or command, and name it |
+
+### Arrange the page to suit you
+
+Combine sections freely, move cards around, and reorder tasks and note links. Collapse less-used sections with the button beside the title.
+
+**Start arranging:** Drag a card’s title bar to move it. Double-click a section title to rename it, or the banner to edit its quote and background. Choose colors from the themes below.
+
+**Adjust the immersive layout:** Select **Edit layout** first, then freely drag cards, sections, and widgets, or drag their bottom-right corners to resize them. Select **Lock layout** when finished. Use the appearance customization button to change the poster background.
 
 ## Themes
 

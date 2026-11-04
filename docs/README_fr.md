@@ -10,64 +10,108 @@
 
 ## Fonctionnalités
 
-### 🗒️ Mémo
-Capturez vos pensées instantanément avec un bloc-notes intégré. Chaque carte mémo dispose d'une zone de texte inscriptible — notez vos idées, comptes rendus de réunion ou réflexions du jour sans quitter votre tableau de bord. Prend en charge les `[[wikilinks]]` qui s'affichent sous forme de liens cliquables.
+Partez de ce que vous avez à faire aujourd’hui. Réunissez notes, tâches, ressources et outils du quotidien sur une seule page.
 
-### ✅ Todo
-Gérez vos tâches avec des checklists interactives. Ajoutez, réorganisez, glissez-déposez et cochez vos tâches. Une barre de progression affiche le pourcentage d'avancement d'un coup d'œil. Les éléments todo prennent également en charge les `[[wikilinks]]` pour référencer vos notes.
+**Trouver les commandes :** Cliquez sur l’icône d’accueil du ruban gauche d’Obsidian pour ouvrir le tableau de bord, puis choisissez **+ Ajouter une section** et un type de section. Vous pouvez aussi rechercher **Apex Dashboard: Ajouter une nouvelle section** dans la palette de commandes. Toutes les instructions d’ajout de section ci-dessous partent de là ; activez les widgets dans **Paramètres → Apex Dashboard → Widgets**.
 
-### 📁 Projets
-Organisez les documents de votre coffre en cartes de projet. Chaque carte renvoie vers les notes associées, affiche une image de couverture (les images locales du coffre comme les URL web sont prises en charge) et propose une recherche de document intégrée pour ajouter rapidement de nouveaux fichiers. Gérez plusieurs types de fichiers : notes Markdown, PDF, images, audio et vidéo.
+### Saisir une idée et en faire une tâche
 
-### 📝 Notes
-Une section compacte, sous forme de liste, pour organiser vos documents de référence et vos fichiers d'accès rapide. Affiche jusqu'à 5 cartes par rangée, sans images de couverture, pour une densité maximale.
+Écrivez vos idées et notes de réunion sur des cartes mémo, puis enregistrez-les comme notes pour les conserver. Les cartes de tâches servent à organiser la journée : déplacez les éléments, cochez ceux terminés et suivez votre progression.
 
-### 📅 Calendrier
-Un calendrier natif en grille mensuelle regroupant toutes les tâches datées de votre coffre (sans Dataview ni plugin externe). Chaque case de journée liste ses tâches ; cliquez sur un jour pour voir son agenda. Ouvrez un calendrier plein écran avec navigation par mois et bascule intégrée. Les événements pluri-jours avec `[start::]` / `[end::]` s'étendent sur plusieurs jours. La vue agrandie du widget de la barre latérale est également disponible sous forme de **section Calendrier** intégrée au tableau — grille mensuelle complète (avec barres pluri-jours), grille horaire hebdomadaire, filtre de tâches et retour à aujourd'hui ; cliquez sur un numéro de jour pour ajouter une tâche à ce jour (écrite dans la note quotidienne ou la liste de todos du tableau de bord).
+**Pour commencer :** Ajoutez une section **Notes autocollantes** → **+ Ajouter une carte** → choisissez **Mémo** ou **Tout faire**. Les deux types peuvent cohabiter. Saisissez `[[Nom de la note]]` pour lier une note existante.
 
-### 🔍 Dataview
-Interrogez votre coffre avec un moteur DQL intégré — aucun plugin Dataview requis. Ajoutez une section Dataview et écrivez des requêtes comme `TABLE file.name, rating FROM "Books" WHERE rating >= 4 SORT rating DESC`. Prend en charge les sorties `TABLE`, `LIST`, `TASK`, `CALENDAR` et `HEATMAP` sur les dossiers, tags et liens (`FROM`), avec les clauses `WHERE`, `SORT`, `GROUP BY`, `FLATTEN` et `LIMIT`, environ 40 fonctions intégrées, tous les champs implicites `file.*`, le frontmatter YAML et les champs en ligne (`[key:: value]`). La fenêtre de configuration valide la syntaxe en temps réel et fournit des requêtes d'exemple en un clic. Les cases à cocher `TASK` répercutent l'état dans la note source, `CALENDAR` trace une grille mensuelle et `HEATMAP` trace une grille de contributions annuelle à partir de n'importe quel champ numérique. Les résultats s'actualisent à la demande via le bouton d'actualisation de la section.
+**Pour aller plus loin :** Glissez une tâche sous une autre pour créer une sous-tâche. Cliquez sur sa cloche pour définir un rappel ; elle apparaîtra aussi dans le widget calendrier. Archivez les tâches terminées en un clic.
 
-### 🌐 Web
-Intégrez n'importe quelle page web directement dans une section — collez une URL et naviguez comme dans un panneau de navigateur intégré au tableau. Le **mode Auto** vérifie au préalable la politique d'intégration du site : les sites autorisant l'encapsulation s'affichent directement dans une iframe, tandis que les sites qui refusent basculent vers une webview de bureau (avec sa connexion persistante propre — recommandé pour Keep, Todoist web et autres applications nécessitant une connexion) ; sur mobile, une carte de secours avec bouton « ouvrir dans le navigateur » s'affiche. Vous pouvez également forcer le mode iframe/webview et ajuster l'échelle de la page de 0,5 à 2× pour les applications web denses. Privilégiez les sites https sur mobile ; l'intégration est orientée lecture — les popups et téléchargements ont leur place dans un vrai navigateur.
+**Choisir l’emplacement :** Dans **Paramètres → Apex Dashboard → Général**, utilisez **Chemin d'enregistrement de la note mémo** pour les mémos enregistrés comme notes. Dans **Paramètres d'archive des tâches**, choisissez la note quotidienne du jour ou un fichier précis ; dans ce dernier cas, renseignez **Chemin du fichier d'archive de tâche**.
 
-### 📡 RSS
-Abonnez-vous à des blogs et flux d'actualités directement sur le tableau : ajoutez n'importe quel lien RSS 2.0 / Atom et les derniers articles de tous les flux convergent dans une liste unique anti-chronologique (tags de source, points non-lus), avec un filtre des non-lus et un bouton « tout marquer comme lu ». Cliquez sur un article pour le lire en entier dans une fenêtre modale — les flux fournissant le texte complet s'affichent directement, les flux limités au résumé sont récupérés et leur contenu principal extrait automatiquement. Chaque article dispose d'un bouton de téléchargement qui l'enregistre sous forme de note dans le coffre (nom préfixé par la date, frontmatter de source, lien original) dans le dossier configuré ; les articles enregistrés renvoient directement à la note. Le contenu des flux est mis en cache localement pendant 30 minutes ; les états « lu » et « enregistré » persistent d'une session à l'autre.
+### Organiser le coffre avec des dossiers et une base de données
 
-### 🖼️ Bibliothèque de matériel
-Une vue plein écran dédiée (icône sparkle du ruban ou palette de commandes) qui rassemble toutes les images, vidéos et textes avec couverture du coffre dans une cascade libre. Recherche, filtre par type, filtre par tags, groupement par dossier/tag/type, favoris et deux styles de carte (couverture simple / polaroïd façon Pin) ; la visionneuse offre le zoom à la molette, le déplacement par glisser et l'étirement des vidéos, et liste les notes référençant l'élément avec un saut en un clic. La barre d'actions à droite envoie des compétences, étiquette en lot (les tags existants sont à un clic), déplace, archive (destination configurée dans les réglages), copie les chemins et supprime ; glissez-déposez des images ou vidéos depuis l'extérieur du coffre et elles sont copiées selon les règles de regroupement. Portée d'analyse, dossier de dépôt et dossier d'archivage se règlent dans les paramètres de la bibliothèque.
+Utilisez **Dossier** pour naviguer par emplacement et **Bibliothèque** pour regrouper les notes par usage, statut ou étiquette. Ensemble, ils permettent de créer des collections de référence, des listes de lecture ou des tableaux de rédaction.
 
-### ⚡ Actions rapides
-Épinglez vos raccourcis les plus utilisés dans la barre latérale. Deux types d'actions sont pris en charge : les liens **Fichier** pour ouvrir n'importe quel document, et les raccourcis **Commande** pour déclencher n'importe quelle commande Obsidian. Inclut des préréglages intégrés pour Nouveau journal et Nouvelle note.
+**Par dossier :** Ajoutez une section **Dossier** → choisissez un dossier dans sa configuration. Consultez ses notes, avec les sous-dossiers si nécessaire. Les nouvelles notes apparaissent sans ajout manuel dans les cartes.
 
-### 🌤️ Widgets de la barre latérale
-La barre latérale gauche propose 11 widgets activables indépendamment et réorganisables par glisser-déposer :
+**Par critères :** Ajoutez **Bibliothèque** → définissez les propriétés et filtres → choisissez des cartes, une liste, un tableau ou un kanban. Regroupez par exemple les notes « En cours de lecture » de plusieurs dossiers, ou classez les brouillons par étape de rédaction.
 
-- **Météo** — Météo en temps réel avec température actuelle, ressenti, humidité, vitesse du vent et prévisions sur 5 jours avec températures maximales/minimales quotidiennes. Propulsée par Open-Meteo (aucune clé API requise). Recherche de ville avec autocomplétion géocodée pour un emplacement précis
-- **Almanach lunaire** — Date lunaire chinoise traditionnelle, fêtes et conseils du jour (à faire / à éviter)
-- **Minuteur Pomodoro** — Un minuteur de concentration avec sélecteur d'activité et cycles travail/pause, plus un graphique en anneau du découpage du jour ; la vue statistiques ajoute la progression de l'objectif, un score d'efficacité, des graphiques de tendance, une heatmap sur 12 semaines et une frise du jour
-- **Suivi de lecture** — Suivez vos sessions de lecture avec un minuteur intégré. Ajoutez des livres via la recherche Douban ou une saisie manuelle, chronométrez vos sessions et enregistrez la progression avec les numéros de pages. Chaque carte livre affiche l'image de couverture, l'auteur et une barre de progression de lecture
-- **Compte à rebours** — Comptes à rebours personnalisables vers n'importe quelles dates cibles, affichés en jours ou en heures restantes
-- **Progression de l'année** — Quelle part de l'année en cours s'est déjà écoulée
-- **Calendrier** — Grille mois/semaine agrégeant toutes les tâches datées du coffre ; cliquez sur un jour pour voir son agenda et ajoutez des tâches qui s'écrivent dans la note quotidienne du jour ; les événements pluri-jours s'étendent sur plusieurs jours
-- **Check-in d'habitudes** — Cochements quotidiens par habitude, avec rattrapage de la veille, séries (streaks) et statistiques en heatmap
-- **Suivi des dépenses** — Saisie rapide de dépenses/revenus (notes, antidatage, catégories personnalisées) avec totaux du jour et statistiques semaine/mois/année/depuis toujours ; le grand livre ajoute le filtrage, l'édition en ligne et l'import/export CSV
-- **Album photo** — Un cadre photo numérique pour n'importe quel dossier du coffre : rotation automatique avec pause au survol, précédent/suivant manuel et badge d'index, ratio de panneau 1:1 ou 3:4, quatre transitions (fondu / poussée gauche / poussée droite / zoom), intervalle de 3 à 60 s, sous-dossiers inclus par défaut. La photo d'ouverture est semée par l'heure (jamais toujours la même), la suivante est préchargée, et les ajouts/suppressions/renommages dans le coffre actualisent la liste sans perdre votre position
-- **Musique** — Recherchez et lisez des titres libres de NetEase Cloud Music depuis la barre latérale : connexion facultative à un compte NetEase dans les réglages pour les titres membres autorisés par le compte, import d'une playlist par lien, contrôles de volume et de répétition, playlist persistante avec rechargement différé des pochettes, et une barre de mini-lecteur flottante facultative qui continue de fonctionner quand le tableau de bord est fermé (bureau uniquement)
+### Faire avancer vos projets
 
-La barre latérale accueille aussi la **bande calendrier de la semaine** (7 jours compacts, aujourd'hui mis en évidence), les **documents récents** et le bouton **retour en haut** ; les téléphones bénéficient de la même barre de widgets, et les données des widgets fusionnent par union entre appareils.
+Réunissez objectifs, étapes, jalons, tâches et fichiers d’un projet pour voir où vous en êtes et quelle est la suite. Consultez plusieurs projets par étape ou groupe, puis archivez-les une fois terminés.
 
-### 🎨 Bannière
-Une bannière personnalisable avec une citation inspirante et une image d'arrière-plan facultative. Prend en charge les images locales du coffre comme les URL web. Double-cliquez pour modifier.
+**Pour commencer :** Ajoutez **Projets** → **Configurer** → définissez **Dossier Projets** et les étapes → **Nouveau projet**, puis indiquez nom, objectif et étape actuelle. Ouvrez le projet pour ajouter jalons, tâches, notes de travail et liens vers des fichiers existants. Avant l’archivage, définissez **Dossier d'archives** dans les réglages de la section.
 
-### 🔄 Glisser-déposer
-Déplacez les cartes entre les sections pour réorganiser votre espace de travail. Faites glisser les tâches au sein des cartes Todo pour les réordonner. Faites glisser les liens de documents entre les cartes projet/note.
+### Planifier la journée avec le calendrier
 
-### 🧩 Sections personnalisées
-**15 types de sections** à combiner à volonté — **Todo**, **Mémo**, **Notes repositionnables (Sticky)**, **Notes (cartes projet)**, **Notes (sans couverture)**, **Dataview**, **Bibliothèque**, **Dossier**, **Images**, **Vidéos**, **Calendrier**, **Weread**, **TickTick**, **Web** et **RSS** — chacune avec sa propre mise en page et son propre comportement, pour que le tableau épouse votre flux de travail.
+Le calendrier rassemble automatiquement les tâches avec une échéance, une date planifiée ou un rappel dans les notes de tout le coffre. Passez du mois à la semaine et cochez directement les tâches terminées.
 
-### 🕐 Documents récents
-La barre latérale affiche les fichiers récemment modifiés avec des horodatages relatifs, pour replonger aussitôt dans votre dernier travail.
+**Pour commencer :** Ajoutez **Calendrier** ou activez le widget dans **Paramètres → Apex Dashboard → Widgets → Calendrier**. Le widget permet lui aussi de consulter, ajouter et terminer les tâches, et peut être agrandi.
+
+**Ajouter une tâche :** Cliquez sur une date ; la tâche est enregistrée par défaut dans la note quotidienne correspondante. Dans **Paramètres → Apex Dashboard → Widgets → Calendrier → Destination de la tâche**, choisissez un fichier précis, une note par jour dans un dossier, ou une note distincte par tâche. En mode par défaut, si la note quotidienne n’est pas disponible, le plugin essaie la liste de tâches du tableau de bord.
+
+### Rassembler les notes et tâches utiles
+
+Pour voir les tâches inachevées, les notes créées cette semaine ou les livres les mieux notés, partez d’un exemple de requête. Aucun plugin Dataview supplémentaire n’est nécessaire.
+
+**Pour commencer :** Ajoutez **Vue des données** → ouvrez sa configuration → choisissez **Exemples de requêtes**, puis adaptez les dossiers et conditions. Actualisez les résultats avec le bouton de la section lorsque le contenu change.
+
+### Lire des sites et des abonnements sur le tableau de bord
+
+Gardez vos sites favoris à portée de main, lisez les blogs suivis au même endroit et enregistrez les articles utiles comme notes.
+
+**Ouvrir un site :** Ajoutez **Web** → saisissez son adresse. Ajustez l’échelle d’affichage si besoin. Sur téléphone, utilisez l’ouverture dans le navigateur pour les sites qui refusent l’intégration.
+
+**S’abonner aux articles :** Ajoutez **RSS** → cliquez sur l’engrenage → saisissez le lien d’abonnement du site. Cliquez sur un article pour le lire ou sur son bouton de téléchargement pour l’enregistrer dans le coffre. Choisissez le dossier de destination dans la configuration de la section.
+
+Si vous utilisez WeRead ou TickTick, ajoutez leurs sections pour consulter la bibliothèque, importer les passages surlignés ou gérer les tâches. Connectez-les d’abord dans les paramètres du plugin : pour WeRead, utilisez **Obtenir la clé API** et renseignez l’autorisation ; pour TickTick, ouvrez la fenêtre de connexion sur ordinateur.
+
+### Parcourir et classer vos ressources visuellement
+
+Réunissez images, vidéos, PDF, livres EPUB, pages HTML, dessins Excalidraw et tableaux Canvas. Retrouvez-les par type, dossier ou étiquette ; ajoutez des favoris et étiquetez, déplacez ou archivez plusieurs éléments à la fois. En consultant une image ou une vidéo, retrouvez aussi les notes qui y font référence.
+
+![Bibliothèque de ressources : livres, images et documents filtrés par type de fichier](../assets/material-library.png)
+
+**Pour commencer :** Recherchez **Apex Dashboard: Ouvrir la bibliothèque de médias** dans la palette de commandes ou cliquez sur l’icône de la bibliothèque dans le ruban gauche d’Obsidian. Choisissez les dossiers à afficher dans ses réglages. Glissez des images ou vidéos depuis votre ordinateur pour les importer. Pour les afficher dans le tableau de bord, ajoutez **Images** ou **Vidéos**.
+
+**Enregistrer plusieurs collections :** Choisissez les dossiers à inclure et à exclure, puis cliquez sur l’épingle → **Enregistrer les réglages actuels comme page**. Nommez la page « Bibliothèque » ou « Inspirations », par exemple. Sélectionnez une page enregistrée pour rétablir ses dossiers et changer de collection en un clic.
+
+**Créer à partir des ressources :** Dans les réglages de la bibliothèque, ajoutez un bouton sous **Boutons d'envoi à l'agent**, choisissez un outil d’IA sur votre ordinateur, puis indiquez une compétence ou une consigne. Sélectionnez les ressources et cliquez sur le bouton pour transmettre leurs chemins avec la consigne à l’outil. Installez d’abord l’outil et, si vous utilisez une compétence, installez-la également.
+
+### Accéder aux actions fréquentes en un clic
+
+Transformez l’ouverture de notes, la création de la note quotidienne et les commandes fréquentes en boutons. Les documents récents de la barre latérale permettent aussi de reprendre le travail.
+
+**Configurer les raccourcis :** Dans **Paramètres → Apex Dashboard → Général → Actions courantes**, configurez les notes épinglées, commandes et créations de notes à partir de modèles. Dans les boutons rapides de la barre latérale, utilisez **+ Ajouter une action** pour ajouter un fichier ou une commande.
+
+**Utiliser des compétences d’IA :** Dans les actions courantes, choisissez **Bouton Ajouter une compétence** et renseignez le nom du bouton, la compétence et l’outil. Cliquez sur le bouton, complétez les consignes, prévisualisez puis envoyez. Installez la compétence et activez un plugin comme Claudian ou Copilot, ou installez l’application de bureau correspondante. Codex Desktop ouvre une nouvelle conversation préremplie ; appuyez sur Entrée dans Codex pour lancer l’exécution.
+
+### Activer les outils du quotidien
+
+Dans **Paramètres → Apex Dashboard → Widgets**, activez et configurez les outils utiles. Regroupez les plus fréquents et faites-les glisser pour changer l’ordre.
+
+| Votre besoin | À activer | Pour commencer |
+| --- | --- | --- |
+| Se concentrer | Minuterie Pomodoro | Choisissez une activité, lancez le minuteur, puis consultez l’historique |
+| Suivre la lecture | Suivi de lecture | Recherchez ou ajoutez un livre et indiquez la page atteinte |
+| Entretenir une habitude | Suivi des habitudes | Ajoutez une habitude, cochez chaque jour et suivez la série |
+| Noter recettes et dépenses | Suivi des dépenses | Saisissez montant et catégorie ; consultez les statistiques du registre |
+| Compter les jours avant une date | Widget compte à rebours | Ajoutez un nom et une date cible |
+| Retenir les anniversaires | Anniversaires | Ajoutez une date solaire ou du calendrier lunaire chinois et un rappel annuel |
+| Consulter la météo | Météo | Choisissez une ville pour voir le temps et les prévisions |
+| Voir les dates lunaires et fêtes | Calendrier lunaire | Activez l’outil pour afficher la date lunaire du jour et les fêtes |
+| Voir la progression de l’année | Progrès annuel | Activez l’outil pour suivre l’année écoulée |
+| Consulter et planifier les tâches | Calendrier | Cliquez sur une date pour consulter ou ajouter des tâches ; passez du mois à la semaine |
+| Faire défiler des photos | Album photos | Ajoutez un album, choisissez un dossier et l’intervalle |
+| Écouter de la musique | Lecteur de musique | Sur ordinateur, recherchez des titres ou importez une liste NetEase ; connectez-vous dans les réglages musicaux, selon les droits du compte |
+| Trouver un fichier | Recherche de fichiers | Saisissez des mots-clés et ouvrez un fichier depuis les résultats |
+| Saisir une idée | Capture rapide | Saisissez puis collectez ; l’emplacement suit les réglages de capture des actions courantes |
+| Utiliser une compétence d’IA | Widget de boutons de compétences | Configurez boutons et outil d’IA, puis prévisualisez et envoyez |
+| Ouvrir un fichier ou lancer une commande | Boutons rapides | Ajoutez une action, choisissez un fichier ou une commande et nommez-la |
+
+### Disposer la page à votre façon
+
+Combinez les sections, déplacez les cartes et réordonnez tâches et liens. Repliez les sections moins utilisées avec le bouton près du titre.
+
+**Modifier la disposition :** Glissez la barre de titre d’une carte pour la déplacer. Double-cliquez sur le titre d’une section pour la renommer, ou sur la bannière pour changer la citation et le fond. Choisissez les couleurs parmi les thèmes ci-dessous.
+
+**Ajuster la disposition immersive :** Activez **Modifier la mise en page**, puis déplacez cartes, sections et widgets ou redimensionnez-les depuis leur coin inférieur droit. Terminez avec **Disposition des verrous**. Utilisez le bouton de personnalisation de l’apparence pour changer le fond de l’affiche.
 
 ## Thèmes
 
