@@ -5,7 +5,7 @@ import { toggleTaskLine } from './pipeline-model';
 import { locateScheduleTask } from './pm-schedule';
 import { PmBoardModal, notifyPmChanged } from './pm-board-modal';
 import { projectScheduleSave } from './pm-schedule-modal';
-import { renderGanttChart, type GanttFilter, type GanttGroup } from './pm-gantt-chart';
+import { renderGanttChart, type GanttGroup } from './pm-gantt-chart';
 import { editGanttTask, parseGanttBlocks, updateGanttBlock } from './pm-gantt-source';
 import { GanttReferenceModal, createGanttReference, type GanttReference } from './pm-gantt-reference';
 import { PmTimelineModal } from './pm-timeline-modal';
@@ -103,7 +103,7 @@ export function renderPmGantt(host: HTMLElement, controlsHost: HTMLElement, app:
 		renderGanttChart(chart, app, groups, scale, config.ganttCollapsed || [], key => {
 			const collapsed = config.ganttCollapsed || [];
 			savePrefs({ ganttCollapsed: collapsed.includes(key) ? collapsed.filter(k => k !== key) : [...collapsed, key] });
-		}, (config.ganttFilter || 'all') as GanttFilter, config.ganttProjectPath, (key, nextFilter) => {
+		}, (config.ganttFilter || 'all'), config.ganttProjectPath, (key, nextFilter) => {
 			const collapsed = config.ganttCollapsed || [];
 			const isOpen = config.ganttFilter === nextFilter || ((config.ganttFilter || 'all') === 'all' && collapsed.includes(key));
 			savePrefs({ ganttFilter: 'all', ganttCollapsed: isOpen ? collapsed.filter(item => item !== key) : [...collapsed, key] });

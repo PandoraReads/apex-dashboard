@@ -383,7 +383,7 @@ function renderBlock(nodes: HtmlNode[], ctx: Ctx, listDepth = 0): string {
 			para += node.text;
 			continue;
 		}
-		const { tag, attrs, children } = node;
+		const { tag, children } = node;
 		if (STRIP_TAGS.has(tag)) continue;
 		if (tag === 'hr') {
 			flushPara();

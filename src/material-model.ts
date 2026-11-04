@@ -135,7 +135,7 @@ export const MATERIAL_TEXT_ASPECT = 5 / 2;
  *  coverless note. */
 export function materialKindFor(ext: string, basename?: string): MaterialKind {
 	const e = ext.toLowerCase();
-	if (MATERIAL_DOC_KIND_BY_EXT[e]) return MATERIAL_DOC_KIND_BY_EXT[e]!;
+	if (MATERIAL_DOC_KIND_BY_EXT[e]) return MATERIAL_DOC_KIND_BY_EXT[e];
 	if (e === 'md' && basename && basename.toLowerCase().endsWith('.excalidraw')) return 'excalidraw';
 	if (MATERIAL_IMAGE_EXTS.has(e)) return 'image';
 	if (MATERIAL_VIDEO_EXTS.has(e)) return 'video';

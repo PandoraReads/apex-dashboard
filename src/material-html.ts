@@ -60,12 +60,12 @@ export const HTML_SHOT_HEIGHT = 960;
  * visible body to snapshot. */
 export function htmlShotSvg(text: string): string | null {
 	let inner: string;
-	const Parser = (globalThis as { DOMParser?: typeof DOMParser }).DOMParser;
+	const Parser = typeof DOMParser === 'undefined' ? undefined : DOMParser;
 	if (Parser) {
 		try {
 			const doc = new Parser().parseFromString(text, 'text/html');
 			for (const script of Array.from(doc.querySelectorAll('script'))) script.remove();
-			const Serializer = (globalThis as { XMLSerializer?: typeof XMLSerializer }).XMLSerializer;
+			const Serializer = typeof XMLSerializer === 'undefined' ? undefined : XMLSerializer;
 			const root = doc.documentElement;
 			if (!root || !Serializer) return null;
 			const xhtml = new Serializer().serializeToString(root);

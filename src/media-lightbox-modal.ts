@@ -225,7 +225,7 @@ export class MediaLightboxModal extends Modal {
 		};
 		img.addEventListener('wheel', (e) => {
 			e.preventDefault();
-			const factor = (e as WheelEvent).deltaY < 0 ? 1.2 : 1 / 1.2;
+			const factor = (e).deltaY < 0 ? 1.2 : 1 / 1.2;
 			const next = Math.min(8, Math.max(0.2, scale * factor));
 			const k = next / scale;
 			const rect = img.getBoundingClientRect();
@@ -282,11 +282,11 @@ export class MediaLightboxModal extends Modal {
 		// Clicks inside the player (controls, letterbox padding, grip) never
 		// reach the backdrop handler.
 		wrap.addEventListener('click', (e) => e.stopPropagation());
-		const video = wrap.createEl('video', {
+		wrap.createEl('video', {
 			cls: 'dashboard-media-lightbox-video',
 			attr: { src, controls: '', autoplay: '', playsinline: '' },
 		});
-		const stored = this.app.loadLocalStorage(VIDEO_WIDTH_KEY);
+		const stored: unknown = this.app.loadLocalStorage(VIDEO_WIDTH_KEY);
 		const parsed = typeof stored === 'string' ? Number.parseFloat(stored) : Number.NaN;
 		let pct = Number.isFinite(parsed) ? Math.min(95, Math.max(20, parsed)) : 70;
 		wrap.style.width = `${Math.round(pct)}%`;

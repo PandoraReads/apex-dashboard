@@ -383,11 +383,10 @@ export class CountdownSettingsModal extends Modal {
 		popup.addEventListener('mousedown', (e) => e.stopPropagation());
 
 		const outsideClick = (ev: MouseEvent) => {
-			const rawTarget = ev.target as (EventTarget & { nodeType?: number; matches?: (selector: string) => boolean }) | null;
-			const target = rawTarget && typeof rawTarget.nodeType === 'number' ? rawTarget as Node : null;
+			const target = ev.target instanceof Element ? ev.target : null;
 			// Native select dropdown layers can report detached or option
 			// targets; never treat them as outside.
-			if (rawTarget?.matches?.('select, option')) return;
+			if (target?.matches('select, option')) return;
 			if (!popup.contains(target) && !anchor.contains(target)) {
 				this.closeCalendarPopup();
 			}

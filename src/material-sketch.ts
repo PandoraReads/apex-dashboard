@@ -89,7 +89,7 @@ const CANVAS_COLORS: Readonly<Record<string, string>> = {
 };
 
 function canvasColor(color: string | undefined, alpha: number): string {
-	const hex = color && CANVAS_COLORS[color] ? CANVAS_COLORS[color]! : '#8a8a8a';
+	const hex = color && CANVAS_COLORS[color] ? CANVAS_COLORS[color] : '#8a8a8a';
 	const r = parseInt(hex.slice(1, 3), 16);
 	const g = parseInt(hex.slice(3, 5), 16);
 	const b = parseInt(hex.slice(5, 7), 16);
@@ -101,7 +101,7 @@ function canvasColor(color: string | undefined, alpha: number): string {
 export function canvasThumbSvg(text: string): string | null {
 	let doc: { nodes?: CanvasNode[]; edges?: CanvasEdge[] };
 	try {
-		doc = JSON.parse(text);
+		doc = JSON.parse(text) as { nodes?: CanvasNode[]; edges?: CanvasEdge[] };
 	} catch {
 		return null;
 	}
@@ -250,7 +250,7 @@ export function excalidrawThumbSvg(text: string): string | null {
 	if (!json) return null;
 	let doc: { elements?: ExcalidrawElement[]; appState?: { viewBackgroundColor?: string } };
 	try {
-		doc = JSON.parse(json);
+		doc = JSON.parse(json) as { elements?: ExcalidrawElement[]; appState?: { viewBackgroundColor?: string } };
 	} catch {
 		return null;
 	}

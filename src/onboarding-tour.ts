@@ -22,7 +22,7 @@
 import { EventRef, type WorkspaceLeaf } from 'obsidian';
 import type DashboardPlugin from './main';
 import { t } from './i18n';
-import { highlightTourTerms } from './onboarding-tour-terms';
+import { renderTourTerms } from './onboarding-tour-terms';
 import { DASHBOARD_VIEW_TYPE } from './view';
 
 /** Bump when the tour content changes meaningfully and should re-run for
@@ -78,7 +78,7 @@ interface TourStep {
 	advanceWhen?: () => boolean;
 }
 
-const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> => new Promise(resolve => window.setTimeout(resolve, ms));
 
 /** The active dashboard view's root, if one is open. */
 const boardRoot = (plugin: DashboardPlugin): HTMLElement | null =>
@@ -199,8 +199,8 @@ export function buildTourSteps(plugin: DashboardPlugin): TourStep[] {
 
 /** add/removeEventListener pair that returns its own undo. */
 function domOn(target: Document | Window, type: string, fn: (ev: never) => void, capture = false): () => void {
-	target.addEventListener(type, fn as EventListener, capture);
-	return () => target.removeEventListener(type, fn as EventListener, capture);
+	target.addEventListener(type, fn, capture);
+	return () => target.removeEventListener(type, fn, capture);
 }
 
 class OnboardingTourRunner {
@@ -343,10 +343,10 @@ class OnboardingTourRunner {
 			card.createDiv({ cls: 'apex-tour-step-no', text: `${this.idx}/${this.steps.length - 2}` });
 		}
 		card.createEl('h3', { cls: 'apex-tour-title', text: t(step.titleKey) });
-		// Feature names (分区 / 小组件 / …) get the red accent; the markup is
-		// produced by our own highlighter over escaped text, never raw copy.
+		// Feature names (分区 / 小组件 / …) get the red accent; the body is
+		// built from text nodes and our own accent spans, never markup.
 		const body = card.createEl('p', { cls: 'apex-tour-body' });
-		body.innerHTML = highlightTourTerms(t(step.bodyKey));
+		renderTourTerms(body, t(step.bodyKey));
 		const actions = card.createDiv({ cls: 'apex-tour-actions' });
 		if (step.id !== 'done') {
 			const skip = actions.createEl('button', {
@@ -380,8 +380,7 @@ class OnboardingTourRunner {
 		if (!anchor) {
 			this.hole?.addClass('apex-tour-hole--hidden');
 			if (this.card) {
-				this.card.style.left = '';
-				this.card.style.top = '';
+				this.card.setCssProps({ left: '', top: '' });
 				this.card.addClass('apex-tour-card--centered');
 			}
 			return;

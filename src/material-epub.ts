@@ -79,7 +79,7 @@ async function readEntryBytes(bytes: Uint8Array, entry: ZipEntry): Promise<Uint8
 	const data = bytes.subarray(start, end);
 	if (entry.method === 0) return data;
 	if (entry.method !== 8) return null;
-	const Ctor = (globalThis as { DecompressionStream?: typeof DecompressionStream }).DecompressionStream;
+	const Ctor = typeof DecompressionStream === 'undefined' ? undefined : DecompressionStream;
 	if (!Ctor) return null;
 	const stream = new Blob([data]).stream().pipeThrough(new Ctor('deflate-raw'));
 	const buf = await new Response(stream).arrayBuffer();

@@ -5,7 +5,7 @@ import { t } from './i18n';
 import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 import {
 	collectPmProjects, orderPmProjects, pmField, pmGroupName, pmIncome, pmCycleText, pmKeyDate, isKeyDateOverdue,
-	pmStageColor, sortPmProjects, sumIncome, type PmProject,
+	pmStageColor, sortPmProjects, type PmProject,
 } from './pm-model';
 import { createToolbarDropdown, type ToolbarDropdownItem } from './toolbar-dropdown';
 import {

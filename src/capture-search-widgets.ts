@@ -1,4 +1,4 @@
-import { App, setIcon, TFile } from 'obsidian';
+import { App, setIcon } from 'obsidian';
 import type { DashboardSettings } from './types';
 import { t } from './i18n';
 import { captureThought } from './quick-note-section';

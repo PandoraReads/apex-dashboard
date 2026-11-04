@@ -284,8 +284,6 @@ const codexAdapter: AgentAdapter = {
 	},
 };
 
-type MacOpen = (args: string[]) => { unref?: () => void };
-
 function macSpawnOpen(appName: string): boolean {
 	try {
 		const req = (window as { require?: (m: string) => { spawn?: (cmd: string, args: string[], opts?: unknown) => { unref?: () => void } } }).require

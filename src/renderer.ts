@@ -1,6 +1,6 @@
 import { memoCardText } from './card-move';
 import { extractCardParts } from './parser';
-import { Menu, App, Component, MarkdownRenderer, Notice, Platform, TFile, setIcon } from 'obsidian';
+import { Menu, App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage, getLocale } from './i18n';

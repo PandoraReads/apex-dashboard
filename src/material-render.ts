@@ -127,7 +127,7 @@ export interface MaterialRenderController {
  *  (unsupported format / load error / timeout). Never rejects. */
 function probeAspect(src: string): Promise<number> {
 	return new Promise(resolve => {
-		const ImageCtor = (globalThis as { Image?: typeof Image }).Image;
+		const ImageCtor = typeof Image === 'undefined' ? undefined : Image;
 		if (typeof ImageCtor !== 'function') { resolve(0); return; }
 		const img = new ImageCtor();
 		let settled = false;
@@ -315,7 +315,6 @@ export function renderMaterialLibrary(
 	const filterBtn = toolbar.createDiv({ cls: 'dashboard-library-filter-btn' });
 	setIcon(filterBtn, 'filter');
 	filterBtn.title = t('media.quickFilter');
-	const filterTagBar = toolbar.createDiv({ cls: 'dashboard-library-filter-tags' });
 
 	// One-click collapse/expand of every group — lives beside the funnel (both
 	// are grouping controls, Rae); grouped views only.
@@ -706,8 +705,8 @@ export function renderMaterialLibrary(
 
 	async function moveItems(paths: readonly string[]): Promise<void> {
 		if (paths.length === 0) return;
-		new PathPickerModal(app, 'folder', async target => {
-			await movePathsTo(paths, target);
+		new PathPickerModal(app, 'folder', target => {
+			void movePathsTo(paths, target);
 		}).open();
 	}
 
@@ -869,7 +868,7 @@ export function renderMaterialLibrary(
 	 *  gives phones the true Pinterest-style masonry (varying card heights)
 	 *  instead of a uniform 4:3 grid. Only the node harnesses lack Image. */
 	function probingSupported(): boolean {
-		const ImageCtor = (globalThis as { Image?: typeof Image }).Image;
+		const ImageCtor = typeof Image === 'undefined' ? undefined : Image;
 		return typeof ImageCtor === 'function';
 	}
 
