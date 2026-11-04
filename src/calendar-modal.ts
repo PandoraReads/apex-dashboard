@@ -1,5 +1,4 @@
-import { App, Menu, Modal, Notice, setIcon } from 'obsidian';
-import type { TFile } from 'obsidian';
+import { App, Menu, Modal, Notice, setIcon, TFile } from 'obsidian';
 import { t } from './i18n';
 import { renderTextWithLinks } from './renderer';
 import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskDayTimeRange, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
@@ -13,7 +12,8 @@ import {
 	type TaskTimeInput,
 	type VaultTask,
 } from './alltasks-scan';
-import { insertTaskForDay, type TaskInsertTarget } from './daily-notes';
+import { insertTaskForDay, dailyNotePathFor, type TaskInsertTarget } from './daily-notes';
+import { scanFileTasks } from './alltasks-scan';
 import { createTaskNote } from './calendar-task-note';
 import { applyModalTheme } from './modal-theme';
 import type { DashboardSettings } from './types';
@@ -90,6 +90,12 @@ function readTaskTarget(app: App): import('./types').CalendarTaskTarget | undefi
  *  (including an unreachable plugin) keeps the historical 'start' behavior. */
 function readTaskInsertPosition(app: App): 'start' | 'end' {
 	return lookupDashboardPlugin(app)?.settings?.calendarTaskInsertPosition === 'end' ? 'end' : 'start';
+}
+
+/** Should the day agenda also list tasks living in that day's daily note?
+ *  Default on (missing setting on legacy data.json counts as true). */
+function readIncludeDailyTasks(app: App): boolean {
+	return lookupDashboardPlugin(app)?.settings?.calendarIncludeDailyNoteTasks !== false;
 }
 
 /**
@@ -305,7 +311,7 @@ export class DayAgendaModal extends Modal {
 		this.focusAddInput = focusAddInput;
 	}
 
-	onOpen(): void {
+	async onOpen(): Promise<void> {
 		const { contentEl, containerEl } = this;
 		contentEl.empty();
 		contentEl.addClass('dashboard-library-config-modal');
@@ -363,11 +369,15 @@ export class DayAgendaModal extends Modal {
 		});
 		addBtn.addEventListener('click', () => void addTask());
 
-		if (this.tasks.length === 0) {
+		// Scanned vault tasks + (config) the day's daily-note checkboxes,
+		// deduped (a note task carrying this day's marker arrives via both).
+		const dayTasks = this.dedupe([...this.tasks, ...(await this.loadDailyNoteTasks())]);
+
+		if (dayTasks.length === 0) {
 			body.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
 		} else {
 			const list = body.createDiv({ cls: 'dashboard-alltasks-list' });
-			for (const task of [...this.tasks].sort(byDayTaskTime(this.iso))) {
+			for (const task of dayTasks.sort(byDayTaskTime(this.iso))) {
 				list.appendChild(this.renderRow(task));
 			}
 		}
@@ -379,6 +389,48 @@ export class DayAgendaModal extends Modal {
 		}).addEventListener('click', () => this.close());
 
 		if (this.focusAddInput) titleInput.focus();
+	}
+
+	/** Tasks living in THIS day's daily note, per the
+	 *  `calendarIncludeDailyNoteTasks` setting. The vault-wide scan only
+	 *  surfaces tasks carrying date markers, so a note's plain checkboxes
+	 *  would never reach the agenda on their own — read the note directly
+	 *  and scan its lines. A note task that also carries this day's marker
+	 *  arrives via the scan too; dedupe by path+line. */
+	private async loadDailyNoteTasks(): Promise<VaultTask[]> {
+		if (!readIncludeDailyTasks(this.app)) return [];
+		// Resolve the note the same way addTask writes to it: the pinned
+		// folder target's YYYY-MM-DD note, else the Daily Notes plugin's
+		// path for this day. A pinned single file ('note' per task / 'file')
+		// already flows through the scan via its tasks' date markers.
+		const targetCfg = readTaskTarget(this.app);
+		let path: string | null;
+		if (targetCfg?.kind === 'folder') {
+			const folder = targetCfg.path.trim().replace(/^\/+|\/+$/g, '');
+			path = folder ? `${folder}/${this.iso}.md` : `${this.iso}.md`;
+		} else {
+			path = dailyNotePathFor(this.app, this.iso);
+		}
+		if (!path) return [];
+		const file = this.app.vault.getFileByPath(path);
+		if (!(file instanceof TFile)) return [];
+		try {
+			return scanFileTasks(file, await this.app.vault.read(file));
+		} catch {
+			return [];
+		}
+	}
+
+	/** Dedupe scanned vs note tasks by vault path + line (the same physical
+	 *  checkbox must not render twice in one agenda). */
+	private dedupe(tasks: VaultTask[]): VaultTask[] {
+		const seen = new Set<string>();
+		return tasks.filter(t => {
+			const key = `${t.path}:${t.line}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
 	}
 
 	private renderRow(task: VaultTask): HTMLElement {

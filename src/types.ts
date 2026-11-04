@@ -126,6 +126,9 @@ export interface DashboardSettings {
 	/** Where calendar-added tasks land in the day's daily note: right below
 	    frontmatter ('start') or at the bottom ('end'). */
 	calendarTaskInsertPosition: 'start' | 'end';
+	/** Day agenda also lists the tasks found in that day's daily note (the
+	    note's own checkboxes, most without date markers). Default on. */
+	calendarIncludeDailyNoteTasks: boolean;
 	/** Optional fixed destination for calendar-added tasks: a specific file
 	    (task inserted per calendarTaskInsertPosition), a folder (one note
 	    per day, named YYYY-MM-DD, created on first task), or a folder with a
@@ -456,6 +459,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	calendarExcludeFolders: [],
 	calendarTaskFilter: 'all',
 	calendarTaskInsertPosition: 'start',
+	calendarIncludeDailyNoteTasks: true,
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	widgetSkillsEnabled: false,
