@@ -32,6 +32,9 @@ Use **Pasta** para encontrar conteúdo por localização e **Biblioteca** para r
 
 **Por critérios:** Adicione **Biblioteca** → configure propriedades e filtros → escolha cartões, lista, tabela ou quadro. Por exemplo, reúna notas marcadas como “Lendo” de várias pastas ou agrupe rascunhos por etapa de escrita.
 
+
+**Começar de um modelo:** Os ajustes de seção aceitam modelos para notas novas; as propriedades do modelo vão para a nota, e em conflito com um filtro da seção prevalece o valor do filtro. Com vários modelos, o botão de nota nova abre um seletor (o primeiro é o padrão).
+
 ### Faça seus projetos avançarem
 
 Reúna objetivos, etapas, marcos, tarefas e arquivos em cada projeto para enxergar o andamento e o próximo passo. Visualize vários projetos por etapa ou grupo e arquive-os ao concluir.
@@ -69,6 +72,8 @@ Reúna imagens, vídeos, PDFs, livros EPUB, páginas HTML, desenhos Excalidraw e
 ![Biblioteca de materiais: livros, imagens e documentos com filtros por tipo de arquivo](../assets/material-library.png)
 
 **Para começar:** Busque **Apex Dashboard: Abrir biblioteca de mídias** na paleta de comandos ou clique no ícone da biblioteca na barra esquerda do Obsidian. Escolha as pastas a exibir nas configurações da biblioteca. Arraste imagens ou vídeos do computador para importá-los. Para exibi-los diretamente no painel, adicione **Imagens** ou **Vídeos**.
+
+**Arraste e pronto:** O que vem do computador cai na pasta de importação dos ajustes; no agrupamento por pasta vai direto para a pasta do grupo, e no agrupamento por tag a tag é aplicada sozinha.
 
 **Salve coleções diferentes:** Escolha pastas para incluir e excluir, clique no alfinete da barra → **Salvar as configurações atuais como página** e dê um nome como “Estante” ou “Inspirações”. Selecione uma página salva para restaurar suas pastas e alternar entre coleções com um clique.
 
@@ -146,6 +151,7 @@ Todos os temas suportam tanto o modo claro quanto o escuro do Obsidian.
 - **Recent documents count** — controle quantos arquivos recentes aparecem
 - **Sidebar widgets** — Weather, Heatmap, Pomodoro, Reading, Countdown. Ative/desative e configure cada widget independentemente
 - **Reading settings** — Ativar o rastreador de leitura, ligar/desligar o som de conclusão de sessão
+- **Pastas de skills personalizadas** — pastas locais (separadas por vírgula) onde os seletores descobrem nomes de skills; vazio desliga e nada fora do cofre é lido. Só desktop
 
 ## Instalação
 
@@ -176,6 +182,14 @@ Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido,
 </p>
 
 ## Novidades
+
+### 3.9.6
+- **Tour de boas-vindas** — Um passeio com holofote inicia automaticamente na primeira instalação (só desktop): destaca passo a passo os controles reais — abrir o painel, trocar de página, editar o banner, fixar a barra lateral, adicionar seções — e avança ao clicá-los; «Repetir tour de boas-vindas» na paleta de comandos reabre quando quiser
+- **Diálogos de configuração unificados** — Os campos de todos os diálogos agora mostram um filete cinza em repouso e um filete de destaque ao focar; rótulos inline não quebram mais; os cartões de skills/botões leem-se como uma coluna alinhada (ícone + rótulo + excluir na primeira linha, as seguintes recuadas), e seletor de ícone, campo e botão dividem a mesma linha; a caixa de envio direto fica à esquerda do texto
+- **Textos de ajuda mais enxutos** — 33 ajudas de configuração foram reescritas no padrão «vazio = X» nos 11 idiomas, tirando o que a interface já mostra; as regras avançadas que saíram (herança de propriedades do modelo, destino do arrastar para grupos, privacidade das pastas de skills) agora moram nos capítulos do README
+- **Masonry de verdade no celular** — Celulares e tablets recebem o fluxo de cartões escalonados em duas colunas: as imagens se assentam na proporção real, sondando só a página visível em vez de aquecer o cofre inteiro em segundo plano
+- **Correções do widget de música** — As requisições com sessão agora levam os cookies do cliente PC e desviam dos nós CDN que respondiam 403 ao Electron (três quartos das faixas falhavam em silêncio); a importação de listas passou ao endpoint v6, e listas com mais de 10 faixas não são mais truncadas
+- **Interruptor de valores nos projetos** — A nova opção «Exibir receita e pagamento final» esconde a faixa de dinheiro nos cartões de seções sem fluxo financeiro
 
 ### 3.9.5
 - **Tipos de documento na biblioteca de material** — PDF, EPUB, páginas HTML salvas, desenhos do Excalidraw e quadros do Canvas agora aparecem como cartões: capas de EPUB são extraídas do livro, PDFs renderizam a primeira página, páginas HTML ganham um instantâneo da primeira tela, desenhos e quadros são esboçados como miniaturas, e o que não tem capa mostra um cartão com o ícone do tipo; o filtro e o agrupamento por tipo foram ampliados, e um clique abre cada arquivo nativamente (HTML Reader, visualização de PDF, quadros — extensões sem visualização vão para o app padrão do sistema)

@@ -32,6 +32,9 @@ Usa **Carpeta** para buscar por ubicación y **Biblioteca** para reunir notas po
 
 **Por criterios:** Añade una sección **Biblioteca** → configura propiedades y filtros → elige tarjetas, lista, tabla o tablero. Por ejemplo, reúne notas marcadas como «En lectura» de distintas carpetas o agrupa borradores por su estado.
 
+
+**Empezar desde plantilla:** Los ajustes de sección permiten definir plantillas para notas nuevas; las propiedades de la plantilla pasan a la nota, y ante coincidencia con un filtro de sección gana el valor del filtro. Con varias plantillas, el botón de nota nueva ofrece un selector (la primera es la predeterminada).
+
 ### Haz avanzar tus proyectos
 
 Reúne objetivos, etapas, hitos, tareas y archivos de cada proyecto. Comprueba en qué punto está y cuál es el siguiente paso. Consulta varios proyectos por etapa o grupo y archívalos al terminar.
@@ -69,6 +72,8 @@ Reúne imágenes, vídeos, PDF, libros EPUB, páginas HTML, dibujos Excalidraw y
 ![Biblioteca de materiales: libros, imágenes y documentos con filtros por tipo de archivo](../assets/material-library.png)
 
 **Para empezar:** Busca **Apex Dashboard: Abrir biblioteca de material** en la paleta de comandos o pulsa el icono de la biblioteca de materiales en la barra izquierda de Obsidian. Selecciona las carpetas que quieres mostrar en sus ajustes. Arrastra imágenes o vídeos desde el ordenador para importarlos. Para mostrarlos directamente en el panel, añade **Imágenes** o **Vídeos**.
+
+**Suelta y listo:** Lo arrastrado desde el ordenador se guarda en la carpeta de importación de los ajustes; con agrupación por carpeta va directo a la carpeta del grupo, y con agrupación por etiqueta la etiqueta se aplica sola.
 
 **Guarda distintas colecciones:** Elige las carpetas incluidas y excluidas y pulsa la chincheta → **Guardar los ajustes actuales como página**. Ponle un nombre como «Biblioteca» o «Inspiración». Selecciona una página guardada para recuperar sus carpetas y cambiar de colección con un clic.
 
@@ -146,6 +151,7 @@ Todos los temas admiten tanto el modo claro como el oscuro de Obsidian.
 - **Número de documentos recientes** — controla cuántos archivos recientes aparecen
 - **Widgets de la barra lateral** — Weather, Heatmap, Pomodoro, Reading, Countdown. Activa/desactiva y configura cada widget de forma independiente
 - **Ajustes de lectura** — Activa el registro de lectura, habilita/deshabilita el sonido al completar una sesión
+- **Carpetas de habilidades personalizadas** — carpetas locales (separadas por comas) donde los selectores descubren nombres de habilidades; vacío lo desactiva y nunca se lee nada fuera del almacén. Solo escritorio
 
 ## Instalación
 
@@ -176,6 +182,14 @@ Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, consi
 </p>
 
 ## Novedades
+
+### 3.9.6
+- **Tour de bienvenida** — Un recorrido con foco se inicia automáticamente en la primera instalación (solo escritorio): resalta paso a paso los controles reales — abrir el espacio, cambiar de página, editar el banner, fijar la barra lateral, añadir secciones — y avanza al hacer clic en ellos; «Repetir tour de bienvenida» en la paleta de comandos lo reabre cuando quieras
+- **Diálogos de configuración unificados** — Los campos de todos los diálogos muestran ahora una línea gris en reposo y una línea de acento al enfocar; las etiquetas en línea ya no se parten; las tarjetas de habilidades/botones se leen como una columna alineada (icono + etiqueta + borrar en la primera fila, las siguientes sangradas), y selector de icono, campo y botón comparten su fila; la casilla de envío directo queda a la izquierda de su texto
+- **Textos de ayuda más breves** — 33 ayudas de configuración se reescribieron con el patrón «vacío = X» en los 11 idiomas, eliminando lo que la interfaz ya muestra; las reglas avanzadas que salieron (herencia de propiedades de plantilla, destino al soltar en grupos, privacidad de carpetas de habilidades) ahora viven en las secciones del README
+- **Masonry real en móvil** — Móviles y tabletas obtienen el flujo de tarjetas escalonadas a dos columnas: las imágenes se colocan con su proporción real, sondeando solo la página visible en lugar de todo el almacén en segundo plano
+- **Arreglos del widget de música** — Las peticiones con sesión ahora llevan las cookies del cliente PC y esquivan los nodos CDN que respondían 403 a Electron (tres cuartas partes de las pistas fallaban en silencio); la importación de listas usa el endpoint v6 y las listas de más de 10 pistas ya no se truncan
+- **Interruptor de ingresos en proyectos** — La nueva opción «Mostrar ingresos y pago final» oculta la franja de dinero en secciones sin flujo económico
 
 ### 3.9.5
 - **Tipos de documento en la biblioteca de material** — PDF, EPUB, páginas HTML guardadas, dibujos de Excalidraw y pizarras de Canvas ahora aparecen como tarjetas: las portadas de EPUB se extraen del libro, los PDF renderizan su primera página, las páginas HTML obtienen una captura de la primera pantalla, los dibujos y pizarras se esbozan como miniaturas, y lo que no tiene portada muestra una tarjeta con el icono del tipo; el filtro y la agrupación por tipo se ampliaron, y un clic abre cada archivo de forma nativa (HTML Reader, vista PDF, pizarras — las extensiones sin vista van a la app predeterminada del sistema)

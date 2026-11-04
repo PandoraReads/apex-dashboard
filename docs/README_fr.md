@@ -32,6 +32,9 @@ Utilisez **Dossier** pour naviguer par emplacement et **Bibliothèque** pour reg
 
 **Par critères :** Ajoutez **Bibliothèque** → définissez les propriétés et filtres → choisissez des cartes, une liste, un tableau ou un kanban. Regroupez par exemple les notes « En cours de lecture » de plusieurs dossiers, ou classez les brouillons par étape de rédaction.
 
+
+**Partir d’un modèle :** Les réglages de section acceptent des modèles pour les notes nouvelles ; les propriétés du modèle passent à la note, et en cas de conflit avec un filtre de section, la valeur du filtre l’emporte. Avec plusieurs modèles, le bouton de note nouvelle propose un sélecteur (le premier est la valeur par défaut).
+
 ### Faire avancer vos projets
 
 Réunissez objectifs, étapes, jalons, tâches et fichiers d’un projet pour voir où vous en êtes et quelle est la suite. Consultez plusieurs projets par étape ou groupe, puis archivez-les une fois terminés.
@@ -69,6 +72,8 @@ Réunissez images, vidéos, PDF, livres EPUB, pages HTML, dessins Excalidraw et 
 ![Bibliothèque de ressources : livres, images et documents filtrés par type de fichier](../assets/material-library.png)
 
 **Pour commencer :** Recherchez **Apex Dashboard: Ouvrir la bibliothèque de médias** dans la palette de commandes ou cliquez sur l’icône de la bibliothèque dans le ruban gauche d’Obsidian. Choisissez les dossiers à afficher dans ses réglages. Glissez des images ou vidéos depuis votre ordinateur pour les importer. Pour les afficher dans le tableau de bord, ajoutez **Images** ou **Vidéos**.
+
+**Glisser-déposer direct :** Les éléments glissés depuis l’ordinateur vont dans le dossier d’import des réglages ; en groupement par dossier, droit dans le dossier du groupe ; en groupement par étiquette, l’étiquette est appliquée automatiquement.
 
 **Enregistrer plusieurs collections :** Choisissez les dossiers à inclure et à exclure, puis cliquez sur l’épingle → **Enregistrer les réglages actuels comme page**. Nommez la page « Bibliothèque » ou « Inspirations », par exemple. Sélectionnez une page enregistrée pour rétablir ses dossiers et changer de collection en un clic.
 
@@ -146,6 +151,7 @@ Tous les thèmes prennent en charge les modes clair et sombre d'Obsidian.
 - **Nombre de documents récents** — contrôlez le nombre de fichiers récents affichés
 - **Widgets de la barre latérale** — Météo, Heatmap, Pomodoro, Lecture, Compte à rebours. Activez/désactivez et configurez chaque widget indépendamment
 - **Réglages de lecture** — Activer/désactiver le suivi de lecture, activer/désactiver le son de fin de session
+- **Dossiers de compétences personnalisés** — dossiers locaux (séparés par des virgules) où les sélecteurs découvrent les noms de compétences ; vide = désactivé, rien en dehors du coffre n’est jamais lu. Desktop uniquement
 
 ## Installation
 
@@ -176,6 +182,14 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 </p>
 
 ## Nouveautés
+
+### 3.9.6
+- **Visite guidée d'accueil** — Une visite projecteur démarre automatiquement à la première installation (desktop uniquement) : elle met en évidence pas à pas les vrais contrôles — ouvrir l'atelier, changer de page, éditer la bannière, épingler la barre latérale, ajouter des sections — et avance quand on les clique ; « Revoir la visite guidée » dans la palette de commandes la rouvre à tout moment
+- **Dialogues de réglages unifiés** — Les champs de tous les dialogues affichent au repos un filet gris et à la saisie un filet accent ; les libellés inline ne se replient plus ; les cartes compétences/boutons se lisent en une colonne alignée (icône + libellé + suppression en première ligne, les suivantes en retrait), et sélecteur d'icône, champ et bouton partagent leur ligne ; la case d'envoi direct se place à gauche de son texte
+- **Aides allégées** — 33 aides de configuration réécrites selon le motif « vide = X » dans les 11 langues, sans ce que l'interface montre déjà ; les règles avancées sorties (héritage des propriétés de modèle, destination du dépôt par groupe, confidentialité des dossiers de compétences) sont désormais documentées dans les chapitres du README
+- **Vrai masonry sur mobile** — Téléphones et tablettes reçoivent le flux de cartes en escalier sur deux colonnes : les images se posent à leur vrai ratio, en sondant seulement la page visible plutôt que tout le coffre en arrière-plan
+- **Correctifs du widget musique** — Les requêtes connectées portent désormais les cookies du client PC et contournent les nœuds CDN qui répondaient 403 à Electron (les trois quarts des pistes échouaient en silence) ; l'import de listes passe au point d'entrée v6, fini la troncature à 10 titres
+- **Bouton finances des projets** — La nouvelle option « Afficher revenus et solde final » masque la bande financier des sections sans flux d'argent
 
 ### 3.9.5
 - **Types de documents dans la bibliothèque de matériel** — PDF, EPUB, pages HTML enregistrées, dessins Excalidraw et tableaux Canvas s'affichent désormais en vignettes : les couvertures EPUB sont extraites du livre, les PDF affichent leur première page, les pages HTML obtiennent un instantané du premier écran, dessins et tableaux sont esquissés en miniatures, et tout fichier sans couverture affiche une carte à icône de type ; le filtre et le groupement par type s'élargissent, et un clic ouvre chaque fichier en natif (HTML Reader, vue PDF, tableaux — les extensions sans vue passent par l'app par défaut du système)

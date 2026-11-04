@@ -32,6 +32,9 @@ Mit **Ordner** suchst du nach Ablageort, mit **Bibliothek** sammelst du Notizen 
 
 **Nach Kriterien:** Füge **Bibliothek** hinzu → lege Eigenschaften und Filter fest → wähle Karten, Liste, Tabelle oder Board. Sammle etwa Notizen mit dem Status „Wird gelesen“ aus mehreren Ordnern oder gruppiere Entwürfe nach Bearbeitungsstand.
 
+
+**Aus Vorlage beginnen:** In den Abschnitts-Einstellungen lassen sich Vorlagen für neue Notizen festlegen; Vorlagen-Eigenschaften übernimmt die neue Notiz, bei Namenskonflikt mit einem Abschnittsfilter gewinnt der Filterwert. Bei mehreren Vorlagen bietet der Neu-Button eine Auswahl, die erste ist Standard.
+
 ### Projekte voranbringen
 
 Halte Ziele, Phasen, Meilensteine, Aufgaben und Dateien eines Projekts zusammen. So siehst du den aktuellen Stand und den nächsten Schritt. Mehrere Projekte lassen sich nach Phase oder Gruppe anzeigen und nach Abschluss archivieren.
@@ -69,6 +72,8 @@ Bündle Bilder, Videos, PDFs, EPUB-Bücher, HTML-Seiten, Excalidraw-Zeichnungen 
 ![Materialbibliothek: Bücher, Bilder und Dokumente mit Filter nach Dateityp](../assets/material-library.png)
 
 **So startest du:** Suche in der Befehlspalette nach **Apex Dashboard: Materialbibliothek öffnen** oder nutze das Bibliothekssymbol in Obsidian links. Wähle in den Bibliothekseinstellungen die anzuzeigenden Ordner. Ziehe Bilder oder Videos vom Computer hinein, um sie zu importieren. Direkt im Dashboard kannst du dafür **Bilder** oder **Videos** hinzufügen.
+
+**Direkt ablegen:** Hineingezogene Materialien landen im Importordner aus den Einstellungen; bei Ordner-Gruppierung direkt im Ordner der Gruppe, bei Tag-Gruppierung wird der Tag automatisch gesetzt.
 
 **Sammlungen speichern:** Lege einbezogene und ausgeschlossene Ordner fest, dann klicke auf die Pinnnadel → **Aktuelle Einstellungen als Seite speichern**. Benenne die Seite etwa „Bücherregal“ oder „Inspiration“. Eine gespeicherte Seite stellt ihre Ordnerauswahl wieder her; so wechselst du mit einem Klick zwischen Sammlungen.
 
@@ -146,6 +151,7 @@ Alle Themes unterstützen sowohl den hellen als auch den dunklen Modus von Obsid
 - **Anzahl letzter Dokumente** — steuere, wie viele letzte Dateien erscheinen
 - **Seitenleisten-Widgets** — Wetter, Heatmap, Pomodoro, Lesen, Countdown. Aktiviere/deaktiviere und konfiguriere jedes Widget unabhängig
 - **Leseeinstellungen** — Lese-Tracker umschalten, Sound beim Abschluss einer Sitzung ein-/ausschalten
+- **Eigene Skill-Ordner** — lokale Ordner (komma-getrennt), in denen Skill-Picker Skill-Namen finden; leer = aus, es wird nie etwas außerhalb des Tresors gelesen. Nur Desktop
 
 ## Installation
 
@@ -176,6 +182,14 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 </p>
 
 ## Was ist neu
+
+### 3.9.6
+- **Einführungstour** — Eine Spotlight-Tour startet bei der Erstinstallation automatisch (nur Desktop): Sie hebt Schritt für Schritt die echten Bedienelemente hervor — Arbeitsoberfläche öffnen, Seiten wechseln, Banner bearbeiten, Seitenleiste anheften, Abschnitte hinzufügen — und schreitet beim Anklicken weiter; „Einführungstour erneut ansehen" in der Befehlspalette öffnet sie jederzeit
+- **Vereinheitlichte Konfigurationsdialoge** — Eingabefelder in allen Abschnitts-Dialogen zeigen jetzt im Ruhezustand eine graue Haarlinie und bei Fokus eine Akzentlinie; Inline-Beschriftungen umbrechen nie mehr; Skill-/Button-Karten lesen sich als eine ausgerichtete Spalte (Icon + Label + Löschen in der ersten Zeile, die folgenden eingerückt), Icon-Wahl, Eingaben und Buttons teilen sich ihre Zeile; der Direkt-Send-Haken sitzt links neben seinem Text
+- **Schlankere Hinweistexte** — 33 Konfigurations-Hinweise wurden im „leer = X"-Muster in allen 11 Sprachen neu geschrieben, ohne Erklärungen, die die Oberfläche schon zeigt; die herausgewanderten Regeln (Vorlagen-Eigenschaften, Ablege-Verhalten bei Gruppen, Skill-Ordner-Datenschutz) stehen jetzt in den README-Kapiteln
+- **Echtes Masonry auf Mobil** — Handys und Tablets erhalten den zweispaltigen gestaffelten Kartenfluss: Bilder legen sich in ihr echtes Seitenverhältnis, gemessen wird nur die sichtbare Seite statt des ganzen Tresors im Hintergrund
+- **Musik-Widget-Fixes** — Angefrage-Playback-Anfragen tragen jetzt die PC-Client-Cookies und umgehen die CDN-Knoten, die Electron mit 403 abwiesen (rund drei Viertel der Titel scheiterten stumm); Playlist-Importe nutzen den v6-Endpunkt, sodass Listen über 10 Titel nicht mehr abgeschnitten werden
+- **PM-Karten Geld-Leiste** — Neue Option „Einnahmen & Restzahlung anzeigen" blendet die Geld-Leiste für Abschnitte ohne Geldflüsse aus
 
 ### 3.9.5
 - **Dokumenttypen in der Materialbibliothek** — PDF, EPUB, gespeicherte HTML-Seiten, Excalidraw-Zeichnungen und Canvas-Boards erscheinen jetzt als Kacheln: EPUB-Cover werden aus dem Buch extrahiert, PDFs rendern die erste Seite, HTML-Seiten erhalten einen Erstbild-Schnappschuss, Zeichnungen und Boards werden als Miniaturen skizziert, und alles ohne Cover zeigt eine Typsymbol-Karte; Typfilter und Typgruppierung wurden erweitert, ein Klick öffnet jede Datei nativ (HTML Reader, PDF-Ansicht, Boards — Erweiterungen ohne Ansicht gehen an die Standard-App des Systems)

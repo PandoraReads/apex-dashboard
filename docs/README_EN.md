@@ -32,6 +32,9 @@ Use **Folder** to browse by location and **Library** to collect notes by purpose
 
 **Collect by criteria:** Add a **Library** section → set note properties and filters → choose cards, a list, a table, or a board. For example, collect notes marked “Reading” across folders, or group drafts by writing status.
 
+
+**Start from a template:** Section settings can set new-note templates; template properties carry into the new note, and section filter properties win on conflicts. With several templates, the new-note button offers a picker (the first is the default).
+
 ### Move projects forward
 
 Keep goals, stages, milestones, tasks, and related files together. See where a project stands and what comes next. View multiple projects by stage or group, then archive them when finished.
@@ -69,6 +72,8 @@ Bring images, videos, PDFs, EPUB books, HTML pages, Excalidraw drawings, and Can
 ![Material library: browse books, images, and documents, with file-type filters](../assets/material-library.png)
 
 **Get started:** Search the command palette for **Apex Dashboard: Open material library**, or click the material library icon in Obsidian’s left ribbon. Choose the folders to display in the library settings. Drag images or videos from your computer to import them. To display them directly on the dashboard, add an **Images** or **Videos** section.
+
+**Drop in from your computer:** Dragged-in assets land in the import folder from settings; under folder grouping they go straight into that group’s folder, and under tag grouping the tag is applied automatically.
 
 **Save different collections:** Choose folders to include and exclude, then click the toolbar’s pin → **Save current settings as a page**. Name the page “Bookshelf” or “Inspiration,” for example. Select a saved page to restore its folder settings and switch collections in one click.
 
@@ -146,6 +151,7 @@ All themes support both Obsidian light and dark modes.
 - **Recent documents count** — control how many recent files appear
 - **Sidebar widgets** — Weather, Heatmap, Pomodoro, Reading, Countdown. Enable/disable and configure each widget independently
 - **Reading settings** — Toggle reading tracker, enable/disable session completion sound
+- **Custom skill folders** — local folders (comma-separated) where skill pickers discover skill names; empty disables it and nothing outside the vault is ever read. Desktop only
 
 ## Installation
 
@@ -176,6 +182,14 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 </p>
 
 ## What's New
+
+### 3.9.6
+- **Onboarding tour** — A spotlight walkthrough auto-starts on first install (desktop only): it highlights the real controls step by step — opening the workbench, switching pages, editing the banner, pinning the sidebar, adding sections — and advances as you click them; "Replay onboarding tour" in the command palette reopens it anytime
+- **Unified config dialogs** — Fields in every section config dialog now show a grey hairline at rest and an accent hairline on focus; inline labels never wrap; skill/button cards read as one aligned column (icon + label + delete on the first row, the rows below indented to match), and icon pickers, inputs and buttons share their row instead of stacking; the direct-send checkbox sits left of its label
+- **Leaner hint copy** — 33 config-dialog hints were rewritten in the "empty = X" pattern across all 11 languages, dropping explanations the interface already shows; the advanced rules that moved out (template property carry-over, drop-to-group behavior, skill-folder privacy) are now documented in the README feature sections
+- **True masonry on mobile** — Phones and tablets get the two-column staggered card flow: images lay out at their real aspect ratios, probing only the visible page instead of warming the whole vault in the background
+- **Music widget fixes** — Signed-in playback requests now carry the PC client cookies, sidestepping the CDN nodes that answered Electron with 403 (about three quarters of tracks used to fail silently); playlist imports moved to the v6 endpoint, so playlists beyond 10 tracks are no longer truncated
+- **PM card money toggle** — A new "Show income & final payment" setting hides the card's money strip for sections whose projects carry no money
 
 ### 3.9.5
 - **Material library doc kinds** — PDF, EPUB, saved HTML pages, Excalidraw drawings and Canvas boards now tile in the material library: EPUB covers are extracted from the book, PDFs render their first page, HTML pages get a first-screen snapshot, drawings and boards are sketched as thumbnails, and anything without a cover shows a type icon card; the type filter and type grouping grew accordingly, and a click opens each file natively (HTML Reader, the PDF view, boards — extensions without a view go to the system's default app)
