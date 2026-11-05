@@ -249,6 +249,29 @@ const run = (): void => {
 		assert.equal(memoTile.dataset.immId, 'card:c1', 'card tile imm id');
 	}
 
+	// --- 2b. Empty sticky section keeps its tile ------------------------------
+	{
+		// Dissolution turns a sticky section into its cards; with ZERO cards
+		// that is zero tiles — "add a sticky section" used to be a silent
+		// no-op on immersive boards. The empty section keeps its tile (with
+		// the add-card affordance) until the first card dissolves it.
+		const emptySticky = data({
+			columns: [
+				{ name: '便利贴', color: '', sectionType: 'sticky', cards: [] },
+				{ name: '文件库', color: '', sectionType: 'library', cards: [] },
+			] as DashboardColumn[],
+		});
+		const { result } = render({ data: emptySticky });
+		const grid = result.grid as unknown as El;
+		const stickyTile = grid.children.find(c => (c as El).dataset.immId === 'section:便利贴') as El;
+		assert.ok(stickyTile, 'empty sticky section renders its section tile');
+		assert.equal(stickyTile.dataset.sectionType, 'sticky', 'the tile keeps its sticky identity');
+		assert.ok(stickyTile.querySelector('.dashboard-section-add-btn'),
+			'the tile hosts the section action buttons (add card / delete)');
+		assert.deepEqual(result.items.map(i => i.id), ['widget:lunar', 'section:便利贴', 'section:文件库'],
+			'the empty sticky tile joins the arrangement with a section id');
+	}
+
 	// --- 3. Saved arrangement: order, spans, orphans, membership --------------
 	{
 		// Fine-row caps (post-migration scale). mini-dom has no layout engine:

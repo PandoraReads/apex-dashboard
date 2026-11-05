@@ -487,14 +487,17 @@ export function renderImmersiveRoot(opts: {
 	// board — every memo note and every todo list is its own card tile
 	// (renderCard standalone). The backing column stays in the data (its
 	// cards, templates and archive entry all keep working); only the section
-	// wrapper never renders.
+	// wrapper never renders. EXCEPTION: an empty sticky section dissolves to
+	// ZERO tiles, which made "add a sticky section" a silent no-op on this
+	// board — keep its section tile until the first card gives the
+	// dissolution something to show.
 	const cardColumnOf = new Map<string, DashboardColumn>();
 	for (const child of Array.from(grid.children)) {
 		const row = child as HTMLElement;
 		if (row.dataset?.sectionType !== 'sticky') continue;
 		const column = data.columns.find(col => col.name === row.dataset.column);
+		if (!column || column.cards.length === 0) continue;
 		row.remove();
-		if (!column) continue;
 		for (const card of column.cards) {
 			const cardEl = renderCard(card, column.name, 'sticky', callbacks, app, data, settings);
 			cardEl.dataset.immId = `card:${card.id}`;
@@ -515,8 +518,9 @@ export function renderImmersiveRoot(opts: {
 	const entries = sortWidgetEntries(buildWidgetEntries(settings, app, opts.services, memberKeys), settings);
 	const presentIds: string[] = [];
 	for (const col of data.columns) {
-		if ((col.sectionType ?? '').toLowerCase() === 'sticky') {
-			// Dissolved: its CARDS are the tiles (skip the section id).
+		if ((col.sectionType ?? '').toLowerCase() === 'sticky' && col.cards.length > 0) {
+			// Dissolved: its CARDS are the tiles (skip the section id). An
+			// empty sticky section keeps its section tile (see above).
 			for (const card of col.cards) presentIds.push(`card:${card.id}`);
 		} else {
 			presentIds.push(sectionItemId(col.name));
