@@ -22614,6 +22614,13 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	text-decoration: line-through;
 	opacity: 0.55;
 }
+/* LIST / FREE task rows carry the done flag on the label itself
+   (renderTaskCell flips it in place on every toggle, no re-render), so the
+   legacy row-scoped selector above never matched them. */
+.dashboard-dataview-task-text.is-done {
+	text-decoration: line-through;
+	opacity: 0.55;
+}
 
 /* CALENDAR query — month grid */
 .dashboard-dataview-calendar {

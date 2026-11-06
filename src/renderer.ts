@@ -3587,10 +3587,33 @@ function mirrorTaskToggleInPlace(
 	}
 }
 
+/** The row's CURRENT task path.
+ *
+ *  A row's index is not stable: completing a top-level task reorders the list
+ *  (completion behavior) and `mirrorTaskToggleInPlace` re-stamps every row's
+ *  `data-task-path` instead of re-rendering. A handler that captured the array
+ *  it was rendered with therefore points at whatever task now sits in that slot
+ *  — a few clicks in a row toggled the wrong notes. Read it from the DOM, which
+ *  the mirror keeps fresh, and fall back to the render-time value.
+ */
+export function readTaskPath(row: HTMLElement, fallback: readonly number[]): number[] {
+	const raw = row.dataset.taskPath;
+	if (!raw) return [...fallback];
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(v => typeof v === 'number')) {
+			return parsed as number[];
+		}
+	} catch {
+		/* malformed stamp — fall through to the render-time path */
+	}
+	return [...fallback];
+}
+
 function renderTaskItem(
 	list: HTMLElement,
 	task: TaskItem,
-	path: number[],
+	initialPath: number[],
 	card: DashboardCard,
 	callbacks: RenderCallbacks,
 	app: App,
@@ -3602,8 +3625,11 @@ function renderTaskItem(
 	if (ancestorHidden) item.addClass('dashboard-task-item--hidden');
 	item.style.marginLeft = `${depth * 18}px`;
 	item.setAttribute('draggable', 'true');
-	item.dataset.taskPath = JSON.stringify(path);
+	item.dataset.taskPath = JSON.stringify(initialPath);
 	item.dataset.cardId = card.id;
+	// Every handler below resolves the path through this, never through the
+	// render-time array (see readTaskPath).
+	const currentPath = (): number[] => readTaskPath(item, initialPath);
 
 	const clearDragClasses = () => {
 		item.removeClass('dashboard-task-item--drag-top');
@@ -3674,8 +3700,8 @@ function renderTaskItem(
 		const dt = Date.now() - ts.startT;
 		const isSwipe = dt < 500 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5;
 		if (isSwipe) {
-			if (dx > 0) callbacks.onTaskNest(card.id, path);
-			else callbacks.onTaskUnnest(card.id, path);
+			if (dx > 0) callbacks.onTaskNest(card.id, currentPath());
+			else callbacks.onTaskUnnest(card.id, currentPath());
 			return;
 		}
 		if (!ts.moved) {
@@ -3711,9 +3737,9 @@ function renderTaskItem(
 			// Optimistic in-place DOM update + debounced quiet persist. Avoids the
 			// full-board re-render the old collapse path triggered.
 			isCollapsed = !isCollapsed;
-			toggleCollapseInPlace(item, path, 'data-task-path', isCollapsed);
+			toggleCollapseInPlace(item, currentPath(), 'data-task-path', isCollapsed);
 			toggle.setAttribute('aria-label', isCollapsed ? t('renderer.expandTask') : t('renderer.collapseTask'));
-			callbacks.onTaskToggleCollapse(card.id, path);
+			callbacks.onTaskToggleCollapse(card.id, currentPath());
 		});
 	}
 
@@ -3729,8 +3755,12 @@ function renderTaskItem(
 		// check/uncheck; the quiet path's note round-trip (vault event →
 		// re-read → same content → signature guard) confirms the state
 		// without ever re-rendering.
-		mirrorTaskToggleInPlace(list, item, path, checkbox.checked, card.taskCompleteBehavior ?? 'end');
-		callbacks.onCheckboxToggleQuiet(card.id, path, checkbox.checked);
+		// Resolve the path ONCE per click: the mirror below re-stamps this row's
+		// index when the completion reorder moves it, so the model update and the
+		// DOM edit must agree on the pre-click path.
+		const toggledPath = currentPath();
+		mirrorTaskToggleInPlace(list, item, toggledPath, checkbox.checked, card.taskCompleteBehavior ?? 'end');
+		callbacks.onCheckboxToggleQuiet(card.id, toggledPath, checkbox.checked);
 	});
 
 	const label = item.createSpan({
@@ -3759,7 +3789,7 @@ function renderTaskItem(
 		const finish = (save: boolean) => {
 			const newText = textarea.value.trim();
 			if (save && newText && newText !== task.text) {
-				callbacks.onTaskEdit(card.id, path, newText);
+				callbacks.onTaskEdit(card.id, currentPath(), newText);
 			} else {
 				label.empty();
 				label.setText(currentText);
@@ -3787,19 +3817,19 @@ function renderTaskItem(
 	setIcon(delBtn, 'x');
 	delBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		callbacks.onTaskDelete(card.id, path);
+		callbacks.onTaskDelete(card.id, currentPath());
 	});
 
-	const reminderBtn = createReminderButton(item, card.id, path, task, callbacks);
+	const reminderBtn = createReminderButton(item, card.id, currentPath, task, callbacks);
 	item.appendChild(reminderBtn);
 
 	item.addEventListener('dragstart', (e) => {
 		e.stopPropagation();
-		taskDragSource = { cardId: card.id, taskPath: path };
+		taskDragSource = { cardId: card.id, taskPath: currentPath() };
 		item.addClass('dashboard-task-item--dragging');
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
-			e.dataTransfer.setData('text/plain', JSON.stringify(path));
+			e.dataTransfer.setData('text/plain', JSON.stringify(currentPath()));
 			// Marks this as an in-card item drag so the card-level file-drop
 			// layer (which would force dropEffect='link' and kill the drop)
 			// and the section-row handlers stand down.
@@ -3820,7 +3850,7 @@ function renderTaskItem(
 		e.stopPropagation();
 		if (!taskDragSource) return;
 		const sameNode = taskDragSource.cardId === card.id &&
-			JSON.stringify(taskDragSource.taskPath) === JSON.stringify(path);
+			JSON.stringify(taskDragSource.taskPath) === JSON.stringify(currentPath());
 		if (sameNode) return;
 		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
 		activeDocument.querySelectorAll(
@@ -3843,7 +3873,7 @@ function renderTaskItem(
 		clearDragClasses();
 		if (!taskDragSource) return;
 		const sameNode = taskDragSource.cardId === card.id &&
-			JSON.stringify(taskDragSource.taskPath) === JSON.stringify(path);
+			JSON.stringify(taskDragSource.taskPath) === JSON.stringify(currentPath());
 		if (sameNode) return;
 
 		const rect = item.getBoundingClientRect();
@@ -3851,12 +3881,12 @@ function renderTaskItem(
 		const src = taskDragSource;
 
 		if (src.cardId === card.id) {
-			if (ratio < 0.3) callbacks.onTaskReorder(card.id, src.taskPath, path, true);
-			else if (ratio > 0.7) callbacks.onTaskReorder(card.id, src.taskPath, path, false);
-			else callbacks.onTaskNestInto(card.id, src.taskPath, path);
+			if (ratio < 0.3) callbacks.onTaskReorder(card.id, src.taskPath, currentPath(), true);
+			else if (ratio > 0.7) callbacks.onTaskReorder(card.id, src.taskPath, currentPath(), false);
+			else callbacks.onTaskNestInto(card.id, src.taskPath, currentPath());
 		} else {
 			const mode: 'before' | 'after' | 'nest' = ratio < 0.3 ? 'before' : ratio > 0.7 ? 'after' : 'nest';
-			callbacks.onTaskMoveToCard(src.cardId, src.taskPath, card.id, path, mode);
+			callbacks.onTaskMoveToCard(src.cardId, src.taskPath, card.id, currentPath(), mode);
 		}
 	});
 
@@ -3873,7 +3903,7 @@ function renderTaskItem(
 	if (task.children && task.children.length > 0) {
 		const childHidden = ancestorHidden || task.collapsed;
 		for (let i = 0; i < task.children.length; i++) {
-			renderTaskItem(list, task.children[i]!, [...path, i], card, callbacks, app, depth + 1, childHidden);
+			renderTaskItem(list, task.children[i]!, [...initialPath, i], card, callbacks, app, depth + 1, childHidden);
 		}
 	}
 }
@@ -4506,7 +4536,9 @@ function isReminderOverdue(reminder: string): boolean {
 function createReminderButton(
 	taskItem: HTMLElement,
 	cardId: string,
-	taskPath: number[],
+	// A getter, not the render-time array: the row's index moves when a
+	// completed task is reordered (see readTaskPath).
+	pathOf: () => number[],
 	task: TaskItem,
 	callbacks: RenderCallbacks,
 ): HTMLElement {
@@ -4529,7 +4561,7 @@ function createReminderButton(
 	btn.addEventListener('click', (e) => {
 		e.stopPropagation();
 		e.preventDefault();
-		showReminderPopup(btn, cardId, taskPath, task, callbacks);
+		showReminderPopup(btn, cardId, pathOf(), task, callbacks);
 	});
 
 	return btn;

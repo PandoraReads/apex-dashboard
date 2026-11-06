@@ -44,6 +44,8 @@ export class SyncEngine {
 	private debounceTimer: number | null = null;
 	private readonly debounceMs = 300;
 	private writeQueue: Promise<void> = Promise.resolve();
+	/** Serialises the quiet task-toggle persists (daily mirror + silent write). */
+	private taskPersistQueue: Promise<void> = Promise.resolve();
 	private callbacks: DataCallback[] = [];
 	private eventRef: ReturnType<typeof this.app.vault.on> | null = null;
 	private static readonly BACKUP_DIR = '.dashboard-backup';
@@ -263,14 +265,25 @@ export class SyncEngine {
 	 */
 	toggleTaskQuiet(cardId: string, taskPath: TaskPath, checked: boolean): void {
 		this.applyTaskToggle(cardId, taskPath, checked);
-		void (async () => {
-			// Mirror BEFORE the silent dashboard write fires its vault event:
-			// a daily-linked card's read-back must see the new state, or the
-			// next debounced refresh would render the old one back over the
-			// in-place mirror.
-			await this.mirrorTasksToDaily(cardId);
-			await this.writeToDisk(true);
-		})();
+		// Queue, do not fire-and-forget: the daily mirror is a read-modify-write
+		// of today's note, so two overlapping toggles could interleave and the
+		// later click would write the EARLIER task list back into the note (the
+		// source of truth for daily-linked cards) — the note then reads back into
+		// the card and the checks look scrambled. Each queued run reads the
+		// current data when it actually executes, so the note ends up with the
+		// latest state no matter how fast the clicks come.
+		this.taskPersistQueue = this.taskPersistQueue
+			.then(async () => {
+				// Mirror BEFORE the silent dashboard write fires its vault event:
+				// a daily-linked card's read-back must see the new state, or the
+				// next debounced refresh would render the old one back over the
+				// in-place mirror.
+				await this.mirrorTasksToDaily(cardId);
+				await this.writeToDisk(true);
+			})
+			.catch((err: unknown) => {
+				console.error('[Dashboard] quiet task persist failed:', err);
+			});
 	}
 
 	private applyTaskToggle(cardId: string, taskPath: TaskPath, checked: boolean): void {

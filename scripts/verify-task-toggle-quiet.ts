@@ -21,6 +21,7 @@
  */
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { readTaskPath } from '../src/renderer';
 
 const syncSrc = readFileSync('src/sync.ts', 'utf-8');
 const rendererSrc = readFileSync('src/renderer.ts', 'utf-8');
@@ -35,7 +36,7 @@ assert.ok(syncSrc.includes('private applyTaskToggle('),
 {
 	const quietIdx = syncSrc.indexOf('toggleTaskQuiet(cardId: string, taskPath: TaskPath, checked: boolean): void {');
 	assert.ok(quietIdx > 0, 'quiet toggle exists');
-	const body = syncSrc.slice(quietIdx, quietIdx + 700);
+	const body = syncSrc.slice(quietIdx, quietIdx + 1500);
 	assert.ok(body.includes('writeToDisk(true)'), 'quiet toggle writes silently');
 	const mirrorAt = body.indexOf('await this.mirrorTasksToDaily(cardId)');
 	const writeAt = body.indexOf('await this.writeToDisk(true)');
@@ -124,6 +125,57 @@ assert.ok(modalSrc.includes('private renderedTasks: VaultTask[] = []'),
 	// The broadcast nudge is gated to the dashboard-file blind spot.
 	assert.ok(body.includes("task.path.replace(/\\.md$/i, '') === this.dashboardFile.replace(/\\.md$/i, '')"),
 		'broadcast fires only for dashboard-file tasks (vault events cover the rest)');
+}
+
+// 6. Task paths are resolved at CLICK time.
+//
+// Completing a top-level task reorders the list (completion behavior) and the
+// in-place mirror re-stamps every row's data-task-path instead of re-rendering.
+// A handler that kept the array it was rendered with therefore pointed at
+// whatever task now occupied that slot: a few clicks in a row toggled the WRONG
+// notes, and the wrong checkboxes got written to disk.
+assert.ok(rendererSrc.includes('export function readTaskPath(row: HTMLElement, fallback: readonly number[])'),
+	'the renderer exposes a live path reader');
+assert.ok(rendererSrc.includes('const currentPath = (): number[] => readTaskPath(item, initialPath);'),
+	'every task row resolves its path through the live reader');
+assert.ok(!/callbacks\.onCheckboxToggleQuiet\(card\.id, path,/.test(rendererSrc),
+	'the checkbox no longer passes the render-time path');
+assert.ok(!/callbacks\.onTaskEdit\(card\.id, path,/.test(rendererSrc)
+	&& !/callbacks\.onTaskDelete\(card\.id, path\)/.test(rendererSrc)
+	&& !/callbacks\.onTaskToggleCollapse\(card\.id, path\)/.test(rendererSrc),
+	'edit / delete / collapse read the current path too (all are path-keyed)');
+assert.ok(rendererSrc.includes('const toggledPath = currentPath();'),
+	'the toggle resolves ONE path per click so the DOM reorder and the model update agree');
+assert.ok(rendererSrc.includes('pathOf: () => number[],'),
+	'the reminder button takes a getter instead of a frozen path');
+
+// 7. The quiet persist is QUEUED: the daily mirror is a read-modify-write of
+//    today's note, and two overlapping toggles could otherwise let the later
+//    click write the EARLIER task list back into the note (the source of truth
+//    for daily-linked cards), which then reads back into the card as scrambled
+//    checks.
+assert.ok(syncSrc.includes('private taskPersistQueue: Promise<void> = Promise.resolve();'),
+	'the engine serialises quiet task persists');
+{
+	const idx = syncSrc.indexOf('toggleTaskQuiet(cardId: string, taskPath: TaskPath, checked: boolean): void {');
+	assert.ok(idx > 0, 'quiet toggle exists');
+	const body = syncSrc.slice(idx, idx + 1200);
+	assert.ok(body.includes('this.taskPersistQueue = this.taskPersistQueue'),
+		'the persist is chained on that queue instead of fired off');
+	assert.ok(body.indexOf('applyTaskToggle') < body.indexOf('this.taskPersistQueue'),
+		'the model still updates synchronously — only the note write is queued');
+}
+
+// 8. Behaviour of the reader itself (a re-stamped row wins over the stale array).
+{
+	const row = { dataset: { taskPath: '[2]' } } as unknown as HTMLElement;
+	assert.deepEqual(readTaskPath(row, [0]), [2], 'the re-stamped DOM path wins');
+	const blank = { dataset: {} } as unknown as HTMLElement;
+	assert.deepEqual(readTaskPath(blank, [1, 3]), [1, 3], 'no stamp falls back to the render-time path');
+	const broken = { dataset: { taskPath: 'not json' } } as unknown as HTMLElement;
+	assert.deepEqual(readTaskPath(broken, [0, 1]), [0, 1], 'a malformed stamp cannot break a click');
+	const empty = { dataset: { taskPath: '[]' } } as unknown as HTMLElement;
+	assert.deepEqual(readTaskPath(empty, [4]), [4], 'an empty stamp is not a valid task path');
 }
 
 console.log('verify-task-toggle-quiet: OK');

@@ -1,13 +1,13 @@
 import { App, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent } from 'obsidian';
 import type { DashboardColumn, DataviewConfig, TrackerDataPoint } from './types';
-import type { DqlLink, DqlValue, QueryResult, ResultRow } from './dql/types';
+import type { DqlLink, DqlObject, DqlTask, DqlValue, Page, QueryResult, ResultRow } from './dql/types';
 import { t, getLocale } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { toggleTaskInFile } from './alltasks-scan';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
-import { coerceNumber, dqlCompare, formatDate, formatValue, kindOf } from './dql/values';
+import { coerceNumber, dqlCompare, formatDate, formatValue, kindOf, makeObject } from './dql/values';
 import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folders';
 
 // Module-level singletons mirroring library-section.ts:13-14 — set once per
@@ -76,7 +76,7 @@ export function renderDataviewSection(
 				renderEmptyState(content, 'dataview.emptyQuery', true);
 				return;
 			}
-			renderResult(content, outcome.result, app, () => { void render(); }, config, onConfigChange);
+			renderResult(content, outcome.result, app, () => { void render(); }, config, onConfigChange, visiblePages);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			content.empty();
@@ -214,6 +214,171 @@ function compareRowsForSort(a: ResultRow, b: ResultRow, col: number, dir: 'asc' 
 	return dir === 'asc' ? cmp : -cmp;
 }
 
+/** Rewrite the `[ ]` / `[x]` marker of one source line, leaving the rest alone. */
+function flipCheckboxMarker(line: string, checked: boolean): string {
+	return checked
+		? line.replace(/\[([ xX])\]/, '[x]')
+		: line.replace(/\[([xX])\]/, '[ ]');
+}
+
+/** Clone one page with a single task's checked state replaced.
+ *
+ *  TASK rows are a snapshot of `file.tasks` taken at page-build time, so
+ *  re-running the query after a checkbox click needs the patched list: without
+ *  it `WHERE !completed` still returns the task that was just completed, and
+ *  `WHERE completed` never gains it. `__original` is flipped as well, so a row
+ *  re-rendered from the patch hands the writer a line that still matches. */
+function withTaskChecked(page: Page, line: number, checked: boolean): Page {
+	const tasks = page.fields['file.tasks'];
+	if (!Array.isArray(tasks)) return page;
+	let hit = false;
+	const next = tasks.map((value) => {
+		if (hit || value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+		const entries = (value as DqlObject).entries;
+		if (entries['__line'] !== line) return value;
+		hit = true;
+		const original = typeof entries['__original'] === 'string' ? entries['__original'] : '';
+		return makeObject({
+			...entries,
+			completed: checked,
+			checked,
+			__original: flipCheckboxMarker(original, checked),
+		});
+	});
+	if (!hit) return page;
+	return { file: page.file, fields: { ...page.fields, 'file.tasks': next, 'file.lists': next } };
+}
+
+/** Identity of one result row, used to tell "the toggled row survived" from
+ *  "the row set changed". TASK rows are identified by source line; every other
+ *  row falls back to its projected values. */
+function rowIdentity(row: ResultRow): string {
+	if (row.task) return `${row.task.path}\u0000${row.task.line}`;
+	if (row.groupKey !== undefined) return `group\u0000${formatValue(row.groupKey)}`;
+	return row.values.map(v => formatValue(v)).join('\u0000');
+}
+
+/** Working state of one rendered result: the pages the query is re-evaluated
+ *  against, plus the rows currently on screen.
+ *
+ *  `pages` is owned by the section and patched in place on every toggle — it
+ *  starts as a copy of the render snapshot but must NOT stay one, otherwise a
+ *  second click re-runs the query against the original state and undoes the
+ *  first click (a task completed in a `WHERE !completed` list reappears,
+ *  unchecked, as soon as another row is toggled). */
+export interface TaskToggleModel {
+	pages: Page[];
+	capped: ResultRow[];
+}
+
+/**
+ * In-place task toggle, modelled on the todo card's checkbox.
+ *
+ * The todo card never re-renders on a check: it mirrors the row and persists
+ * quietly. A dataview result has to honour `WHERE` as well, so this does the
+ * smallest possible DOM edit instead — it drops the rows that left the result
+ * and touches nothing else. Every surviving row keeps its element, its hover
+ * state and its position in the scroll container, which is what stops the list
+ * from flashing (a body rebuild made the row that slid under a stationary
+ * pointer a NEW element: it resolved `:hover` on its first paint and snapped
+ * straight to the near-white hover colour, in the same frame the completed row
+ * vanished).
+ *
+ * Order of operations, both of which matter:
+ *   - the model update happens SYNCHRONOUSLY on click, before the disk write,
+ *     so the list follows the click even while the write is in flight;
+ *   - the query is re-evaluated against the section's accumulated pages (never
+ *     the render snapshot), so earlier toggles stay applied.
+ */
+export function makeTaskToggleHandler(
+	config: DataviewConfig,
+	model: TaskToggleModel,
+	surfaces: TaskToggleSurfaces,
+	rerender: () => void,
+	app: App,
+): TaskToggleHandler {
+	return (row, nextChecked) => {
+		const task = row.task;
+		if (!task || task.line < 0) {
+			rerender();
+			return;
+		}
+		// 1. Model first. Patching the frozen render snapshot here used to make
+		//    every earlier toggle evaporate on the next click: the query was
+		//    re-run from a page that still had the first task unfinished, so a
+		//    completed row came back (and its checkbox with it) unchecked.
+		const undo = patchTaskChecked(model.pages, task.path, task.line, nextChecked);
+		const apply = (): void => {
+			const outcome = executeDql(config.query, model.pages);
+			if (!outcome.ok) {
+				rerender();
+				return;
+			}
+			const nextRows = outcome.empty ? [] : outcome.result.rows.slice(0, MAX_ROWS);
+			const before = model.capped.map(rowIdentity);
+			const after = nextRows.map(rowIdentity);
+			model.capped = nextRows;
+			// Same rows in the same order: the mirror already shows the change.
+			if (before.length === after.length && before.every((key, i) => key === after[i])) return;
+			const kept = new Set(after);
+			const gone = before.filter(key => !kept.has(key));
+			// A toggle can only take a task OUT of a result (nothing enters a
+			// completion-filtered query by being toggled), so the common case is a
+			// pure removal that needs no rendering at all. Anything else — rows
+			// appearing, or the same rows in a new order (SORT BY completed) —
+			// cannot be expressed by dropping elements and repaints instead.
+			if (gone.length === 0 || before.length - gone.length !== after.length) {
+				surfaces.redraw();
+				return;
+			}
+			surfaces.prune(gone);
+		};
+		apply();
+		// 2. Persist last; if the note cannot be written, take the model back so
+		//    the list never claims a state the file does not have. The returned
+		//    promise keeps the checkbox disabled until the write settles, so one
+		//    row cannot queue two contradictory writes.
+		return commitTaskToggle(app, task, nextChecked).then(() => { /* settled */ }, (err: unknown) => {
+			console.error('[Dashboard] dataview task toggle failed:', err);
+			undo();
+			apply();
+		});
+	};
+}
+
+/** Patch one task inside the section's working page set, in place.
+ *  Returns an undo that restores exactly the pages it replaced. */
+function patchTaskChecked(pages: Page[], path: string, line: number, checked: boolean): () => void {
+	const replaced: { index: number; page: Page }[] = [];
+	for (let i = 0; i < pages.length; i++) {
+		const page = pages[i]!;
+		if (page.file.path !== path) continue;
+		const next = withTaskChecked(page, line, checked);
+		if (next === page) continue;
+		replaced.push({ index: i, page });
+		pages[i] = next;
+	}
+	return () => {
+		for (const { index, page } of replaced) pages[index] = page;
+	};
+}
+
+/** Write one TASK row's new state back to its note. The payload is cloned so
+ *  the writer re-resolves `line` / `originalLine` against the file itself: the
+ *  same row can be toggled back and forth without re-scanning. */
+export async function commitTaskToggle(app: App, task: DqlTask, nextChecked: boolean): Promise<boolean> {
+	if (task.line < 0) return false;
+	const file = app.vault.getAbstractFileByPath(task.path);
+	if (!(file instanceof TFile)) return false;
+	const wrote = await toggleTaskInFile(
+		app,
+		{ ...task, file, mtime: file.stat.mtime, ctime: file.stat.ctime },
+		nextChecked,
+	);
+	if (wrote) invalidatePath(task.path);
+	return wrote;
+}
+
 function renderResult(
 	container: HTMLElement,
 	result: QueryResult,
@@ -221,12 +386,16 @@ function renderResult(
 	rerender: () => void,
 	config: DataviewConfig,
 	onConfigChange: ((config: DataviewConfig) => void) | null,
+	pages?: readonly Page[],
 ): void {
 	if (result.rows.length === 0) {
 		renderEmptyState(container, 'dataview.empty');
 		return;
 	}
-	const capped = result.rows.slice(0, MAX_ROWS);
+	// The toggle handler owns the working state: its own page set (the render
+	// snapshot is only the seed — it is patched in place from then on) and the
+	// row array every repaint reads.
+	const model: TaskToggleModel = { pages: pages ? [...pages] : [], capped: result.rows.slice(0, MAX_ROWS) };
 
 	if (!PAGINATED_TYPES.has(result.queryType)) {
 		const header = container.createDiv({ cls: 'dashboard-dataview-count' });
@@ -235,7 +404,7 @@ function renderResult(
 			header.createSpan({ cls: 'dashboard-dataview-capped', text: t('dataview.capped', { count: MAX_ROWS }) });
 		}
 		const body = container.createDiv({ cls: 'dashboard-dataview-body' });
-		renderResultBody(body, result, capped, app, rerender);
+		renderResultBody(body, result, model.capped, app, rerender);
 		return;
 	}
 
@@ -245,7 +414,7 @@ function renderResult(
 	let currentPage = 1;
 
 	const applyPipeline = (): ResultRow[] => {
-		let rows = capped;
+		let rows = model.capped;
 		const needle = view.filter.trim().toLowerCase();
 		if (needle.length > 0) rows = rows.filter(r => rowSearchText(r).includes(needle));
 		if (view.sortCol !== null) {
@@ -326,20 +495,42 @@ function renderResult(
 	const paginated = container.createDiv({ cls: 'dashboard-dataview-pages' });
 	const body = paginated.createDiv({ cls: 'dashboard-dataview-body' });
 
-	const drawPage = (pageSz: number = pageSize): void => {
-		const rows = applyPipeline();
-		const totalPages = Math.max(1, Math.ceil(rows.length / pageSz));
-		if (currentPage > totalPages) currentPage = totalPages;
+	// A checkbox click updates the row model synchronously, then drops the rows
+	// that left the result — never a section rerender, and never a body rebuild
+	// (see makeTaskToggleHandler / pruneRows). Assigned once the surfaces exist;
+	// drawPage reads it while rendering, which happens after this scope is
+	// initialised. Without the source pages there is nothing to re-evaluate
+	// against, so the rows keep the historical section-level refresh.
+	let onTaskToggle: TaskToggleHandler | undefined;
 
+	/** Toolbar count. Split out so a pruned row can update the number without
+	 *  touching the rows themselves. */
+	const updateCount = (shown: number): void => {
 		countEl.empty();
 		if (view.filter.trim().length > 0) {
-			countEl.createSpan({ text: t('dataview.filteredCount', { shown: rows.length, total: capped.length }) });
+			countEl.createSpan({ text: t('dataview.filteredCount', { shown, total: model.capped.length }) });
 		} else {
-			countEl.createSpan({ text: t('dataview.resultCount', { count: capped.length }) });
+			countEl.createSpan({ text: t('dataview.resultCount', { count: model.capped.length }) });
 			if (result.rows.length > MAX_ROWS) {
 				countEl.createSpan({ cls: 'dashboard-dataview-capped', text: t('dataview.capped', { count: MAX_ROWS }) });
 			}
 		}
+	};
+
+	const drawFooter = (pageSz: number = pageSize): void => {
+		const totalPages = Math.max(1, Math.ceil(applyPipeline().length / pageSz));
+		if (currentPage > totalPages) currentPage = totalPages;
+		paginated.querySelector('.dashboard-dataview-pagination')?.remove();
+		const footer = paginated.createDiv({ cls: 'dashboard-dataview-pagination' });
+		renderDvPagination(footer, currentPage, totalPages, (page) => {
+			currentPage = page;
+			drawPage();
+		});
+	};
+
+	const drawPage = (pageSz: number = pageSize): void => {
+		const rows = applyPipeline();
+		updateCount(rows.length);
 
 		body.empty();
 		const start = (currentPage - 1) * pageSz;
@@ -352,16 +543,44 @@ function renderResult(
 				view.sortDir = nextView.sortDir;
 				currentPage = 1;
 				drawPage();
-			}, start);
+			}, start, onTaskToggle);
 		}
 
-		paginated.querySelector('.dashboard-dataview-pagination')?.remove();
-		const footer = paginated.createDiv({ cls: 'dashboard-dataview-pagination' });
-		renderDvPagination(footer, currentPage, totalPages, (page) => {
-			currentPage = page;
-			drawPage();
-		});
+		drawFooter(pageSz);
 	};
+
+	/**
+	 * Drop the rows that left the result, one element at a time — no body
+	 * rebuild, so every surviving row keeps its element, its hover state and the
+	 * scroll position.
+	 *
+	 * This is the dataview equivalent of the todo card's in-place checkbox: the
+	 * rebuild was the flash (a fresh row under a stationary pointer resolves
+	 * `:hover` on its first paint and snaps to the near-white hover colour in the
+	 * same frame the completed row disappeared).
+	 */
+	const pruneRows = (rowKeys: readonly string[]): void => {
+		if (rowKeys.length === 0) return;
+		const doomed = new Set(rowKeys);
+		body.querySelectorAll<HTMLElement>('[data-row-key]').forEach((el) => {
+			if (doomed.has(el.dataset.rowKey ?? '')) el.remove();
+		});
+		updateCount(applyPipeline().length);
+		if (model.capped.length === 0) {
+			body.empty();
+			renderEmptyState(body, 'dataview.empty');
+		} else if (body.querySelector('[data-row-key]') === null) {
+			// Nothing visible is left (the row was the page's only one): fall back,
+			// there is nothing to keep flicker-free.
+			drawPage();
+			return;
+		}
+		drawFooter();
+	};
+
+	const toggleSurfaces: TaskToggleSurfaces = { prune: pruneRows, redraw: () => drawPage() };
+	if (pages) onTaskToggle = makeTaskToggleHandler(config, model, toggleSurfaces, rerender, app);
+
 	drawPage();
 }
 
@@ -382,6 +601,7 @@ function renderResultBody(
 	config?: DataviewConfig,
 	onSortChange?: (next: ViewState) => void,
 	rowOffset = 0,
+	onTaskToggle?: TaskToggleHandler,
 ): void {
 	if (rows.length === 0) {
 		renderEmptyState(container, 'dataview.empty');
@@ -393,17 +613,17 @@ function renderResultBody(
 		case 'TASK': {
 			const mode = config?.viewMode ?? 'auto';
 			if (mode === 'list') {
-				renderList(container, result, rows, config, rerender);
+				renderList(container, result, rows, config, rerender, onTaskToggle);
 			} else if (mode === 'auto' && result.queryType !== 'TABLE') {
 				// Native LIST/TASK shape: bullet list with bold group headers.
-				renderFreeList(container, result, rows, rerender);
+				renderFreeList(container, result, rows, rerender, onTaskToggle);
 			} else if (mode === 'auto') {
 				// Native TABLE look: keep the sortable header, drop the database
 				// furniture (source columns) - the query's implicit file column
 				// becomes the "File" column, exactly like Dataview's own tables.
-				renderTable(container, result, rows, view, { ...(config ?? { query: '' }), showSource: false }, onSortChange, rowOffset, rerender);
+				renderTable(container, result, rows, view, { ...(config ?? { query: '' }), showSource: false }, onSortChange, rowOffset, rerender, onTaskToggle);
 			} else {
-				renderTable(container, result, rows, view, config, onSortChange, rowOffset, rerender);
+				renderTable(container, result, rows, view, config, onSortChange, rowOffset, rerender, onTaskToggle);
 			}
 			break;
 		}
@@ -537,6 +757,7 @@ function renderTable(
 	onSortChange?: (next: ViewState) => void,
 	rowOffset = 0,
 	rerender?: () => void,
+	onTaskToggle?: TaskToggleHandler,
 ): void {
 	const table = container.createEl('table', { cls: 'dashboard-library-table dashboard-dataview-table' });
 	if (config?.striped) table.addClass('is-striped');
@@ -588,6 +809,7 @@ function renderTable(
 	for (let ri = 0; ri < rows.length; ri++) {
 		const row = rows[ri]!;
 		const tr = tbody.createEl('tr');
+		tr.dataset.rowKey = rowIdentity(row);
 		attachRowOpen(tr, row);
 		if (showRowNumbers) {
 			tr.createEl('td', { cls: 'dashboard-dataview-rownum', text: String(rowOffset + ri + 1) });
@@ -601,7 +823,7 @@ function renderTable(
 		if (layout.checkboxCol) {
 			const td = tr.createEl('td', { cls: 'dashboard-dataview-check-col' });
 			if (row.task) {
-				renderTaskCell(td, row.task, appRef, () => rerender?.());
+				renderTaskCell(td, row.task, rowToggler(appRef, row, onTaskToggle, rerender));
 			}
 		}
 		for (let vi = valueStart; vi < row.values.length; vi++) {
@@ -631,26 +853,74 @@ function renderTable(
 
 /** One TASK checkbox inside a cell: toggles the source line and busts the page
  *  cache so the change is reflected on the next query run. */
-function renderTaskCell(td: HTMLElement, task: NonNullable<ResultRow['task']>, app: App, onToggled: () => void): void {
-	const checkbox = td.createEl('input', { cls: 'dashboard-dataview-task-checkbox', attr: { type: 'checkbox' } });
+/** How the section's DOM is updated when the row set changes.
+ *
+ *  `prune` is the flicker-free path: drop exactly these rows (keyed by
+ *  rowIdentity, stamped on every row element as `data-row-key`) and leave the
+ *  rest of the body — and the scroll position — untouched. `redraw` is the
+ *  fallback for the cases a removal cannot express. */
+export interface TaskToggleSurfaces {
+	prune: (rowKeys: readonly string[]) => void;
+	redraw: () => void;
+}
+
+/** A TASK checkbox changed on a row that is already in the DOM. `nextChecked`
+ *  is the state the user just asked for. The section decides what to repaint —
+ *  a row the query still matches needs nothing, a row it now excludes is pruned
+ *  on its own — and writes the note afterwards. The returned promise settles
+ *  when the note write does. */
+type TaskToggleHandler = (row: ResultRow, nextChecked: boolean) => void | Promise<void>;
+
+/** Wire one TASK row's checkbox: the section handler when the source pages are
+ *  known (in-place model update, then an async write), otherwise the legacy
+ *  write-then-rerender fallback. */
+function rowToggler(
+	app: App,
+	row: ResultRow,
+	onTaskToggle: TaskToggleHandler | undefined,
+	rerender?: () => void,
+): (checked: boolean) => void | Promise<void> {
+	return (checked) => {
+		if (onTaskToggle) return onTaskToggle(row, checked);
+		const task = row.task;
+		if (!task) return;
+		return commitTaskToggle(app, task, checked).then(() => { rerender?.(); });
+	};
+}
+
+function renderTaskCell(
+	host: HTMLElement,
+	task: NonNullable<ResultRow['task']>,
+	onToggle: (checked: boolean) => void | Promise<void>,
+): void {
+	const checkbox = host.createEl('input', { cls: 'dashboard-dataview-task-checkbox', attr: { type: 'checkbox' } });
 	checkbox.checked = task.checked;
-	if (task.line >= 0) {
-		checkbox.addEventListener('change', () => {
-			void (async (): Promise<void> => {
-				const next = checkbox.checked;
-				checkbox.disabled = true;
-				const file = app.vault.getAbstractFileByPath(task.path);
-				if (file instanceof TFile) {
-					const wrote = await toggleTaskInFile(app, { ...task, file, mtime: file.stat.mtime, ctime: file.stat.ctime }, next);
-					if (wrote) invalidatePath(task.path);
-				}
-				checkbox.disabled = false;
-				onToggled();
-			})();
-		});
-	} else {
+	if (task.line < 0) {
 		checkbox.disabled = true; // no source line to toggle (synthetic row).
+		return;
 	}
+	// Everything the user can see happens in the click's own task, before any
+	// await: the done styling is mirrored first (the label is not necessarily
+	// inside this cell — table mode keeps the box in a column of its own, so
+	// walk up to the row), then the model is handed the new state. The note
+	// write trails behind; `disabled` only blocks re-entry on this box.
+	checkbox.addEventListener('change', () => {
+		const next = checkbox.checked;
+		const rowHost = host.closest('tr, .dashboard-dataview-list-item, .dashboard-dataview-free-item') ?? host;
+		rowHost.querySelectorAll<HTMLElement>('.dashboard-dataview-task-text')
+			.forEach(el => el.toggleClass('is-done', next));
+		checkbox.disabled = true;
+		const settle = (): void => { checkbox.disabled = false; };
+		let pending: void | Promise<void>;
+		try {
+			pending = onToggle(next);
+		} catch (err) {
+			console.error('[Dashboard] dataview task toggle failed:', err);
+			settle();
+			return;
+		}
+		void Promise.resolve(pending).then(settle, settle);
+	});
 }
 
 /** For grouped TABLE rows, the first cell is the group key; the following
@@ -678,7 +948,14 @@ function renderGroupedRow(tr: HTMLElement, row: ResultRow, result: QueryResult, 
 
 /* ----------------------------- LIST (any query shape) ----------------------------- */
 
-function renderList(container: HTMLElement, result: QueryResult, rows: readonly ResultRow[], config?: DataviewConfig, rerender?: () => void): void {
+function renderList(
+	container: HTMLElement,
+	result: QueryResult,
+	rows: readonly ResultRow[],
+	config?: DataviewConfig,
+	rerender?: () => void,
+	onTaskToggle?: TaskToggleHandler,
+): void {
 	const list = container.createDiv({ cls: 'dashboard-library-list dashboard-dataview-list' });
 	if (config?.striped) list.addClass('is-striped');
 	if (config?.density === 'compact') list.addClass('is-compact');
@@ -686,6 +963,7 @@ function renderList(container: HTMLElement, result: QueryResult, rows: readonly 
 	const dc = displayColumns(result);
 	for (const row of rows) {
 		const item = list.createDiv({ cls: 'dashboard-library-list-item dashboard-dataview-list-item' });
+		item.dataset.rowKey = rowIdentity(row);
 		attachRowOpen(item, row);
 
 		if (result.grouped && row.groupKey !== undefined) {
@@ -702,7 +980,7 @@ function renderList(container: HTMLElement, result: QueryResult, rows: readonly 
 		const main = item.createDiv({ cls: 'dashboard-dataview-list-main' });
 		if (result.queryType === 'TASK' && row.task) {
 			main.addClass('dashboard-dataview-task-row');
-			renderTaskCell(main, row.task, appRef, () => rerender?.());
+			renderTaskCell(main, row.task, rowToggler(appRef, row, onTaskToggle, rerender));
 			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
 			// The row is single-line with an ellipsis (styles.css), so keep the
 			// untruncated text reachable on hover.
@@ -749,12 +1027,16 @@ function renderFreeList(
 	result: QueryResult,
 	rows: readonly ResultRow[],
 	rerender?: () => void,
+	onTaskToggle?: TaskToggleHandler,
 ): void {
 	const list = container.createEl('ul', { cls: 'dashboard-dataview-free-list' });
 	const dc = displayColumns(result);
 
 	const renderFreeItem = (host: HTMLElement, row: ResultRow): void => {
 		const li = host.createEl('li', { cls: 'dashboard-dataview-free-item' });
+		// Keyed so a completed task can be dropped from the DOM on its own —
+		// see pruneRows (a full body rebuild is what made the list flash).
+		li.dataset.rowKey = rowIdentity(row);
 		const main = li.createDiv({ cls: 'dashboard-dataview-free-main' });
 
 		if (result.queryType === 'TASK' && row.task) {
@@ -763,7 +1045,7 @@ function renderFreeList(
 			// let styles.css centre the bullet instead (see the rule there).
 			li.addClass('is-task-row');
 			main.addClass('dashboard-dataview-task-row');
-			renderTaskCell(main, row.task, appRef, () => rerender?.());
+			renderTaskCell(main, row.task, rowToggler(appRef, row, onTaskToggle, rerender));
 			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
 			// Single-line row + ellipsis (styles.css): keep the full text on hover.
 			label.title = row.task.text;
