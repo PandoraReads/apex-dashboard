@@ -107,7 +107,9 @@
 		"test:task-toggle-quiet": "esbuild scripts/verify-task-toggle-quiet.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-task-toggle-quiet.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-task-toggle-quiet.cjs",
 		"test:task-toggle-repeat": "esbuild scripts/verify-task-toggle-repeat.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-task-toggle-repeat.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-task-toggle-repeat.cjs",
 		"test:task-scan-freshness": "esbuild scripts/verify-task-scan-freshness.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-task-scan-freshness.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-task-scan-freshness.cjs",
-		"test:dataview-task-toggle": "esbuild scripts/verify-dataview-task-toggle.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-dataview-task-toggle.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-dataview-task-toggle.cjs"
+		"test:dataview-task-toggle": "esbuild scripts/verify-dataview-task-toggle.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-dataview-task-toggle.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-dataview-task-toggle.cjs",
+		"test:dataview-task-open": "esbuild scripts/verify-dataview-task-open.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-dataview-task-open.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-dataview-task-open.cjs",
+		"test:dataview-edit-refresh": "esbuild scripts/verify-dataview-edit-refresh.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-dataview-edit-refresh.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-dataview-edit-refresh.cjs"
 	},
 	"keywords": [],
 	"license": "0-BSD",

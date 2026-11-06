@@ -22195,6 +22195,11 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-dataview-table tr:not(.is-clickable) {
 	cursor: default;
 }
+/* Every clickable row opens its note (a TASK row jumps to its own line), so the
+   cursor has to say so — the rule above only covered the negative case. */
+.dashboard-dataview-table tbody tr.is-clickable {
+	cursor: pointer;
+}
 .dashboard-dataview-null {
 	color: var(--db-text-muted, var(--text-muted));
 	opacity: 0.4;
@@ -22266,6 +22271,13 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 .dashboard-dataview-free-item:hover {
 	background: var(--db-bg-card-hover, rgba(255, 255, 255, 0.06));
+}
+/* Free-view rows are clickable (attachRowOpen) but never got a pointer cursor:
+   list items inherit one from .dashboard-library-list-item, table rows from the
+   @media-free table base. A TASK row additionally jumps to its own line, which
+   is the same affordance a calendar chip gives. */
+.dashboard-dataview-free-item.is-clickable {
+	cursor: pointer;
 }
 .dashboard-dataview-free-item::before {
 	content: '•';

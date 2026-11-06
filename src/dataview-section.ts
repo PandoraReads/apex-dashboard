@@ -15,6 +15,10 @@ import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folder
 // threading callbacks through every signature.
 let dvHoverParent: HoverParent | null = null;
 let dvOpener: ((file: TFile, subpath?: string) => void) | null = null;
+/** Line-aware opener (same channel the calendar section uses for task jumps).
+ *  A TASK row knows the exact source line, so a click can land on the task
+ *  instead of the top of the note. */
+let dvLineOpener: ((file: TFile, line?: number) => void) | null = null;
 
 const MAX_ROWS = 500; // hard cap to keep the DOM finite on pathological queries.
 const DEFAULT_PAGE_SIZE = 50;
@@ -23,10 +27,71 @@ const HEATMAP_CELL_GAP = 3;
 const HEATMAP_MIN_CELL = 10;
 const HEATMAP_MAX_CELL = 20;
 
+/* ------------------- live sections (popover-edit refresh) ------------------- */
+
+/** One rendered dataview section, kept so a note saved from the in-dashboard
+ *  popover can re-run exactly the cards that were showing it.
+ *
+ *  A dataview card is a snapshot (deliberately not wired to the vault-change
+ *  debounce), so an edit made through a row's own popover would leave the card
+ *  showing the pre-edit text until the user pressed refresh. `paths` is the set
+ *  of notes the last result showed — a card that does not show the edited note
+ *  has nothing to re-run. */
+export interface DataviewSectionHandle {
+	readonly el: HTMLElement;
+	/** Notes the current result shows (replaced after every run). */
+	paths: Set<string>;
+	/** Quiet re-run: no container reset, no scan spinner. */
+	readonly reload: () => void;
+}
+
+const dvSectionHandles: DataviewSectionHandle[] = [];
+
+/** Register a rendered section. A re-rendered dashboard builds fresh section
+ *  elements, so handles are dropped as soon as their DOM is gone. */
+export function registerDataviewSection(handle: DataviewSectionHandle): void {
+	pruneDataviewSections();
+	const existing = dvSectionHandles.findIndex(h => h.el === handle.el);
+	if (existing >= 0) dvSectionHandles[existing] = handle;
+	else dvSectionHandles.push(handle);
+}
+
+function pruneDataviewSections(): void {
+	for (let i = dvSectionHandles.length - 1; i >= 0; i--) {
+		if (!dvSectionHandles[i]!.el.isConnected) dvSectionHandles.splice(i, 1);
+	}
+}
+
+/** Re-run every section that currently shows `path`: a note was edited in the
+ *  in-dashboard popover and its write has already landed on disk. */
+export function refreshDataviewSectionsForPath(path: string): void {
+	pruneDataviewSections();
+	for (const handle of [...dvSectionHandles]) {
+		if (handle.paths.has(path)) handle.reload();
+	}
+}
+
+/** The notes a result refers to, grouped members included. TASK rows carry the
+ *  note they were scanned from, which is also the row's own page. */
+export function collectResultPaths(rows: readonly ResultRow[]): Set<string> {
+	const out = new Set<string>();
+	const walk = (list: readonly ResultRow[]): void => {
+		for (const row of list) {
+			if (row.task && row.task.path) out.add(row.task.path);
+			const path = row.page?.file.path;
+			if (path) out.add(path);
+			if (row.rows) walk(row.rows);
+		}
+	};
+	walk(rows);
+	return out;
+}
+
 /**
  * Render a Dataview (DQL) section. Builds the query once on open, then on each
- * manual refresh (the refresh button re-runs the closure). Manual refresh only
- * — deliberately NOT wired into the vault-change debounce (per design).
+ * manual refresh (the refresh button re-runs the closure) and on a popover edit
+ * of a note it currently shows (quiet re-run, see refreshDataviewSectionsForPath).
+ * Deliberately NOT wired into the vault-change debounce (per design).
  */
 export function renderDataviewSection(
 	el: HTMLElement,
@@ -34,27 +99,38 @@ export function renderDataviewSection(
 	app: App,
 	hoverParent: HoverParent | null,
 	onOpenNote: ((file: TFile, subpath?: string) => void) | null,
+	/** Line-aware variant: TASK rows jump to their own source line (the effect
+	 *  a calendar chip click has). Falls back to `onOpenNote` when absent. */
+	onOpenNoteAtLine: ((file: TFile, line?: number) => void) | null,
 	reloadRegister: (fn: () => void) => void,
 	onConfigChange: ((config: DataviewConfig) => void) | null = null,
 ): void {
 	dvHoverParent = hoverParent;
 	dvOpener = onOpenNote;
+	dvLineOpener = onOpenNoteAtLine;
 
 	const config = column.dataviewConfig ?? { query: '' };
 	const content = el.createDiv({ cls: 'dashboard-dataview-content' });
 	let hasRun = false;
 
-	const render = async (): Promise<void> => {
-		content.empty();
+	/** `quiet` re-runs keep the current result on screen until the new one is
+	 *  ready. Only the popover-edit refresh uses it: the user did not ask for a
+	 *  refresh, so blanking the card and painting the scan spinner would read as
+	 *  a flash (and is exactly what this section avoids everywhere else). */
+	const render = async (quiet = false): Promise<void> => {
 		hasRun = true;
 
 		if (config.query.trim().length === 0) {
+			content.empty();
 			renderEmptyState(content, 'dataview.emptyQuery', true);
 			return;
 		}
 
-		// Scanning placeholder: replaced (not appended to) once the query finishes.
-		renderScanningState(content);
+		if (!quiet) {
+			content.empty();
+			// Scanning placeholder: replaced (not appended to) once the query finishes.
+			renderScanningState(content);
+		}
 
 		try {
 			const pages = await buildPages(app);
@@ -73,9 +149,13 @@ export function renderDataviewSection(
 				return;
 			}
 			if (outcome.empty) {
+				handle.paths = new Set();
 				renderEmptyState(content, 'dataview.emptyQuery', true);
 				return;
 			}
+			// What this card now shows, so a later popover edit knows whether it
+			// has anything to re-run (refreshDataviewSectionsForPath).
+			handle.paths = collectResultPaths(outcome.result.rows);
 			renderResult(content, outcome.result, app, () => { void render(); }, config, onConfigChange, visiblePages);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -83,6 +163,15 @@ export function renderDataviewSection(
 			renderErrorState(content, message);
 		}
 	};
+
+	// Registered so a note filled in through this card's own popover re-runs it
+	// (see refreshDataviewSectionsForPath); the header button stays loud.
+	const handle: DataviewSectionHandle = {
+		el,
+		paths: new Set(),
+		reload: () => { void render(true); },
+	};
+	registerDataviewSection(handle);
 
 	reloadRegister(() => { void render(); });
 	if (Platform.isMobile) {
@@ -1037,6 +1126,11 @@ function renderFreeList(
 		// Keyed so a completed task can be dropped from the DOM on its own —
 		// see pruneRows (a full body rebuild is what made the list flash).
 		li.dataset.rowKey = rowIdentity(row);
+		// Auto/free mode is the DEFAULT shape for LIST and TASK queries, and it
+		// was the one renderer without a row opener: clicking a task (or any
+		// result line) did nothing at all. Same handler as the table and list
+		// views, so a TASK row jumps to its own line there too.
+		attachRowOpen(li, row);
 		const main = li.createDiv({ cls: 'dashboard-dataview-free-main' });
 
 		if (result.queryType === 'TASK' && row.task) {
@@ -1500,11 +1594,29 @@ function resolveDvFile(path: string): TFile | null {
 	return null;
 }
 
-/** Make the whole row open its source note on click (TABLE rows + LIST items). */
+/** The source line a row click should land on, or null when the row has no
+ *  line of its own (every non-TASK query) and the note opens at the top.
+ *
+ *  Exported for the verify scripts: the line comes from the scanner's 0-based
+ *  index of the file content, the same convention `revealMarkdownLine` uses for
+ *  calendar jumps. */
+export function rowJumpLine(row: ResultRow): number | null {
+	if (!row.task) return null;
+	return row.task.line >= 0 ? row.task.line : null;
+}
+
+/** Make the whole row open its source note on click (TABLE rows + LIST items).
+ *
+ *  A TASK row carries the exact source line, so it jumps to the task itself —
+ *  the same effect a calendar chip click has (the note opens in the in-dashboard
+ *  popover with the line scrolled into view and the caret on it). Rows without a
+ *  task have no line to land on and open the note at the top, as before. */
 function attachRowOpen(el: HTMLElement, row: ResultRow): void {
 	const file = row.page?.file ?? null;
 	if (!file) return;
+	const line = rowJumpLine(row);
 	el.addClass('is-clickable');
+	if (line !== null) el.addClass('is-jumpable');
 	if (dvHoverParent && !Platform.isMobile) {
 		attachNoteHover(appRef, el, file, dvHoverParent);
 	}
@@ -1512,6 +1624,10 @@ function attachRowOpen(el: HTMLElement, row: ResultRow): void {
 		const target = e.target as HTMLElement;
 		// Don't hijack clicks on inner links/chips — let those resolve on their own.
 		if (target.closest('a, .dashboard-wikilink, .dashboard-dataview-task-checkbox')) return;
+		if (line !== null && dvLineOpener) {
+			dvLineOpener(file, line);
+			return;
+		}
 		if (dvOpener) dvOpener(file);
 	});
 }

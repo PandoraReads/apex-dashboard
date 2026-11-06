@@ -2695,7 +2695,12 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
 		});
 
-		renderDataviewSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover ?? null, (fn) => { reload = fn; },
+		// onOpenNoteAtLine is the calendar's task-jump channel: TASK rows open the
+		// popover at their own source line instead of the top of the note.
+		renderDataviewSection(el, column, app, activeHoverParent,
+			callbacks.onOpenNoteInPopover ?? null,
+			callbacks.onOpenNoteAtLine ?? null,
+			(fn) => { reload = fn; },
 			(cfg) => callbacks.onDataviewConfigChange(column.name, cfg));
 		return el;
 	}

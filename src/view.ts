@@ -12,6 +12,7 @@ import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-wi
 import { refreshCalendarSections } from './calendar-section';
 import { refreshOpenDayAgendas } from './calendar-modal';
 import { invalidatePath } from './alltasks-scan';
+import { refreshDataviewSectionsForPath } from './dataview-section';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
 import { refreshAlbumWidgets, destroyAlbumWidgets } from './album-widget';
@@ -2074,16 +2075,22 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  closed. Its embedded MarkdownView flushes to disk only on close, and
 	 *  the surfaces showing that note's tasks hold snapshots taken before it
 	 *  opened: the calendar grids paint cells from their last scan, each open
-	 *  day agenda paints the list it was opened with. The vault-event fan-out
-	 *  cannot be relied on either — it debounces 500ms behind the write (so a
-	 *  quick close-then-look sees the old text) and skips the dashboard file
-	 *  itself by design. Re-read from disk and repaint those surfaces. */
+	 *  day agenda paints the list it was opened with, and a dataview card holds
+	 *  the result set it queried. The vault-event fan-out cannot be relied on
+	 *  either — it debounces 500ms behind the write (so a quick close-then-look
+	 *  sees the old text) and skips the dashboard file itself by design. Re-read
+	 *  from disk and repaint those surfaces. */
 	private onNoteEditedInPopover(file: TFile): void {
 		// The editor's write landed without our scan cache seeing it: force the
 		// next scan of this note to read the file from disk (bypassing both the
 		// mtime cache and the metadata pre-filter, which reindexes lazily).
 		invalidatePath(file.path);
 		this.refreshCalendarSurfaces();
+		// Dataview cards are snapshots and stay off the vault debounce by design,
+		// so the card the note was opened from would keep showing the pre-edit
+		// rows until a manual refresh. Re-run the ones that show this note; they
+		// repaint quietly (no blank, no scan spinner).
+		refreshDataviewSectionsForPath(file.path);
 	}
 
 	/** Repaint the task surfaces that keep a snapshot: the sidebar calendar
