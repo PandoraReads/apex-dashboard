@@ -704,6 +704,9 @@ function renderList(container: HTMLElement, result: QueryResult, rows: readonly 
 			main.addClass('dashboard-dataview-task-row');
 			renderTaskCell(main, row.task, appRef, () => rerender?.());
 			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
+			// The row is single-line with an ellipsis (styles.css), so keep the
+			// untruncated text reachable on hover.
+			label.title = row.task.text;
 			renderDvInline(label, formatValue(row.values[0] ?? null));
 		} else {
 			// First projected value as the primary line. For a bare LIST (or
@@ -758,6 +761,8 @@ function renderFreeList(
 			main.addClass('dashboard-dataview-task-row');
 			renderTaskCell(main, row.task, appRef, () => rerender?.());
 			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
+			// Single-line row + ellipsis (styles.css): keep the full text on hover.
+			label.title = row.task.text;
 			renderDvInline(label, row.task.text);
 			return;
 		}

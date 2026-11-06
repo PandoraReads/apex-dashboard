@@ -22115,6 +22115,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 }
 .dashboard-dataview-list-main.dashboard-dataview-task-row {
 	align-items: center;
+	/* Fill the item: this host is a fit-content row (the item's align-items is
+	   baseline), so left at its natural width the text keeps its full length and
+	   the ellipsis below never gets a width to truncate against. */
+	width: 100%;
 }
 .dashboard-dataview-list-source {
 	font-size: 11px;
@@ -22333,6 +22337,31 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 .dashboard-dataview-task-text {
 	font-size: 0.85em;
 	color: var(--db-text, var(--text-normal));
+}
+/* Task rows keep the checkbox and its text on ONE line: overlong text is cut
+   with an ellipsis instead of wrapping. A wrapped row both stranded the
+   checkbox on a line of its own and made "level with the text" a guessing game
+   about the first line box; truncation removes the problem instead of aligning
+   around it, and every row keeps the same height. */
+.dashboard-dataview-task-row {
+	flex-wrap: nowrap;
+	/* One line only, so center-to-center is exactly level. The free-mode host
+	   defaults to baseline, which leaves a 16px box riding high on the text. */
+	align-items: center;
+}
+/* The base rule's translateY(1px) was the nudge that faked centering; with the
+   row centered it only pushed the box below the text. */
+.dashboard-dataview-task-row .dashboard-dataview-task-checkbox {
+	transform: none;
+}
+.dashboard-dataview-task-row .dashboard-dataview-task-text {
+	/* Shrinkable flex item + clipped overflow = a width the ellipsis can act on;
+	   min-width:0 is what lets it shrink below its max-content width. */
+	flex: 1 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Empty + error + scanning states */
