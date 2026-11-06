@@ -22274,6 +22274,15 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	color: var(--db-accent, var(--interactive-accent));
 	line-height: 1;
 }
+/* The bullet above is a flex item baseline-aligned to the row. A TASK row
+   centres its children, so nothing in it participates in baseline alignment
+   and the row's baseline is synthesized from the first item's bottom edge (the
+   16px checkbox) — the bullet drops to sit level with the checkbox's bottom
+   corner. The row is single-line by construction, so centring the bullet on it
+   is both correct and stable. */
+.dashboard-dataview-free-item.is-task-row::before {
+	align-self: center;
+}
 .dashboard-dataview-free-main {
 	display: inline-flex;
 	flex-wrap: wrap;

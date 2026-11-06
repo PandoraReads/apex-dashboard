@@ -13,7 +13,10 @@
  *    ever truncates); the text is a shrinkable, non-wrapping, clipped flex item
  *    with `text-overflow: ellipsis`.
  * 2. The px nudge that used to fake centering is cancelled inside task rows.
- * 3. The full text stays reachable: both TASK paths put it in `title`.
+ * 3. The free-view bullet is centred on the row instead of inheriting the
+ *    centred row's synthesized baseline (which parked it on the checkbox's
+ *    bottom edge).
+ * 4. The full text stays reachable: both TASK paths put it in `title`.
  *
  * Run: `npm run test:dataview-task-ellipsis`
  */
@@ -62,21 +65,33 @@ function ruleOf(selector: string): string {
 		'11: task rows drop the px nudge (centring is already exact)');
 }
 
-// --- 4. No leftovers from the wrapping/alignment attempts ---------------
+// --- 4. The free-view bullet stays centred on the row -------------------
 {
-	assert.ok(!css.includes('.dashboard-dataview-task-check {'),
-		'12: no one-line wrapper element');
-	assert.ok(!/height:\s*1lh/.test(css), '13: no lh-based box sizing');
-	assert.ok(!/\.dashboard-dataview-task-row[^{]*\.dashboard-dataview-task-text\s*{[^}]*overflow-wrap/.test(css),
-		'14: no word-wrapping rule on task text');
-	assert.ok(!/\.dashboard-dataview-task-row[^{]*\.dashboard-dataview-task-text\s*{[^}]*word-break/.test(css),
-		'15: no word-break rule on task text');
-	assert.ok(!sectionSrc.includes("dashboard-dataview-task-check'"),
-		'16: the renderer does not wrap the input in a sizing box');
+	// The bullet is a sibling flex item of the row, baseline-aligned by default.
+	// A centred row has no baseline participant, so its synthesized baseline is
+	// the checkbox's bottom edge and the bullet dropped with it.
+	const bullet = ruleOf('.dashboard-dataview-free-item.is-task-row::before');
+	assert.ok(/align-self:\s*center/.test(bullet),
+		'12: task-row bullets centre on the single-line row instead of following the synthesized baseline');
+	assert.ok(sectionSrc.includes("li.addClass('is-task-row')"),
+		'13: the free renderer marks TASK rows so that rule can apply');
 }
 
-// --- 5. Full text reachable on hover ------------------------------------
+// --- 5. No leftovers from the wrapping/alignment attempts ---------------
+{
+	assert.ok(!css.includes('.dashboard-dataview-task-check {'),
+		'14: no one-line wrapper element');
+	assert.ok(!/height:\s*1lh/.test(css), '15: no lh-based box sizing');
+	assert.ok(!/\.dashboard-dataview-task-row[^{]*\.dashboard-dataview-task-text\s*{[^}]*overflow-wrap/.test(css),
+		'16: no word-wrapping rule on task text');
+	assert.ok(!/\.dashboard-dataview-task-row[^{]*\.dashboard-dataview-task-text\s*{[^}]*word-break/.test(css),
+		'17: no word-break rule on task text');
+	assert.ok(!sectionSrc.includes("dashboard-dataview-task-check'"),
+		'18: the renderer does not wrap the input in a sizing box');
+}
+
+// --- 6. Full text reachable on hover ------------------------------------
 assert.equal((sectionSrc.match(/label\.title = row\.task\.text/g) ?? []).length, 2,
-	'17: both TASK row paths (list + free) expose the full text as a tooltip');
+	'19: both TASK row paths (list + free) expose the full text as a tooltip');
 
 console.log('dataview task ellipsis: all scenarios OK');

@@ -758,6 +758,10 @@ function renderFreeList(
 		const main = li.createDiv({ cls: 'dashboard-dataview-free-main' });
 
 		if (result.queryType === 'TASK' && row.task) {
+			// The bullet is a sibling flex item that is baseline-aligned to the
+			// row; a centred row has no baseline participant, so mark the item to
+			// let styles.css centre the bullet instead (see the rule there).
+			li.addClass('is-task-row');
 			main.addClass('dashboard-dataview-task-row');
 			renderTaskCell(main, row.task, appRef, () => rerender?.());
 			const label = main.createSpan({ cls: 'dashboard-dataview-task-text' + (row.task.checked ? ' is-done' : '') });
