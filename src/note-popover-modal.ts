@@ -18,15 +18,24 @@ export class NotePopoverModal extends Modal {
 	private readonly file: TFile;
 	private readonly subpath?: string;
 	private readonly line?: number;
+	/** Called after the embedded editor flushed a CHANGE on close. Surfaces that
+	 *  show task snapshots (calendar grids, day agendas) were painted before
+	 *  this note opened and have no way to know it changed — the vault event
+	 *  either beats the write or is skipped outright for the dashboard file. */
+	private readonly onEdited?: (file: TFile) => void;
+	/** The file's mtime when the popover opened: an unchanged mtime on close
+	 *  means nothing to refresh (the editor saves lazily, on close). */
+	private openMtime = 0;
 	private leaf: WorkspaceLeaf | null = null;
 	private toggleBtn: HTMLElement | null = null;
 	private mode: NoteViewMode;
 
-	constructor(app: App, file: TFile, subpath?: string, line?: number) {
+	constructor(app: App, file: TFile, subpath?: string, line?: number, onEdited?: (file: TFile) => void) {
 		super(app);
 		this.file = file;
 		this.subpath = subpath;
 		this.line = line;
+		this.onEdited = onEdited;
 		this.mode = (this.app.loadLocalStorage(MODE_STORAGE_KEY) as string | null) === 'preview' ? 'preview' : 'source';
 	}
 
@@ -34,6 +43,7 @@ export class NotePopoverModal extends Modal {
 		const { contentEl, modalEl } = this;
 		modalEl.addClass('note-popover-modal-wrap');
 		applyModalTheme(modalEl);
+		this.openMtime = this.file.stat.mtime;
 		// The actions row below renders its own close button; Obsidian 1.13+
 		// also auto-renders a native one in this corner — drop the duplicate.
 		removeNativeModalCloseButton(modalEl);
@@ -118,12 +128,22 @@ export class NotePopoverModal extends Modal {
 
 	onClose(): void {
 		const leaf = this.leaf;
+		const file = this.file;
+		const openedAt = this.openMtime;
 		this.leaf = null;
 		this.toggleBtn = null;
-		if (leaf) {
-			void this.detachLeaf(leaf);
-		}
+		// Detach AFTER saving: the editor keeps its edits in memory until
+		// MarkdownView.save() flushes them, and the vault write is what bumps
+		// the file's mtime. Kick the save off before the DOM is torn down, and
+		// report only once the write has landed — the listener's rescan must
+		// read the new content, not the pre-edit one.
+		const detached = leaf ? this.detachLeaf(leaf) : Promise.resolve();
 		this.contentEl.empty();
+		void detached.then(() => {
+			if (!this.onEdited) return;
+			if (file.stat.mtime === openedAt) return; // nothing was edited
+			this.onEdited(file);
+		});
 	}
 
 	private async detachLeaf(leaf: WorkspaceLeaf): Promise<void> {

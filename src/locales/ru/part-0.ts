@@ -159,6 +159,7 @@ export const part0: Record<string, string> = {
 	"settings.layoutSide": "Боковая панель",
 	"settings.layoutStacked": "Сложено",
 	"settings.layoutImmersive": "Иммерсивный",
+	"settings.layoutImmersiveLight": "Иммерсивный светлый",
 	"view.sidebarResizeHint": "Перетащите, чтобы изменить размер боковой панели.",
 	"view.stripResizeHint": "Перетащите, чтобы изменить размер полосы виджетов.",
 	"settings.stylePreset": "Стиль",

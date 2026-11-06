@@ -30,6 +30,7 @@ import { HabitService, registerHabitService } from './habit-service';
 import { ExpenseService, registerExpenseService } from './expense-service';
 import { MusicService, registerMusicService } from './music-service';
 import { generateDefaultMarkdown, newYearCountdown } from './parser';
+import { isImmersiveMode } from './immersive-grid';
 import {
 	alignWorkspaceNames,
 	migrateWorkspaces,
@@ -690,7 +691,7 @@ export default class DashboardPlugin extends Plugin {
 		// The immersive template's countdown tile needs its settings entry
 		// (id computed per-year via newYearCountdown, so boards created after
 		// any given New Year never ship an expired countdown).
-		if (layout === 'immersive') {
+		if (isImmersiveMode(layout)) {
 			const cd = newYearCountdown();
 			if (!this.settings.countdowns.some(c => c.id === cd.id)) {
 				const seeded = (await this.loadData()) as Partial<DashboardSettings> | null;
@@ -709,7 +710,7 @@ export default class DashboardPlugin extends Plugin {
 			// classic-shaped board that then renders immersive with no
 			// arrangement. 'side' stays undefined to keep the classic
 			// follow-global semantics.
-			const effectiveLayout = layout ?? (this.settings.layoutMode === 'immersive' ? 'immersive' : undefined);
+			const effectiveLayout = layout ?? (isImmersiveMode(this.settings.layoutMode) ? this.settings.layoutMode : undefined);
 			await this.app.vault.create(withExt, generateDefaultMarkdown(effectiveLayout));
 		} catch (err) {
 			console.error('Workspace file creation failed:', err);

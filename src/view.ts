@@ -2,14 +2,17 @@ import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Plat
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem } from './types';
+import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskCardConfig, TaskItem } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
-import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
-import { defaultWidgetSize, displaceOverlappedBy, widgetItemId } from './immersive-grid';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, isImmersiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
+import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, carryImmersivePlacement, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
+import { defaultWidgetSize, displaceOverlappedBy, isImmersiveMode, widgetItemId } from './immersive-grid';
 import type { PreserveScope } from './preserve-scope';
 import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
 import { refreshCalendarSections } from './calendar-section';
+import { refreshOpenDayAgendas } from './calendar-modal';
+import { invalidatePath } from './alltasks-scan';
+import { refreshDataviewSectionsForPath } from './dataview-section';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
 import { refreshAlbumWidgets, destroyAlbumWidgets } from './album-widget';
@@ -79,7 +82,9 @@ import { mergeManualStageOrder, parseNoteDue, reorderSkillSubset } from './pipel
 import { pmKeyDate } from './pm-model';
 import { t } from './i18n';
 import { archiveCompleted, serializeTasksForNote } from './task-tree';
-import { getOrCreateDailyNote, ensureFolder } from './daily-notes';
+import { dailyBlockHeading, mergeDailyTasksBlock } from './daily-note-block';
+import { getOrCreateDailyNote, ensureFolder, getDailyNotesConfig } from './daily-notes';
+import { readCardTasksFromToday, retitleCardBlock, todayDailyNote, writeCardTasksToToday } from './daily-task-source';
 import { createMemoNote } from './memo-note';
 import type { App } from 'obsidian';
 import { dashboardMarkdownPath, planDashboardUpdate, type DashboardUpdateSource } from './render-update';
@@ -308,6 +313,16 @@ export class DashboardView extends ItemView implements HoverParent {
 			e.stopPropagation();
 			new SkillWidgetConfigModal(this.app, this.plugin).open();
 		}) as EventListener);
+		// Calendar day-agenda add → rescan the live calendar surfaces. Needed
+		// because a dashboard-file destination (a day with no daily note) is
+		// skipped by the vault-event fan-out (record() ignores the dashboard's
+		// own path), so the grid — and every agenda click that reads its
+		// snapshot — stayed frozen until a view-switch rebuild. Dispatched on
+		// .apex-dashboard-root by calendar-modal (bubbles up here); stable
+		// host so render() rebuilds don't need to re-arm it.
+		this.containerEl.addEventListener('dashboard-calendar-refresh', (() => {
+			this.refreshCalendarSurfaces();
+		}) as EventListener);
 		this.startReminderChecker();
 		this.startWeatherRefresh();
 		this.startDayRolloverChecker();
@@ -363,6 +378,10 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.pendingInitialData = data;
 			return;
 		}
+		// Quiet mutation whose DOM was already patched in place: adopt the new
+		// data graph (this.data is set above) but never paint. Must come BEFORE
+		// the suppression check so it cannot consume that one-shot flag.
+		if (source === 'local-silent') return;
 		if (this.suppressNextRender) {
 			this.suppressNextRender = false;
 			return;
@@ -453,7 +472,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// countdowns keep ticking, no vault re-scan). The immersive grid has no
 		// whole-area container: its cards are individual tiles, so they detach
 		// into a per-key map instead (renderImmersiveRoot re-attaches them).
-		if (layout === 'immersive') {
+		if (isImmersiveMode(layout)) {
 			this.immWidgetEls = new Map();
 			const prevGrid = prevRoot?.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
 			prevGrid?.querySelectorAll<HTMLElement>(':scope > [data-widget-key]').forEach(el => {
@@ -476,14 +495,14 @@ export class DashboardView extends ItemView implements HoverParent {
 			JSON.stringify([data.quickActions, data.quickActionOrder, data.hiddenPresets]),
 			data,
 		);
-		const preserveWidgets = layout === 'immersive'
+		const preserveWidgets = isImmersiveMode(layout)
 			? this.immWidgetEls.size > 0 && this.sidebarWidgetsSig === widgetSig
 			: !!this.sidebarWidgetsEl && this.sidebarWidgetsSig === widgetSig;
 
 		// The live-DOM scope destroy functions must leave alone: one element
 		// (side/stacked widgets area) or a per-card set (immersive tiles).
 		const preserveScope: HTMLElement | Set<HTMLElement> | null = preserveWidgets
-			? (layout === 'immersive' ? new Set(this.immWidgetEls.values()) : this.sidebarWidgetsEl)
+			? (isImmersiveMode(layout) ? new Set(this.immWidgetEls.values()) : this.sidebarWidgetsEl)
 			: null;
 		this.runCleanup(preserveScope);
 		this.data = data;
@@ -520,7 +539,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// mix in one free grid (still on a .dashboard-kanban host, so every
 		// kanban-rooted mechanism keeps working).
 		let boardHost: HTMLElement;
-		if (layout === 'immersive') {
+		if (isImmersiveMode(layout)) {
 			const imm = renderImmersiveRoot({
 				container,
 				data,
@@ -650,7 +669,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// The immersive grid owns section geometry; its section grip becomes a
 		// whole-tile reorder handle (setupImmersiveDnD), so the side/stacked
 		// grip-reorder wiring is skipped there. Card drags stay armed in both.
-		setupDragAndDrop(boardHost, this.createCallbacks(), this.dndCleanupFns, { skipSectionGrip: layout === 'immersive' });
+		setupDragAndDrop(boardHost, this.createCallbacks(), this.dndCleanupFns, { skipSectionGrip: isImmersiveMode(layout) });
 		this.attachBoardEventDelegation(boardHost);
 
 		// Replay the pre-render scroll snapshot onto the rebuilt tree. Keys that
@@ -1024,14 +1043,23 @@ export class DashboardView extends ItemView implements HoverParent {
 			const el = child as HTMLElement;
 			const id = el.dataset?.immId;
 			if (!id) continue;
+			// Reused widget tiles (immWidgetEls) still carry strips from the
+			// previous render whose listeners close over the OLD grid and OLD
+			// commit closure (stampedRects against a detached grid). Strip
+			// them and re-bind fresh so both the drag math and the commit
+			// resolve against the CURRENT grid. attach is idempotent, so this
+			// is also what makes re-binding possible at all.
+			el.querySelectorAll?.('.dashboard-imm-resize-h, .dashboard-imm-resize-v, .dashboard-imm-resize-handle')
+				.forEach(n => n.remove());
 			attachImmersiveResizeHandle(el, id, () => this.immItems, next => {
 				// A resize keeps the tile pinned at its x/y; any PINNED tile its
 				// new size now covers must give way — planImmersive stamps x/y
 				// tiles verbatim with no mutual collision check, so without the
 				// demotion the overlap renders forever (the "cards overlap
 				// after resizing" bug). The stamped rects already carry the
-				// drag's live span writes.
-				this.commitImmersiveItems(displaceOverlappedBy(next, id, stampedRects(grid)));
+				// drag's live span writes. Read the grid from the tile: cached
+				// tiles may have re-parented since this closure was made.
+				this.commitImmersiveItems(displaceOverlappedBy(next, id, stampedRects((el.parentElement as HTMLElement | null) ?? grid)));
 			});
 			if (id.startsWith('widget:')) {
 				attachImmersiveWidgetDelete(el, removeId => void this.removeImmersiveItem(removeId));
@@ -1045,7 +1073,22 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  swallowed via suppressNextRender and the vault-watcher reload no-ops on
 	 *  the serialize-equality check — the handleMoveCard recipe. */
 	private isLayoutLocked(): boolean {
-		return !!this.data && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive' && this.data.immersiveEditable === false;
+		return !!this.data && isImmersiveLayout(this.plugin.settings, this.data) && this.data.immersiveEditable === false;
+	}
+
+	/** Re-wire the immersive GRID-LEVEL tile DnD + context menu after an
+	 *  in-place refresh. Both mid-session refresh paths clear
+	 *  `dndCleanupFns` (to drop the card-deck listeners of the swapped-out
+	 *  tiles) — but that array also carries the cleanup of
+	 *  `setupImmersiveDnD` / `setupImmersiveTileMenu`, whose whole-tile
+	 *  move-drag and right-click menu live on the SURVIVING grid. Without
+	 *  this re-wire the board keeps its looks yet silently loses tile
+	 *  dragging until the next full render (the "return from a note and
+	 *  cards can't be dragged; lock→edit layout restores them" bug). */
+	private rewireImmersiveGridDnD(kanban: HTMLElement): void {
+		if (!this.data || !isImmersiveLayout(this.plugin.settings, this.data)) return;
+		setupImmersiveDnD(kanban, () => this.immItems, next => this.commitImmersiveItems(next), this.dndCleanupFns);
+		setupImmersiveTileMenu(kanban, id => void this.removeImmersiveItem(id), this.dndCleanupFns);
 	}
 
 	private commitImmersiveItems(next: ImmersiveItem[]): void {
@@ -1622,14 +1665,17 @@ export class DashboardView extends ItemView implements HoverParent {
 				void this.sync.deleteCard(cardId);
 				new Notice(t('card.deleted'));
 			},
-			onCardPinTop: (cardId: string, columnName: string) => {
-				// One-click pin-to-top on sticky cards: reuse the optimistic
-				// same-column move path. Already first -> skip the pointless write.
-				const col = this.data?.columns.find(c => c.name === columnName);
-				if (!col || col.cards[0]?.id === cardId) return;
-				void this.handleMoveCard(cardId, columnName, 0);
-			},
-			onCheckboxToggle: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTask(cardId, taskPath, checked),
+		onCardPinTop: (cardId: string, columnName: string) => {
+			// One-click pin-to-top on sticky cards: reuse the optimistic
+			// same-column move path. Already first -> skip the pointless write.
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col || col.cards[0]?.id === cardId) return;
+			void this.handleMoveCard(cardId, columnName, 0);
+		},
+		onTaskCardConfigSave: (card: DashboardCard, config: TaskCardConfig) => {
+			void this.applyTaskCardConfig(card, config);
+		},
+		onCheckboxToggleQuiet: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTaskQuiet(cardId, taskPath, checked),
 			onTaskAdd: (cardId: string, text: string, parentPath?: number[]) => this.sync.addTask(cardId, text, parentPath),
 			onTaskDelete: async (cardId: string, taskPath: number[]) => {
 				const confirmed = await showConfirmDialog(this.app, {
@@ -1804,14 +1850,32 @@ export class DashboardView extends ItemView implements HoverParent {
 			const path = folder ? `${folder}/${fileName}` : fileName;
 
 			const title = card.title?.trim() || t('notice.memoUntitled');
-			const block = `### ${title}\n${serializeTasksForNote(card.tasks)}`;
+			// Heading depth is per-card config (default ### Title).
+			const heading = dailyBlockHeading(title, card.dailyHeadingLevel ?? 3);
+			const block = `${heading}\n${serializeTasksForNote(card.tasks)}`;
 
 			if (folder) await ensureFolder(this.app, folder);
 
 			const existing = this.app.vault.getAbstractFileByPath(path);
 			if (existing instanceof TFile) {
+				// A heading-level change moves the old block instead of leaving a
+				// stale copy behind (which would duplicate the task list).
+				try {
+					await retitleCardBlock(this.app, existing, title, card.dailyHeadingLevel ?? 3);
+				} catch (err) {
+					console.error('[Dashboard] retitle daily block failed:', err);
+				}
 				const raw = await this.app.vault.read(existing);
-				await this.app.vault.modify(existing, prependAfterFrontmatter(raw, block));
+				// Merge, don't overwrite: existing entries are updated to the
+				// card's state, new card entries are appended, and task lines
+				// that exist only in the note (hand-added / removed from the
+				// card) are left untouched. Absent heading → prepend a block.
+				const { content, replaced } = mergeDailyTasksBlock(raw, heading, card.tasks);
+				if (replaced) {
+					await this.app.vault.modify(existing, content);
+				} else {
+					await this.app.vault.modify(existing, prependAfterFrontmatter(raw, block));
+				}
 			} else {
 				await this.app.vault.create(path, `${block}\n`);
 			}
@@ -1820,6 +1884,94 @@ export class DashboardView extends ItemView implements HoverParent {
 			console.error('[Dashboard] saveTasksToDaily failed:', err);
 			new Notice(t('notice.dailySaveError'), 4000);
 		}
+	}
+
+	/**
+	 * Persist the task-card config modal (gear button) in one pass.
+	 *
+	 * Completion behavior + heading level ride a single updateCard write. The
+	 * "load from today's daily note" toggle keeps the seed-before-flag rule:
+	 * enabling drops the card's own task lines from the dashboard file, so the
+	 * note must own them first. A heading level change MOVES the existing note
+	 * block instead of appending a second copy — see retitleCardBlock.
+	 */
+	private async applyTaskCardConfig(card: DashboardCard, config: TaskCardConfig): Promise<void> {
+		let wantDaily = config.tasksFromDaily;
+		const enabling = wantDaily && card.tasksFromDaily !== true;
+		if (enabling && !getDailyNotesConfig(this.app)) {
+			// Only the daily-note source is refused — the other two settings
+			// still apply, so the dialog never silently drops them.
+			new Notice(t('notice.dailyNotesDisabled'), 5000);
+			wantDaily = card.tasksFromDaily === true;
+		}
+
+		const level = config.dailyHeadingLevel;
+		const prevLevel = card.dailyHeadingLevel ?? 3;
+		// Moving the block beats re-creating it: without this the next mirror
+		// write lands under a NEW heading and the old block keeps its tasks,
+		// duplicating the list inside the note.
+		if (card.tasksFromDaily && level !== prevLevel) {
+			const file = todayDailyNote(this.app);
+			if (file) {
+				try {
+					await retitleCardBlock(this.app, file, card.title ?? '', level);
+				} catch (err) {
+					console.error('[Dashboard] retitle daily block failed:', err);
+				}
+			}
+		}
+
+		if (enabling) {
+			// Seed the note before the flag lands, using the freshly picked
+			// heading level (that is how the block the card will read is
+			// written). Same never-drop-tasks rationale as above.
+			const existing = await readCardTasksFromToday(this.app, card.title ?? '', level);
+			if (existing === null && card.tasks.length > 0) {
+				await writeCardTasksToToday(this.app, card.title ?? '', card.tasks, level);
+			}
+		}
+
+		await this.sync.updateCard(card.id, {
+			taskCompleteBehavior: config.taskCompleteBehavior === 'end' ? undefined : config.taskCompleteBehavior,
+			tasksFromDaily: wantDaily ? true : undefined,
+			dailyHeadingLevel: level === 3 ? undefined : level,
+		});
+		if (wantDaily) {
+			await this.sync.refreshDailyLinkedTasks();
+			if (this.data) this.render(this.data);
+		}
+	}
+
+	/** Identity of the daily-linked cards' current task lists; null when no
+	 *  card is in that mode (nothing to watch). */
+	/** Signature over what the card actually SHOWS (text / checked / reminder /
+	 *  nesting) — not the raw TaskItem graphs. A note round-trip through
+	 *  writeCardTasksToToday → readCardTasksFromToday re-creates the tasks, so
+	 *  fields the note cannot carry (collapsed, transient ids) would make our
+	 *  own mirror echo look like a change and repaint the whole board. */
+	private dailyLinkedTasksSignature(): string | null {
+		const cards = (this.data?.columns ?? []).flatMap(col => col.cards).filter(c => c.tasksFromDaily);
+		if (cards.length === 0) return null;
+		const shape = (tasks: TaskItem[]): unknown[] => tasks.map(task => [
+			task.text,
+			task.checked,
+			task.reminder ?? '',
+			shape(task.children ?? []),
+		]);
+		return JSON.stringify(cards.map(card => [card.id, shape(card.tasks)]));
+	}
+
+	/**
+	 * Re-read the daily-linked cards after an .md change, re-rendering only when
+	 * their task lists actually differ. Covers a hand edit in today's note and
+	 * our own mirror writes echoing back through the vault watcher (those arrive
+	 * unchanged, so no second paint).
+	 */
+	private async refreshDailyLinkedCards(): Promise<void> {
+		const before = this.dailyLinkedTasksSignature();
+		if (before === null) return;
+		await this.sync.refreshDailyLinkedTasks();
+		if (before !== this.dailyLinkedTasksSignature() && this.data) this.render(this.data);
 	}
 
 	private async archiveCompletedTasks(columnName: string): Promise<void> {
@@ -1912,9 +2064,42 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Close any previously open popover so its embedded leaf is detached
 		// before we open a fresh one.
 		this.popoverModal?.close();
-		const modal = new NotePopoverModal(this.app, file, subpath, line);
+		const modal = new NotePopoverModal(this.app, file, subpath, line, (edited) => {
+			this.onNoteEditedInPopover(edited);
+		});
 		this.popoverModal = modal;
 		modal.open();
+	}
+
+	/** A note was edited inside the in-dashboard editor and the modal has
+	 *  closed. Its embedded MarkdownView flushes to disk only on close, and
+	 *  the surfaces showing that note's tasks hold snapshots taken before it
+	 *  opened: the calendar grids paint cells from their last scan, each open
+	 *  day agenda paints the list it was opened with, and a dataview card holds
+	 *  the result set it queried. The vault-event fan-out cannot be relied on
+	 *  either — it debounces 500ms behind the write (so a quick close-then-look
+	 *  sees the old text) and skips the dashboard file itself by design. Re-read
+	 *  from disk and repaint those surfaces. */
+	private onNoteEditedInPopover(file: TFile): void {
+		// The editor's write landed without our scan cache seeing it: force the
+		// next scan of this note to read the file from disk (bypassing both the
+		// mtime cache and the metadata pre-filter, which reindexes lazily).
+		invalidatePath(file.path);
+		this.refreshCalendarSurfaces();
+		// Dataview cards are snapshots and stay off the vault debounce by design,
+		// so the card the note was opened from would keep showing the pre-edit
+		// rows until a manual refresh. Re-run the ones that show this note; they
+		// repaint quietly (no blank, no scan spinner).
+		refreshDataviewSectionsForPath(file.path);
+	}
+
+	/** Repaint the task surfaces that keep a snapshot: the sidebar calendar
+	 *  (task dots), every embedded calendar grid (in place), and any open day
+	 *  agenda. All three are no-ops when nothing they show changed. */
+	private refreshCalendarSurfaces(): void {
+		this.refreshSidebarCalendarNow();
+		refreshCalendarSections(this.containerEl as HTMLElement);
+		refreshOpenDayAgendas();
 	}
 
 	/** Opens a note on card click. Honors the "disable popover" setting: when
@@ -1972,7 +2157,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Immersive boards: the "+ 添加卡片" tile opens the card menu —
 		// sections through the modal, widgets straight onto the board
 		// (per-board membership, independent of the global toggles).
-		if (this.data && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive') {
+		if (this.data && isImmersiveLayout(this.plugin.settings, this.data)) {
 			const root = this.containerEl.children[1] as HTMLElement | undefined;
 			const anchor = root?.querySelector<HTMLElement>('.dashboard-imm .dashboard-imm-add-btn')
 				?? root?.querySelector<HTMLElement>('.dashboard-imm .dashboard-add-section')
@@ -2467,18 +2652,18 @@ export class DashboardView extends ItemView implements HoverParent {
 		// Immersive: the tile's grid placement lives inline on the element (the
 		// packer wrote it); the fresh node would drop back to auto placement and
 		// fly to the end of the grid — carry the placement over too.
-		const gridCol = oldEl.style.gridColumn;
-		const gridRow = oldEl.style.gridRow;
-		const minH = oldEl.style.minHeight;
+		// carryImmersivePlacement also copies the height/min/max triple the fit
+		// pass pinned — copying only minHeight (the old hand-rolled set) left
+		// the swapped tile unpinned for a frame: the box grew to its content
+		// (the internal scrollers need the explicit height to engage), then the
+		// next fit snapped it back — the visible "cards flash taller on sort"
+		// glitch on library sections whose content overflows the tile.
 		const immId = oldEl.getAttribute('data-imm-id');
-		if (immId) newEl.setAttribute('data-imm-id', immId);
+		if (immId) carryImmersivePlacement(oldEl, newEl);
 		oldEl.replaceWith(newEl);
-		if (gridCol) newEl.style.gridColumn = gridCol;
-		if (gridRow) newEl.style.gridRow = gridRow;
-		if (minH) newEl.style.minHeight = minH;
 		// The swapped-in node carries no resize grip — re-attach it (the
 		// method is idempotent) so the tile keeps its corner handle.
-		if (immId && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive') {
+		if (immId && isImmersiveLayout(this.plugin.settings, this.data)) {
 			attachImmersiveResizeHandle(newEl, immId, () => this.immItems, next => this.commitImmersiveItems(next));
 		}
 		restoreScrollStates(newEl, scrollStates);
@@ -2493,7 +2678,10 @@ export class DashboardView extends ItemView implements HoverParent {
 		window.requestAnimationFrame(restoreAncestorScroll);
 		for (const fn of this.dndCleanupFns) fn();
 		this.dndCleanupFns = [];
-		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive' });
+		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: isImmersiveLayout(this.plugin.settings, this.data) });
+		// The wipe above also dropped the grid-level tile DnD + menu (their
+		// cleanups lived in the same array) — re-wire them on the surviving grid.
+		this.rewireImmersiveGridDnD(kanban);
 		return true;
 	}
 
@@ -2589,7 +2777,14 @@ export class DashboardView extends ItemView implements HoverParent {
 					}
 				}
 				await this.sync.addDocToCard(card.id, file.path);
-				await this.app.workspace.getLeaf('tab').openFile(file);
+				// Open the fresh note per the card's config (card edit modal):
+				// the in-dashboard popover editor by default — identical to
+				// clicking one of the card's docs — or a real editor tab.
+				if (card.newNoteOpenMode === 'tab') {
+					await this.app.workspace.getLeaf('tab').openFile(file);
+				} else {
+					this.openNotePopover(file);
+				}
 				new Notice(t('quickNote.created', { name: file.basename }));
 			} catch (err) {
 				console.error('[Dashboard] card new note failed:', err);
@@ -2638,10 +2833,23 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  hand-authored scan folders (dashboard-file YAML) follows the folder
 	 *  branch — queryVaultFiles scopes its results to those folders, so the
 	 *  global path would hide the note.
-	 *  The section refresh rides the vault-'create' debounce (registerVaultListeners
-	 *  → flushVaultRefresh → refreshSectionsFor) — an inline refresh could beat
-	 *  metadataCache indexing and briefly render the section without the new
-	 *  note. */
+	 *  The section refresh is explicit (refreshSectionAfterCreate, once the
+	 *  note's frontmatter is indexed): the vault-'create' debounce alone
+	 *  freezes whole-vault scans on immersive boards, and the tab path only
+	 *  masked that because the workspace switch-in did a full re-render. */
+	/** Refresh one scanning section once a just-created note is metadata-
+	 *  indexed (frontmatter resolved). Polling the cache — instead of
+	 *  refreshing immediately — keeps a filter-matching note from being
+	 *  rendered invisible by an unindexed first pass; a 2s cap means a
+	 *  cache-less edge case still refreshes rather than never. */
+	private async refreshSectionAfterCreate(columnName: string, file: TFile): Promise<void> {
+		const start = Date.now();
+		while (Date.now() - start < 2000 && !this.app.metadataCache.getFileCache(file)) {
+			await new Promise(resolve => window.setTimeout(resolve, 50));
+		}
+		this.refreshSectionInPlace(columnName);
+	}
+
 	private async handleLibraryNewNote(columnName: string, pos?: { x: number; y: number }): Promise<void> {
 		if (this.libraryNewNoteInFlight) return;
 		this.libraryNewNoteInFlight = true;
@@ -2698,7 +2906,22 @@ export class DashboardView extends ItemView implements HoverParent {
 						throw err;
 					}
 				}
-				await this.app.workspace.getLeaf('tab').openFile(file);
+				// Open the fresh note per the section's config (library config
+				// modal): a real editor tab — the historical library behavior —
+				// or the in-dashboard popover editor when opted in.
+				if (column.libraryConfig?.newNoteOpenMode === 'popover') {
+					this.openNotePopover(file);
+				} else {
+					await this.app.workspace.getLeaf('tab').openFile(file);
+				}
+				// The vault-'create' debounce alone cannot be trusted to show
+				// the note: immersive boards freeze whole-vault scans on vault
+				// events (anti-strobing), and the tab path only looked alive
+				// because the switch-in full render masked it. Refresh the
+				// section explicitly once the note's frontmatter is indexed —
+				// an immediate pass could beat the cache and hide a
+				// filter-matching note.
+				void this.refreshSectionAfterCreate(column.name, file);
 				new Notice(t('quickNote.created', { name: file.basename }));
 				if (skipped.length > 0) {
 					new Notice(t('library.newNoteSkipped', { props: skipped.join(', ') }));
@@ -2919,6 +3142,13 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (changedMd) {
 			this.refreshRecentDocs();
 			this.refreshSidebarCalendarNow();
+			// Cards whose tasks mirror today's daily note (and only those) need
+			// a re-read; the helper renders only when the lists actually differ.
+			void this.refreshDailyLinkedCards();
+			// Day agendas hold the list they were opened with; an edit made in a
+			// tab (the popover path nudges on close, see onNoteEditedInPopover)
+			// still leaves them stale. They repaint only on a visible change.
+			refreshOpenDayAgendas();
 			// Keeps its own extra debounce: the stats recompute walks the vault.
 			this.debouncedRefreshBannerStats();
 		}
@@ -2977,7 +3207,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// next full render (any board data edit, workspace switch-in, settings
 		// change) like every other section. Calendar grids are in-place
 		// updates that never swap elements — those stay live everywhere.
-		const immersive = resolveEffectiveLayout(this.plugin.settings, data) === 'immersive';
+		const immersive = isImmersiveLayout(this.plugin.settings, data);
 		const sectionType = (col: { sectionType?: string }) => col.sectionType;
 		const hasScanning = !immersive && data.columns.some(col => {
 			const st = sectionType(col);
@@ -3081,6 +3311,11 @@ export class DashboardView extends ItemView implements HoverParent {
 			for (const fn of this.dndCleanupFns) fn();
 			this.dndCleanupFns = [];
 			setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: immersive });
+			// The wipe above also dropped the immersive grid's whole-tile
+			// move-drag + context menu (same cleanup array) — re-wire them,
+			// or the board looks normal yet tiles can't be dragged until a
+			// full re-render (lock→edit layout).
+			this.rewireImmersiveGridDnD(kanban);
 			if (immersive) this.attachImmersiveResizeHandles(kanban);
 		}
 	}
@@ -3207,7 +3442,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		restoreScrollStates(mount, scrollStates);
 		// The corner resize grip and the hover delete button lived inside the
 		// swapped-out card.
-		if (immId && resolveEffectiveLayout(this.plugin.settings, this.data) === 'immersive') {
+		if (immId && isImmersiveLayout(this.plugin.settings, this.data)) {
 			attachImmersiveResizeHandle(mount, immId, () => this.immItems, next => this.commitImmersiveItems(next));
 			if (immId.startsWith('widget:')) {
 				attachImmersiveWidgetDelete(mount, removeId => void this.removeImmersiveItem(removeId));

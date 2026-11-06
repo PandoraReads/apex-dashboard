@@ -159,6 +159,7 @@ export const part0: Record<string, string> = {
 	"settings.layoutSide": "Seitenleiste",
 	"settings.layoutStacked": "Gestapelt",
 	"settings.layoutImmersive": "Immersiv",
+	"settings.layoutImmersiveLight": "Immersiv hell",
 	"view.sidebarResizeHint": "Ziehen Sie, um die Größe der Seitenleiste zu ändern",
 	"view.stripResizeHint": "Ziehen Sie, um die Größe des Widget-Streifens zu ändern",
 	"settings.stylePreset": "Stil",

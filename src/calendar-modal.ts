@@ -1,18 +1,23 @@
-import { App, Menu, Modal, Notice, setIcon } from 'obsidian';
-import type { TFile } from 'obsidian';
+import { App, Menu, Modal, Notice, setIcon, TFile } from 'obsidian';
 import { t } from './i18n';
 import { renderTextWithLinks } from './renderer';
 import { renderMonthGrid, renderWeekTimeGrid, mondayOf, taskDayTimeRange, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
 import {
 	CALENDAR_TASK_FILTERS,
+	collectVaultTasks,
 	filterTasksByDay,
+	indexTasksByDay,
+	invalidatePath,
+	isCalendarRelevant,
+	tasksSnapshotSignature,
 	toIsoDate,
 	buildTaskLine,
 	type CalendarTaskFilter,
 	type TaskTimeInput,
 	type VaultTask,
 } from './alltasks-scan';
-import { insertTaskForDay, type TaskInsertTarget } from './daily-notes';
+import { insertTaskForDay, dailyNotePathFor, type TaskInsertTarget } from './daily-notes';
+import { scanFileTasks } from './alltasks-scan';
 import { createTaskNote } from './calendar-task-note';
 import { applyModalTheme } from './modal-theme';
 import type { DashboardSettings } from './types';
@@ -21,6 +26,10 @@ interface CalendarModalCallbacks {
 	onToggle: (task: VaultTask, nextChecked: boolean) => Promise<void> | void;
 	/** Open a task's source note, optionally scrolling to the task's line. */
 	onOpenNote?: (file: TFile, line?: number) => void;
+	/** A day-agenda add/toggle just wrote to the vault. The surface that
+	 *  opened the agenda uses this to rescan + re-render its own grid (the
+	 *  snapshot it hands to the NEXT agenda open would otherwise stay stale). */
+	onTaskWritten?: () => void;
 }
 
 /** Minimal plugin surface needed to persist the calendar task filter. */
@@ -28,6 +37,28 @@ type DashboardPluginHandle = {
 	settings?: DashboardSettings;
 	saveSettings?: () => Promise<void>;
 };
+
+/**
+ * Nudge the live calendar surfaces (sidebar widget grid + embedded calendar
+ * sections) to rescan right after an in-modal task add.
+ *
+ * The vault-event fan-out cannot be relied on here: a day with no daily note
+ * falls back to writing into the DASHBOARD file (insertTaskForDay step 3),
+ * and the view deliberately skips its own dashboard-file events ("the engine
+ * owns that state"). The write then never reaches the calendar rescan, so the
+ * grid keeps its pre-add snapshot — the day's agenda (built from that
+ * snapshot) shows nothing until a view-switch rebuilds it.
+ *
+ * Dispatched as a bubbling CustomEvent on the kanban (repo convention for
+ * modal → board requests) so this module stays free of a calendar-widget /
+ * calendar-section import cycle (both of them import this file).
+ */
+function requestCalendarRefresh(targetPath?: string): void {
+	if (targetPath) invalidatePath(targetPath);
+	// Bubbles from the board root up to the view's stable containerEl listener.
+	const root = activeDocument.querySelector<HTMLElement>('.apex-dashboard-root');
+	root?.dispatchEvent(new CustomEvent('dashboard-calendar-refresh', { bubbles: true }));
+}
 
 /** Live plugin lookup (same pattern as renderer.ts's countdown settings path). */
 function lookupDashboardPlugin(app: App): DashboardPluginHandle | undefined {
@@ -63,6 +94,12 @@ function readTaskTarget(app: App): import('./types').CalendarTaskTarget | undefi
  *  (including an unreachable plugin) keeps the historical 'start' behavior. */
 function readTaskInsertPosition(app: App): 'start' | 'end' {
 	return lookupDashboardPlugin(app)?.settings?.calendarTaskInsertPosition === 'end' ? 'end' : 'start';
+}
+
+/** Should the day agenda also list tasks living in that day's daily note?
+ *  Default on (missing setting on legacy data.json counts as true). */
+function readIncludeDailyTasks(app: App): boolean {
+	return lookupDashboardPlugin(app)?.settings?.calendarIncludeDailyNoteTasks !== false;
 }
 
 /**
@@ -243,6 +280,9 @@ export class CalendarMonthModal extends Modal {
 
 	private async toggle(task: VaultTask, nextChecked: boolean): Promise<void> {
 		await this.cb.onToggle(task, nextChecked);
+		// A task living in the dashboard file toggles without a vault event
+		// reaching the view — nudge the grid so its dots/rows stay truthful.
+		requestCalendarRefresh(task.path);
 		task.checked = nextChecked;
 		this.render();
 	}
@@ -261,8 +301,21 @@ export class DayAgendaModal extends Modal {
 	 *  destination when the day has no daily note yet. */
 	private readonly dashboardFile?: string;
 	/** Focus the add-task input on open — for entries that imply "add something"
-	 *  (calendar day-number clicks) rather than "browse the day" (bar clicks). */
-	private readonly focusAddInput: boolean;
+	 *  (calendar day-number clicks) rather than "browse the day" (bar clicks).
+	 *  Also armed by addTask itself so consecutive Enter-adds keep the input
+	 *  focused across the content rebuild. */
+	private focusAddInput: boolean;
+	/** Rows currently rendered, keyed by their task object — the toggle path
+	 *  flips a row's state and re-orders rows in place instead of rebuilding
+	 *  the dialog (which flashed on every check). */
+	private rowByTask = new Map<VaultTask, HTMLElement>();
+	/** The exact list the current rows were rendered from (scanned tasks +
+	 *  merged daily-note tasks) — the toggle's re-sort walks it. */
+	private renderedTasks: VaultTask[] = [];
+	/** Container the rows live in (empty-state placeholder included). Repaints
+	 *  from refreshFromVault are scoped to it, so the add-task row and its
+	 *  inputs above are never rebuilt. */
+	private listHost: HTMLElement | null = null;
 
 	constructor(app: App, iso: string, tasks: VaultTask[], cb: CalendarModalCallbacks, dashboardFile?: string, focusAddInput = false) {
 		super(app);
@@ -273,8 +326,9 @@ export class DayAgendaModal extends Modal {
 		this.focusAddInput = focusAddInput;
 	}
 
-	onOpen(): void {
+	async onOpen(): Promise<void> {
 		const { contentEl, containerEl } = this;
+		liveAgendas.add(this);
 		contentEl.empty();
 		contentEl.addClass('dashboard-library-config-modal');
 		containerEl.addClass('modal--dashboard');
@@ -331,14 +385,12 @@ export class DayAgendaModal extends Modal {
 		});
 		addBtn.addEventListener('click', () => void addTask());
 
-		if (this.tasks.length === 0) {
-			body.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
-		} else {
-			const list = body.createDiv({ cls: 'dashboard-alltasks-list' });
-			for (const task of [...this.tasks].sort(byDayTaskTime(this.iso))) {
-				list.appendChild(this.renderRow(task));
-			}
-		}
+		// Scanned vault tasks + (config) the day's daily-note checkboxes,
+		// deduped (a note task carrying this day's marker arrives via both).
+		const dayTasks = this.dedupe([...this.tasks, ...(await this.loadDailyNoteTasks())]);
+		// Repaint host — refreshFromVault re-reads into exactly this element.
+		this.listHost = body.createDiv({ cls: 'dashboard-cal-day-list' });
+		this.renderDayList(dayTasks);
 
 		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		footer.createEl('button', {
@@ -347,6 +399,115 @@ export class DayAgendaModal extends Modal {
 		}).addEventListener('click', () => this.close());
 
 		if (this.focusAddInput) titleInput.focus();
+	}
+
+	/** Tasks living in THIS day's daily note, per the
+	 *  `calendarIncludeDailyNoteTasks` setting. The vault-wide scan only
+	 *  surfaces tasks carrying date markers, so a note's plain checkboxes
+	 *  would never reach the agenda on their own — read the note directly
+	 *  and scan its lines. A note task that also carries this day's marker
+	 *  arrives via the scan too; dedupe by path+line. */
+	private async loadDailyNoteTasks(): Promise<VaultTask[]> {
+		if (!readIncludeDailyTasks(this.app)) return [];
+		// Resolve the note the same way addTask writes to it: the pinned
+		// folder target's YYYY-MM-DD note, else the Daily Notes plugin's
+		// path for this day. A pinned single file ('note' per task / 'file')
+		// already flows through the scan via its tasks' date markers.
+		const targetCfg = readTaskTarget(this.app);
+		let path: string | null;
+		if (targetCfg?.kind === 'folder') {
+			const folder = targetCfg.path.trim().replace(/^\/+|\/+$/g, '');
+			path = folder ? `${folder}/${this.iso}.md` : `${this.iso}.md`;
+		} else {
+			path = dailyNotePathFor(this.app, this.iso);
+		}
+		if (!path) return [];
+		const file = this.app.vault.getFileByPath(path);
+		if (!(file instanceof TFile)) return [];
+		try {
+			return scanFileTasks(file, await this.app.vault.read(file));
+		} catch {
+			return [];
+		}
+	}
+
+	/** Dedupe scanned vs note tasks by vault path + line (the same physical
+	 *  checkbox must not render twice in one agenda). */
+	private dedupe(tasks: VaultTask[]): VaultTask[] {
+		const seen = new Set<string>();
+		return tasks.filter(t => {
+			const key = `${t.path}:${t.line}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+	}
+
+	/** Paint the day's rows into the list host. Rows are the only interactive
+	 *  part of the list (the add-task row with its inputs sits above, outside
+	 *  the host), so a repaint never disturbs typing. */
+	private renderDayList(tasks: VaultTask[]): void {
+		const host = this.listHost;
+		if (!host) return;
+		host.empty();
+		// Row registry for the toggle's in-place update (a full onOpen()
+		// rebuild per check was the agenda's flicker).
+		this.rowByTask = new Map();
+		this.renderedTasks = tasks;
+		if (tasks.length === 0) {
+			host.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
+			return;
+		}
+		const list = host.createDiv({ cls: 'dashboard-alltasks-list' });
+		for (const task of [...tasks].sort(byDayTaskTime(this.iso))) {
+			const row = this.renderRow(task);
+			this.rowByTask.set(task, row);
+			list.appendChild(row);
+		}
+	}
+
+	/** What the visible list shows right now — used to skip a repaint when a
+	 *  re-read finds exactly the same day (the common case: the popover was
+	 *  opened and closed without touching a task). */
+	private listSignature(tasks: readonly VaultTask[]): string {
+		return tasksSnapshotSignature([...tasks].sort(byDayTaskTime(this.iso)));
+	}
+
+	/** Re-scan this day from the vault. The rows were built from the opener's
+	 *  snapshot, which is what goes stale when a task's note is edited
+	 *  elsewhere; replicate the same pipeline (vault scan → per-day index →
+	 *  active filter, then the daily-note merge) so the result is comparable.
+	 *  `dashboardFile` is exempt from the folder exclusions inside the scan,
+	 *  matching how the calendar surfaces built the snapshot. */
+	private async scanDayTasks(): Promise<VaultTask[]> {
+		const settings = lookupDashboardPlugin(this.app)?.settings;
+		const scanned = (await collectVaultTasks(
+			this.app,
+			settings?.calendarExcludeFolders ?? [],
+			this.dashboardFile,
+		)).filter(isCalendarRelevant);
+		const viewByDay = filterTasksByDay(
+			indexTasksByDay(scanned),
+			readCalendarTaskFilter(this.app),
+			toIsoDate(new Date()),
+		);
+		return this.dedupe([...(viewByDay.get(this.iso) ?? []), ...(await this.loadDailyNoteTasks())]);
+	}
+
+	/** Re-read this day and repaint ONLY if what the list shows changed. Called
+	 *  after a task's source note was edited in the in-dashboard editor (its
+	 *  embedded MarkdownView flushes on close): without this the dialog keeps
+	 *  the text it was opened with. */
+	async refreshFromVault(): Promise<void> {
+		if (!this.listHost || !this.listHost.isConnected) return;
+		let next: VaultTask[];
+		try {
+			next = await this.scanDayTasks();
+		} catch {
+			return; // keep the current rows on a transient scan failure
+		}
+		if (this.listSignature(next) === this.listSignature(this.renderedTasks)) return;
+		this.renderDayList(next);
 	}
 
 	private renderRow(task: VaultTask): HTMLElement {
@@ -441,8 +602,23 @@ export class DayAgendaModal extends Modal {
 			{ path: target.file.path },
 		), 3000);
 
+		// Refresh the grid behind the dialog NOW: a dashboard-file destination
+		// (no daily note for that day) never reaches the view's vault-event
+		// fan-out, so without this nudge the card keeps its pre-add snapshot
+		// until the next view switch / full re-render.
+		requestCalendarRefresh(target.file.path);
+		// Direct, DOM-independent nudge: the surface that opened this agenda
+		// rescans its own grid. The event above is a broadcast (it has to find
+		// the live root), this one always reaches the opener.
+		this.cb.onTaskWritten?.();
+		// Second pass a beat later: Obsidian's vault index can lag behind the
+		// write — worst case a note this very add created — and a single
+		// rescan then runs against a file list that does not contain it.
+		window.setTimeout(() => this.cb.onTaskWritten?.(), 400);
+
 		// Optimistic: show the new task immediately at its time slot. The
-		// calendar section also re-scans automatically on the vault write event.
+		// vault write also refreshes the grid via the board listener / event
+		// debounce, but that path can land after the user closes this dialog.
 		// The row mirrors what scanFileTasks will parse back from the line; a
 		// task anchored entirely to OTHER days (cross-day groups) shows there,
 		// not in this agenda, so it is not appended here.
@@ -469,18 +645,64 @@ export class DayAgendaModal extends Modal {
 		}
 		titleInput.value = '';
 		for (const g of groups) { g.date.value = ''; g.time.value = ''; }
+		// Consecutive adds: onOpen rebuilds the content (fresh input element),
+		// so arm the focus flag to keep the add input focused for the next
+		// task — type-Enter-type-Enter without touching the mouse.
+		this.focusAddInput = true;
 		this.onOpen();
 	}
 
 	private async toggle(task: VaultTask, nextChecked: boolean): Promise<void> {
 		await this.cb.onToggle(task, nextChecked);
+		// The vault-event debounce rescans ordinary notes, so the broadcast is
+		// only needed for the dashboard-file blind spot (the fallback write
+		// destination whose vault events the view deliberately skips).
+		if (this.dashboardFile && task.path.replace(/\.md$/i, '') === this.dashboardFile.replace(/\.md$/i, '')) {
+			requestCalendarRefresh(task.path);
+		}
+		this.cb.onTaskWritten?.();
+		// In-place row update instead of a full onOpen() rebuild — the rebuild
+		// re-created every input and row on each check and read as a flash.
 		task.checked = nextChecked;
-		this.onOpen();
+		const row = this.rowByTask.get(task);
+		if (row) {
+			row.toggleClass('is-done', nextChecked);
+			// The click handler preventDefaults the native flip, so the
+			// checkbox never checked itself — mirror the state on the input
+			// too, or it only looks right after a reopen rebuilds the row.
+			const check = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+			if (check) check.checked = nextChecked;
+			const list = row.parentElement;
+			if (list) {
+				// Restore the agenda sort (done tasks sink): appendChild on
+				// existing nodes MOVES them — no rebuild, listeners intact.
+				for (const t of [...this.renderedTasks].sort(byDayTaskTime(this.iso))) {
+					const r = this.rowByTask.get(t);
+					if (r) list.appendChild(r);
+				}
+			}
+		}
 	}
 
 	onClose(): void {
+		liveAgendas.delete(this);
+		this.listHost = null;
+		this.rowByTask = new Map();
+		this.renderedTasks = [];
 		this.contentEl.empty();
 	}
+}
+
+/** Live day agendas across every surface that opens one (calendar section,
+ *  full-screen month grid, sidebar widget). Their rows are a snapshot taken at
+ *  open time, so an edit to a task's note (the in-dashboard popover editor,
+ *  another pane) leaves them showing stale text until they re-read. */
+const liveAgendas = new Set<DayAgendaModal>();
+
+/** Ask every open day agenda to re-read its day; each repaints only when what
+ *  it lists actually changed (a no-op popover open costs nothing visible). */
+export function refreshOpenDayAgendas(): void {
+	for (const agenda of [...liveAgendas]) void agenda.refreshFromVault();
 }
 
 export { toIsoDate };

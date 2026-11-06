@@ -6,17 +6,19 @@ import { FocalPointPicker, isCenterFocal } from './focal-point-picker';
 
 export class CardEditModal extends Modal {
 	private card: DashboardCard;
-	private onSave: (updates: { title: string; body: string; coverImage: string; coverPos?: { x: number; y: number } }) => void;
+	private onSave: (updates: { title: string; body: string; coverImage: string; coverPos?: { x: number; y: number }; newNoteOpenMode?: 'popover' | 'tab' }) => void;
 	private linkedPaths: string[];
 	private coverImageValue: string;
 	/** Cover focal-point draft (50/50 = center = unset). */
 	private coverPosValue: { x: number; y: number };
+	/** "新建笔记到卡片" open-mode draft (popover = default). */
+	private newNoteOpenModeValue: 'popover' | 'tab';
 	private pendingPaths: Set<string> = new Set();
 
 	constructor(
 		app: App,
 		card: DashboardCard,
-		onSave: (updates: { title: string; body: string; coverImage: string; coverPos?: { x: number; y: number } }) => void,
+		onSave: (updates: { title: string; body: string; coverImage: string; coverPos?: { x: number; y: number }; newNoteOpenMode?: 'popover' | 'tab' }) => void,
 	) {
 		super(app);
 		this.card = card;
@@ -29,6 +31,7 @@ export class CardEditModal extends Modal {
 
 		this.coverImageValue = card.coverImage || '';
 		this.coverPosValue = { ...(card.coverPos ?? { x: 50, y: 50 }) };
+		this.newNoteOpenModeValue = card.newNoteOpenMode === 'tab' ? 'tab' : 'popover';
 	}
 
 	onOpen(): void {
@@ -74,6 +77,22 @@ export class CardEditModal extends Modal {
 			this.coverImageValue = coverInput.value;
 			coverPicker.setPath(coverInput.value);
 		});
+
+		// "新建笔记到卡片" open mode (notes-section cards only): where the
+		// freshly created note opens after saving its title — the in-dashboard
+		// popover editor (default, same as clicking one of the card's docs) or
+		// a real editor tab.
+		if (this.card.type === 'project' || this.card.type === 'generic' || this.card.type === 'link') {
+			const openModeField = form.createDiv();
+			openModeField.createEl('label', { text: t('cardEdit.newNoteOpenMode') });
+			const openModeSelect = openModeField.createEl('select', { cls: 'dashboard-modal-input' });
+			openModeSelect.createEl('option', { attr: { value: 'popover' }, text: t('cardEdit.openPopover') });
+			openModeSelect.createEl('option', { attr: { value: 'tab' }, text: t('cardEdit.openTab') });
+			openModeSelect.value = this.newNoteOpenModeValue;
+			openModeSelect.addEventListener('change', () => {
+				this.newNoteOpenModeValue = openModeSelect.value === 'tab' ? 'tab' : 'popover';
+			});
+		}
 
 		const docsField = form.createDiv();
 		docsField.createEl('label', { text: t('cardEdit.linkedDocs') });
@@ -217,6 +236,9 @@ export class CardEditModal extends Modal {
 				coverPos: coverImage && !isCenterFocal(this.coverPosValue)
 					? { ...this.coverPosValue }
 					: undefined,
+				// 'popover' is the default and stays unpersisted (undefined);
+				// an explicit 'tab' rides the card's metadata line.
+				newNoteOpenMode: this.newNoteOpenModeValue === 'tab' ? 'tab' : undefined,
 			});
 			this.close();
 		});

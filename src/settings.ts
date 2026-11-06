@@ -1796,6 +1796,21 @@ export class DashboardSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		// Day agenda also lists that day's daily-note checkboxes. Read live
+		// by the agenda on every open, so no dashboard refresh is needed.
+		new Setting(card)
+			.setName(t('settings.calendarIncludeDailyTasks'))
+			.setDesc(t('settings.calendarIncludeDailyTasksDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.calendarIncludeDailyNoteTasks)
+				.onChange(async (value) => {
+					this.plugin.settings = {
+						...this.plugin.settings,
+						calendarIncludeDailyNoteTasks: value,
+					};
+					await this.plugin.saveSettings();
+				}));
+
 		// Fixed destination override: default chain (daily note → dashboard),
 		// a specific file, a folder with one YYYY-MM-DD note per day, or a
 		// folder with a NEW note per task (template-seeded, see below).

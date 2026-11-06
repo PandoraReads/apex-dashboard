@@ -487,14 +487,17 @@ export function renderImmersiveRoot(opts: {
 	// board — every memo note and every todo list is its own card tile
 	// (renderCard standalone). The backing column stays in the data (its
 	// cards, templates and archive entry all keep working); only the section
-	// wrapper never renders.
+	// wrapper never renders. EXCEPTION: an empty sticky section dissolves to
+	// ZERO tiles, which made "add a sticky section" a silent no-op on this
+	// board — keep its section tile until the first card gives the
+	// dissolution something to show.
 	const cardColumnOf = new Map<string, DashboardColumn>();
 	for (const child of Array.from(grid.children)) {
 		const row = child as HTMLElement;
 		if (row.dataset?.sectionType !== 'sticky') continue;
 		const column = data.columns.find(col => col.name === row.dataset.column);
+		if (!column || column.cards.length === 0) continue;
 		row.remove();
-		if (!column) continue;
 		for (const card of column.cards) {
 			const cardEl = renderCard(card, column.name, 'sticky', callbacks, app, data, settings);
 			cardEl.dataset.immId = `card:${card.id}`;
@@ -515,8 +518,9 @@ export function renderImmersiveRoot(opts: {
 	const entries = sortWidgetEntries(buildWidgetEntries(settings, app, opts.services, memberKeys), settings);
 	const presentIds: string[] = [];
 	for (const col of data.columns) {
-		if ((col.sectionType ?? '').toLowerCase() === 'sticky') {
-			// Dissolved: its CARDS are the tiles (skip the section id).
+		if ((col.sectionType ?? '').toLowerCase() === 'sticky' && col.cards.length > 0) {
+			// Dissolved: its CARDS are the tiles (skip the section id). An
+			// empty sticky section keeps its section tile (see above).
 			for (const card of col.cards) presentIds.push(`card:${card.id}`);
 		} else {
 			presentIds.push(sectionItemId(col.name));
@@ -581,6 +585,13 @@ export function renderImmersiveRoot(opts: {
 		const editing = wand.getAttribute('aria-pressed') !== 'true';
 		setEditingState(editing);
 		imm.toggleClass('dashboard-imm--locked', !editing);
+		// Flip the drag guard in lockstep with the visual state: the class
+		// above only hides the edit affordances, while the tile drag/resize/
+		// menu handlers consult THIS dataset flag. The re-render echo also
+		// writes it (from the persisted data), but the press handlers must
+		// never observe a stale "locked" here — the visual wand said
+		// "editing" while a render echo failed, and dragging silently died.
+		grid.dataset.layoutLocked = editing ? 'false' : 'true';
 		opts.onToggleEditing?.();
 	});
 	setEditingState(data.immersiveEditable !== false);
@@ -979,10 +990,18 @@ export function attachImmersiveResizeHandle(
 	onCommit: (items: GridItem[]) => void,
 ): void {
 	if (tile.querySelector('.dashboard-imm-resize-h')) return;
-	const grid = tile.parentElement;
-	if (!grid) return;
 
 	const startResize = (e: PointerEvent, axis: 'x' | 'y' | 'xy'): void => {
+		// Read the grid at PRESS time, not attach time. Widget tiles are
+		// CACHED across re-renders (immWidgetEls) and re-parented into a
+		// fresh grid, and this attach is skipped for them (strips exist) —
+		// a grid captured at attach time is the old DETACHED grid whose
+		// getBoundingClientRect is all zeros, so every drag computed garbage
+		// spans and widget tiles (pomodoro/expense/weather/music/countdown)
+		// silently stopped resizing while section tiles (rebuilt fresh each
+		// render) kept working.
+		const grid = tile.parentElement;
+		if (!grid) return;
 		if (grid.dataset.layoutLocked === 'true') return;
 		e.preventDefault();
 		e.stopPropagation();

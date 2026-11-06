@@ -2,7 +2,8 @@
  * Immersive-layout free-grid primitives.
  *
  * The immersive layout mixes widget cards and section cards in ONE free
- * grid (`.dashboard-kanban` under `[data-layout="immersive"]`, 12 columns).
+ * grid (`.dashboard-kanban` under `[data-layout^="immersive"]`, 12 columns;
+ * the attribute prefix covers both the dark and the light tone).
  * Arrangement state is a plain ordered list of `ImmersiveItem` tiles
  * (`widget:<key>` / `section:<name>`, column span + row span) persisted in
  * the workspace file's frontmatter; grid coordinates are ALWAYS derived by
@@ -104,8 +105,22 @@ export function sectionItemId(name: string): string {
 
 /** Pure phone-fallback of the layout gate (renderer.resolveEffectiveLayout
  *  delegates here; tests drive it without Platform). */
-export function effectiveLayout(layoutMode: DashboardLayoutMode, isPhone: boolean): 'side' | 'stacked' | 'immersive' {
+export function effectiveLayout(layoutMode: DashboardLayoutMode, isPhone: boolean): DashboardLayoutMode {
 	return isPhone ? 'side' : layoutMode;
+}
+
+/** True for BOTH immersive tones. This is the gate every layout branch must
+ *  use: `mode === 'immersive'` would quietly drop 'immersive-light' back onto
+ *  the side board (wrong shell, wrong grid, wrong widget re-parenting). */
+export function isImmersiveMode(mode: DashboardLayoutMode | undefined | null): boolean {
+	return mode === 'immersive' || mode === 'immersive-light';
+}
+
+/** Glass tone of an immersive board. Anything that is not the light variant
+ *  reads as 'dark' (the historical default), so callers never need to care
+ *  about non-immersive values. */
+export function immersiveTone(mode: DashboardLayoutMode | undefined | null): 'dark' | 'light' {
+	return mode === 'immersive-light' ? 'light' : 'dark';
 }
 
 /** Column span 1..IMM_COLS; dirty/missing values fall back to the small-card

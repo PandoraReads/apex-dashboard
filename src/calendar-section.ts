@@ -8,6 +8,7 @@ import {
 	indexTasksByDay,
 	invalidatePath,
 	isCalendarRelevant,
+	tasksSnapshotSignature,
 	toIsoDate,
 	toggleTaskInFile,
 	type CalendarTaskFilter,
@@ -24,8 +25,11 @@ import { closeDayPreview, scheduleDayPreview } from './calendar-widget';
  *  Mirrors the sidebar widget's widgetReloaders discipline. */
 const sectionReloaders = new WeakMap<HTMLElement, () => Promise<void>>();
 
-/** Re-scan tasks and re-render every live calendar section's grid in place.
- *  Returns true when at least one section was refreshed. */
+/** Re-scan and refresh every live calendar section under `kanban` (or any
+ *  container holding them). Returns true when at least one section was
+ *  refreshed. The reload itself skips the repaint when the scan shows the
+ *  same thing as the grid (see reloadInPlace), so repeated nudges for one
+ *  edit cost a cached scan but no flicker. */
 export function refreshCalendarSections(kanban: HTMLElement): boolean {
 	let any = false;
 	const sections = kanban.querySelectorAll<HTMLElement>('.dashboard-calendar-section');
@@ -79,6 +83,11 @@ export function renderCalendarSection(
 	let filter: CalendarTaskFilter = readCalendarTaskFilter(app);
 	/** Latest unfiltered scan (the filter is applied per render, like the modal). */
 	let byDay = new Map<string, VaultTask[]>();
+	/** Signature of the scan the grid currently shows. A reload whose scan
+	 *  matches it is a no-op repaint (our own write echoing back through the
+	 *  vault debounce, an unrelated note edit) and is skipped — rebuilding a
+	 *  month grid with identical content still reads as a blink. */
+	let renderedSignature = '';
 
 	// Month | Week segmented toggle (both buttons visible, active one accented).
 	const viewToggle = nav.createDiv({ cls: 'dashboard-library-view-toggle dashboard-calendar-view-toggle' });
@@ -168,10 +177,27 @@ export function renderCalendarSection(
 			new Notice(t('alltasks.toggleFailed'));
 			return;
 		}
-		// Optimistic flip; the vault-event debounce re-scans for the truth.
+		// Optimistic flip; a rescan follows via scheduleGridRefresh (the
+		// agenda always nudges onTaskWritten right after, and the vault-event
+		// debounce re-scans for the truth). An immediate renderGrid here used
+		// to stack with those into 3+ back-to-back grid rebuilds — the
+		// "completing a task flickers" report.
 		task.checked = nextChecked;
-		renderGrid();
+		scheduleGridRefresh();
 	};
+
+	// Coalesce every "the grid is stale" nudge (toggle, agenda onTaskWritten,
+	// the add-flow's 400ms second pass, …) into ONE rescan + re-render. A
+	// toggle used to trigger several within milliseconds — each a full grid
+	// rebuild, and the stack read as a flicker.
+	let gridRefreshTimer: number | null = null;
+	function scheduleGridRefresh(): void {
+		if (gridRefreshTimer !== null) window.clearTimeout(gridRefreshTimer);
+		gridRefreshTimer = window.setTimeout(() => {
+			gridRefreshTimer = null;
+			void reloadInPlace();
+		}, 150);
+	}
 
 	async function rescan(): Promise<void> {
 		// Always include the dashboard file itself: its checkbox lists are the
@@ -179,6 +205,15 @@ export function renderCalendarSection(
 		// rationale as the sidebar widget).
 		const tasks = (await collectVaultTasks(app, excludeFolders, settings.dashboardFile)).filter(isCalendarRelevant);
 		byDay = indexTasksByDay(tasks);
+	}
+
+	/** Everything the grid derives from the scan: which tasks land on which
+	 *  day, their order, and their visible fields. */
+	function scanSignature(): string {
+		const days = [...byDay.keys()].sort();
+		const parts: string[] = [];
+		for (const day of days) parts.push(`${day}\u0003${tasksSnapshotSignature(byDay.get(day) ?? [])}`);
+		return parts.join('\u0004');
 	}
 
 	function renderGrid(): void {
@@ -202,18 +237,19 @@ export function renderCalendarSection(
 				: undefined,
 			onDayLeave: hoverEnabled ? (): void => closeDayPreview() : undefined,
 			onBarClick: (iso: string) => {
-				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile).open();
+				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => scheduleGridRefresh() }, settings.dashboardFile).open();
 			},
 			// Day numbers (month) / day headers (week): open the day agenda with
 			// the add-task input focused — tap-type-Enter adds in one flow.
 			onDayNumClick: (iso: string) => {
-				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile, true).open();
+				new DayAgendaModal(app, iso, viewByDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten: () => scheduleGridRefresh() }, settings.dashboardFile, true).open();
 			},
 		};
 		const { label } = view === 'week'
 			? renderWeekTimeGrid(body, weekStart, viewByDay, gridOpts)
 			: renderMonthGrid(body, year, month, viewByDay, gridOpts);
 		labelEl.textContent = label;
+		renderedSignature = scanSignature();
 	}
 
 	/** Navigate by one month (month view) or one week (week view). */
@@ -236,6 +272,22 @@ export function renderCalendarSection(
 	prev.addEventListener('click', () => shift(-1));
 	next.addEventListener('click', () => shift(1));
 
+	/** Re-scan + re-render the grid in place (navigation + filter state live in
+	 *  this closure). Also the callback a day agenda fires after it writes a
+	 *  task, so the card updates without a view switch. */
+	async function reloadInPlace(): Promise<void> {
+		try {
+			await rescan();
+		} catch {
+			return; // keep the last good grid on a transient scan failure
+		}
+		// Nothing the grid shows changed (an out-of-view edit, our own write
+		// echoing back, the add flow's second pass landing on the same state):
+		// rebuilding would flash identical content for no reason.
+		if (scanSignature() === renderedSignature) return;
+		renderGrid();
+	}
+
 	async function initialLoad(): Promise<void> {
 		try {
 			await rescan();
@@ -246,16 +298,8 @@ export function renderCalendarSection(
 		}
 		syncChrome();
 		renderGrid();
-		// In-place reload entry point for vault task changes: re-scan and
-		// re-render the grid only (navigation + filter state live in this closure).
-		sectionReloaders.set(host, async (): Promise<void> => {
-			try {
-				await rescan();
-			} catch {
-				return; // keep the last good grid on a transient scan failure
-			}
-			renderGrid();
-		});
+		// In-place reload entry point for vault task changes.
+		sectionReloaders.set(host, reloadInPlace);
 	}
 
 	void initialLoad();

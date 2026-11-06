@@ -34,6 +34,11 @@ const dateFn: DqlFunction = {
 	maxArgs: 1,
 	apply(args): Result<DqlValue> {
 		const arg = args[0] ?? null;
+		// Idempotent: date(<date>) must not round-trip through its ISO string.
+		// `today` is already date('today') (LOCAL midnight); re-parsing its ISO
+		// form yielded UTC midnight, so `file.day = date(today)` silently missed
+		// (8h off in UTC+8) and every "today" query came back empty.
+		if (kindOf(arg) === 'date') return { ok: true, value: arg };
 		const resolved = resolveDateToken(arg);
 		if (resolved !== undefined) return { ok: true, value: resolved };
 		if (arg === null) return { ok: true, value: null };

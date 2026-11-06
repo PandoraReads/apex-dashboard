@@ -9,7 +9,15 @@ import type {
 	WereadRecency,
 } from './weread-shelf-model';
 
-export type DashboardLayoutMode = 'side' | 'stacked' | 'immersive';
+/** Board arrangements. `immersive` and `immersive-light` share the WHOLE
+ *  immersive pipeline (poster background, pinned top region, free 12-column
+ *  grid, tile resize/reorder) — they differ only in glass tone: dark glass
+ *  with light text vs light glass with dark text. Every layout branch must
+ *  therefore test the immersive FAMILY (isImmersiveMode), never the single
+ *  'immersive' literal, or the light variant silently renders as a side
+ *  board. See immersive-grid.ts for the predicates and styles.css's
+ *  `[data-layout^="immersive"]` chapter for the shared structure. */
+export type DashboardLayoutMode = 'side' | 'stacked' | 'immersive' | 'immersive-light';
 
 /** One tile of the immersive free grid: a widget card or a section card.
  *  `id` is `widget:<key>` or `section:<column name>`; array order is the
@@ -69,8 +77,9 @@ export interface DashboardSettings {
 	/** Board arrangement: widgets in a left rail ('side', default), a
 	    horizontal strip under the banner ('stacked'), or a full-bleed poster
 	    background with widgets and sections mixed in one free grid
-	    ('immersive'). Desktop/tablet only; phones keep their own layout
-	    regardless of this value. */
+	    ('immersive'). 'immersive-light' is the same board in light glass (dark
+	    text, white translucent tiles) for bright posters. Desktop/tablet only;
+	    phones keep their own layout regardless of this value. */
 	layoutMode: DashboardLayoutMode;
 	/** Habit card height ratio in the stacked layout (side layout ignores it;
 	    the card is content-height there). */
@@ -117,6 +126,9 @@ export interface DashboardSettings {
 	/** Where calendar-added tasks land in the day's daily note: right below
 	    frontmatter ('start') or at the bottom ('end'). */
 	calendarTaskInsertPosition: 'start' | 'end';
+	/** Day agenda also lists the tasks found in that day's daily note (the
+	    note's own checkboxes, most without date markers). Default on. */
+	calendarIncludeDailyNoteTasks: boolean;
 	/** Optional fixed destination for calendar-added tasks: a specific file
 	    (task inserted per calendarTaskInsertPosition), a folder (one note
 	    per day, named YYYY-MM-DD, created on first task), or a folder with a
@@ -450,6 +462,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	calendarExcludeFolders: [],
 	calendarTaskFilter: 'all',
 	calendarTaskInsertPosition: 'start',
+	calendarIncludeDailyNoteTasks: true,
 	widgetHabitEnabled: false,
 	widgetExpenseEnabled: false,
 	widgetSkillsEnabled: false,
@@ -712,6 +725,26 @@ export interface DashboardCard {
 	 *  center, the historical default). Rendered as background-position
 	 *  percentages so the crop stays stable at any container size. */
 	coverPos?: ImageFocalPoint;
+	/** How "新建笔记到卡片" opens the freshly created note (per-card config,
+	 *  card edit modal). 'popover' (default) = the in-dashboard note editor,
+	 *  identical to clicking one of the card's docs; 'tab' = a real tab. */
+	newNoteOpenMode?: 'popover' | 'tab';
+	/** What happens to a top-level task after it's checked complete (per-card
+	 *  config, task-list config button). 'end' (default) = move to the list's
+	 *  bottom, the historical behavior; 'stay' = keep its slot; 'afterUnfinished'
+	 *  = drop just past the last unfinished task (before the completed block). */
+	taskCompleteBehavior?: 'stay' | 'end' | 'afterUnfinished';
+	/** Task cards only: mirror the task list to/from today's daily note.
+	 *  When true the card's `### <title>` block in today's note is the single
+	 *  source of truth — tasks are read from it on load and every card edit is
+	 *  written back into it, so no task list is persisted in the dashboard
+	 *  file. Undefined (default) = the card owns its own task list. */
+	tasksFromDaily?: boolean;
+	/** Task cards only: markdown heading level (1-6) used for the card title
+	 *  when its tasks are written into a daily note ("save to daily" /
+	 *  `tasksFromDaily` mirroring). Undefined = 3 (`### Title`), the
+	 *  historical default, and stays unpersisted. */
+	dailyHeadingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
 	width: number;
 	size: CardSize;
 	gridCols: number;
@@ -796,6 +829,10 @@ export interface LibraryConfig {
 	 *  scans, images/videos scans). Matched by path prefix, case-insensitive;
 	 *  files inside them never reach the section. */
 	excludeFolders?: string[];
+	/** Where the toolbar "new note" opens the fresh note: the in-dashboard
+	 *  popover editor, or a real editor tab (the historical library behavior,
+	 *  so 'tab' is the default and persists as undefined). */
+	newNoteOpenMode?: 'popover' | 'tab';
 	/** Media sections (images/videos): when non-empty, ONLY files under these
 	 *  folders reach the section (excludes still subtract within the scope).
 	 *  Empty = whole vault. */
@@ -1416,6 +1453,18 @@ export interface DashboardData {
 	columns: DashboardColumn[];
 }
 
+/** Task-card config modal payload (gear button on a todo card). */
+export interface TaskCardConfig {
+	/** Where a checked-complete task lands. 'end' is the historical default
+	 *  and persists as undefined (no metadata line). */
+	taskCompleteBehavior: 'stay' | 'end' | 'afterUnfinished';
+	/** Load the list from today's daily note (the note owns the tasks). */
+	tasksFromDaily: boolean;
+	/** Heading depth for the card title when written into the daily note;
+	 *  3 (`###`) is the default and persists as undefined. */
+	dailyHeadingLevel: 1 | 2 | 3 | 4 | 5 | 6;
+}
+
 export interface RenderCallbacks {
 	onCardEdit(card: DashboardCard): void;
 	/** subpath is the raw `#heading` / `#^block` fragment of a wikilink, when present. */
@@ -1425,7 +1474,16 @@ export interface RenderCallbacks {
 	onCardDelete(cardId: string): void;
 	/** Sticky-card pin-to-top: move the card to the first slot of its section. */
 	onCardPinTop(cardId: string, columnName: string): void;
-	onCheckboxToggle(cardId: string, taskPath: number[], checked: boolean): void;
+	/** Task-card config modal (gear button) saved in one shot: completion
+	 *  behavior, daily-note task source, and the heading level used when the
+	 *  title is written into the daily note. */
+	onTaskCardConfigSave?(card: DashboardCard, config: TaskCardConfig): void;
+	/** Quiet checkbox toggle: the renderer already mirrored the checked state
+	 *  and the completion-behavior reorder into the DOM, so this persists
+	 *  WITHOUT the notify echo (which would rebuild the section and flicker).
+	 *  Daily-linked cards (tasksFromDaily) use it too — their old loud path
+	 *  rebuilt the section on every check. */
+	onCheckboxToggleQuiet(cardId: string, taskPath: number[], checked: boolean): void;
 	onTaskAdd(cardId: string, text: string, parentPath?: number[]): void;
 	onTaskDelete(cardId: string, taskPath: number[]): void;
 	onTaskReorder(cardId: string, fromPath: number[], toPath: number[], before: boolean): void;

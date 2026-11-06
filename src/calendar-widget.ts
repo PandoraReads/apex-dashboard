@@ -218,8 +218,11 @@ export function renderSidebarCalendar(
 		// next re-scan.
 		const tasks = (await collectVaultTasks(app, excludeFolders, settings.dashboardFile)).filter(isCalendarRelevant);
 		const byDay = indexTasksByDay(tasks);
+		// A task added/toggled inside a day agenda must land in THIS grid right
+		// away — the snapshot handed to the next agenda open comes from here.
+		const onTaskWritten = (): void => { void render(); };
 		const onDayClick = (iso: string): void => {
-			new DayAgendaModal(app, iso, byDay.get(iso) ?? [], { onToggle, onOpenNote }, settings.dashboardFile).open();
+			new DayAgendaModal(app, iso, byDay.get(iso) ?? [], { onToggle, onOpenNote, onTaskWritten }, settings.dashboardFile).open();
 		};
 		// Hover preview only on desktop (no hover on touch). Shows the day's
 		// full task list next to the cell after a short delay; cancelled if the
@@ -261,7 +264,7 @@ export function renderSidebarCalendar(
 	async function openFullscreen(): Promise<void> {
 		const tasks = (await collectVaultTasks(app, excludeFolders, settings.dashboardFile)).filter(isCalendarRelevant);
 		const byDay = indexTasksByDay(tasks);
-		new CalendarMonthModal(app, byDay, { onToggle, onOpenNote }, view, view === 'week' ? weekStart : undefined, settings.dashboardFile).open();
+		new CalendarMonthModal(app, byDay, { onToggle, onOpenNote, onTaskWritten: () => { void render(); } }, view, view === 'week' ? weekStart : undefined, settings.dashboardFile).open();
 	}
 
 	/** Navigate by one month (month view) or one week (week view). */

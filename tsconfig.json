@@ -25,5 +25,8 @@
 	"include": [
 		"src/**/*.ts",
 		"scripts/**/*.ts"
+	],
+	"exclude": [
+		"scripts/probe-resize-drag.ts"
 	]
 }

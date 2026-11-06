@@ -42,9 +42,9 @@ import { parse as parseYaml } from 'yaml';
 import { t } from './i18n';
 import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-picker';
 import { normalizeColumnPairs } from './column-pairs';
-import { clampSpanW, clampSpanH, migrateLegacyHeight } from './immersive-grid';
+import { clampSpanW, clampSpanH, isImmersiveMode, migrateLegacyHeight } from './immersive-grid';
 
-const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle']);
+const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode', 'taskCompleteBehavior', 'tasksFromDaily', 'dailyHeadingLevel']);
 // 'notes', 'memo' and 'todo' are retired standalone section types: they parse
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
@@ -120,7 +120,7 @@ export function parse(markdown: string): DashboardData {
 	return data;
 }
 
-const KNOWN_LAYOUTS = new Set<string>(['side', 'stacked', 'immersive']);
+const KNOWN_LAYOUTS = new Set<string>(['side', 'stacked', 'immersive', 'immersive-light']);
 
 /** This workspace's layout override; absent/unknown → undefined (the global
  *  settings default rules — the upgrade path for pre-per-workspace boards). */
@@ -309,6 +309,10 @@ export function serialize(data: DashboardData): string {
 				lines.push(`      templatePath: "${escapeYamlString(lc.templatePaths[0]!)}"`);
 			} else if (lc.templatePath) {
 				lines.push(`      templatePath: "${escapeYamlString(lc.templatePath)}"`);
+			}
+			// Only the popover opt-in persists ('tab' is the default).
+			if (lc.newNoteOpenMode === 'popover') {
+				lines.push('      newNoteOpenMode: popover');
 			}
 			if (lc.taskGroupBy) {
 				lines.push(`      taskGroupBy: ${lc.taskGroupBy}`);
@@ -765,6 +769,23 @@ export function serialize(data: DashboardData): string {
 
 			if (card.noteStyle) lines.push(`noteStyle: ${card.noteStyle}`);
 
+			// "新建笔记到卡片" open mode: popover is the default and stays
+			// unpersisted — only an explicit tab choice writes a line.
+			if (card.newNoteOpenMode === 'tab') lines.push('newNoteOpenMode: tab');
+
+			// Task-complete list behavior: 'end' is the default and stays
+			// unpersisted — only 'stay' / 'afterUnfinished' write a line.
+			if (card.taskCompleteBehavior === 'stay') lines.push('taskCompleteBehavior: stay');
+			if (card.taskCompleteBehavior === 'afterUnfinished') lines.push('taskCompleteBehavior: afterUnfinished');
+			// Task card mirrored from today's daily note: the note owns the task
+			// list, so only the flag is persisted here (see daily-task-source).
+			if (card.tasksFromDaily) lines.push('tasksFromDaily: true');
+			// Heading depth of the card-title block written into the daily note:
+			// 3 (###) is the default and stays unpersisted.
+			if (card.dailyHeadingLevel && card.dailyHeadingLevel !== 3) {
+				lines.push(`dailyHeadingLevel: ${card.dailyHeadingLevel}`);
+			}
+
 			if (card.type === 'generic') lines.push('type: generic');
 
 			if (card.type === 'task') {
@@ -843,7 +864,7 @@ export function serialize(data: DashboardData): string {
 				lines.push(`> ${card.blockquote}`);
 			}
 
-			if (card.tasks.length > 0) {
+			if (card.tasks.length > 0 && !card.tasksFromDaily) {
 				const writeTask = (task: TaskItem, indent: number) => {
 					const prefix = indent > 0 ? '    '.repeat(indent) : '';
 					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text.replace(/\n/g, TASK_NEWLINE_ESCAPE)}`;
@@ -940,7 +961,9 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 	});
 	const immersiveBoard: DashboardData = {
 		banner: IMMERSIVE_DEFAULT_BANNER,
-		layout: 'immersive',
+		// The seeded file keeps the REQUESTED tone ('immersive' or
+		// 'immersive-light') — the arrangement below is shared by both.
+		layout,
 		quickActions: [],
 		// Written explicitly so the seeded file is canonical: parse() derives
 		// immersiveBackground from banner.images[0] anyway, and without this
@@ -989,7 +1012,7 @@ export function generateDefaultMarkdown(layout?: DashboardLayoutMode): string {
 			},
 		],
 	};
-	if (layout === 'immersive') return serialize(immersiveBoard);
+	if (isImmersiveMode(layout)) return serialize(immersiveBoard);
 	return serialize({
 		banner: DEFAULT_BANNER,
 		layout,
@@ -1528,6 +1551,7 @@ function parseLibraryConfig(raw: Record<string, unknown>): LibraryConfig {
 		folderFilter: Array.isArray(raw.folderFilter) ? raw.folderFilter.map((v: unknown) => String(v)) : undefined,
 		excludeFolders: Array.isArray(raw.excludeFolders) ? raw.excludeFolders.map((v: unknown) => String(v)) : undefined,
 		includeFolders: Array.isArray(raw.includeFolders) ? raw.includeFolders.map((v: unknown) => String(v)) : undefined,
+		newNoteOpenMode: raw.newNoteOpenMode === 'popover' ? 'popover' : undefined,
 		// Multi-template list wins; the legacy single key upgrades into it.
 		templatePaths: (() => {
 			const list = Array.isArray(raw.templatePaths)
@@ -2027,6 +2051,17 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 		title: block.title,
 		type: cardType,
 		noteStyle: metadata.noteStyle === 'cover' || metadata.noteStyle === 'plain' ? metadata.noteStyle : undefined,
+		newNoteOpenMode: metadata.newNoteOpenMode === 'tab' ? 'tab' : undefined,
+		taskCompleteBehavior: metadata.taskCompleteBehavior === 'stay' || metadata.taskCompleteBehavior === 'afterUnfinished'
+			? metadata.taskCompleteBehavior
+			: undefined,
+		tasksFromDaily: metadata.tasksFromDaily === 'true' ? true : undefined,
+		dailyHeadingLevel: (() => {
+			const lv = Number(metadata.dailyHeadingLevel);
+			return Number.isInteger(lv) && lv >= 1 && lv <= 6 && lv !== 3
+				? lv as 1 | 2 | 3 | 4 | 5 | 6
+				: undefined;
+		})(),
 		column: columnName,
 		body: cleanBody,
 		tasks,

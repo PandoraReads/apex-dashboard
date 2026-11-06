@@ -2,6 +2,8 @@ import { moveDashboardCard } from './card-move';
 import { App, TFile } from 'obsidian';
 import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
+import { isImmersiveMode } from './immersive-grid';
+import { readCardTasksFromToday, writeCardTasksToToday } from './daily-task-source';
 import { t } from './i18n';
 import {
 	type TaskPath,
@@ -42,6 +44,8 @@ export class SyncEngine {
 	private debounceTimer: number | null = null;
 	private readonly debounceMs = 300;
 	private writeQueue: Promise<void> = Promise.resolve();
+	/** Serialises the quiet task-toggle persists (daily mirror + silent write). */
+	private taskPersistQueue: Promise<void> = Promise.resolve();
 	private callbacks: DataCallback[] = [];
 	private eventRef: ReturnType<typeof this.app.vault.on> | null = null;
 	private static readonly BACKUP_DIR = '.dashboard-backup';
@@ -175,6 +179,53 @@ export class SyncEngine {
 		};
 	}
 
+	/** Cards whose task list mirrors today's daily note (`tasksFromDaily`). */
+	private dailyLinkedCards(): DashboardCard[] {
+		return (this.data?.columns ?? []).flatMap(col => col.cards).filter(card => card.tasksFromDaily);
+	}
+
+	/**
+	 * Persist the dashboard file, then mirror each affected card's task list
+	 * into today's daily note.
+	 *
+	 * Task mutators call this instead of `writeToDisk` so a card in
+	 * `tasksFromDaily` mode keeps the note — its single source of truth — in
+	 * step with every edit (toggle / add / delete / reorder / edit / nest).
+	 */
+	private async commitTasks(...cardIds: string[]): Promise<void> {
+		await this.writeToDisk();
+		for (const cardId of cardIds) await this.mirrorTasksToDaily(cardId);
+	}
+
+	/** Write one card's tasks into its `### <title>` block in today's note.
+	 *  No-op for cards that own their task list. */
+	private async mirrorTasksToDaily(cardId: string): Promise<void> {
+		const card = (this.data?.columns ?? []).flatMap(col => col.cards).find(c => c.id === cardId);
+		if (!card?.tasksFromDaily) return;
+		try {
+			await writeCardTasksToToday(this.app, card.title ?? '', card.tasks, card.dailyHeadingLevel ?? 3);
+		} catch (err) {
+			console.error('[Dashboard] daily-note task mirror failed:', err);
+		}
+	}
+
+	/**
+	 * Re-read every `tasksFromDaily` card's task list from today's daily note.
+	 *
+	 * Such cards persist no tasks of their own (parser.serialize skips them), so
+	 * this is how their tasks reach the board — after each load and whenever the
+	 * note itself changes. Returns false when no card is in that mode.
+	 */
+	async refreshDailyLinkedTasks(): Promise<boolean> {
+		const cards = this.dailyLinkedCards();
+		if (cards.length === 0) return false;
+		for (const card of cards) {
+			const tasks = await readCardTasksFromToday(this.app, card.title ?? '', card.dailyHeadingLevel ?? 3);
+			card.tasks = tasks ?? [];
+		}
+		return true;
+	}
+
 	async archiveTasks(columnName: string): Promise<void> {
 		if (!this.data) return;
 
@@ -191,11 +242,57 @@ export class SyncEngine {
 				};
 			}),
 		};
-		await this.writeToDisk();
+		// Archive touches every card in the column, daily-linked ones included.
+		const touched = (this.data.columns.find(col => col.name === columnName)?.cards ?? [])
+			.filter(card => card.tasksFromDaily)
+			.map(card => card.id);
+		await this.commitTasks(...touched);
 	}
 
 	async toggleTask(cardId: string, taskPath: TaskPath, checked: boolean): Promise<void> {
+		this.applyTaskToggle(cardId, taskPath, checked);
+		await this.commitTasks(cardId);
+	}
+
+	/**
+	 * In-place companion of toggleTask: the renderer has already mirrored the
+	 * checked state AND the completion-behavior reorder into the DOM (and
+	 * re-stamped the shifted task paths), so this must NOT notify — the echo
+	 * would rebuild the section and fight the optimistic DOM (the flicker
+	 * this exists to kill). Daily-linked cards ride the same path: the note
+	 * mirror lands first, so the vault-event read-back (re-read the note →
+	 * compare signature) sees the NEW state and never re-renders.
+	 */
+	toggleTaskQuiet(cardId: string, taskPath: TaskPath, checked: boolean): void {
+		this.applyTaskToggle(cardId, taskPath, checked);
+		// Queue, do not fire-and-forget: the daily mirror is a read-modify-write
+		// of today's note, so two overlapping toggles could interleave and the
+		// later click would write the EARLIER task list back into the note (the
+		// source of truth for daily-linked cards) — the note then reads back into
+		// the card and the checks look scrambled. Each queued run reads the
+		// current data when it actually executes, so the note ends up with the
+		// latest state no matter how fast the clicks come.
+		this.taskPersistQueue = this.taskPersistQueue
+			.then(async () => {
+				// Mirror BEFORE the silent dashboard write fires its vault event:
+				// a daily-linked card's read-back must see the new state, or the
+				// next debounced refresh would render the old one back over the
+				// in-place mirror.
+				await this.mirrorTasksToDaily(cardId);
+				await this.writeToDisk(true);
+			})
+			.catch((err: unknown) => {
+				console.error('[Dashboard] quiet task persist failed:', err);
+			});
+	}
+
+	private applyTaskToggle(cardId: string, taskPath: TaskPath, checked: boolean): void {
 		if (!this.data) return;
+
+		// Per-card completion behavior (task-list config button). Undefined
+		// keeps the historical move-to-bottom.
+		const card = this.data.columns.flatMap(col => col.cards).find(c => c.id === cardId);
+		const behavior = card?.taskCompleteBehavior ?? 'end';
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) => {
 			let next = updateTaskAt(tasks, taskPath, (t) => {
@@ -212,14 +309,27 @@ export class SyncEngine {
 			if (checked && taskPath.length === 1) {
 				const target = next[taskPath[0]!];
 				if (target) {
-					const without = removeTaskAt(next, taskPath).tasks;
-					next = [...without, target];
+					if (behavior === 'stay') {
+						// Keep the task's slot — no reorder at all.
+					} else if (behavior === 'afterUnfinished') {
+						// Drop the completed task just past the LAST unfinished
+						// top-level task (i.e. on top of the completed block).
+						// With no unfinished tasks left this lands at the end.
+						const without = removeTaskAt(next, taskPath).tasks;
+						let insertIdx = 0;
+						for (let i = 0; i < without.length; i++) {
+							if (!without[i]!.checked) insertIdx = i + 1;
+						}
+						next = [...without.slice(0, insertIdx), target, ...without.slice(insertIdx)];
+					} else {
+						const without = removeTaskAt(next, taskPath).tasks;
+						next = [...without, target];
+					}
 				}
 			}
 
 			return next;
 		});
-		await this.writeToDisk();
 	}
 
 	async reorderTask(cardId: string, fromPath: TaskPath, toPath: TaskPath, before: boolean): Promise<void> {
@@ -227,7 +337,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			moveTaskBeside(tasks, fromPath, toPath, before));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async moveTaskToCard(
@@ -274,7 +384,7 @@ export class SyncEngine {
 				}),
 			})),
 		};
-		await this.writeToDisk();
+		await this.commitTasks(srcCardId, destCardId);
 	}
 
 	async editTask(cardId: string, taskPath: TaskPath, newText: string): Promise<void> {
@@ -282,7 +392,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			updateTaskAt(tasks, taskPath, (t) => ({ ...t, text: newText })));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async addTask(cardId: string, text: string, parentPath?: TaskPath): Promise<void> {
@@ -295,7 +405,7 @@ export class SyncEngine {
 				// Top-level additions land at the TOP of the list so the newest
 				// item is visible without scrolling past the existing ones.
 				: [node, ...tasks]);
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async deleteTask(cardId: string, taskPath: TaskPath): Promise<void> {
@@ -303,7 +413,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			removeTaskAt(tasks, taskPath).tasks);
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async nestTask(cardId: string, taskPath: TaskPath): Promise<void> {
@@ -311,7 +421,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			demoteToChild(tasks, taskPath));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async nestTaskInto(cardId: string, srcPath: TaskPath, destPath: TaskPath): Promise<void> {
@@ -319,7 +429,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			nestIntoTarget(tasks, srcPath, destPath));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async unnestTask(cardId: string, taskPath: TaskPath): Promise<void> {
@@ -327,7 +437,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			promoteToTopLevel(tasks, taskPath));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	/**
@@ -346,7 +456,7 @@ export class SyncEngine {
 		this.scheduleDeferredWrite();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior' | 'tasksFromDaily' | 'dailyHeadingLevel'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {
@@ -366,7 +476,7 @@ export class SyncEngine {
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			updateTaskAt(tasks, taskPath, (t) => ({ ...t, reminder })));
-		await this.writeToDisk();
+		await this.commitTasks(cardId);
 	}
 
 	async deleteCard(cardId: string): Promise<void> {
@@ -994,10 +1104,12 @@ export class SyncEngine {
 
 		// Follow the global layout default when (re)creating the active file:
 		// fresh installs (seeded layoutMode 'immersive') open on the immersive
-		// board; everyone else keeps the classic default. Only 'immersive' is
-		// passed through — other modes stay unpinned so the board keeps
-		// following the global setting.
-		const content = generateDefaultMarkdown(this.settings.layoutMode === 'immersive' ? 'immersive' : undefined);
+		// board; everyone else keeps the classic default. Both immersive tones
+		// pass through (each seeds its own `layout:` value); side/stacked stay
+		// unpinned so the board keeps following the global setting.
+		const content = generateDefaultMarkdown(
+			isImmersiveMode(this.settings.layoutMode) ? this.settings.layoutMode : undefined,
+		);
 		this.file = await this.app.vault.create(path, content);
 	}
 
@@ -1124,6 +1236,8 @@ export class SyncEngine {
 		if (this.data && serialize(newData) === serialize(this.data)) return;
 
 		this.data = newData;
+		// Cards mirrored from today's daily note hold no tasks of their own:/n		// hydrate them before the first render.
+		await this.refreshDailyLinkedTasks();
 		this.notifyCallbacks('external');
 	}
 
@@ -1168,6 +1282,12 @@ export class SyncEngine {
 
 		if (!silent) {
 			this.notifyCallbacks('local');
+		} else {
+			// Silent = no re-render, but the view must still ADOPT this data
+			// object: every mutation above replaced `this.data` with a new
+			// graph, and a stale view-side reference makes later signature
+			// comparisons (daily-linked cards) read the pre-mutation state.
+			this.notifyCallbacks('local-silent');
 		}
 	}
 

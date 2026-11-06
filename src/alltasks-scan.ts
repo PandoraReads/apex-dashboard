@@ -51,6 +51,9 @@ interface CacheEntry {
 }
 
 const moduleCache = new Map<string, CacheEntry>();
+/** Paths whose next scan must read from disk instead of the vault's cached
+ *  snapshot. Set by invalidatePath after this plugin writes a file. */
+const freshReadPaths = new Set<string>();
 
 const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
 /** Plugin's own reminder marker: `⏰ YYYY-MM-DD( HH:MM)` at end of line (time optional). */
@@ -266,13 +269,21 @@ export async function collectVaultTasks(
 		const fc = app.metadataCache.getFileCache(file);
 		const cacheMtime = (fc as { mtime?: number } | null)?.mtime;
 		const cacheFresh = fc != null && typeof cacheMtime === 'number' && cacheMtime >= file.stat.mtime;
-		if (fc && cacheFresh && !fc.listItems?.some(li => li.task !== undefined)) {
+		// A path we were told to invalidate (a write that just happened here)
+		// must bypass the metadata pre-filter entirely: that cache is the LAST
+		// thing Obsidian updates, so a just-edited note can still look
+		// "task-free" and be skipped.
+		const forced = freshReadPaths.delete(file.path);
+		if (!forced && fc && cacheFresh && !fc.listItems?.some(li => li.task !== undefined)) {
 			continue;
 		}
 
 		let content: string;
 		try {
-			content = await app.vault.cachedRead(file);
+			// Forced paths read from DISK: `cachedRead` can hand back the vault's
+			// pre-write snapshot for a beat after `vault.modify`, which is how a
+			// just-added calendar task stayed invisible until the next view switch.
+			content = forced ? await app.vault.read(file) : await app.vault.cachedRead(file);
 		} catch {
 			continue;
 		}
@@ -284,40 +295,60 @@ export async function collectVaultTasks(
 	return all;
 }
 
-/** Drop cache entries for a path (e.g. after a failed toggle) so the next scan re-reads. */
+/** Drop cache entries for a path (e.g. after a toggle or a calendar add) so the
+ *  next scan re-reads it — from disk, bypassing both caches. */
 export function invalidatePath(path: string): void {
 	moduleCache.delete(path);
+	freshReadPaths.add(path);
 }
 
 /**
- * Atomically flip a task's checkbox in its source file. Matches the exact
- * original line at its recorded position, then (if the file shifted) by a
- * unique full-line match; refuses to write if the line can't be located
- * unambiguously.
+ * Signature of what a task list actually SHOWS — source, order, checked state,
+ * display text and the day/time markers. Object identity and the fields the
+ * scanner merely reports (mtime/ctime/originalLine) are deliberately excluded:
+ * every rescan builds new objects, so identity comparisons would always differ.
+ *
+ * Surfaces that keep a painted snapshot (calendar grid cells, the day agenda
+ * rows) compare against the signature they last rendered and skip the repaint
+ * when it is unchanged. Our own writes echo back through the vault debounce,
+ * and repainting identical content reads as a flicker.
+ */
+export function tasksSnapshotSignature(tasks: readonly VaultTask[]): string {
+	const parts: string[] = [];
+	for (const t of tasks) {
+		parts.push([
+			t.path, t.line, t.checked ? '1' : '0', t.text,
+			t.priority ?? '', t.start ?? '', t.end ?? '', t.time ?? '', t.endTime ?? '',
+			t.reminder ?? '', t.due ?? '', t.scheduled ?? '', t.scheduledTime ?? '',
+			t.completion ?? '', t.completionTime ?? '',
+		].join('\u0001'));
+	}
+	return parts.join('\u0002');
+}
+
+/**
+ * Atomically flip a task's checkbox in its source file. The task is located
+ * by a check-state-insensitive skeleton of its original line at the recorded
+ * position (then, if the file shifted, by a unique skeleton match) — the
+ * scanned originalLine goes stale after the first flip because the in-place
+ * surfaces (day agenda, todo cards) keep toggling the SAME task object, and
+ * matching the stale `- [ ]`/`- [x]` text verbatim would silently no-op the
+ * second toggle. Refuses to write if the line can't be located unambiguously.
  */
 export async function toggleTaskInFile(app: App, task: VaultTask, nextChecked: boolean): Promise<boolean> {
 	let wrote = false;
 	try {
 		await app.vault.process(task.file, (data: string) => {
 			const lines = data.split('\n');
-			const target = task.originalLine;
-			const wantOpen = target.indexOf('- [ ]');
-			const wantDone = target.indexOf('- [x]');
-			let replacement: string;
-			if (nextChecked) {
-				replacement = wantOpen === -1 ? target : target.slice(0, wantOpen) + '- [x]' + target.slice(wantOpen + 5);
-			} else {
-				replacement = wantDone === -1 ? target : target.slice(0, wantDone) + '- [ ]' + target.slice(wantDone + 5);
-			}
-			if (replacement === target) {
-				wrote = false;
-				return data;
-			}
-			let idx = lines[task.line] === target ? task.line : -1;
+			// Skeleton: normalize any checkbox marker to `- [ ]` so a line that
+			// was already flipped once still matches its scanned original.
+			const skeletonOf = (line: string): string => line.replace(/\[([ xX])\]/, '[ ]');
+			const skeleton = skeletonOf(task.originalLine);
+			let idx = task.line < lines.length && skeletonOf(lines[task.line] ?? '') === skeleton ? task.line : -1;
 			if (idx === -1) {
 				const hits: number[] = [];
 				for (let i = 0; i < lines.length; i++) {
-					if (lines[i] === target) hits.push(i);
+					if (skeletonOf(lines[i] ?? '') === skeleton) hits.push(i);
 				}
 				if (hits.length === 1) idx = hits[0]!;
 			}
@@ -325,8 +356,33 @@ export async function toggleTaskInFile(app: App, task: VaultTask, nextChecked: b
 				wrote = false;
 				return data;
 			}
+			// Flip whatever marker the file CURRENTLY holds, not the stale scan.
+			const current = lines[idx]!;
+			let replacement = current;
+			if (nextChecked) {
+				const openAt = current.indexOf('- [ ]');
+				if (openAt !== -1) replacement = current.slice(0, openAt) + '- [x]' + current.slice(openAt + 5);
+			} else {
+				// Prefer the list-item marker form, fall back to a bare checkbox.
+				let at = current.indexOf('- [x]');
+				if (at === -1) at = current.indexOf('- [X]');
+				if (at !== -1) {
+					replacement = current.slice(0, at) + '- [ ]' + current.slice(at + 5);
+				} else {
+					const bare = /\[([xX])\]/.exec(current);
+					if (bare) replacement = current.slice(0, bare.index) + '[ ]' + current.slice(bare.index + 3);
+				}
+			}
+			if (replacement === current) {
+				wrote = false;
+				return data;
+			}
 			lines[idx] = replacement;
 			wrote = true;
+			// Keep the task object truthful so the NEXT in-place toggle (and
+			// any mirror write keyed off originalLine) sees the current state.
+			task.line = idx;
+			task.originalLine = replacement;
 			return lines.join('\n');
 		});
 	} catch (err) {
