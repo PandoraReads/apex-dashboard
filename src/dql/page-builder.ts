@@ -4,7 +4,7 @@ import {
 	asList, coerceString, kindOf, makeDate, makeLink, makeObject,
 } from './values';
 import { parseDate } from './functions';
-import { scanFileTasks } from '../alltasks-scan';
+import { scanFileTasks, type VaultTask } from '../alltasks-scan';
 
 /** Safe string coercion for `unknown` frontmatter values: scalars stringify
  *  directly; objects/arrays fall back to an empty string (never "[object Object]"). */
@@ -67,7 +67,6 @@ export function invalidatePath(path: string): void {
 
 async function buildPage(app: App, file: TFile): Promise<Page | null> {
 	const cache = app.metadataCache.getFileCache(file);
-	const fields: Record<string, DqlValue> = {};
 
 	// Read the body once — used for inline fields AND task extraction.
 	let body = '';
@@ -77,8 +76,16 @@ async function buildPage(app: App, file: TFile): Promise<Page | null> {
 		// File read failure (race with deletion, etc.) — keep the metadata-only page.
 	}
 
+	return { file, fields: buildPageFields(file, cache, body) };
+}
+
+/** Pure field assembly for one file: file.* implicit fields + frontmatter +
+ *  inline fields. Exported for the DQL test harness (no App needed). */
+export function buildPageFields(file: TFile, cache: CachedMetadata | null, body: string): Record<string, DqlValue> {
+	const fields: Record<string, DqlValue> = {};
+
 	// file.* implicit fields (computed from TFile.stat + metadataCache + body).
-	addFileFields(fields, app, file, cache, body);
+	addFileFields(fields, file, cache, body);
 
 	// Frontmatter fields (skip Obsidian's internal `position`).
 	if (cache?.frontmatter) {
@@ -98,11 +105,11 @@ async function buildPage(app: App, file: TFile): Promise<Page | null> {
 		if (!(k in fields)) fields[k] = fields[lower]!;
 	}
 
-	return { file, fields };
+	return fields;
 }
 
 /** Populate the `file.*` implicit fields for a page. */
-function addFileFields(fields: Record<string, DqlValue>, app: App, file: TFile, cache: CachedMetadata | null, body: string): void {
+function addFileFields(fields: Record<string, DqlValue>, file: TFile, cache: CachedMetadata | null, body: string): void {
 	const stat = file.stat;
 	const path = file.path;
 	const name = file.basename;
@@ -122,10 +129,12 @@ function addFileFields(fields: Record<string, DqlValue>, app: App, file: TFile, 
 	fields['file.mtime'] = makeDate(stat.mtime);
 	fields['file.mday'] = makeDate(midnight(stat.mtime));
 
-	// Tags: merge frontmatter tags + inline #tags from the cache.
+	// Tags: `file.tags` carries every tag PLUS its parent hierarchy (Dataview
+	// semantics: a note tagged #a/b also answers for #a); `file.etags` is the
+	// exact tag list only.
 	const tags = collectTags(cache);
-	fields['file.tags'] = tags.map(tagToLink);
-	fields['file.etags'] = tags.map(tagToLink); // exact (no parent expansion) — same set here
+	fields['file.tags'] = expandTagParents(tags).map(tagToLink);
+	fields['file.etags'] = tags.map(tagToLink);
 
 	// Aliases from frontmatter.
 	fields['file.aliases'] = asList(coerceFrontmatterValue(cache?.frontmatter?.aliases)).map(a => coerceString(a));
@@ -174,6 +183,21 @@ function collectTags(cache: CachedMetadata | null): string[] {
 	return [...set];
 }
 
+/** Dataview file.tags semantics: add every ancestor (`a/b` → `a`, `a` so
+ *  `FROM #a` matches notes tagged `#a/b`). file.etags keeps the exact list. */
+function expandTagParents(tags: readonly string[]): string[] {
+	const set = new Set<string>();
+	for (const t of tags) {
+		set.add(t);
+		let i = t.indexOf('/');
+		while (i > 0) {
+			set.add(t.slice(0, i));
+			i = t.indexOf('/', i + 1);
+		}
+	}
+	return [...set];
+}
+
 function tagToLink(tag: string): DqlValue {
 	return makeLink('#' + tag, '#' + tag);
 }
@@ -184,13 +208,26 @@ function collectTasks(file: TFile, body: string): DqlValue[] {
 	return scanned.map(t => {
 		// Each task is a queryable object: `completed`, `text`, `due`, plus the
 		// interactive payload the renderer needs to toggle it back to disk.
+		// Date-ish fields (due/scheduled/start/end/completion) become DqlDates
+		// when parseable so date arithmetic/comparisons work like Dataview.
+		const status = taskStatus(t);
 		const entries: Record<string, DqlValue> = {
 			completed: t.checked,
 			checked: t.checked,
+			// The raw checkbox character (" "/"x"/"X" — the vault scanner only
+			// recognizes those three; wider statuses like ">" would need the
+			// shared scanner widened, which is out of scope here).
+			status,
 			text: t.text,
-			due: t.due ?? null,
+			due: taskDate(t.due),
+			scheduled: taskDate(t.scheduled),
+			start: taskDate(t.start),
+			end: taskDate(t.end),
+			completion: taskDate(t.completion),
 			created: makeDate(t.ctime),
 			priority: t.priority ?? null,
+			line: t.line,
+			path: file.path,
 			link: makeLink(file.path, file.basename),
 			// Internal payload (prefixed so it never collides with user fields).
 			__line: t.line,
@@ -199,6 +236,20 @@ function collectTasks(file: TFile, body: string): DqlValue[] {
 		};
 		return makeObject(entries);
 	});
+}
+
+/** Checkbox status character recovered from the raw source line (the scanner
+ *  only stores the boolean). Defaults to "x"/" " if the line can't be parsed. */
+function taskStatus(t: VaultTask): string {
+	const m = /\[(.)?\]/.exec(t.originalLine);
+	return m ? (m[1] ?? ' ') : (t.checked ? 'x' : ' ');
+}
+
+/** "YYYY-MM-DD[ HH:MM]" → DqlDate; anything else passes through as a string. */
+function taskDate(s: string | undefined): DqlValue {
+	if (!s) return null;
+	const ts = parseDate(s);
+	return ts === null ? s : makeDate(ts);
 }
 
 /** Resolve file.day from a frontmatter Date field or a yyyy-mm-dd filename. */

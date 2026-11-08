@@ -109,6 +109,52 @@ const typeofFn = fn('typeof', 1, (a) => {
 	return k === 'list' ? 'array' : k;
 });
 
+/** datepath(path, format): parse the date embedded in a filename/path
+ *  according to a token format ("yyyy", "MM", "dd" recognized; everything
+ *  else must match literally). Returns null when no date fits. */
+const datepathFn: DqlFunction = {
+	name: 'datepath',
+	minArgs: 2,
+	maxArgs: 2,
+	apply(args) {
+		const path = coerceString(args[0]!);
+		const fmt = coerceString(args[1]!);
+		const pattern = fmt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+			.replace('yyyy', '(\\d{4})')
+			.replace('yy', '(\\d{2})')
+			.replace('MM', '(\\d{1,2})')
+			.replace('dd', '(\\d{1,2})');
+		const m = new RegExp(pattern).exec(path);
+		if (!m) return { ok: true, value: null };
+		const year = m[1]!.length === 2 ? 2000 + Number(m[1]) : Number(m[1]);
+		const ts = parseDate(`${year}-${m[2]}-${m[3]}`);
+		return { ok: true, value: ts === null ? null : makeDate(ts) };
+	},
+};
+
+const striptimeFn: DqlFunction = {
+	name: 'striptime',
+	minArgs: 1,
+	maxArgs: 1,
+	apply(args) {
+		const v = args[0]!;
+		if (kindOf(v) !== 'date') return { ok: true, value: null };
+		const d = new Date((v as { ts: number }).ts);
+		return { ok: true, value: makeDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) };
+	},
+};
+
+/** localtime(): our date values are already local-wall-time, so this is a
+ *  documented passthrough (kept for query compatibility with Dataview). */
+const localtimeFn: DqlFunction = {
+	name: 'localtime',
+	minArgs: 1,
+	maxArgs: 1,
+	apply(args) {
+		return { ok: true, value: args[0] ?? null };
+	},
+};
+
 const defaultFn = variadic('default', 2, (a) => {
 	for (const v of a) if (v !== null && v !== undefined) return v;
 	return null;
@@ -132,25 +178,38 @@ const truncFn = fn('trunc', 1, (a) => {
 	const n = coerceNumber(a[0]!);
 	return n === null ? null : Math.trunc(n);
 });
+/* Dataview's numeric aggregators are LIST-based: sum(rows.rating) aggregates
+ *  the list's elements. We also keep the variadic form (sum(1, 2, 3)) for
+ *  convenience — single-array argument switches to element aggregation. */
+function aggregateArgs(args: readonly DqlValue[]): readonly DqlValue[] {
+	if (args.length === 1 && Array.isArray(args[0])) return args[0];
+	return args;
+}
+
 const minFn = variadic('min', 1, (a) => {
 	let best: number | null = null;
-	for (const v of a) { const n = coerceNumber(v); if (n !== null && (best === null || n < best)) best = n; }
+	for (const v of aggregateArgs(a)) { const n = coerceNumber(v); if (n !== null && (best === null || n < best)) best = n; }
 	return best;
 });
 const maxFn = variadic('max', 1, (a) => {
 	let best: number | null = null;
-	for (const v of a) { const n = coerceNumber(v); if (n !== null && (best === null || n > best)) best = n; }
+	for (const v of aggregateArgs(a)) { const n = coerceNumber(v); if (n !== null && (best === null || n > best)) best = n; }
 	return best;
 });
 const sumFn = variadic('sum', 1, (a) => {
 	let total = 0;
-	for (const v of a) { const n = coerceNumber(v); if (n !== null) total += n; }
+	for (const v of aggregateArgs(a)) { const n = coerceNumber(v); if (n !== null) total += n; }
 	return total;
 });
 const averageFn = variadic('average', 1, (a) => {
 	let total = 0; let count = 0;
-	for (const v of a) { const n = coerceNumber(v); if (n !== null) { total += n; count++; } }
+	for (const v of aggregateArgs(a)) { const n = coerceNumber(v); if (n !== null) { total += n; count++; } }
 	return count === 0 ? null : total / count;
+});
+
+const absFn = fn('abs', 1, (a) => {
+	const n = coerceNumber(a[0]!);
+	return n === null ? null : Math.abs(n);
 });
 
 /* ----------------------------- duration ----------------------------- */
@@ -195,6 +254,54 @@ export function parseDuration(input: string): number | null {
 		total += Number(m[1]) * factor;
 	}
 	return matched ? total : null;
+}
+
+/** durationformat(dur, "d'd' h'h' m'm'"): luxon-style duration tokens.
+ *  Single letters are the unit initial (y M w d h m s); runs of the same
+ *  letter zero-pad (SSS = milliseconds). Anything else passes through. */
+const durationformatFn: DqlFunction = {
+	name: 'durationformat',
+	minArgs: 2,
+	maxArgs: 2,
+	apply(args) {
+		const ms = coerceNumber(args[0]!);
+		const fmt = coerceString(args[1]!);
+		if (ms === null || kindOf(args[0]!) === 'date') return { ok: true, value: '' };
+		return { ok: true, value: formatDurationTokens(ms, fmt) };
+	},
+};
+
+function formatDurationTokens(ms: number, fmt: string): string {
+	// Luxon quoting: 'xx' runs pass through verbatim (so "d'd'" keeps the
+	// quoted d literal while the bare d is the day token); tokens only
+	// substitute in unquoted segments.
+	return replaceTokens(fmt, tok => durationToken(tok, ms), /([yMwdhmsS])\1*/g);
+}
+
+function durationToken(tok: string, ms: number): string {
+	const rest = Math.abs(ms);
+	const t = tok[0]!;
+	let n: number;
+	switch (t) {
+		case 'y': n = Math.floor(rest / 31_536_000_000); break;
+		case 'M': n = Math.floor((rest % 31_536_000_000) / 2_592_000_000); break;
+		case 'w': n = Math.floor((rest % 2_592_000_000) / 604_800_000); break;
+		case 'd': n = Math.floor((rest % 604_800_000) / 86_400_000); break;
+		case 'h': n = Math.floor((rest % 86_400_000) / 3_600_000); break;
+		case 'm': n = Math.floor((rest % 3_600_000) / 60_000); break;
+		case 's': n = Math.floor((rest % 60_000) / 1000); break;
+		default: n = rest % 1000;
+	}
+	const s = String(n);
+	return tok.length > 1 ? s.padStart(tok.length, '0') : s;
+}
+
+/** Split on 'quoted' runs; substitute via `mapper` only in unquoted segments. */
+function replaceTokens(fmt: string, mapper: (token: string) => string, tokenPattern: RegExp): string {
+	const parts = fmt.split(/('(?:[^']|'')*')/);
+	return parts
+		.map((part, i) => (i % 2 === 1 ? part.replace(/''/g, "'") : part.replace(tokenPattern, mapper)))
+		.join('');
 }
 
 /* ----------------------------- string ----------------------------- */
@@ -258,6 +365,68 @@ const regexmatchFn: DqlFunction = {
 
 const splitFn = fn('split', 2, (a) => coerceString(a[0]!).split(coerceString(a[1]!)));
 
+/** Dataview-compatible truncation: cut at `length`, append "...". */
+const truncateFn = fn('truncate', 2, (a) => {
+	const s = coerceString(a[0]!);
+	const n = Math.max(0, Math.trunc(coerceNumber(a[1]!) ?? 0));
+	return s.length > n ? s.slice(0, n) + '...' : s;
+});
+
+const ljustFn = fn('ljust', 2, (a) => {
+	const s = coerceString(a[0]!);
+	const n = Math.max(0, Math.trunc(coerceNumber(a[1]!) ?? 0));
+	return s.length >= n ? s : s + ' '.repeat(n - s.length);
+});
+
+const rjustFn = fn('rjust', 2, (a) => {
+	const s = coerceString(a[0]!);
+	const n = Math.max(0, Math.trunc(coerceNumber(a[1]!) ?? 0));
+	return s.length >= n ? s : ' '.repeat(n - s.length) + s;
+});
+
+const substringFn: DqlFunction = {
+	name: 'substring',
+	minArgs: 2,
+	maxArgs: 3,
+	apply(args) {
+		const s = coerceString(args[0]!);
+		const start = Math.trunc(coerceNumber(args[1]!) ?? 0);
+		const end = args[2] !== undefined && args[2] !== null ? Math.trunc(coerceNumber(args[2]!) ?? s.length) : s.length;
+		return { ok: true, value: s.slice(start, end) };
+	},
+};
+
+/** regexreplace(pattern, replacement, text) — dataview arg order. */
+const regexreplaceFn: DqlFunction = {
+	name: 'regexreplace',
+	minArgs: 3,
+	maxArgs: 3,
+	apply(args) {
+		const pattern = coerceString(args[0]!);
+		const replacement = coerceString(args[1]!);
+		const text = coerceString(args[2]!);
+		try {
+			return { ok: true, value: text.replace(new RegExp(pattern, 'g'), replacement) };
+		} catch {
+			return evalError<DqlValue>(`regexreplace(): invalid pattern "${pattern}".`);
+		}
+	},
+};
+
+/** econtains: exact membership for lists (dataview distinguishes it from the
+ *  substring-flavored `contains` for strings; ours already uses exact equality
+ *  on lists, so this is the list-exact form, non-list = plain equality). */
+const econtainsFn: DqlFunction = {
+	name: 'econtains',
+	minArgs: 2,
+	maxArgs: 2,
+	apply(args) {
+		const [haystack, needle] = args as [DqlValue, DqlValue];
+		if (Array.isArray(haystack)) return { ok: true, value: haystack.some(x => dqlEquals(x, needle)) };
+		return { ok: true, value: dqlEquals(haystack, needle) };
+	},
+};
+
 const extractFn: DqlFunction = {
 	name: 'extract',
 	minArgs: 2,
@@ -298,13 +467,30 @@ const secondFn = fn('second', 1, (a) => datePart(a[0], d => d.getSeconds()));
 const weeknumberFn = fn('weeknumber', 1, (a) => {
 	const arg = a[0] ?? null;
 	if (arg === null || kindOf(arg) !== 'date') return null;
-	const d = new Date((arg as { ts: number }).ts);
+	return isoWeekNumber(new Date((arg as { ts: number }).ts));
+});
+
+/** ISO 8601 week number (Monday start), shared by weeknumber() and the
+ *  `w` dateformat token. */
+function isoWeekNumber(d: Date): number {
 	const target = new Date(d.valueOf());
 	target.setHours(0, 0, 0, 0);
 	target.setDate(target.getDate() + 3 - ((target.getDay() + 6) % 7));
 	const week1 = new Date(target.getFullYear(), 0, 4);
 	return 1 + Math.round(((target.getTime() - week1.getTime()) / 86_400_000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
-});
+}
+
+/** luxon-style weekday number: 1 = Monday … 7 = Sunday. */
+const weekdayFn: DqlFunction = {
+	name: 'weekday',
+	minArgs: 1,
+	maxArgs: 1,
+	apply(args) {
+		const v = args[0] ?? null;
+		if (v === null || kindOf(v) !== 'date') return { ok: true, value: null };
+		return { ok: true, value: (new Date((v as { ts: number }).ts).getDay() + 6) % 7 + 1 };
+	},
+};
 
 const dateformatFn: DqlFunction = {
 	name: 'dateformat',
@@ -318,18 +504,41 @@ const dateformatFn: DqlFunction = {
 	},
 };
 
-/** Limited dateformat implementation supporting the common tokens:
- *  yyyy MM dd HH mm ss. Anything else passes through literally. */
+/** dateformat token scan — the common luxon tokens. Longest-token-first
+ *  alternation in the regex keeps `MMMM` from matching as `MM`+`MM`. English
+ *  month/weekday names (the engine is locale-neutral; Dataview localizes via
+ *  luxon, we stay deterministic). */
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTH_NAMES_S = MONTH_NAMES.map(m => m.slice(0, 3));
+const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const WEEKDAY_NAMES_S = WEEKDAY_NAMES.map(w => w.slice(0, 3));
+
 function applyDateFormat(d: Date, fmt: string): string {
 	const PAD = (n: number, w = 2) => String(n).padStart(w, '0');
-	return fmt
-		.replace(/yyyy/g, String(d.getFullYear()))
-		.replace(/yy/g, String(d.getFullYear()).slice(-2))
-		.replace(/MM/g, PAD(d.getMonth() + 1))
-		.replace(/dd/g, PAD(d.getDate()))
-		.replace(/HH/g, PAD(d.getHours()))
-		.replace(/mm/g, PAD(d.getMinutes()))
-		.replace(/ss/g, PAD(d.getSeconds()));
+	return replaceTokens(fmt, tok => {
+		switch (tok) {
+			case 'yyyy': return String(d.getFullYear());
+			case 'yy': return String(d.getFullYear()).slice(-2);
+			case 'MMMM': return MONTH_NAMES[d.getMonth()]!;
+			case 'MMM': return MONTH_NAMES_S[d.getMonth()]!;
+			case 'MM': return PAD(d.getMonth() + 1);
+			case 'M': return String(d.getMonth() + 1);
+			case 'dd': return PAD(d.getDate());
+			case 'd': return String(d.getDate());
+			case 'HH': return PAD(d.getHours());
+			case 'H': return String(d.getHours());
+			case 'mm': return PAD(d.getMinutes());
+			case 'm': return String(d.getMinutes());
+			case 'ss': return PAD(d.getSeconds());
+			case 's': return String(d.getSeconds());
+			case 'EEEE': return WEEKDAY_NAMES[(d.getDay() + 6) % 7]!;
+			case 'EEE': return WEEKDAY_NAMES_S[(d.getDay() + 6) % 7]!;
+			case 'EE': case 'E': return String((d.getDay() + 6) % 7 + 1);
+			case 'a': return d.getHours() < 12 ? 'AM' : 'PM';
+			case 'w': return String(isoWeekNumber(d));
+			default: return tok;
+		}
+	}, /yyyy|yy|MMMM|MMM|MM|M|dd|d|HH|H|mm|m|ss|s|EEEE|EEE|EE|E|a|w/g);
 }
 
 /* ----------------------------- list / object ----------------------------- */
@@ -473,16 +682,18 @@ const containswordFn = fn('containsword', 2, (a) => {
 
 const FUNCTIONS: readonly DqlFunction[] = [
 	// constructors
-	dateFn, numberFn, stringFn, linkFn, elinkFn, typeofFn, defaultFn,
+	dateFn, numberFn, stringFn, linkFn, elinkFn, typeofFn, defaultFn, datepathFn,
+	striptimeFn, localtimeFn,
 	// numeric
-	roundFn, floorFn, ceilFn, truncFn, minFn, maxFn, sumFn, averageFn,
+	roundFn, floorFn, ceilFn, truncFn, minFn, maxFn, sumFn, averageFn, absFn,
 	// duration
-	durFn,
+	durFn, durationformatFn,
 	// string
 	containsFn, icontainsFn, startswithFn, endswithFn, lowerFn, upperFn, lengthFn,
-	replaceFn, regexmatchFn, splitFn, extractFn,
+	replaceFn, regexmatchFn, regexreplaceFn, splitFn, extractFn,
+	truncateFn, ljustFn, rjustFn, substringFn, econtainsFn,
 	// date
-	yearFn, monthFn, dayFn, hourFn, minuteFn, secondFn, weeknumberFn, dateformatFn,
+	yearFn, monthFn, dayFn, hourFn, minuteFn, secondFn, weeknumberFn, weekdayFn, dateformatFn,
 	// list/object
 	nonnullFn, allFn, anyFn, noneFn, joinFn, filterFn, sliceFn, reverseFn, sortFn, uniqueFn, flatFn,
 	// utility

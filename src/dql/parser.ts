@@ -576,9 +576,10 @@ class Parser {
 					return parseError<Expression>('Expected an object key.', keyTok.line, keyTok.column);
 				}
 				const colon = this.peek();
-				if (!(colon.type === 'op' && colon.text === '::') && !(colon.type === 'punct' && colon.text === '.')) {
-					// Accept a single ':' — but ':' isn't tokenized. Use '::'.
-					return parseError<Expression>('Expected "::" after object key.', colon.line, colon.column);
+				// Dataview writes object literals with a single colon `{a: 1}`;
+				// accept that AND the `::` inline-field spelling for parity.
+				if (!(colon.type === 'op' && colon.text === '::') && !(colon.type === 'punct' && colon.text === ':') && !(colon.type === 'punct' && colon.text === '.')) {
+					return parseError<Expression>('Expected ":" after object key.', colon.line, colon.column);
 				}
 				this.advance();
 				const val = this.parseExpression(0);

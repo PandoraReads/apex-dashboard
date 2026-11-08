@@ -161,8 +161,10 @@ export function tokenize(src: string): Result<Token[]> {
 		if (TWO_CHAR_OPS.has(two)) { push('op', two, startLine, startCol); advance(2); continue; }
 		if (ONE_CHAR_OPS.has(ch)) { push('op', ch, startLine, startCol); advance(1); continue; }
 
-		// Punctuation.
-		if (ch === '(' || ch === ')' || ch === '[' || ch === ']' || ch === '{' || ch === '}' || ch === ',' || ch === '.') {
+		// Punctuation. ':' is single-colon (object literals `{a: 1}`); '::' is
+		// matched above as an op BEFORE this branch so inline-field-style keys
+		// still lex as the double-colon operator.
+		if (ch === '(' || ch === ')' || ch === '[' || ch === ']' || ch === '{' || ch === '}' || ch === ',' || ch === '.' || ch === ':') {
 			push('punct', ch, startLine, startCol);
 			advance(1);
 			continue;

@@ -16,6 +16,9 @@ interface EvalContext {
 	readonly page: Page;
 	/** Row-scoped fields produced by GROUP BY (e.g. `rows`) or FLATTEN. */
 	readonly locals: Readonly<Record<string, unknown>>;
+	/** Path-keyed page index for meta(link) resolution. Absent in standalone
+	 *  expression evaluation (config-modal hints), where meta() is a no-op. */
+	readonly pages?: ReadonlyMap<string, Page>;
 }
 
 type Outcome = { ok: true; value: import('./types').DqlValue } | { ok: false; error: DqlError };
@@ -100,6 +103,12 @@ function evaluateMember(node: Extract<Expression, { type: 'member' }>, ctx: Eval
 	}
 	const base = evaluate(node.object, ctx, depth);
 	if (!base.ok) return base;
+	// Dataview implicit index: member access DISTRIBUTES over lists —
+	// `rows.file.link` after GROUP BY, `file.tasks.text`, etc. all map the
+	// field across elements. (Scalar access still uses indexInto directly.)
+	if (Array.isArray(base.value)) {
+		return { ok: true, value: base.value.map(el => indexInto(el, node.field)) };
+	}
 	return { ok: true, value: indexInto(base.value, node.field) };
 }
 
@@ -198,14 +207,26 @@ function subtractValues(a: import('./types').DqlValue, b: import('./types').DqlV
 }
 
 function evaluateCall(node: Extract<Expression, { type: 'call' }>, ctx: EvalContext, depth: number): Outcome {
-	const func = lookupFunction(node.name);
-	if (!func) return { ok: false, error: { stage: 'eval', message: `Unknown function "${node.name}".` } };
 	const args: import('./types').DqlValue[] = [];
 	for (const a of node.args) {
 		const v = evaluate(a, ctx, depth + 1);
 		if (!v.ok) return v;
 		args.push(v.value);
 	}
+	// meta(link): resolve the link against the page index and return the target
+	// page's fields as an object (so `meta(file.link).status` works). Needs the
+	// pages map; without it (standalone hint eval) meta() is a passthrough.
+	if (node.name.toLowerCase() === 'meta' && args.length === 1) {
+		const target = args[0]!;
+		if (kindOf(target) === 'link' && ctx.pages) {
+			const key = (target as { path: string }).path.replace(/\.md$/i, '').replace(/^\/+/, '').toLowerCase();
+			const resolved = ctx.pages.get(key);
+			if (resolved) return { ok: true, value: pageToMemberObject(resolved) };
+		}
+		return { ok: true, value: target ?? null };
+	}
+	const func = lookupFunction(node.name);
+	if (!func) return { ok: false, error: { stage: 'eval', message: `Unknown function "${node.name}".` } };
 	if (args.length < func.minArgs || args.length > func.maxArgs) {
 		const arity = func.maxArgs === Number.POSITIVE_INFINITY
 			? `at least ${func.minArgs}`
@@ -219,6 +240,12 @@ function evaluateCall(node: Extract<Expression, { type: 'call' }>, ctx: EvalCont
 
 /** Run a parsed query against the indexed pages. */
 export function runQuery(query: Query, pages: readonly Page[]): QueryResult {
+	// Path-keyed index (extension stripped, lowercased) for meta(link) lookups.
+	const pageMap = new Map<string, Page>();
+	for (const p of pages) {
+		pageMap.set(p.file.path.replace(/\.md$/i, '').replace(/^\/+/, '').toLowerCase(), p);
+	}
+
 	// 1. FROM: source resolution narrows the candidate pages.
 	let rows = applyFrom(query.from, pages);
 
@@ -233,14 +260,18 @@ export function runQuery(query: Query, pages: readonly Page[]): QueryResult {
 	// 2. Data commands, in source order.
 	let grouped = false;
 	for (const cmd of query.commands) {
-		const next = applyCommand(cmd, rows);
+		const next = applyCommand(cmd, rows, pageMap);
 		rows = next.rows;
 		grouped = grouped || next.grouped;
 	}
 
 	// 3. Projection per query type.
-	return project(query, rows, grouped);
+	return project(query, rows, grouped, pageMap);
 }
+
+/** Task fields surfaced as unqualified row locals in TASK queries — the full
+ *  Dataview task surface this engine supports (status/line/path included). */
+const TASK_LOCAL_FIELDS = ['completed', 'checked', 'status', 'text', 'due', 'scheduled', 'start', 'end', 'completion', 'priority', 'created', 'line', 'path', 'link'] as const;
 
 /** Expand file.tasks into one Row per task, exposing task fields as locals. */
 function flattenTaskRows(rows: readonly Row[]): Row[] {
@@ -252,7 +283,7 @@ function flattenTaskRows(rows: readonly Row[]): Row[] {
 			const fields = kindOf(task) === 'object' ? (task as { entries: Record<string, import('./types').DqlValue> }).entries : {};
 			const locals: Record<string, import('./types').DqlValue> = { ...row.locals };
 			// Surface common task fields unqualified (completed, text, due, …).
-			for (const k of ['completed', 'checked', 'text', 'due', 'priority', 'created', 'link']) {
+			for (const k of TASK_LOCAL_FIELDS) {
 				locals[k] = fields[k] ?? null;
 			}
 			out.push({ page: row.page, locals, task: toDqlTask(fields) });
@@ -367,12 +398,12 @@ function basenameMatch(links: string[], target: string): boolean {
 /** Apply one data command, returning the new row list (and whether grouping
  *  occurred). Commands that error on a single row skip that row rather than
  *  aborting the query. */
-function applyCommand(cmd: DataCommand, rows: readonly Row[]): { rows: Row[]; grouped: boolean } {
+function applyCommand(cmd: DataCommand, rows: readonly Row[], pages: ReadonlyMap<string, Page>): { rows: Row[]; grouped: boolean } {
 	switch (cmd.kind) {
 		case 'where': {
 			const out: Row[] = [];
 			for (const row of rows) {
-				const result = evaluate(cmd.expr, { page: row.page, locals: row.locals }, 0);
+				const result = evaluate(cmd.expr, { page: row.page, locals: row.locals, pages }, 0);
 				if (result.ok && truthy(result.value)) out.push(row);
 			}
 			return { rows: out, grouped: false };
@@ -384,8 +415,8 @@ function applyCommand(cmd: DataCommand, rows: readonly Row[]): { rows: Row[]; gr
 				const key = cmd.keys[k]!;
 				const dir = key.direction === 'DESC' ? -1 : 1;
 				sorted.sort((a, b) => {
-					const av = evaluate(key.expr, { page: a.page, locals: a.locals }, 0);
-					const bv = evaluate(key.expr, { page: b.page, locals: b.locals }, 0);
+					const av = evaluate(key.expr, { page: a.page, locals: a.locals, pages }, 0);
+					const bv = evaluate(key.expr, { page: b.page, locals: b.locals, pages }, 0);
 					const va = av.ok ? av.value : null;
 					const vb = bv.ok ? bv.value : null;
 					return (dqlCompare(va, vb) ?? 0) * dir;
@@ -394,23 +425,23 @@ function applyCommand(cmd: DataCommand, rows: readonly Row[]): { rows: Row[]; gr
 			return { rows: sorted, grouped: false };
 		}
 		case 'limit': {
-			const n = evaluate(cmd.expr, { page: rows[0]?.page ?? { file: null as never, fields: {} }, locals: {} }, 0);
+			const n = evaluate(cmd.expr, { page: rows[0]?.page ?? { file: null as never, fields: {} }, locals: {}, pages }, 0);
 			const limit = n.ok ? coerceNumber(n.value) ?? rows.length : rows.length;
 			return { rows: rows.slice(0, Math.max(0, limit)), grouped: false };
 		}
 		case 'flatten': {
-			return { rows: flattenRows(cmd, rows), grouped: false };
+			return { rows: flattenRows(cmd, rows, pages), grouped: false };
 		}
 		case 'group-by': {
-			return { rows: groupRows(cmd, rows), grouped: true };
+			return { rows: groupRows(cmd, rows, pages), grouped: true };
 		}
 	}
 }
 
-function flattenRows(cmd: Extract<DataCommand, { kind: 'flatten' }>, rows: readonly Row[]): Row[] {
+function flattenRows(cmd: Extract<DataCommand, { kind: 'flatten' }>, rows: readonly Row[], pages: ReadonlyMap<string, Page>): Row[] {
 	const out: Row[] = [];
 	for (const row of rows) {
-		const result = evaluate(cmd.expr, { page: row.page, locals: row.locals }, 0);
+		const result = evaluate(cmd.expr, { page: row.page, locals: row.locals, pages }, 0);
 		const value = result.ok ? result.value : null;
 		const aliasKey = (cmd.alias ?? '').toLowerCase();
 		const list = asList(value);
@@ -428,11 +459,11 @@ function flattenRows(cmd: Extract<DataCommand, { kind: 'flatten' }>, rows: reado
 	return out;
 }
 
-function groupRows(cmd: Extract<DataCommand, { kind: 'group-by' }>, rows: readonly Row[]): Row[] {
+function groupRows(cmd: Extract<DataCommand, { kind: 'group-by' }>, rows: readonly Row[], pages: ReadonlyMap<string, Page>): Row[] {
 	const aliasKey = (cmd.alias ?? 'group').toLowerCase();
 	const groups = new Map<string, { key: import('./types').DqlValue; rows: Row[] }>();
 	for (const row of rows) {
-		const result = evaluate(cmd.expr, { page: row.page, locals: row.locals }, 0);
+		const result = evaluate(cmd.expr, { page: row.page, locals: row.locals, pages }, 0);
 		const key = result.ok ? result.value : null;
 		const mapKey = keyLabel(key);
 		const existing = groups.get(mapKey);
@@ -448,10 +479,22 @@ function groupRows(cmd: Extract<DataCommand, { kind: 'group-by' }>, rows: readon
 		const memberPages = g.rows.map(r => r.page);
 		// Synthesize a pseudo-page whose `rows` local holds the group members,
 		// and whose own fields are the first member's (so ungrouped field
-		// references still resolve). Dataview exposes `rows` after GROUP BY.
+		// references still resolve). Dataview exposes `rows` after GROUP BY —
+		// ours is a list of member objects (page fields + row locals) so
+		// `rows.file.link` / `sum(rows.rating)` map correctly (the implicit
+		// index distributes member access over the list). The raw Row[] rides
+		// along under the `__rows` internal key for the grouped renderer.
 		const pseudo: Page = { file: memberPages[0]?.file ?? null as never, fields: memberPages[0]?.fields ?? {} };
-		const rowValues = g.rows as unknown as import('./types').DqlValue;
-		out.push({ page: pseudo, locals: { [aliasKey]: g.key, rows: rowValues, group: g.key } });
+		const memberValues = g.rows.map(r => pageToMemberObject(r.page, r.locals));
+		out.push({
+			page: pseudo,
+			locals: {
+				[aliasKey]: g.key,
+				rows: memberValues,
+				group: g.key,
+				__rows: g.rows as unknown as import('./types').DqlValue,
+			},
+		});
 	}
 	return out;
 }
@@ -465,10 +508,21 @@ function keyLabel(v: import('./types').DqlValue): string {
 	return 'k:' + kindOf(v) + ':' + JSON.stringify(v);
 }
 
+/** A page as a queryable member object: flat fields (rating, genre, …) plus a
+ *  nested `file` object so two-segment access (`rows.file.link`,
+ *  `meta(l).file.name`) walks like Dataview's page objects. */
+function pageToMemberObject(p: Page, locals?: Readonly<Record<string, unknown>>): import('./types').DqlValue {
+	const fileEntries: Record<string, import('./types').DqlValue> = {};
+	for (const [k, v] of Object.entries(p.fields)) {
+		if (k.startsWith('file.')) fileEntries[k.slice('file.'.length)] = v;
+	}
+	return makeObject({ ...p.fields, ...(locals as Record<string, import('./types').DqlValue> ?? {}), file: makeObject(fileEntries) });
+}
+
 /* ----------------------------- projection ----------------------------- */
 
-function project(query: Query, rows: readonly Row[], grouped: boolean): QueryResult {
-	const resultRows: ResultRow[] = rows.map(row => projectRow(query, row, grouped));
+function project(query: Query, rows: readonly Row[], grouped: boolean, pages: ReadonlyMap<string, Page>): QueryResult {
+	const resultRows: ResultRow[] = rows.map(row => projectRow(query, row, grouped, pages));
 	const columns = query.queryType === 'TABLE'
 		? buildColumns(query)
 		: [];
@@ -502,8 +556,8 @@ function exprLabel(expr: Expression): string {
 	}
 }
 
-function projectRow(query: Query, row: Row, grouped: boolean): ResultRow {
-	const ctx: EvalContext = { page: row.page, locals: row.locals };
+function projectRow(query: Query, row: Row, grouped: boolean, pages: ReadonlyMap<string, Page>): ResultRow {
+	const ctx: EvalContext = { page: row.page, locals: row.locals, pages };
 	const values: import('./types').DqlValue[] = [];
 
 	if (query.queryType === 'TABLE') {
@@ -543,8 +597,10 @@ function projectRow(query: Query, row: Row, grouped: boolean): ResultRow {
 		values.push(date.ok ? date.value : null);
 	}
 
-	const memberRows: ResultRow[] | undefined = grouped && row.locals['rows']
-		? (row.locals['rows'] as unknown as Row[]).map(m => projectRow({ ...query, commands: [] }, m, false))
+	// Grouped rendering reads the RAW member rows (the `__rows` internal key);
+	// the queryable `rows` local is the member-object list instead.
+	const memberRows: ResultRow[] | undefined = grouped && row.locals['__rows']
+		? (row.locals['__rows'] as unknown as Row[]).map(m => projectRow({ ...query, commands: [] }, m, false, pages))
 		: undefined;
 
 	return {
