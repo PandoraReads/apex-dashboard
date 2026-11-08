@@ -14539,6 +14539,29 @@ button.dashboard-skillsec-import:hover {
 	color: var(--db-text, var(--text-normal));
 }
 
+/* Mode dropdown (📅 deadline / ⏳ planned) — sits right of the time pickers
+   inside the time row, content-sized (no stretch) and inheriting the row's
+   select styling below. */
+
+/* Minute picker (+ separator) hide while the hour select sits on "no time". */
+.dashboard-task-reminder-time-min.is-hidden {
+	display: none;
+}
+
+/* The exact suffix Save appends to the task line (also shows the emoji form
+   the calendar reads). */
+.dashboard-task-reminder-preview {
+	font-size: 0.75em;
+	color: var(--db-text-muted, var(--text-faint));
+	text-align: center;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+
+.dashboard-task-reminder-popup-btns .dashboard-task-reminder-clear.is-hidden {
+	display: none;
+}
+
 /* Countdown calendar popup — body-level, themed via applyModalTheme mirroring
    (see countdown-modal.ts), so --db-* tokens resolve on it. */
 .dashboard-countdown-calendar-popup {
@@ -14817,17 +14840,17 @@ button.dashboard-skillsec-import:hover {
 	display: flex;
 	gap: 4px;
 	align-items: center;
-	font-size: 0.75em;
 	margin-top: 4px;
 }
 
+/* No font-size here or on the selects: the popup root already sizes at
+   0.8125em, and nesting two 0.75em factors compounded to ~7px text. */
 .dashboard-task-reminder-time select {
 	padding: 4px 6px;
 	border: 1px solid var(--db-border-card);
 	border-radius: 4px;
 	background: var(--db-bg-card);
 	color: var(--db-text);
-	font-size: 0.75em;
 }
 
 .dashboard-task-reminder-popup-btns {

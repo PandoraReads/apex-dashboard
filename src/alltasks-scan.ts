@@ -130,8 +130,6 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 				text = text.replace(CALENDAR_REGEX, '');
 			}
 		}
-		// The plugin's ⏰ reminder is the canonical due source when present.
-		if (reminder) due = reminder.slice(0, 10);
 
 		let priority: Priority | undefined;
 		const pf = text.match(PRIORITY_FIELD_REGEX);
@@ -164,6 +162,12 @@ export function scanFileTasks(file: TFile, content: string): VaultTask[] {
 			scheduledTime = hhmm(schf[1]);
 			text = text.replace(SCHEDULED_FIELD_REGEX, '').replace(SCHEDULED_EMOJI_REGEX, '');
 		}
+
+		// A 📅 / `[due::]` deadline is the task's explicit due date; the ⏰
+		// alarm only anchors a due day when neither an explicit deadline nor a
+		// planned day exists (a ⏳+⏰ pair is one planned day carrying an
+		// alarm, not two calendar facts).
+		if (reminder && !due && !scheduled) due = reminder.slice(0, 10);
 
 		// Completion date (✅ / `[completion::]`): the day the task was done.
 		let completion: string | undefined;

@@ -60,7 +60,15 @@ function normalizeHexColor(value?: string): string {
 	return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
 }
 
-const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*$/;
+// The plugin's own reminder marker, appended at line end. Time part optional
+// (mirrors alltasks-scan's REMINDER_REGEX) so a date-only ⏰ written elsewhere
+// still parses here instead of leaking raw into the card text.
+const REMINDER_REGEX = /\s*⏰\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?\s*$/;
+// Tasks-plugin emoji dates, anywhere in the text (same shape as the calendar
+// scanner's CALENDAR_REGEX / SCHEDULED_EMOJI_REGEX) — card and calendar must
+// agree on what a marker is, wherever in the line it was written.
+const DUE_EMOJI_REGEX = /\s*📅\s*(\d{4}-\d{2}-\d{2})/;
+const SCHEDULED_EMOJI_REGEX = /\s*⏳\s*(\d{4}-\d{2}-\d{2})/;
 const COLLAPSED_REGEX = /\s*<!--collapsed-->\s*$/;
 // Task text is a single markdown list item (`- [ ] …`), so a literal newline
 // would break the line and its remainder would re-parse as card body. Encode
@@ -847,6 +855,11 @@ export function serialize(data: DashboardData): string {
 				const writeTask = (task: TaskItem, indent: number) => {
 					const prefix = indent > 0 ? '    '.repeat(indent) : '';
 					let taskLine = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text.replace(/\n/g, TASK_NEWLINE_ESCAPE)}`;
+					// Marker order is the reverse of parse order (each regex is
+					// end-anchored or stripped in sequence): due, scheduled,
+					// reminder, collapsed.
+					if (task.dueDate) taskLine += ` 📅 ${task.dueDate}`;
+					if (task.scheduledDate) taskLine += ` ⏳ ${task.scheduledDate}`;
 					if (task.reminder) taskLine += ` ⏰ ${task.reminder}`;
 					if (task.collapsed) taskLine += ` <!--collapsed-->`;
 					lines.push(taskLine);
@@ -2081,6 +2094,8 @@ export function extractCardParts(body: string): {
 		if (taskMatch && taskMatch[1] && taskMatch[2]) {
 			let taskText = taskMatch[2];
 			let taskReminder: string | undefined;
+			let taskDueDate: string | undefined;
+			let taskScheduledDate: string | undefined;
 			let taskCollapsed = false;
 			const collapsedMatch = taskText.match(COLLAPSED_REGEX);
 			if (collapsedMatch) {
@@ -2090,10 +2105,20 @@ export function extractCardParts(body: string): {
 			const reminderMatch = taskText.match(REMINDER_REGEX);
 			if (reminderMatch) {
 				taskText = taskText.replace(REMINDER_REGEX, '');
-				taskReminder = reminderMatch[1];
+				taskReminder = reminderMatch[2] ? `${reminderMatch[1]} ${reminderMatch[2]}` : reminderMatch[1];
+			}
+			const dueMatch = taskText.match(DUE_EMOJI_REGEX);
+			if (dueMatch) {
+				taskText = taskText.replace(DUE_EMOJI_REGEX, '');
+				taskDueDate = dueMatch[1];
+			}
+			const scheduledMatch = taskText.match(SCHEDULED_EMOJI_REGEX);
+			if (scheduledMatch) {
+				taskText = taskText.replace(SCHEDULED_EMOJI_REGEX, '');
+				taskScheduledDate = scheduledMatch[1];
 			}
 			taskText = taskText.split(TASK_NEWLINE_ESCAPE).join('\n');
-			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder, collapsed: taskCollapsed };
+			const node: TaskItem = { checked: taskMatch[1] !== ' ', text: taskText, reminder: taskReminder, dueDate: taskDueDate, scheduledDate: taskScheduledDate, collapsed: taskCollapsed };
 			ancestors = ancestors.filter(parent => parent.indent < indent);
 			const parent = ancestors[ancestors.length - 1];
 			const path = parent

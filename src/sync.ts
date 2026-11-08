@@ -1,6 +1,6 @@
 import { moveDashboardCard } from './card-move';
 import { App, TFile } from 'obsidian';
-import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
+import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType, TaskSchedulePatch } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
 import { t } from './i18n';
 import {
@@ -361,11 +361,13 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async editTaskReminder(cardId: string, taskPath: TaskPath, reminder: string | undefined): Promise<void> {
+	/** Patch one task's schedule markers (reminder / dueDate / scheduledDate).
+	 *  Only the keys present in `patch` change; `undefined` values clear. */
+	async editTaskSchedule(cardId: string, taskPath: TaskPath, patch: TaskSchedulePatch): Promise<void> {
 		if (!this.data) return;
 
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
-			updateTaskAt(tasks, taskPath, (t) => ({ ...t, reminder })));
+			updateTaskAt(tasks, taskPath, (t) => ({ ...t, ...patch })));
 		await this.writeToDisk();
 	}
 

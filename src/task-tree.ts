@@ -254,6 +254,9 @@ export function serializeTasksForNote(tasks: TaskItem[]): string {
 	const write = (task: TaskItem, indent: number) => {
 		const prefix = indent > 0 ? '    '.repeat(indent) : '';
 		let line = `${prefix}- [${task.checked ? 'x' : ' '}] ${task.text}`;
+		// Same marker order as parser.serialize so exported lines round-trip.
+		if (task.dueDate) line += ` 📅 ${task.dueDate}`;
+		if (task.scheduledDate) line += ` ⏳ ${task.scheduledDate}`;
 		if (task.reminder) line += ` ⏰ ${task.reminder}`;
 		lines.push(line);
 		for (const child of task.children ?? []) write(child, indent + 1);

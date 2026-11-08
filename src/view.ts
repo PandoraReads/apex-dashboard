@@ -2,7 +2,7 @@ import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Plat
 import { nowMoment } from './datetime';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem } from './types';
+import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskSchedulePatch } from './types';
 import { SyncEngine } from './sync';
 import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
 import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
@@ -1726,7 +1726,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				onColumnMoveBeside: (fromIndex: number, targetIndex: number, side: 'left' | 'right') => { if (this.isLayoutLocked()) return; void this.sync.moveColumnBeside(fromIndex, targetIndex, side); },
 				onColumnHeightChange: (name: string, height: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnHeight(name, height); },
 				onColumnWidthChange: (name: string, widthPct: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnWidth(name, widthPct); },
-			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
+			onTaskScheduleEdit: (cardId: string, taskPath: number[], patch: TaskSchedulePatch) => this.sync.editTaskSchedule(cardId, taskPath, patch),
 			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
 			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
 				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => {
@@ -3568,14 +3568,14 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			taskText,
 			() => {
-				void this.sync.editTaskReminder(cardId, taskPath, undefined);
+				void this.sync.editTaskSchedule(cardId, taskPath, { reminder: undefined });
 			},
 			() => {
 				const snoozed = new Date(Date.now() + 60 * 60 * 1000);
 				const pad = (n: number) => String(n).padStart(2, '0');
 				const newReminder = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
 				this.firedReminders.delete(`${cardId}-${JSON.stringify(taskPath)}`);
-				void this.sync.editTaskReminder(cardId, taskPath, newReminder);
+				void this.sync.editTaskSchedule(cardId, taskPath, { reminder: newReminder });
 			},
 		);
 		modal.open();

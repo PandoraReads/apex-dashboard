@@ -3,7 +3,7 @@ import type { DashboardCard, DashboardColumn, DashboardData, DocNode, TaskItem }
 /** Memo editing and rendering use the same complete text, including task trees. */
 export function memoCardText(card: DashboardCard): string {
 	const taskLines = (tasks: TaskItem[], depth = 0): string[] => tasks.flatMap(task => [
-		`${'    '.repeat(depth)}- [${task.checked ? 'x' : ' '}] ${task.text}${task.reminder ? ` \u23f0 ${task.reminder}` : ''}${task.collapsed ? ' <!--collapsed-->' : ''}`,
+		`${'    '.repeat(depth)}- [${task.checked ? 'x' : ' '}] ${task.text}${task.dueDate ? ` \ud83d\udcc5 ${task.dueDate}` : ''}${task.scheduledDate ? ` \u23f3 ${task.scheduledDate}` : ''}${task.reminder ? ` \u23f0 ${task.reminder}` : ''}${task.collapsed ? ' <!--collapsed-->' : ''}`,
 		...taskLines(task.children ?? [], depth + 1),
 	]);
 	const docLines = (docs: DocNode[], depth = 0): string[] => docs.flatMap(doc => [

@@ -2,7 +2,7 @@ import { memoCardText } from './card-move';
 import { extractCardParts } from './parser';
 import { Menu, App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
-import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
+import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, TaskSchedulePatch, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage, getLocale } from './i18n';
 import { renderLibrarySection } from './library-section';
 import { renderMediaSection, destroyMediaSection } from './media-section';
@@ -4316,7 +4316,8 @@ function renderExternalLink(container: HTMLElement, text: string, url: string): 
 	});
 }
 
-function isReminderOverdue(reminder: string): boolean {
+function isReminderOverdue(reminder: string | undefined): boolean {
+	if (!reminder) return false;
 	const now = new Date();
 	const parts = reminder.trim().split(/\s+/);
 	if (parts.length < 2) return false;
@@ -4327,6 +4328,14 @@ function isReminderOverdue(reminder: string): boolean {
 	if (!year || !month || !day) return false;
 	const due = new Date(year, month - 1, day, hour ?? 0, min ?? 0);
 	return now >= due;
+}
+
+/** A `📅` deadline is overdue only once its whole day has passed. */
+function isDateOverdue(dateStr: string | undefined): boolean {
+	if (!dateStr) return false;
+	const [year, month, day] = dateStr.split('-').map(Number);
+	if (!year || !month || !day) return false;
+	return new Date() > new Date(year, month - 1, day, 23, 59, 59);
 }
 
 function createReminderButton(
@@ -4340,11 +4349,17 @@ function createReminderButton(
 	btn.setAttribute('draggable', 'false');
 	btn.addClass('dashboard-task-reminder-btn');
 
-	if (task.reminder) {
+	if (task.reminder || task.dueDate || task.scheduledDate) {
 		btn.addClass('dashboard-task-reminder-btn--active');
-		setIcon(btn, 'bell-ring');
+		// Reminder wins the icon (it carries a notification), then deadline,
+		// then the planned day. Icons mirror the calendar grid's marks.
+		if (task.reminder) setIcon(btn, 'bell-ring');
+		else if (task.dueDate) setIcon(btn, 'calendar-clock');
+		else setIcon(btn, 'hourglass');
 		btn.setAttribute('aria-label', t('reminder.editReminder'));
-		if (!task.checked && isReminderOverdue(task.reminder)) {
+		// A planned day is never overdue; an alarm or deadline past its
+		// moment/day keeps pulsing until the task is checked off.
+		if (!task.checked && (isReminderOverdue(task.reminder) || isDateOverdue(task.dueDate))) {
 			btn.addClass('dashboard-task-reminder-btn--overdue');
 		}
 	} else {
@@ -4425,23 +4440,37 @@ function showReminderPopup(
 		window.removeEventListener('resize', updatePopupPosition);
 	};
 
-	// Parse initial values
+	// Mode: which day marker this popup edits — deadline (`📅`) or planned
+	// day (`⏳`), both Tasks-plugin emoji so the calendar widget picks them up.
+	// Choosing an alarm time additionally writes the `⏰` marker — the only
+	// thing that fires the in-app notice — on the same day.
+	type ReminderMode = 'deadline' | 'scheduled';
+	// Default mode: an existing deadline selects deadline, else the planned
+	// day; everything else (including a bare legacy ⏰, which the vault scanner
+	// folds into the due day) reads as a deadline.
+	let mode: ReminderMode = !task.dueDate && task.scheduledDate ? 'scheduled' : 'deadline';
+	const modeValue = (m: ReminderMode): string | undefined =>
+		m === 'deadline' ? task.dueDate : task.scheduledDate;
+	const modeMarker = (m: ReminderMode): string => (m === 'deadline' ? '📅' : '⏳');
+	const pad2 = (n: number) => String(n).padStart(2, '0');
+	const isoOf = (y: number, mo: number, d: number) => `${y}-${pad2(mo + 1)}-${pad2(d)}`;
+	/** True when the existing ⏰ sits on the day the edited mode owns — the
+	 *  mode's own marker date, or (bare legacy ⏰) the popup's selected day. */
+	const alarmBelongsToEditedDay = (): boolean =>
+		!!task.reminder && task.reminder.slice(0, 10) === (modeValue(mode) ?? isoOf(selectedYear, selectedMonth, selectedDay));
+
+	// Parse the initial day from the mode's marker; a bare legacy ⏰ seeds it.
 	let selectedYear: number;
 	let selectedMonth: number;
 	let selectedDay: number;
-	let selectedHour = 9;
-	let selectedMin = 0;
 
 	const now = new Date();
-	if (task.reminder) {
-		const parts = task.reminder.trim().split(/\s+/);
-		const dp = parts[0]?.split('-').map(Number) ?? [];
-		const tp = parts[1]?.split(':').map(Number) ?? [];
+	const initial = modeValue(mode) ?? task.reminder;
+	if (initial) {
+		const dp = initial.trim().split(/\s+/)[0]!.split('-').map(Number);
 		selectedYear = dp[0] ?? now.getFullYear();
 		selectedMonth = (dp[1] ?? now.getMonth() + 1) - 1;
 		selectedDay = dp[2] ?? now.getDate();
-		selectedHour = tp[0] ?? 9;
-		selectedMin = tp[1] ?? 0;
 	} else {
 		selectedYear = now.getFullYear();
 		selectedMonth = now.getMonth();
@@ -4462,26 +4491,75 @@ function showReminderPopup(
 	// Calendar grid
 	const calGrid = popup.createDiv({ cls: 'dashboard-task-reminder-calendar' });
 
-	// Time picker
+	// Time picker + mode dropdown, one row. The hour select leads with a
+	// "no time" option — no time means no ⏰ and thus no alarm on save; the
+	// dropdown picks which day marker (📅 deadline / ⏳ planned) the chosen
+	// date becomes.
 	const timeRow = popup.createDiv({ cls: 'dashboard-task-reminder-time' });
 	const hourSelect = timeRow.createEl('select');
+	hourSelect.createEl('option', { text: t('reminder.noTime'), attr: { value: '' } });
 	for (let h = 0; h < 24; h++) {
-		const opt = hourSelect.createEl('option', { text: String(h).padStart(2, '0'), attr: { value: String(h) } });
-		if (h === selectedHour) opt.selected = true;
+		hourSelect.createEl('option', { text: pad2(h), attr: { value: String(h) } });
 	}
-	timeRow.createSpan({ text: ':' });
-	const minSelect = timeRow.createEl('select');
+	const minutesSep = timeRow.createSpan({ cls: 'dashboard-task-reminder-time-min', text: ':' });
+	const minSelect = timeRow.createEl('select', { cls: 'dashboard-task-reminder-time-min' });
 	for (let m = 0; m < 60; m++) {
-		const opt = minSelect.createEl('option', { text: String(m).padStart(2, '0'), attr: { value: String(m) } });
-		if (m === selectedMin) opt.selected = true;
+		minSelect.createEl('option', { text: pad2(m), attr: { value: String(m) } });
 	}
+	const modeSelect = timeRow.createEl('select', { cls: 'dashboard-task-reminder-mode-select' });
+	const modeDefs: Array<{ key: ReminderMode; label: string }> = [
+		{ key: 'deadline', label: `${modeMarker('deadline')} ${t('reminder.modeDeadline')}` },
+		{ key: 'scheduled', label: `${modeMarker('scheduled')} ${t('reminder.modeScheduled')}` },
+	];
+	for (const def of modeDefs) modeSelect.createEl('option', { text: def.label, attr: { value: def.key } });
+
+	/** The minute picker is meaningless without an hour. */
+	const syncMinVisibility = () => {
+		const noTime = hourSelect.value === '';
+		minutesSep.toggleClass('is-hidden', noTime);
+		minSelect.toggleClass('is-hidden', noTime);
+	};
+	/** Point the time selects at the task's ⏰ when it lands on the selected
+	 *  day; otherwise at "no time" (saving then writes no alarm). */
+	const syncTimeFromReminder = () => {
+		const tp = task.reminder && task.reminder.slice(0, 10) === isoOf(selectedYear, selectedMonth, selectedDay)
+			? task.reminder.slice(11, 16) : '';
+		hourSelect.value = tp ? tp.slice(0, 2) : '';
+		minSelect.value = tp ? tp.slice(3, 5) : '0';
+		syncMinVisibility();
+	};
+	syncTimeFromReminder();
+	// Seed the value property (real DOM: selects the matching option) so
+	// reads of `.value` work identically in the mini-dom test stand-in.
+	modeSelect.value = mode;
+
+	modeSelect.addEventListener('change', () => {
+		const next: ReminderMode = modeSelect.value === 'scheduled' ? 'scheduled' : 'deadline';
+		if (next === mode) return;
+		mode = next;
+		// Jump the selection to this mode's existing date when set; keep the
+		// current day otherwise (same-day plan+deadline flows well).
+		const v = modeValue(mode);
+		if (v) {
+			const dp = v.trim().split(/\s+/)[0]!.split('-').map(Number);
+			selectedYear = dp[0] ?? selectedYear;
+			selectedMonth = (dp[1] ?? selectedMonth + 1) - 1;
+			selectedDay = dp[2] ?? selectedDay;
+			viewYear.value = selectedYear;
+			viewMonth.value = selectedMonth;
+		}
+		syncTimeFromReminder();
+		// Re-render so the day highlight follows the mode's own date.
+		renderCalendar();
+	});
+
+	// Marker preview: the exact suffix Save will append to the task line.
+	const preview = popup.createDiv({ cls: 'dashboard-task-reminder-preview' });
 
 	// Action buttons
 	const btnRow = popup.createDiv({ cls: 'dashboard-task-reminder-popup-btns' });
 	const saveBtn = btnRow.createEl('button', { cls: 'mod-cta', text: t('common.save') });
-	if (task.reminder) {
-		btnRow.createEl('button', { cls: 'dashboard-task-reminder-clear', text: t('reminder.clearReminder') });
-	}
+	const clearBtn = btnRow.createEl('button', { cls: 'dashboard-task-reminder-clear', text: t('reminder.clear') });
 
 	const renderCalendar = () => {
 		calGrid.empty();
@@ -4525,6 +4603,7 @@ function showReminderPopup(
 		for (let d = 1; d <= remaining; d++) {
 			calGrid.createEl('button', { cls: 'dashboard-task-reminder-calendar-day dashboard-task-reminder-calendar-day--other-month', text: String(d) });
 		}
+		updatePreview();
 	};
 
 	prevBtn.addEventListener('click', (e) => {
@@ -4543,18 +4622,53 @@ function showReminderPopup(
 
 	saveBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
+		const iso = isoOf(selectedYear, selectedMonth, selectedDay);
+		const patch: TaskSchedulePatch = mode === 'deadline' ? { dueDate: iso } : { scheduledDate: iso };
 		const h = parseInt(hourSelect.value, 10);
-		const m = parseInt(minSelect.value, 10);
-		const reminder = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-		callbacks.onTaskReminderEdit(cardId, taskPath, reminder);
+		if (!Number.isNaN(h)) {
+			// A chosen time writes the ⏰ alarm on this day; the notice modal
+			// and the snooze flow both read that marker.
+			patch.reminder = `${iso} ${pad2(h)}:${pad2(parseInt(minSelect.value, 10))}`;
+		} else if (alarmBelongsToEditedDay()) {
+			// No time chosen: drop the alarm that sat on the day being edited
+			// (an alarm tied to the other mode's day survives untouched).
+			patch.reminder = undefined;
+		}
+		callbacks.onTaskScheduleEdit(cardId, taskPath, patch);
 		closeAllReminderPopups();
 	});
 
-	btnRow.querySelector('.dashboard-task-reminder-clear')?.addEventListener('click', (e) => {
+	clearBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		callbacks.onTaskReminderEdit(cardId, taskPath, undefined);
+		// Clears the active mode's marker, plus the ⏰ when it sat on that
+		// marker's day; the other mode's marker and alarm survive.
+		const patch: TaskSchedulePatch = mode === 'deadline' ? { dueDate: undefined } : { scheduledDate: undefined };
+		if (alarmBelongsToEditedDay()) patch.reminder = undefined;
+		callbacks.onTaskScheduleEdit(cardId, taskPath, patch);
 		closeAllReminderPopups();
 	});
+
+	const updatePreview = () => {
+		const iso = isoOf(selectedYear, selectedMonth, selectedDay);
+		const h = parseInt(hourSelect.value, 10);
+		const alarm = Number.isNaN(h) ? '' : ` ⏰ ${pad2(h)}:${pad2(parseInt(minSelect.value, 10))}`;
+		preview.setText(`${modeMarker(mode)} ${iso}${alarm}`);
+	};
+
+	/** Reflect `mode` in the dropdown and the clear button, then refresh the preview. */
+	const applyMode = () => {
+		modeSelect.value = mode;
+		// Clear is offered when the mode owns anything — its own marker date,
+		// or (deadline mode) a bare legacy ⏰ with no day markers at all.
+		clearBtn.toggleClass('is-hidden', !modeValue(mode) && !(mode === 'deadline' && task.reminder));
+		updatePreview();
+	};
+
+	hourSelect.addEventListener('change', () => {
+		syncMinVisibility();
+		updatePreview();
+	});
+	minSelect.addEventListener('change', updatePreview);
 
 	const outsideClick = (ev: MouseEvent) => {
 		if (!popup.contains(ev.target as Node)) {
@@ -4564,6 +4678,7 @@ function showReminderPopup(
 	};
 	window.setTimeout(() => activeDocument.addEventListener('mousedown', outsideClick), 0);
 
+	applyMode();
 	renderCalendar();
 }
 
