@@ -183,6 +183,11 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.9.8
+- **Todo deadlines and planned days** — The todo card's time popup becomes a time picker plus a mode dropdown: pick a 📅 deadline day or a ⏳ planned day (the Obsidian Tasks emoji markers, natively picked up by the calendar widget); choosing a time adds the ⏰ alarm on the same day with an in-app notice when it fires, while "All day" records the date without an alarm; clearing removes only the selected mode — the other mode's date and alarm stay untouched
+- **Gantt stage time bands** — Project gantt lanes show a time window per stage: the stage's own task dates win, then the note's stage-plan property, otherwise a weighted split of the project cycle (tagged "estimated"); project rows gain a stage progress rail, and the board config adds a one-click five-stage preset (需求 / 方案 / 开发 / SIT / UAT)
+- **Dataview query parity batch** — Twelve new query functions (striptime, weekday, durationformat, datepath, localtime, truncate, ljust, rjust, substring, abs, regexreplace, econtains) and full luxon dateformat tokens; TASK queries expose scheduled/start/end/completion/status/line/path; GROUP BY rows support field access and aggregation (rows.file.link, sum(rows.rating)); file.tags carries parent tags while file.etags stays exact
+- **Widget background clear fix** — Clearing the quick actions, habit tracker or music widget's background image no longer reverts to the default background after restarting Obsidian
 ### 3.9.6
 - **Onboarding tour** — A spotlight walkthrough auto-starts on first install (desktop only): it highlights the real controls step by step — opening the workbench, switching pages, editing the banner, pinning the sidebar, adding sections — and advances as you click them; "Replay onboarding tour" in the command palette reopens it anytime
 - **Unified config dialogs** — Fields in every section config dialog now show a grey hairline at rest and an accent hairline on focus; inline labels never wrap; skill/button cards read as one aligned column (icon + label + delete on the first row, the rows below indented to match), and icon pickers, inputs and buttons share their row instead of stacking; the direct-send checkbox sits left of its label
