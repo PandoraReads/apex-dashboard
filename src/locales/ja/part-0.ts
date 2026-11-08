@@ -42,6 +42,8 @@ export const part0: Record<string, string> = {
 	"gantt.noTarget": "プロジェクト セクションが見つかりません",
 	"gantt.sourceHint": "メモを選択してからグラフを選択してください",
 	"gantt.stale": "スケジュールが変更されました。再度開いて再試行してください。",
+	"gantt.stageBand": "ステージ",
+	"gantt.derivedTag": "推定",
 	"common.save": "保存",
 	"common.add": "追加",
 	"common.cancel": "キャンセル",

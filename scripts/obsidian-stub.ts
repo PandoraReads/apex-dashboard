@@ -107,7 +107,12 @@ export class Menu {
 }
 export function normalizePath(path: string): string { return path; }
 export const Platform = { isMobile: false, isMobileApp: false };
-export function setIcon(_el: unknown, _icon: string): void {}
+// Records the icon name on the element's dataset so tests can assert icon
+// selection (mini-dom's dataset proxy stores it as data-icon).
+export function setIcon(el: unknown, icon: string): void {
+	const dataset = (el as { dataset?: Record<string, string> }).dataset;
+	if (dataset) dataset.icon = icon;
+}
 // Registered custom icons are inert in tests — nothing asserts their pixels.
 export function addIcon(_name: string, _svg: string): void {}
 export function removeIcon(_name: string): void {}

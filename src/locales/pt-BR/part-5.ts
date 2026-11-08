@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "Opções do seletor “etapa atual”; o rótulo é gravado no campo stage.",
 	"pm.cfgStageLabel": "Palco",
 	"pm.cfgAddStage": "Adicionar estágio",
+	"pm.cfgFiveStagePreset": "Aplicar predefinição de cinco etapas",
+	"pm.cfgFiveStagePresetHint": "Substitui a lista de etapas por 需求 / 方案 / 开发 / SIT / UAT",
 	"pm.cfgNeedStage": "Adicione pelo menos um estágio primeiro.",
 	"pm.cfgWorkNoteTemplate": "Modelo de nota de trabalho",
 	"pm.cfgArchiveFolder": "Pasta de arquivo",

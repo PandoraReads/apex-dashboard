@@ -184,6 +184,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'gantt.noTarget': "No project sections found",
 		'gantt.sourceHint': "Choose a note, then a chart",
 		'gantt.stale': "Schedule changed; reopen and try again.",
+		'gantt.stageBand': "Stages",
+		'gantt.derivedTag': "estimated",
 
 		// Common
 		'common.save': 'Save',
@@ -1885,6 +1887,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'pm.cfgStageHint': 'Options for the “current stage” dropdown; the label is what gets written to the stage field.',
 		'pm.cfgStageLabel': 'Stage',
 		'pm.cfgAddStage': 'Add stage',
+		'pm.cfgFiveStagePreset': 'Apply five-stage preset',
+		'pm.cfgFiveStagePresetHint': 'Replace the stage list with 需求 / 方案 / 开发 / SIT / UAT',
 		'pm.cfgNeedStage': 'Add at least one stage first.',
 		'pm.cfgWorkNoteTemplate': 'Work-note template',
 		'pm.cfgArchiveFolder': 'Archive folder',
@@ -2509,6 +2513,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'gantt.noTarget': "未找到项目管理分区",
 		'gantt.sourceHint': "选择笔记后选择具体图表",
 		'gantt.stale': "排期已变化，请重新打开后再试。",
+		'gantt.stageBand': "阶段",
+		'gantt.derivedTag': "推算",
 
 		// Common
 		'common.save': '保存',
@@ -4207,6 +4213,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'pm.cfgStageHint': '「当前阶段」下拉的选项；标签即写入 stage 字段的值。',
 		'pm.cfgStageLabel': '阶段',
 		'pm.cfgAddStage': '添加阶段',
+		'pm.cfgFiveStagePreset': '套用五段法',
+		'pm.cfgFiveStagePresetHint': '将阶段列表替换为 需求 / 方案 / 开发 / SIT / UAT',
 		'pm.cfgNeedStage': '请先添加至少一个阶段。',
 		'pm.cfgWorkNoteTemplate': '工作笔记模板',
 		'pm.cfgArchiveFolder': '归档文件夹',
@@ -4831,6 +4839,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'gantt.noTarget': "未找到项目管理分区",
 		'gantt.sourceHint': "选择笔记后选择具体图表",
 		'gantt.stale': "排期已变化，请重新打开后再试。",
+		'gantt.stageBand': "階段",
+		'gantt.derivedTag': "推算",
 
 		// Common
 		'common.save': '儲存',
@@ -6529,6 +6539,8 @@ const translations: Record<Language, Record<string, string>> = {
 		'pm.cfgStageHint': '「目前階段」下拉的選項；標籤即寫入 stage 欄位的值。',
 		'pm.cfgStageLabel': '階段',
 		'pm.cfgAddStage': '新增階段',
+		'pm.cfgFiveStagePreset': '套用五段法',
+		'pm.cfgFiveStagePresetHint': '將階段列表替換為 需求 / 方案 / 開發 / SIT / UAT',
 		'pm.cfgNeedStage': '請先新增至少一個階段。',
 		'pm.cfgWorkNoteTemplate': '工作筆記模板',
 		'pm.cfgArchiveFolder': '歸檔資料夾',

@@ -100,12 +100,45 @@ export function renderPmSection(
 		];
 		if (cfg.viewMode === 'gantt') {
 			toolbar.addClass('dashboard-pmsec-toolbar--gantt');
+			// Stage chips (gantt mode only — cards keep the dropdown): one chip
+			// per configured stage + 全部. Counts read the UNFILTERED list so
+			// they don't collapse under their own filter. A chip click filters
+			// AND locates: scrolls the chart to the first project in that stage
+			// with a 2s pulse (the chart builds async, so the row is polled for).
+			const chips = content.createDiv({ cls: 'dashboard-pmsec-stage-chips' });
+			const chip = (key: string, label: string, count: number): void => {
+				const active = stageFilter === key;
+				const pill = chips.createDiv({ cls: `dashboard-pmsec-stage-chip${active ? ' active' : ''}`, attr: { role: 'button', tabindex: '0', 'aria-pressed': String(active) } });
+				pill.createSpan({ cls: 'dashboard-pmsec-stage-chip-label', text: label });
+				pill.createSpan({ cls: 'dashboard-pmsec-stage-chip-count', text: String(count) });
+				pill.addEventListener('click', () => {
+					stageFilter = key;
+					render();
+					const stageKey = key.startsWith('stage:') ? key.slice(6) : '';
+					const target = stageKey
+						? (lastProjects.find(p => pmField(p.frontmatter, 'stage') === stageKey) ?? null)
+						: (lastProjects[0] ?? null);
+					if (!target) return;
+					let tries = 0;
+					const locate = (): void => {
+						const rows = Array.from(content.querySelectorAll('.dashboard-gantt-project-name')) as HTMLElement[];
+						const row = rows.find(el => el.textContent === target.file.basename) ?? null;
+						if (!row && tries++ < 12) { window.setTimeout(locate, 150); return; }
+						if (!row) return;
+						const card = row.closest('.dashboard-gantt-project') as HTMLElement | null;
+						card?.classList.add('is-located');
+						if (card && typeof card.scrollIntoView === 'function') card.scrollIntoView({ block: 'center' });
+						window.setTimeout(() => card?.classList.remove('is-located'), 2000);
+					};
+					locate();
+				});
+			};
+			chip('', t('pm.filterAllStages'), arranged.length);
+			for (const stage of cfg.stages) {
+				chip(`stage:${stage.label}`, stage.label, arranged.filter(p => pmField(p.frontmatter, 'stage') === stage.label).length);
+			}
 			renderPmGantt(content, toolbar, app, lastProjects, cfg, savePrefs);
 			toolbar.createDiv({ cls: 'dashboard-pmsec-count', text: t('pm.projectCount', { count: lastProjects.length }) });
-			createToolbarDropdown(toolbar, stageFilter, stageItems, key => {
-				stageFilter = key;
-				render();
-			});
 			addViewButtons(toolbar);
 			return;
 		}

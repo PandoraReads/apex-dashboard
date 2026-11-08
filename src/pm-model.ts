@@ -405,7 +405,7 @@ export function renameProjectTask(content: string, line: number, text: string): 
 	const lines = content.split('\n');
 	const match = lines[line]?.match(/^(\s*)- \[( |x|X)\] (.*)$/);
 	if (!match || !clean) return content;
-	const markers = [...match[3]!.matchAll(/\[(?:due|scheduled|start|end)::\s*[^\]]*\]/gi)].map(m => m[0]);
+	const markers = [...match[3]!.matchAll(/\[(?:due|scheduled|start|end|group)::\s*[^\]]*\]/gi)].map(m => m[0]);
 	const id = match[3]!.match(/\s+\^[A-Za-z0-9-]+\s*$/)?.[0].trim();
 	const suffix = [...markers, ...(id ? [id] : [])].join(' ');
 	lines[line] = `${match[1]!}- [${match[2]!}] ${clean}${suffix ? ` ${suffix}` : ''}`;

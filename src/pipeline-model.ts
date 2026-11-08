@@ -416,6 +416,9 @@ export interface PipelineTask {
 	start?: string;
 	end?: string;
 	scheduled?: string;
+	/** Free-text inline `[group:: …]` marker (gantt stage grouping); stripped
+	 *  from the display text like the date markers. */
+	group?: string;
 	id?: string;
 }
 
@@ -442,11 +445,14 @@ export function parseTasks(content: string): PipelineTask[] {
 		const end = field('end');
 		const scheduled = field('scheduled');
 		const due = deadline || scheduled || start;
+		// Group is free text (unlike the date-shaped fields above), so it gets
+		// its own match instead of the `field` helper.
+		const group = raw.match(/\[group::\s*([^\]]*?)\s*\]/i)?.[1];
 		const id = raw.match(/\s+\^([A-Za-z0-9-]+)\s*$/)?.[1];
-		const text = raw.replace(/\[(?:due|scheduled|start|end)::\s*[^\]]*\]/gi, '').replace(/\s+\^[A-Za-z0-9-]+\s*$/, '').trim();
+		const text = raw.replace(/\[(?:due|scheduled|start|end|group)::\s*[^\]]*\]/gi, '').replace(/\s+\^[A-Za-z0-9-]+\s*$/, '').trim();
 		out.push({ line: i, text, checked: match[2] !== ' ', ...(due ? { due } : {}),
 			...(deadline ? { deadline } : {}), ...(start ? { start } : {}), ...(end ? { end } : {}),
-			...(scheduled ? { scheduled } : {}), ...(id ? { id } : {}) });
+			...(scheduled ? { scheduled } : {}), ...(group ? { group } : {}), ...(id ? { id } : {}) });
 	}
 	return out;
 }

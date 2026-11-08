@@ -3,6 +3,7 @@ import { El, findByClass } from './mini-dom';
 import { App, Modal } from 'obsidian';
 import { renderGanttChart, type GanttGroup } from '../src/pm-gantt-chart';
 import { PmScheduleModal } from '../src/pm-schedule-modal';
+import { FIVE_STAGE_PRESET } from '../src/pm-stages';
 import { setLanguage } from '../src/i18n';
 setLanguage('zh');
 const body = new El('body');
@@ -86,4 +87,59 @@ const midnightEl = midnight.contentEl as unknown as El;
 (findByClass(midnightEl, 'dashboard-gantt-date-row')[1]!.children[1] as El).value = '2026-10-26T00:00';
 findByClass(midnightEl, 'dashboard-modal-btn--confirm')[0]!.dispatchEvent({ type: 'click' });
 assert.deepEqual(changes[3], { end: '2026-10-26' });
+// ── Five-stage rail + band + click-to-locate ───────────────────────────────
+const stageList = FIVE_STAGE_PRESET;
+const stageGroup: GanttGroup = { ...group, key: 'S', stage: '开发',
+	stageWindows: [
+		{ label: '需求', start: '2026-10-21', end: '2026-10-23', source: 'tasks' },
+		{ label: '方案', start: '2026-10-24', end: '2026-10-25', source: 'plan' },
+		{ label: '开发', start: '2026-10-26', end: '2026-10-30', source: 'derived' },
+	],
+	rows: [
+		{ task: { line: 5, text: 'r1', checked: false, group: '需求', start: '2026-10-21', end: '2026-10-22' }, milestone: false, group: '需求', save: async () => {} },
+		{ task: { line: 6, text: 'r2', checked: false, group: '开发', start: '2026-10-26', end: '2026-10-27' }, milestone: false, group: '开发', save: async () => {} },
+		{ task: { line: 7, text: 'r3', checked: false }, milestone: false, save: async () => {} },
+	] };
+const stageHost = new El('div');
+renderGanttChart(stageHost as never, {} as App, [stageGroup], 'day', ['gantt-open::S::todos', 'gantt-open::S::milestones'], () => {}, 'all', undefined, undefined, stageList);
+const railSegs = findByClass(stageHost, 'dashboard-gantt-stage-rail-seg');
+assert.equal(railSegs.length, 5, 'rail renders one segment per configured stage');
+assert.ok(railSegs[2]!.hasClass('is-now') && railSegs[2]!.textContent.includes('开发'), 'rail marks the current stage');
+assert.equal(railSegs.filter(seg => seg.hasClass('is-past')).length, 2, 'stages before the current one are filled');
+assert.ok(railSegs[4]!.textContent.includes('UAT'), 'rail segments carry their stage label');
+const stagerow = findByClass(stageHost, 'dashboard-gantt-stagerow');
+assert.equal(stagerow.length, 1, 'the stage band renders its own row under the project row');
+const bandSegs = findByClass(stageHost, 'dashboard-gantt-stage-seg');
+assert.equal(bandSegs.length, 3, 'one band segment per resolved stage window');
+assert.equal(bandSegs.filter(seg => seg.hasClass('is-derived')).length, 1, 'derived windows carry the estimate style');
+assert.ok(bandSegs[0]!.textContent.includes('需求'), 'band segments carry their stage label');
+// Click-to-locate: pop this stage's rows, dim the project's other grouped rows.
+bandSegs[0]!.click();
+assert.equal(findByClass(stageHost, 'is-stage-hit').length, 2, 'the stage subgroup header and its task row light up');
+assert.equal(findByClass(stageHost, 'is-stage-dim').length, 2, 'other stage rows dim');
+assert.ok(bandSegs[0]!.classList.contains('is-focus'), 'the clicked segment keeps a focus ring');
+// Click the same segment again to cancel.
+bandSegs[0]!.click();
+assert.equal(findByClass(stageHost, 'is-stage-hit').length, 0, 'second click cancels the focus');
+assert.equal(findByClass(stageHost, 'is-stage-dim').length, 0);
+// Clicking outside any segment also clears.
+const devSeg = bandSegs[2]!;
+devSeg.click();
+assert.equal(findByClass(stageHost, 'is-stage-hit').length, 2, '开发 lights up (subgroup header + its task row)');
+assert.equal(findByClass(stageHost, 'is-stage-dim').length, 2, 'the 需求 rows dim instead');
+// A stage window with no tagged rows focuses cleanly (nothing pops, nothing dims).
+const planSeg = bandSegs[1]!;
+planSeg.click();
+assert.equal(findByClass(stageHost, 'is-stage-hit').length, 0, '方案 has no tagged rows to pop');
+findByClass(stageHost, 'dashboard-gantt-axis')[0]!.click();
+assert.equal(findByClass(stageHost, 'is-stage-hit').length, 0, 'clicking elsewhere clears the stage focus');
+// The band is projects/all only, and stageList gates rail + band entirely.
+const todosStageHost = new El('div');
+renderGanttChart(todosStageHost as never, {} as App, [stageGroup], 'day', [], () => {}, 'todos', undefined, undefined, stageList);
+assert.equal(findByClass(todosStageHost, 'dashboard-gantt-stagerow').length, 0, 'no stage band in the todos filter');
+const noStageListHost = new El('div');
+renderGanttChart(noStageListHost as never, {} as App, [stageGroup], 'day', [], () => {}, 'all');
+assert.equal(findByClass(noStageListHost, 'dashboard-gantt-stage-rail').length, 0, 'no rail without a stage list');
+assert.equal(findByClass(noStageListHost, 'dashboard-gantt-stagerow').length, 0, 'no band without a stage list');
+
 process.stdout.write('Gantt UI assertions passed\n');

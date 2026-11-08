@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "「現在のステージ」の選択肢。ラベルが stage フィールドに書き込まれます。",
 	"pm.cfgStageLabel": "ステージ",
 	"pm.cfgAddStage": "ステージ追加",
+	"pm.cfgFiveStagePreset": "5段階プリセットを適用",
+	"pm.cfgFiveStagePresetHint": "ステージ リストを 需求 / 方案 / 開発 / SIT / UAT に置き換えます",
 	"pm.cfgNeedStage": "まず少なくとも 1 つのステージを追加します。",
 	"pm.cfgWorkNoteTemplate": "作業メモのテンプレート",
 	"pm.cfgArchiveFolder": "アーカイブフォルダー",

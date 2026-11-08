@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "ตัวเลือกของ “ด่านปัจจุบัน” ป้ายชื่อจะเขียนลงฟิลด์ stage",
 	"pm.cfgStageLabel": "สเตจ",
 	"pm.cfgAddStage": "เพิ่มเวที",
+	"pm.cfgFiveStagePreset": "ใช้พรีเซ็ตห้าขั้นตอน",
+	"pm.cfgFiveStagePresetHint": "แทนที่รายการขั้นตอนด้วย 需求 / 方案 / 开发 / SIT / UAT",
 	"pm.cfgNeedStage": "เพิ่มอย่างน้อยหนึ่งด่านก่อน",
 	"pm.cfgWorkNoteTemplate": "เทมเพลตบันทึกการทำงาน",
 	"pm.cfgArchiveFolder": "โฟลเดอร์เก็บถาวร",

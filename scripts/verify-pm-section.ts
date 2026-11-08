@@ -308,4 +308,34 @@ const app = makeApp([
 	}
 }
 
+// --- 7. Gantt mode: stage chips replace the dropdown; click filters + locates
+{
+	const ganttApp = makeApp([
+		{ file: fakeFile('项目/甲.md'), cache: cacheFor({ type: 'project', stage: '执行中', cycleStart: '2026-10-01', cycleEnd: '2026-11-30' }, BODY) },
+		{ file: fakeFile('项目/乙.md'), cache: cacheFor({ type: 'project', stage: '意向沟通', cycleStart: '2026-10-10', cycleEnd: '2026-12-15' }, BODY) },
+		{ file: fakeFile('项目/丙.md'), cache: cacheFor({ type: 'project' }, BODY) },
+	]);
+	(ganttApp.vault as unknown as { cachedRead: (f: TFile) => Promise<string> }).cachedRead = async () => BODY;
+	(globalThis as Record<string, unknown>).window = { setTimeout: (fn: () => void, ms?: number) => setTimeout(fn, ms), clearTimeout: (id: unknown) => clearTimeout(id as ReturnType<typeof setTimeout>) };
+	void (async () => {
+		const el8 = new El('div');
+		renderPmSection(el8 as unknown as HTMLElement, column({ ...config, viewMode: 'gantt' }), ganttApp);
+		const chips = findByClass(el8, 'dashboard-pmsec-stage-chip');
+		assert.equal(chips.length, 3, '全部 + one chip per configured stage');
+		assert.equal(chips[0]!.textContent.includes('全部'), true, 'the all-stages chip leads');
+		assert.ok(chips[0]!.textContent.includes('3'), 'all-stages chip counts the unfiltered list');
+		assert.ok(chips[1]!.textContent.includes('意向沟通') && chips[1]!.textContent.includes('1'), 'stage chips count the unfiltered list (乙)');
+		assert.ok(chips[2]!.textContent.includes('执行中') && chips[2]!.textContent.includes('1'), '执行中 chip counts 甲');
+		assert.equal(findByClass(el8, 'dashboard-toolbar-dropdown').length, 0, 'gantt mode swaps the stage dropdown for chips');
+		// Click 执行中 → filters to 甲 and locates its gantt row (async chart).
+		chips[2]!.click();
+		await new Promise(resolve => setTimeout(resolve, 600));
+		const names = findByClass(el8, 'dashboard-gantt-project-name').map(n => n.textContent);
+		assert.deepEqual(names, ['甲'], 'stage chip narrows the gantt to its projects');
+		const located = findByClass(el8, 'is-located');
+		assert.equal(located.length, 1, 'the first matching project row gets the locate pulse');
+		console.log('7 gantt stage chips: ok');
+	})();
+}
+
 console.log('verify-pm-section: all assertions passed');

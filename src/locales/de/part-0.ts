@@ -42,6 +42,8 @@ export const part0: Record<string, string> = {
 	"gantt.noTarget": "Keine Projektabschnitte gefunden",
 	"gantt.sourceHint": "Wählen Sie eine Notiz und dann ein Diagramm",
 	"gantt.stale": "Zeitplan geändert; Öffnen Sie es erneut und versuchen Sie es erneut.",
+	"gantt.stageBand": "Phasen",
+	"gantt.derivedTag": "geschätzt",
 	"common.save": "Speichern",
 	"common.add": "Hinzufügen",
 	"common.cancel": "Abbrechen",

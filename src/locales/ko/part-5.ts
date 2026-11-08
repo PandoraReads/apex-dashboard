@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "“현재 단계” 드롭다운의 옵션. 라벨이 stage 필드에 기록됩니다.",
 	"pm.cfgStageLabel": "무대",
 	"pm.cfgAddStage": "무대 추가",
+	"pm.cfgFiveStagePreset": "5단계 프리셋 적용",
+	"pm.cfgFiveStagePresetHint": "단계 목록을 需求 / 方案 / 开发 / SIT / UAT 로 바꿉니다",
 	"pm.cfgNeedStage": "먼저 스테이지를 하나 이상 추가하세요.",
 	"pm.cfgWorkNoteTemplate": "업무 노트 템플릿",
 	"pm.cfgArchiveFolder": "보관 폴더",

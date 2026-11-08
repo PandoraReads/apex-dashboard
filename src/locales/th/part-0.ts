@@ -42,6 +42,8 @@ export const part0: Record<string, string> = {
 	"gantt.noTarget": "ไม่พบส่วนโครงการ",
 	"gantt.sourceHint": "เลือกบันทึก จากนั้นเลือกแผนภูมิ",
 	"gantt.stale": "กำหนดการมีการเปลี่ยนแปลง; เปิดใหม่แล้วลองอีกครั้ง",
+	"gantt.stageBand": "ขั้นตอน",
+	"gantt.derivedTag": "ประมาณการ",
 	"common.save": "บันทึก",
 	"common.add": "แอด",
 	"common.cancel": "ยกเลิก",

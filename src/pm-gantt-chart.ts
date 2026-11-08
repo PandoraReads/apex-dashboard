@@ -1,5 +1,8 @@
 import { App, Notice, setIcon, type TFile } from 'obsidian';
 import type { PipelineTask } from './pipeline-model';
+import { chipColorFor } from './pipeline-model';
+import type { PmStage } from './types';
+import type { StageWindow } from './pm-stages';
 import { PmScheduleModal, type ScheduleSave } from './pm-schedule-modal';
 import { validStamp, scheduleRange, shiftDay } from './pm-schedule';
 import { startGuardedDrag } from './drag-guard';
@@ -9,6 +12,10 @@ export interface GanttRow { task: PipelineTask; milestone: boolean; group?: stri
 export interface GanttGroup {
 	key: string; title: string; file: TFile; rows: GanttRow[];
 	cycleStart?: string; cycleEnd?: string; keyDate?: string;
+	/** Current stage label (project notes' `stage` frontmatter) for the rail. */
+	stage?: string;
+	/** Resolved stage windows (pm-stages) for the stage band row. */
+	stageWindows?: StageWindow[];
 	onOpen: () => void; onRemove?: () => void; onAdd?: (milestone: boolean) => void;
 }
 export type GanttScale = 'day' | 'week' | 'month';
@@ -23,7 +30,7 @@ const weekColor = (value: string): number => {
 export function localToday(now = new Date()): string {
 	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
-export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup[], scale: GanttScale, collapsed: readonly string[], onCollapse: (key: string) => void, filter: GanttFilter = 'all', selectedProjectPath?: string, onKindToggle?: (key: string, filter: GanttFilter) => void): void {
+export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup[], scale: GanttScale, collapsed: readonly string[], onCollapse: (key: string) => void, filter: GanttFilter = 'all', selectedProjectPath?: string, onKindToggle?: (key: string, filter: GanttFilter) => void, stageList?: readonly PmStage[]): void {
 	const visibleGroups = selectedProjectPath ? groups.filter(group => group.key === selectedProjectPath) : groups;
 	const today = localToday();
 	const stamps = visibleGroups.flatMap(g => [g.cycleStart, g.cycleEnd, g.keyDate, ...g.rows.flatMap(r => [r.task.start, r.task.end, r.task.scheduled, r.task.deadline])]).filter((v): v is string => !!v && validStamp(v));
@@ -121,6 +128,42 @@ export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup
 			handle.addEventListener('pointerdown', e => { e.stopPropagation(); drag(e, edge); });
 		}
 	};
+	// ── Stage-band focus (transient, in-DOM only) ────────────────────────────
+	// Clicking a stage segment centers that window and pops the stage's rows
+	// (is-stage-hit) while dimming this project's other grouped rows
+	// (is-stage-dim). Nothing persists; any click outside a segment clears.
+	let stageTouched: HTMLElement[] = [];
+	let stageFocusSeg: HTMLElement | null = null;
+	const clearStageFocus = (): void => {
+		for (const el of stageTouched) { el.classList.remove('is-stage-hit'); el.classList.remove('is-stage-dim'); }
+		stageTouched = [];
+		if (stageFocusSeg) stageFocusSeg.classList.remove('is-focus');
+		stageFocusSeg = null;
+	};
+	scroll.addEventListener('click', ev => {
+		const target = ev.target as HTMLElement | null;
+		if (target && typeof target.closest === 'function' && target.closest('.dashboard-gantt-stage-seg')) return;
+		clearStageFocus();
+	});
+	const focusStage = (seg: HTMLElement, stageRow: HTMLElement, label: string, centerX: number): void => {
+		clearStageFocus();
+		stageFocusSeg = seg;
+		seg.classList.add('is-focus');
+		const view = scroll.clientWidth || 0;
+		scroll.scrollLeft = Math.max(0, centerX - view / 2);
+		const siblings = Array.from((stageRow.parentElement?.children ?? []) as HTMLElement[]);
+		for (let i = siblings.indexOf(stageRow) + 1; i < siblings.length; i++) {
+			const node = siblings[i]!;
+			if (node.classList.contains('dashboard-gantt-project')) break;
+			if (!node.classList.contains('dashboard-gantt-row')) continue;
+			// Empty/absent data-group both mean "not stage-tagged" (mini-dom
+			// reads missing dataset keys as '' — keep both environments equal).
+			const groupTag = node.dataset.group;
+			if (!groupTag) continue;
+			node.classList.add(groupTag === label ? 'is-stage-hit' : 'is-stage-dim');
+			stageTouched.push(node);
+		}
+	};
 	for (const group of visibleGroups) {
 		const todoRows = group.rows.filter(row => !row.milestone);
 		const milestoneRows = group.rows.filter(row => row.milestone);
@@ -155,12 +198,52 @@ export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup
 				add.addEventListener('click', () => group.onAdd!(kind.milestone));
 			}
 		}
+		// Stage rail: all configured stages in order, filled up to the current
+		// one — a five-second "where is this project" read in the label column.
+		if (stageList?.length && (group.stage || (group.stageWindows?.length ?? 0) > 0)) {
+			const stageIdx = stageList.findIndex(stage => stage.label === group.stage);
+			const rail = label.createDiv({ cls: 'dashboard-gantt-stage-rail' });
+			for (const [i, stage] of stageList.entries()) {
+				const win = group.stageWindows?.find(w => w.label === stage.label);
+				const cls = `dashboard-gantt-stage-rail-seg${i < stageIdx ? ' is-past' : i === stageIdx ? ' is-now' : ''}`;
+				const title = `${stage.label}${win?.start || win?.end ? ` · ${win.start || '—'} → ${win.end || '—'}${win.source === 'derived' ? ` (${t('gantt.derivedTag')})` : ''}` : ''}`;
+				const seg = rail.createDiv({ cls, text: stage.label, attr: { title } });
+				seg.style.setProperty('--stage-color', stage.color || chipColorFor(stage.label));
+			}
+		}
 		const lane = row.createDiv({ cls: 'dashboard-gantt-lane' });
 		if (filter === 'projects' || filter === 'all') {
 			if (group.cycleStart && group.cycleEnd && validStamp(group.cycleStart) && validStamp(group.cycleEnd)) bar(lane, group.cycleStart, group.cycleEnd, 'is-cycle', `${group.cycleStart} → ${group.cycleEnd}`);
 			const bounds = visibleRows.flatMap(r => [r.task.start || r.task.scheduled, r.task.end]).filter((v): v is string => !!v && validStamp(v)).sort();
 			if (bounds.length) bar(lane, bounds[0]!, bounds[bounds.length - 1]!, 'is-summary', group.title);
 			if (group.keyDate && validStamp(group.keyDate)) marker(lane, group.keyDate, 'is-milestone', group.title);
+		}
+		// Stage band: one segment per resolved stage window (pm-stages), under
+		// the project row. Projects/all filters only — todos/milestones views
+		// are about tasks, not the lifecycle. Click a segment to locate it.
+		const stageWindows = group.stageWindows ?? [];
+		if (stageList?.length && stageWindows.length > 0 && (filter === 'projects' || filter === 'all')) {
+			const stageRow = canvas.createDiv({ cls: 'dashboard-gantt-row dashboard-gantt-stagerow' });
+			const stageLabel = stageRow.createDiv({ cls: 'dashboard-gantt-label dashboard-gantt-stagelabel' });
+			stageLabel.createSpan({ text: t('gantt.stageBand') });
+			if (stageWindows.some(win => win.source === 'derived')) stageLabel.createSpan({ cls: 'dashboard-gantt-stagelabel-hint', text: `· ${t('gantt.derivedTag')}` });
+			const stageLane = stageRow.createDiv({ cls: 'dashboard-gantt-lane' });
+			for (const win of stageWindows) {
+				const from = win.start ?? win.end;
+				if (!from) continue;
+				const daySpan = win.start && win.end ? Math.max(0, dayNumber(win.end) - dayNumber(win.start)) : 0;
+				const width = Math.max(14, (daySpan + 1) * px);
+				const seg = stageLane.createDiv({ cls: `dashboard-gantt-stage-seg${win.source === 'derived' ? ' is-derived' : ''}` });
+				seg.style.left = `${x(from)}px`;
+				seg.style.width = `${width}px`;
+				seg.style.setProperty('--stage-color', stageList.find(stage => stage.label === win.label)?.color || chipColorFor(win.label));
+				seg.createSpan({ cls: 'dashboard-gantt-stage-seg-label', text: win.label });
+				seg.title = `${win.label}: ${win.start || '—'} → ${win.end || '—'}${win.source === 'derived' ? ` · ${t('gantt.derivedTag')}` : ''}`;
+				seg.addEventListener('click', () => {
+					if (seg.classList.contains('is-focus')) { clearStageFocus(); return; }
+					focusStage(seg, stageRow, win.label, x(from) + width / 2);
+				});
+			}
 		}
 		if (filter === 'projects') continue;
 		if (folded) {
@@ -186,6 +269,7 @@ export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup
 				const hasCustomGroup = members.some(member => member.group?.trim());
 				if (hasCustomGroup) {
 					const header = canvas.createDiv({ cls: 'dashboard-gantt-row dashboard-gantt-subgroup' });
+					header.dataset.group = name;
 					const button = header.createEl('button', { cls: 'dashboard-gantt-label', text: `${folded ? '▸' : '▾'} ${name} (${members.length})`, attr: { 'aria-expanded': String(!folded) } });
 					button.addEventListener('click', () => onCollapse(key));
 					const lane = header.createDiv({ cls: 'dashboard-gantt-lane' });
@@ -195,6 +279,7 @@ export function renderGanttChart(host: HTMLElement, app: App, groups: GanttGroup
 				}
 				for (const task of members) {
 			const taskRow = canvas.createDiv({ cls: 'dashboard-gantt-row' });
+					if (task.group) taskRow.dataset.group = task.group;
 					const label = taskRow.createDiv({ cls: 'dashboard-gantt-label dashboard-gantt-task-label' });
 					if (task.milestone) {
 						const icon = label.createSpan({ cls: 'dashboard-gantt-milestone-icon' });

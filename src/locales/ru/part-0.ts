@@ -42,6 +42,8 @@ export const part0: Record<string, string> = {
 	"gantt.noTarget": "Разделов проекта не найдено",
 	"gantt.sourceHint": "Выберите заметку, затем диаграмму.",
 	"gantt.stale": "Расписание изменено; откройте и повторите попытку.",
+	"gantt.stageBand": "Этапы",
+	"gantt.derivedTag": "расч.",
 	"common.save": "Сохранить",
 	"common.add": "Добавить",
 	"common.cancel": "Отмена",

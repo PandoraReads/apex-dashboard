@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "Пункты списка «текущий этап»; метка записывается в поле stage.",
 	"pm.cfgStageLabel": "Этап",
 	"pm.cfgAddStage": "Добавить этап",
+	"pm.cfgFiveStagePreset": "Применить пресет пяти этапов",
+	"pm.cfgFiveStagePresetHint": "Заменить список этапов на 需求 / 方案 / 开发 / SIT / UAT",
 	"pm.cfgNeedStage": "Сначала добавьте хотя бы один этап.",
 	"pm.cfgWorkNoteTemplate": "Шаблон рабочей заметки",
 	"pm.cfgArchiveFolder": "Архивная папка",

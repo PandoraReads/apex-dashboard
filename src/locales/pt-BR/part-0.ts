@@ -42,6 +42,8 @@ export const part0: Record<string, string> = {
 	"gantt.noTarget": "Nenhuma seção do projeto encontrada",
 	"gantt.sourceHint": "Escolha uma nota e depois um gráfico",
 	"gantt.stale": "Horário alterado; reabra e tente novamente.",
+	"gantt.stageBand": "Etapas",
+	"gantt.derivedTag": "estimado",
 	"common.save": "Salvar",
 	"common.add": "Adicionar",
 	"common.cancel": "Cancelar",

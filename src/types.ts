@@ -506,9 +506,12 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
 	dataviewGuideShownVersion: '',
 	onboardingTourSeenVersion: '',
 	countdownEnabled: false,
-	habitBackground: { image: 'https://images.pexels.com/photos/4958013/pexels-photo-4958013.jpeg', opacity: 100, dim: 40, blur: 0, foreground: 'light' },
-	quickActionsBackground: { image: 'https://images.pexels.com/photos/35462506/pexels-photo-35462506.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
-	musicBackground: { image: 'https://images.pexels.com/photos/22710827/pexels-photo-22710827.jpeg', opacity: 100, dim: 45, blur: 0, foreground: 'light' },
+	// NOTE: widget background presets (quickActions/habit/music) must NOT live
+	// here. Clearing a background persists as an absent key (undefined is
+	// dropped by JSON.stringify), and loadSettings' {...DEFAULT_SETTINGS,
+	// ...raw} merge refills any missing key — a default here would resurrect
+	// every cleared background on restart (observed in 3.9.7). New installs
+	// get their presets from loadSettings' fresh-install seed instead.
 	countdowns: [
 		// Rae's default: the year-end countdown ships pre-seeded (also the
 		// tile new immersive boards carry).

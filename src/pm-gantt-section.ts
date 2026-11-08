@@ -7,6 +7,7 @@ import { PmBoardModal, notifyPmChanged } from './pm-board-modal';
 import { projectScheduleSave } from './pm-schedule-modal';
 import { renderGanttChart, type GanttGroup } from './pm-gantt-chart';
 import { editGanttTask, parseGanttBlocks, updateGanttBlock } from './pm-gantt-source';
+import { resolveStageWindows } from './pm-stages';
 import { GanttReferenceModal, createGanttReference, type GanttReference } from './pm-gantt-reference';
 import { PmTimelineModal } from './pm-timeline-modal';
 import { showPromptDialog } from './prompt-dialog';
@@ -62,7 +63,10 @@ export function renderPmGantt(host: HTMLElement, controlsHost: HTMLElement, app:
 			return {
 				key: project.file.path, title: project.file.basename, file: project.file,
 				cycleStart: pmField(project.frontmatter, 'cycleStart'), cycleEnd: pmField(project.frontmatter, 'cycleEnd'), keyDate: pmField(project.frontmatter, 'keyDate'),
+				stage: pmField(project.frontmatter, 'stage') || undefined,
+				stageWindows: resolveStageWindows({ frontmatter: project.frontmatter, tasks: [...body.milestones, ...body.todos] }, config.stages),
 				rows: [...body.milestones.map(task => ({ task, milestone: true })), ...body.todos.map(task => ({ task, milestone: false }))].map(row => ({ ...row,
+					group: row.task.group,
 					save: projectScheduleSave(app, project.file, row.task, notifyPmChanged),
 					toggle: async () => { await app.vault.process(project.file, content => toggleTaskLine(content, locateScheduleTask(content, row.task))); notifyPmChanged(); },
 				})),
@@ -107,7 +111,7 @@ export function renderPmGantt(host: HTMLElement, controlsHost: HTMLElement, app:
 			const collapsed = config.ganttCollapsed || [];
 			const isOpen = config.ganttFilter === nextFilter || ((config.ganttFilter || 'all') === 'all' && collapsed.includes(key));
 			savePrefs({ ganttFilter: 'all', ganttCollapsed: isOpen ? collapsed.filter(item => item !== key) : [...collapsed, key] });
-		});
+		}, config.stages);
 	};
 	void load().catch((error: unknown) => chart.createDiv({ cls: 'dashboard-gantt-error', text: error instanceof Error ? error.message : String(error) }));
 }

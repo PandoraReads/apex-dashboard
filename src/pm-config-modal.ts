@@ -8,6 +8,7 @@ import { IconPickerModal } from './icon-picker-modal';
 import { agentTargets, agentPickerOption, isValidSkillName } from './agent-dispatch';
 import { attachSkillPicker } from './skill-registry';
 import { defaultPmStages } from './parser';
+import { FIVE_STAGE_PRESET } from './pm-stages';
 
 let skillSeq = 0;
 function newPmSkillId(): string {
@@ -82,9 +83,17 @@ export class PmConfigModal extends Modal {
 		stagesSec.createDiv({ cls: 'dashboard-pipeline-cfg-hint', text: t('pm.cfgStageHint') });
 		this.stagesEl = stagesSec.createDiv({ cls: 'dashboard-pmsec-cfg-stages' });
 		this.renderStages();
-		const addStage = stagesSec.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('pm.cfgAddStage') });
+		const stageActions = stagesSec.createDiv({ cls: 'dashboard-pmsec-cfg-stage-actions' });
+		const addStage = stageActions.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('pm.cfgAddStage') });
 		addStage.addEventListener('click', () => {
 			this.stages = [...this.stages, { label: '' }];
+			this.renderStages();
+		});
+		// Five-stage preset (需求/方案/开发/SIT/UAT): replaces the whole list —
+		// the derived gantt bands and 15/15/40/15/15 split key off exactly five.
+		const preset = stageActions.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--cancel', text: t('pm.cfgFiveStagePreset'), attr: { title: t('pm.cfgFiveStagePresetHint') } });
+		preset.addEventListener('click', () => {
+			this.stages = FIVE_STAGE_PRESET.map(stage => ({ ...stage }));
 			this.renderStages();
 		});
 

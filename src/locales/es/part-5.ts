@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "Opciones del desplegable «etapa actual»; la etiqueta se escribe en el campo stage.",
 	"pm.cfgStageLabel": "Etapa",
 	"pm.cfgAddStage": "Agregar etapa",
+	"pm.cfgFiveStagePreset": "Aplicar preajuste de cinco etapas",
+	"pm.cfgFiveStagePresetHint": "Reemplaza la lista de etapas por 需求 / 方案 / 开发 / SIT / UAT",
 	"pm.cfgNeedStage": "Agregue al menos una etapa primero.",
 	"pm.cfgWorkNoteTemplate": "Plantilla de nota de trabajo",
 	"pm.cfgArchiveFolder": "Carpeta de archivo",

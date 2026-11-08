@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "Options de la liste « étape actuelle » ; le libellé est écrit dans le champ stage.",
 	"pm.cfgStageLabel": "Scène",
 	"pm.cfgAddStage": "Ajouter une étape",
+	"pm.cfgFiveStagePreset": "Appliquer le préréglage en cinq étapes",
+	"pm.cfgFiveStagePresetHint": "Remplace la liste des étapes par 需求 / 方案 / 开发 / SIT / UAT",
 	"pm.cfgNeedStage": "Ajoutez d'abord au moins une étape.",
 	"pm.cfgWorkNoteTemplate": "Modèle de note de travail",
 	"pm.cfgArchiveFolder": "Dossier d'archives",

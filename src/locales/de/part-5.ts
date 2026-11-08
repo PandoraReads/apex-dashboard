@@ -177,6 +177,8 @@ export const part5: Record<string, string> = {
 	"pm.cfgStageHint": "Optionen des Dropdowns „aktueller Status“; das Label wird ins stage-Feld geschrieben.",
 	"pm.cfgStageLabel": "Bühne",
 	"pm.cfgAddStage": "Stufe hinzufügen",
+	"pm.cfgFiveStagePreset": "Fünf-Phasen-Preset anwenden",
+	"pm.cfgFiveStagePresetHint": "Ersetzt die Stufenliste durch 需求 / 方案 / 开发 / SIT / UAT",
 	"pm.cfgNeedStage": "Fügen Sie zuerst mindestens eine Stufe hinzu.",
 	"pm.cfgWorkNoteTemplate": "Vorlage für Arbeitsnotizen",
 	"pm.cfgArchiveFolder": "Archivordner",

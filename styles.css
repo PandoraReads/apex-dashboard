@@ -30228,6 +30228,121 @@ button.dashboard-capturebar-glyph:hover {
 .dashboard-gantt-editor-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .dashboard-gantt-date-row[hidden] { display: none; }
 
+/* ── PM five-stage location (rail + band + chips) ────────────────────────── */
+/* Stage rail (project label column): every configured stage in order, filled
+ * up to the project's current stage — the "where is this project" read. */
+.dashboard-gantt-stage-rail {
+	display: flex;
+	gap: 2px;
+	width: 100%;
+	margin-top: 4px;
+}
+.dashboard-gantt-stage-rail-seg {
+	flex: 1 1 0;
+	min-width: 0;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	font-size: 9px;
+	font-weight: 600;
+	letter-spacing: .02em;
+	white-space: nowrap;
+	border-radius: 3px;
+	color: var(--db-text-muted, var(--text-muted));
+	background: color-mix(in srgb, var(--stage-color, var(--db-accent, var(--interactive-accent))) 12%, transparent);
+	border: 1px solid color-mix(in srgb, var(--stage-color, var(--db-accent, var(--interactive-accent))) 30%, transparent);
+}
+.dashboard-gantt-stage-rail-seg.is-past,
+.dashboard-gantt-stage-rail-seg.is-now {
+	color: var(--db-text-inverse, #fff);
+	background: var(--stage-color, var(--db-accent, var(--interactive-accent)));
+	border-color: transparent;
+}
+.dashboard-gantt-stage-rail-seg.is-now {
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--stage-color, var(--db-accent, var(--interactive-accent))) 45%, transparent);
+}
+/* Stage band row: one segment per resolved stage window under the project
+ * row; derived (estimated) windows render hollow-dashed. */
+.dashboard-gantt-stagerow { min-height: 26px; background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 3%, transparent); }
+.dashboard-gantt-stagelabel { font-size: 10px; font-weight: 700; color: var(--db-text-muted, var(--text-muted)); gap: 4px; }
+.dashboard-gantt-stagelabel-hint { font-weight: 400; color: var(--db-text-faint, var(--text-faint)); }
+.dashboard-gantt-stage-seg {
+	position: absolute;
+	top: 4px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	padding: 0 5px;
+	overflow: hidden;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--db-text-inverse, #fff);
+	background: var(--stage-color, var(--db-accent, var(--interactive-accent)));
+	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--db-text-inverse, #fff) 25%, transparent);
+}
+.dashboard-gantt-stage-seg:hover { filter: saturate(1.15) brightness(1.05); }
+.dashboard-gantt-stage-seg.is-derived {
+	background: color-mix(in srgb, var(--stage-color, var(--db-accent, var(--interactive-accent))) 18%, transparent);
+	color: var(--db-text-muted, var(--text-muted));
+	border: 1px dashed var(--stage-color, var(--db-accent, var(--interactive-accent)));
+	box-shadow: none;
+}
+.dashboard-gantt-stage-seg-label { font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dashboard-gantt-stage-seg.is-focus {
+	z-index: 3;
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--stage-color, var(--db-accent, var(--interactive-accent))) 60%, var(--db-bg-card, var(--background-primary)));
+}
+/* Click-to-locate: pop the focused stage's rows, dim this project's other
+ * grouped rows. Ungrouped rows (no data-group) stay untouched. */
+.dashboard-gantt-row.is-stage-hit { background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 10%, var(--db-bg-section, var(--background-primary))); }
+.dashboard-gantt-row.is-stage-dim { opacity: .35; }
+/* Stage-chip locate pulse on the target project row. */
+.dashboard-gantt-project.is-located { animation: dashboard-gantt-locate-pulse 2s ease; }
+@keyframes dashboard-gantt-locate-pulse {
+	0%, 60% { box-shadow: inset 0 0 0 2px var(--db-accent, var(--interactive-accent)); }
+	100% { box-shadow: inset 0 0 0 2px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.dashboard-gantt-project.is-located { animation: none; box-shadow: inset 0 0 0 2px var(--db-accent, var(--interactive-accent)); }
+}
+/* Stage chips (gantt toolbar): filter + locate; counts read the full list. */
+.dashboard-pmsec-stage-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 2px 0 8px;
+}
+.dashboard-pmsec-stage-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 10px;
+	border-radius: 99px;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	border: 1px solid var(--db-border, var(--background-modifier-border));
+	background: var(--db-bg-card, var(--background-primary));
+	color: var(--db-text-muted, var(--text-muted));
+}
+.dashboard-pmsec-stage-chip:hover { border-color: var(--db-accent, var(--interactive-accent)); color: var(--db-text-normal, var(--text-normal)); }
+.dashboard-pmsec-stage-chip.active {
+	background: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 14%, var(--db-bg-card, var(--background-primary)));
+	border-color: var(--db-accent, var(--interactive-accent));
+	color: var(--db-text-normal, var(--text-normal));
+}
+.dashboard-pmsec-stage-chip-count {
+	font-size: 10px;
+	font-weight: 700;
+	padding: 0 5px;
+	border-radius: 99px;
+	background: color-mix(in srgb, var(--db-text-muted, var(--text-muted)) 14%, transparent);
+}
+/* Config modal: add-stage + five-stage preset sit on one action row. */
+.dashboard-pmsec-cfg-stage-actions { display: flex; gap: 8px; margin-top: 8px; }
+
 .dashboard-gantt-marker.is-done { opacity: .4; }
 
 /* Keep the Gantt header and sticky project navigation flat and fully opaque. */
