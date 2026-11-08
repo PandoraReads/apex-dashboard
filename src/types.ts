@@ -675,8 +675,19 @@ export interface TaskItem {
 	text: string;
 	checked: boolean;
 	reminder?: string;
+	/** Tasks-plugin due emoji date `YYYY-MM-DD` (`📅` deadline marker). */
+	dueDate?: string;
+	/** Tasks-plugin scheduled emoji date `YYYY-MM-DD` (`⏳` planned-day marker). */
+	scheduledDate?: string;
 	children?: TaskItem[];
 	collapsed?: boolean;
+}
+
+/** One marker edit from the reminder popup: only the carried keys change. */
+export interface TaskSchedulePatch {
+	reminder?: string;
+	dueDate?: string;
+	scheduledDate?: string;
 }
 
 export interface DocNode {
@@ -1473,7 +1484,7 @@ export interface RenderCallbacks {
 	 *  duplicate names it disambiguates which same-named column is meant. */
 	onColumnRename(oldName: string, newName: string, columnIndex?: number): void;
 	onColumnDelete(columnName: string, columnIndex?: number): void;
-	onTaskReminderEdit(cardId: string, taskPath: number[], reminder: string | undefined): void;
+	onTaskScheduleEdit(cardId: string, taskPath: number[], patch: TaskSchedulePatch): void;
 	onTaskNest(cardId: string, taskPath: number[]): void;
 	onTaskNestInto(cardId: string, srcPath: number[], destPath: number[]): void;
 	onTaskUnnest(cardId: string, taskPath: number[]): void;
