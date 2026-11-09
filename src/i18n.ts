@@ -1747,6 +1747,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'agent.scopeSelected': 'Scope: {count} selected',
 		'agent.scopeHint': 'Leave everything unchecked to run on the whole stage; check items to narrow the run.',
 		'agent.scopeListHeading': 'Target files:',
+		'agent.selectionListHeading': 'Selected materials:',
 
 		// Pipeline section
 		'settings.widgetSkillsEnabled': 'Skill buttons widget',
@@ -4076,6 +4077,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'agent.scopeSelected': '作用范围：已选 {count} 篇',
 		'agent.scopeHint': '不勾选则作用于整个阶段；勾选稿件可缩小执行范围。',
 		'agent.scopeListHeading': '目标稿件：',
+		'agent.selectionListHeading': '选中素材：',
 
 		// Pipeline section
 		'settings.widgetSkillsEnabled': '技能按钮小组件',
@@ -6405,6 +6407,7 @@ const translations: Record<Language, Record<string, string>> = {
 		'agent.scopeSelected': '作用範圍：已選 {count} 篇',
 		'agent.scopeHint': '不勾選則作用於整個階段；勾選稿件可縮小執行範圍。',
 		'agent.scopeListHeading': '目標稿件：',
+		'agent.selectionListHeading': '選中素材：',
 
 		// Pipeline section
 		'settings.widgetSkillsEnabled': '技能按鈕小元件',

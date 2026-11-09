@@ -816,6 +816,10 @@ export function renderMaterialLibrary(
 			},
 			materialSkillVars(paths),
 			{ directSend: false },
+			// Whole-selection guarantee: templates that only reference {path}
+			// (singular) used to carry just the first pick — every selected
+			// material must reach the agent regardless of the template.
+			{ selectionPaths: paths },
 		);
 	}
 
@@ -1124,7 +1128,23 @@ export function renderMaterialLibrary(
 			heartRow = bar;
 		}
 		name.title = `${item.path}\n${item.ext}`;
-		const heart = heartRow.createDiv({
+		// Row tail (Rae): archive + delete hug the heart's LEFT. Both are
+		// zero-width and click-through at rest and slide open on tile hover —
+		// the title keeps its full room until the user is actually hovering.
+		const tail = heartRow.createDiv({ cls: 'dashboard-material-rowtail' });
+		const archiveBtn = tail.createEl('button', {
+			cls: 'dashboard-material-quickact',
+			attr: { type: 'button', 'aria-label': t('material.archive'), title: t('material.archive') },
+		});
+		setIcon(archiveBtn, 'archive');
+		archiveBtn.addEventListener('click', (e) => { e.stopPropagation(); archiveItems([item.path]); });
+		const quickDelBtn = tail.createEl('button', {
+			cls: 'dashboard-material-quickact',
+			attr: { type: 'button', 'aria-label': t('media.delete'), title: t('media.delete') },
+		});
+		setIcon(quickDelBtn, 'trash-2');
+		quickDelBtn.addEventListener('click', (e) => { e.stopPropagation(); void deleteItems([item.path]); });
+		const heart = tail.createDiv({
 			cls: 'dashboard-material-heart' + (ctx.favorites?.has(item.path) ? ' is-fav' : ''),
 			attr: { role: 'button', 'aria-label': t('material.favorites'), title: t('material.favorites') },
 		});

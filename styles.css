@@ -10387,6 +10387,7 @@ button.dashboard-skillsec-import:hover {
 .is-tablet button.dashboard-quicknote-cfg-icon-btn,
 .is-tablet button.dashboard-quicknote-cfg-del,
 .is-tablet button.dashboard-library-table-delete,
+.is-tablet button.dashboard-library-list-del-btn,
 .is-tablet button.dashboard-library-card-delete,
 .is-tablet button.dashboard-pipeline-skill-btn,
 .is-tablet button.dashboard-pipeline-col-add,
@@ -16616,6 +16617,52 @@ button.dashboard-skillsec-import:hover {
 	flex-shrink: 0;
 }
 
+/* Floating delete in list rows (Rae): a zero-width, position:relative host
+   sits right after the title; the button it holds is absolutely positioned,
+   so the row's title and date keep all their room. Invisible and
+   click-through until the row hovers. */
+.dashboard-library-list-del {
+	position: relative;
+	width: 0;
+	flex: 0 0 0px;
+	align-self: stretch;
+}
+
+.dashboard-library-list-del-btn {
+	position: absolute;
+	right: -7px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	min-width: 0;
+	border: none;
+	border-radius: 50%;
+	background: var(--db-bg-card, rgba(20, 20, 20, 0.7));
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+	z-index: 2;
+}
+
+.dashboard-library-list-del-btn svg { width: 12px; height: 12px; }
+
+.dashboard-library-list-item:hover .dashboard-library-list-del-btn {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.dashboard-library-list-del-btn:hover {
+	background: rgba(220, 50, 50, 0.85);
+	color: #fff;
+}
+
 /* ===== Table View ===== */
 .dashboard-library-table {
 	width: 100%;
@@ -16676,36 +16723,36 @@ button.dashboard-skillsec-import:hover {
 	background: var(--db-bg-hover, rgba(255, 255, 255, 0.05));
 }
 
-/* Action column (delete button) — narrow, non-interactive header */
-.dashboard-library-table-op-col {
-	width: 34px;
-	padding: 6px 4px;
-	cursor: default;
-}
-
-.dashboard-library-table-op {
-	padding: 4px;
-	text-align: center;
-	/* Override the default td clamping so the round button isn't clipped */
-	max-width: none;
-	overflow: visible;
-	white-space: nowrap;
+/* Floating delete inside the TITLE cell (Rae): the button rides the cell's
+   right edge, absolutely positioned so it never widens the column, hidden
+   and click-through until the row hovers. The name cell turns relative to
+   anchor it; the scrim background keeps the icon readable over the
+   ellipsized title tail. */
+.dashboard-library-table-name {
+	position: relative;
 }
 
 .dashboard-library-table-delete {
+	position: absolute;
+	right: 2px;
+	top: 50%;
+	transform: translateY(-50%);
 	width: 22px;
 	height: 22px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	border: none;
 	border-radius: 50%;
-	background: transparent;
+	background: var(--db-bg-card, rgba(20, 20, 20, 0.75));
 	color: var(--db-text-muted, var(--text-muted));
 	padding: 0;
 	min-height: 0;
 	opacity: 0;
+	pointer-events: none;
 	cursor: pointer;
 	transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+	z-index: 2;
 }
 
 .dashboard-library-table-delete svg {
@@ -16715,6 +16762,7 @@ button.dashboard-skillsec-import:hover {
 
 .dashboard-library-table tr:hover .dashboard-library-table-delete {
 	opacity: 1;
+	pointer-events: auto;
 }
 
 .dashboard-library-table-delete:hover {
@@ -31005,6 +31053,57 @@ button.dashboard-capturebar-glyph:hover {
 	transform: scale(1.12);
 }
 
+/* Row tail (Rae): archive + delete hug the heart's LEFT. Zero-width and
+   click-through at rest — the title keeps its full room — then slide open on
+   tile hover. */
+.dashboard-material-rowtail {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	flex: 0 0 auto;
+	margin-left: auto;
+}
+
+/* The tail group now owns the right-pinning job the heart used to do alone. */
+.dashboard-material-rowtail .dashboard-material-heart { margin-left: 0; }
+
+.dashboard-material-quickact {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 0;
+	min-width: 0;
+	height: 22px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: rgba(58, 53, 64, 0.6);
+	cursor: pointer;
+	overflow: hidden;
+	opacity: 0;
+	pointer-events: none;
+	transition: width 0.15s ease, opacity 0.15s ease, color 0.12s ease;
+}
+
+.dashboard-material-tile:hover .dashboard-material-quickact {
+	width: 22px;
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.dashboard-material-quickact:hover { color: var(--db-danger, #e05252); }
+
+.dashboard-material-quickact svg { width: 14px; height: 14px; flex: 0 0 14px; }
+
+/* Plain cover bar variant: white-on-gradient ink, same as its heart. */
+.dashboard-material-coverbar .dashboard-material-quickact { color: rgba(255, 255, 255, 0.85); }
+
+.dashboard-material-coverbar .dashboard-material-quickact:hover {
+	color: #ff6b81;
+	background: rgba(255, 255, 255, 0.18);
+}
+
 /* Flat neutral page (Rae): light gray in EVERY theme so the theme-following
    macaron strip never blends into the page — the aurora-light page
    (#f2f6ff) was nearly identical to its strip (#e6e9fb). (0,2,0) plus later
@@ -31210,6 +31309,11 @@ button.dashboard-capturebar-glyph:hover {
    elements on the rail DO hit the .is-tablet rule). */
 .is-tablet button.dashboard-material-railbtn,
 .is-tablet button.dashboard-material-actbtn { padding: 0; }
+
+/* Tablet button padding would also inflate the hover-slid quick actions;
+   keep their rest/hover widths exactly as the desktop rules set them. */
+.is-tablet button.dashboard-material-quickact { padding: 0; }
+.is-tablet .dashboard-material-tile:hover button.dashboard-material-quickact { width: 22px; }
 
 /* Mobile: full-width search row, tighter paddings, guaranteed 2 columns
    (the model clamps column count to >= 2). The action rail shrinks and hugs

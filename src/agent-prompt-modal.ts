@@ -3,6 +3,7 @@ import type { AgentTarget } from './types';
 import {
 	buildAgentPrompt,
 	ClaudianBridgeError,
+	ensureSelectionPaths,
 	getAgentAdapter,
 	sendPromptWithTimeout,
 	type AgentPromptSpec,
@@ -38,6 +39,10 @@ export class AgentPromptModal extends Modal {
 		private readonly agent: AgentTarget,
 		private readonly vars: Record<string, string>,
 		private readonly selectableFiles?: SelectableFile[],
+		/** Whole-selection guarantee (material library multi-select): every
+		 *  path must reach the agent even when the template only references
+		 *  {path} — see ensureSelectionPaths. */
+		private readonly selectionPaths?: readonly string[],
 	) {
 		super(app);
 	}
@@ -51,10 +56,12 @@ export class AgentPromptModal extends Modal {
 		const body = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
 		body.createEl('h2', { text: this.spec.label });
 		const adapter = getAgentAdapter(this.agent);
-		// Delivery flavor wording: clipboard bridges (ZCode) copy the prompt for
-		// a manual paste; deep links (Codex / WorkBuddy) prefill a new
-		// conversation; in-app agents get a plain send.
-		const clipboardApp = adapter.kind === 'clipboard-app';
+		// Delivery flavor wording: clipboard bridges (ZCode / DeepSeek Harness)
+		// AND terminal agents (Kimi Code / Hermes) copy the prompt and open the
+		// agent's own client for a manual paste — nothing auto-submits; deep
+		// links (Codex / WorkBuddy) prefill a new conversation; in-app agents
+		// get a plain send.
+		const clipboardApp = adapter.kind === 'clipboard-app' || adapter.kind === 'terminal';
 		const prefillOnly = clipboardApp || adapter.kind === 'deep-link';
 		body.createEl('p', { text: t(clipboardApp ? 'agent.targetClipboard' : prefillOnly ? 'agent.targetPrefill' : 'agent.target', { agent: adapter.label }) });
 
@@ -103,11 +110,13 @@ export class AgentPromptModal extends Modal {
 			const vars = scoped
 				? { ...this.vars, input: input.value, paths }
 				: { ...this.vars, input: input.value };
-			const prompt = buildAgentPrompt(this.spec, vars, this.agent);
+			let prompt = buildAgentPrompt(this.spec, vars, this.agent);
 			if (scoped && paths && !this.spec.promptTemplate.includes('{paths}')) {
-				return `${prompt}\n\n${t('agent.scopeListHeading')}\n${paths}`;
+				prompt = `${prompt}\n\n${t('agent.scopeListHeading')}\n${paths}`;
 			}
-			return prompt;
+			// Multi-select guarantee: whatever the template did with the
+			// selection, the final prompt must carry every selected path.
+			return ensureSelectionPaths(prompt, this.selectionPaths ?? [], t('agent.selectionListHeading'));
 		};
 		const renderPreview = (): void => {
 			try {

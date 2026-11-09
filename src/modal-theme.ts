@@ -40,13 +40,49 @@ const MODAL_THEME_VARS: readonly string[] = [
 ];
 
 /**
+ * Resolve the dashboard root a body-level dialog should mirror. Several roots
+ * can be mounted at once (the dashboard view plus the standalone material
+ * library view, or several boards); `querySelector` returns whichever comes
+ * first in document order — typically the dashboard, which stays mounted as a
+ * hidden background tab after the user switches to the material view. Opening
+ * the material settings then mirrored the DASHBOARD's tokens, so a dark
+ * immersive board painted the material dialog dark. Preference order:
+ *
+ *  1. the root holding keyboard focus (the view the user just acted in),
+ *  2. a VISIBLE root inside the active workspace leaf,
+ *  3. any visible root (hidden background tabs are `display: none`),
+ *  4. the document-order first root (single-board setups, hidden windows).
+ */
+export function activeDashboardRoot(doc: Document = activeDocument): HTMLElement | null {
+	// Plain-object test stubs expose only querySelector — degrade to the
+	// single-root path there (real documents always have querySelectorAll).
+	const roots = typeof doc.querySelectorAll === 'function'
+		? Array.from(doc.querySelectorAll<HTMLElement>('.apex-dashboard-root'))
+		: [doc.querySelector<HTMLElement>('.apex-dashboard-root')].filter((el): el is HTMLElement => el !== null);
+	if (roots.length <= 1) return roots[0] ?? null;
+	// Node test bundles have no DOM globals — the focus probe is renderer-only.
+	const focusTarget = doc.activeElement;
+	if (focusTarget && typeof HTMLElement !== 'undefined' && focusTarget instanceof HTMLElement) {
+		const focused = roots.find(root => root === focusTarget || root.contains(focusTarget));
+		if (focused) return focused;
+	}
+	// Stub elements have no layout API — treat them as visible rather than
+	// throwing, so modal tests keep exercising the single-root path.
+	const isVisible = (root: HTMLElement): boolean =>
+		typeof root.getClientRects === 'function' ? root.getClientRects().length > 0 : true;
+	const visible = roots.filter(isVisible);
+	const pool = visible.length > 0 ? visible : roots;
+	return pool.find(root => root.closest('.workspace-leaf.mod-active') !== null) ?? pool[0]!;
+}
+
+/**
  * Mirror the active dashboard's resolved `--db-*` tokens onto a dialog element.
  * No-op when no dashboard is open (tokens stay unset; dialogs fall back to their
  * stylesheet defaults). This supersedes the per-modal `inheritDashboardTheme`
  * copies that had drifted across calendar-modal / renderer / stats overlays.
  */
 export function applyModalTheme(target: HTMLElement): void {
-	const root = activeDocument.querySelector<HTMLElement>('.apex-dashboard-root');
+	const root = activeDashboardRoot();
 	if (!root) return;
 	// Marker for the modal-layer input-legibility rules (styles.css): every
 	// mirrored surface — modals, body-level popovers, floating panels — gets

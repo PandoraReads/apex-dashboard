@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "Geltungsbereich: {count} ausgewählt",
 	"agent.scopeHint": "Lassen Sie alles deaktiviert, um auf der gesamten Bühne zu laufen; Überprüfen Sie die Elemente, um den Lauf einzugrenzen.",
 	"agent.scopeListHeading": "Zieldateien:",
+	"agent.selectionListHeading": "Ausgewählte Materialien:",
 	"settings.widgetSkillsEnabled": "Widget für Fertigkeitsschaltflächen",
 	"settings.widgetSkillsEnabledDesc": "Eine Seitenleistenkarte, die nur Fertigkeitsschaltflächen enthält – Ihre Verknüpfungen zur Tresororganisation. Konfigurieren Sie, welche Schaltflächen es in seinem eigenen Editor enthält.",
 	"skillsWidget.title": "Fähigkeiten",

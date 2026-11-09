@@ -723,9 +723,17 @@ async function main(): Promise<void> {
 	assert.ok(barName.hasClass('dashboard-material-name--plain'), 'the plain caption carries its overlay variant class');
 	assert.equal(barName.textContent, 'cover', 'the bar shows the basename');
 	const barChildren = plainBar.children;
-	assert.equal(barChildren.length, 2, 'the bar carries exactly the caption and the heart');
+	assert.equal(barChildren.length, 2, 'the bar carries exactly the caption and the row tail');
 	assert.equal(barChildren[0], barName, 'caption first');
-	assert.equal(barChildren[1]!.hasClass('dashboard-material-heart'), true, 'heart beside it, never below the image');
+	// Tail group (Rae): archive + delete hug the heart's left — zero-width and
+	// click-through at rest, sliding open on tile hover.
+	const barTail = barChildren[1]!;
+	assert.equal(barTail.hasClass('dashboard-material-rowtail'), true, 'the tail group carries the heart beside the caption, never below the image');
+	const tailChildren = barTail.children;
+	assert.equal(tailChildren.length, 3, 'archive + delete + heart ride the tail');
+	assert.equal(tailChildren[0]!.hasClass('dashboard-material-quickact'), true, 'archive button first');
+	assert.equal(tailChildren[1]!.hasClass('dashboard-material-quickact'), true, 'delete button second');
+	assert.equal(tailChildren[2]!.hasClass('dashboard-material-heart'), true, 'heart last');
 	// Hearts work in the plain style too…
 	const plainHeart = findByClass(plainCover, 'dashboard-material-heart')[0]!;
 	plainHeart.click();

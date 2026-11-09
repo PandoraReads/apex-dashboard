@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert';
-import { AgentBridgeError, agentPickerOption, agentTargets, buildAgentPrompt, codexConversationUrl, getAgentAdapter, workbuddyTaskUrl } from '../src/agent-dispatch';
+import { AgentBridgeError, agentPickerOption, agentTargets, buildAgentPrompt, codexConversationUrl, ensureSelectionPaths, getAgentAdapter, launchAndPasteScript, terminalClientCommand, workbuddyTaskUrl } from '../src/agent-dispatch';
 
 async function main(): Promise<void> {
-	assert.deepEqual(agentTargets(), ['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot']);
+	assert.deepEqual(agentTargets(), ['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot', 'deepseek', 'kimi', 'hermes']);
 	assert.equal(getAgentAdapter('grokbot').kind, 'clipboard-app');
 	assert.equal(buildAgentPrompt({ skillName: 'daily', promptTemplate: '{skill}' }, {}, 'grokbot'), 'Use the skill "daily".');
 	// zcode pastes into its own agent GUI: token style follows Claudian's $name.
@@ -50,6 +50,69 @@ async function main(): Promise<void> {
 	assert.equal(wbPlain.searchParams.get('skills'), null);
 	assert.equal(wbPlain.searchParams.get('promptContentBlocks'), null);
 	assert.equal(wbPlain.searchParams.get('prompt'), '$100 budget\nsecond line');
+
+	// DeepSeek Harness: clipboard bridge (app.asar ships dsh://open only — no
+	// prompt deep link), selectable like Grok Bot rather than greyed like ZCode.
+	// Launch is followed by an auto-paste (System Events Cmd+V scoped to the
+	// app) so the composer comes up prefilled — paste ONLY, never Send.
+	assert.equal(getAgentAdapter('deepseek').kind, 'clipboard-app');
+	assert.equal(getAgentAdapter('deepseek').comingSoon, undefined);
+	const dshPaste = launchAndPasteScript('com.deepseek.dsh', 'DeepSeek Harness');
+	assert.ok(dshPaste.includes('tell application id "com.deepseek.dsh" to activate'), 'paste script activates the app by id');
+	assert.ok(dshPaste.includes('keystroke "v" using command down'), 'paste script presses Cmd+V');
+	assert.equal(dshPaste.match(/keystroke/g)?.length, 1, 'exactly one keystroke');
+	assert.ok(dshPaste.includes('frontmost of process "DeepSeek Harness"'), 'keystroke is gated on the target process being frontmost');
+	assert.ok(!/click|key code/.test(dshPaste), 'paste script never presses Send (no clicks / key codes)');
+	// Kimi / Hermes are terminal agents: the prompt rides the clipboard and
+	// their OWN interactive client opens — the user pastes and sends. The
+	// bridge must never auto-submit a turn (paid/metered run without review).
+	assert.equal(getAgentAdapter('kimi').kind, 'terminal');
+	assert.equal(getAgentAdapter('hermes').kind, 'terminal');
+	assert.equal(terminalClientCommand('kimi', '/usr/local/bin/kimi'), `'/usr/local/bin/kimi'`, 'kimi opens the bare interactive TUI');
+	assert.equal(terminalClientCommand('hermes', '/usr/local/bin/hermes'), `'/usr/local/bin/hermes' chat`, 'hermes opens the bare interactive client');
+	for (const cmd of [terminalClientCommand('kimi', 'kimi'), terminalClientCommand('hermes', 'hermes')]) {
+		assert.ok(!/(^|\s)(-p|-q|--query|--query-file)(\s|$)/.test(cmd), 'terminal bridge never auto-submits a turn');
+	}
+	assert.equal(buildAgentPrompt(spec, { input: 'Focus on writing' }, 'kimi'), '$start-my-day\n\nFocus on writing');
+	assert.equal(buildAgentPrompt(spec, { input: 'Focus on writing' }, 'hermes'), '$start-my-day\n\nFocus on writing');
+
+	// Whole-selection guarantee (Rae's material multi-select report): a custom
+	// template referencing only {path} used to carry the FIRST pick and drop
+	// the rest. ensureSelectionPaths backfills the full list under a heading
+	// when any selected path is missing from the rendered prompt.
+	{
+		const picked = ['素材/a.png', '素材/b.png', '素材/c.mp4'];
+		const singular = buildAgentPrompt(
+			{ skillName: 'pandora-idea2topics', promptTemplate: '读取文件 {path}，按技能执行拆解' },
+			{ path: picked[0]!, paths: picked.map(p => `- ${p}`).join('\n'), count: '3', input: '' },
+			'claudian',
+		);
+		assert.ok(singular.includes(picked[0]!), 'first pick rides the template');
+		assert.ok(!singular.includes(picked[1]!), 'custom {path} template drops the rest (the bug)');
+		const fixed = ensureSelectionPaths(singular, picked, '选中素材：');
+		assert.ok(fixed.includes(picked[1]!) && fixed.includes(picked[2]!), 'every pick reaches the agent after the guarantee');
+		assert.ok(fixed.includes('选中素材：\n- 素材/a.png\n- 素材/b.png\n- 素材/c.mp4'), 'the full list rides under the heading');
+		// {paths} templates already carry everything: byte-identical, no duplicate list.
+		const complete = buildAgentPrompt(
+			{ skillName: 'start-my-day', promptTemplate: '{skill}\n\n{paths}' },
+			{ paths: picked.map(p => `- ${p}`).join('\n'), count: '3', input: '' },
+			'claudian',
+		);
+		assert.equal(ensureSelectionPaths(complete, picked, '选中素材：'), complete, 'no-op when every path is present');
+		// Empty selection and empty-string paths stay untouched.
+		assert.equal(ensureSelectionPaths(complete, [], '选中素材：'), complete, 'no selection, no change');
+		// Single pick already referenced: no duplicate either.
+		const single = buildAgentPrompt({ skillName: 's', promptTemplate: '处理 {path}' }, { path: picked[0]!, input: '' }, 'claudian');
+		assert.equal(ensureSelectionPaths(single, [picked[0]!], '选中素材：'), single, 'single referenced pick untouched');
+	}
+	// Outside a desktop renderer (no window.require / clipboard) the terminal
+	// bridge and the CLI probe fail closed instead of throwing.
+	assert.equal(getAgentAdapter('kimi').isAvailable({}), false);
+	assert.equal(getAgentAdapter('hermes').isAvailable({}), false);
+	await assert.rejects(getAgentAdapter('kimi').send({}, 'hello'),
+		(error: unknown) => error instanceof AgentBridgeError && error.code === 'unsupported');
+	await assert.rejects(getAgentAdapter('hermes').send({}, 'hello'),
+		(error: unknown) => error instanceof AgentBridgeError && error.code === 'unsupported');
 	// Over-long prompts truncate at WorkBuddy's documented 8000-char cap.
 	const wbLong = new URL(workbuddyTaskUrl('x'.repeat(9000)));
 	assert.equal(wbLong.searchParams.get('prompt')!.length, 8000);

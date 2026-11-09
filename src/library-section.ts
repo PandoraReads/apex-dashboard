@@ -1126,7 +1126,7 @@ export function renderLibrarySection(
 					renderGalleryView(host, items, app, isFolder, currentConfig, handleDelete);
 					break;
 				case 'list':
-					renderListView(host, items, app);
+					renderListView(host, items, app, handleDelete);
 					break;
 				case 'table':
 					renderTableView(host, items, app, currentConfig, handleDelete);
@@ -1693,7 +1693,7 @@ function formatBadgeValue(value: unknown): string | null {
 	return s.length > 0 ? s : null;
 }
 
-function renderListView(container: HTMLElement, results: LibraryFileResult[], app: App): void {
+function renderListView(container: HTMLElement, results: LibraryFileResult[], app: App, onDelete: (file: TFile) => void): void {
 	const list = container.createDiv({ cls: 'dashboard-library-list' });
 
 	for (const result of results) {
@@ -1702,6 +1702,20 @@ function renderListView(container: HTMLElement, results: LibraryFileResult[], ap
 		item.addEventListener('click', () => openFile(app, result.file));
 
 		item.createDiv({ cls: 'dashboard-library-list-name', text: result.basename });
+		// Floating delete (Rae): anchored at the title's end, between the
+		// (usually ellipsized) name and the date. A zero-width host keeps it
+		// out of the flex flow, so neither the title nor the date loses room.
+		const delHost = item.createDiv({ cls: 'dashboard-library-list-del' });
+		const delBtn = delHost.createEl('button', {
+			cls: 'dashboard-library-list-del-btn',
+			attr: { type: 'button', 'aria-label': t('library.delete') },
+		});
+		delBtn.title = t('library.delete');
+		setIcon(delBtn, 'trash-2');
+		delBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			onDelete(result.file);
+		});
 		item.createDiv({ cls: 'dashboard-library-list-spacer' });
 		item.createDiv({ cls: 'dashboard-library-list-date', text: formatDate(result.ctime) });
 	}
@@ -1917,9 +1931,6 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 		});
 		th.dataset.sortKey = col;
 	}
-	// Action column (delete button) — empty label, rightmost
-	const actionTh = headerRow.createEl('th', { cls: 'dashboard-library-table-op-col' });
-	actionTh.setAttribute('aria-label', t('library.delete'));
 
 	const tbody = table.createEl('tbody');
 	for (const result of results) {
@@ -1934,6 +1945,20 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 				td.addEventListener('click', (e) => {
 					e.stopPropagation();
 					openFile(app, result.file);
+				});
+				// Floating delete at the tail of the TITLE cell (Rae): the old
+				// rightmost action column was a long mouse trip on wide tables.
+				// Absolutely positioned inside the cell so it never widens the
+				// column, hidden and click-through until the row hovers.
+				const delBtn = td.createEl('button', {
+					cls: 'dashboard-library-table-delete',
+					attr: { type: 'button', 'aria-label': t('library.delete') },
+				});
+				delBtn.title = t('library.delete');
+				setIcon(delBtn, 'trash-2');
+				delBtn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					onDelete(result.file);
 				});
 			} else if (col === 'modified') {
 				td.textContent = formatDate(result.mtime);
@@ -1954,19 +1979,6 @@ function renderTableView(container: HTMLElement, results: LibraryFileResult[], a
 				});
 			}
 		}
-
-		// Delete action cell (rightmost)
-		const opTd = tr.createEl('td', { cls: 'dashboard-library-table-op' });
-		const delBtn = opTd.createEl('button', {
-			cls: 'dashboard-library-table-delete',
-			attr: { 'aria-label': t('library.delete') },
-		});
-		delBtn.title = t('library.delete');
-		setIcon(delBtn, 'trash-2');
-		delBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			onDelete(result.file);
-		});
 	}
 }
 

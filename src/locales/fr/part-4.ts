@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "Portée : {count} sélectionnés",
 	"agent.scopeHint": "Laissez tout décoché pour fonctionner sur toute la scène ; vérifiez les éléments pour affiner la course.",
 	"agent.scopeListHeading": "Fichiers cibles :",
+	"agent.selectionListHeading": "Matériaux sélectionnés :",
 	"settings.widgetSkillsEnabled": "Widget de boutons de compétences",
 	"settings.widgetSkillsEnabledDesc": "Une carte de barre latérale hébergeant uniquement les boutons de compétences : vos raccourcis d'organisation de coffre-fort. Configurez les boutons qu'il contient dans son propre éditeur.",
 	"skillsWidget.title": "Compétences",

@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "ขอบเขต: เลือกแล้ว {count} รายการ",
 	"agent.scopeHint": "ปล่อยทุกอย่างไว้โดยไม่ถูกทำเครื่องหมายเพื่อทำงานบนเวทีทั้งหมด ตรวจสอบรายการเพื่อจำกัดการวิ่ง",
 	"agent.scopeListHeading": "ไฟล์เป้าหมาย:",
+	"agent.selectionListHeading": "วัสดุที่เลือก:",
 	"settings.widgetSkillsEnabled": "วิดเจ็ตปุ่มทักษะ",
 	"settings.widgetSkillsEnabledDesc": "การ์ดแถบด้านข้างที่มีเฉพาะปุ่มทักษะ — ทางลัดสำหรับองค์กรตู้นิรภัยของคุณ กำหนดค่าปุ่มที่จะเก็บในตัวแก้ไขของตัวเอง",
 	"skillsWidget.title": "ทักษะ",

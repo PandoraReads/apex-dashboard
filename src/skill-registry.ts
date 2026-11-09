@@ -152,6 +152,15 @@ const VAULT_SKILL_DIRS: Record<AgentTarget, string[]> = {
 	// scanned by the picker below), so it has no in-vault convention folders.
 	workbuddy: [],
 	grokbot: [],
+	// DeepSeek Harness manages skills through its own plugin system; nothing
+	// is discovered inside the vault.
+	deepseek: [],
+	// Kimi Code auto-discovers project skills from these convention folders
+	// (all three paths are referenced by the kimi binary itself).
+	kimi: ['.kimi/skills', '.agents/skills', '.claude/skills'],
+	// Hermes trusts repo-local skills from ./.hermes/skills and
+	// ./.agents/skills (`hermes skills trust`).
+	hermes: ['.hermes/skills', '.agents/skills'],
 };
 
 /** In-vault discovery via the public DataAdapter (works on mobile too). */

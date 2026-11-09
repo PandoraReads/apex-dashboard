@@ -4,7 +4,7 @@ import { t } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { KANBAN_FILE_DRAG_TYPE } from './dnd';
 import { AgentPromptModal } from './agent-prompt-modal';
-import { buildAgentPrompt, ClaudianBridgeError, getAgentAdapter } from './agent-dispatch';
+import { buildAgentPrompt, ClaudianBridgeError, ensureSelectionPaths, getAgentAdapter } from './agent-dispatch';
 import {
 	cardChips,
 	skillColorFor,
@@ -1039,7 +1039,7 @@ export function dispatchSkill(
 	skill: Pick<PipelineSkill, 'label' | 'skillName' | 'promptTemplate' | 'agent' | 'directSend'>,
 	vars: Record<string, string>,
 	cfg: Pick<PipelineConfig, 'directSend'>,
-	options?: { selectableFiles?: Array<{ path: string; title: string }> },
+	options?: { selectableFiles?: Array<{ path: string; title: string }>; selectionPaths?: readonly string[] },
 ): void {
 	const spec = {
 		label: skill.label,
@@ -1054,7 +1054,9 @@ export function dispatchSkill(
 	if ((skill.directSend ?? cfg.directSend) && !forceModal) {
 		void (async () => {
 			try {
-				const prompt = buildAgentPrompt(spec, { ...vars, input: '' }, skill.agent);
+				let prompt = buildAgentPrompt(spec, { ...vars, input: '' }, skill.agent);
+				// Multi-select guarantee applies to direct sends too.
+				prompt = ensureSelectionPaths(prompt, options?.selectionPaths ?? [], t('agent.selectionListHeading'));
 				const adapter = getAgentAdapter(skill.agent);
 				await adapter.send(app, prompt);
 				if (adapter.kind === 'deep-link') new Notice(t('agent.openedPrefill', { agent: adapter.label }));
@@ -1066,7 +1068,7 @@ export function dispatchSkill(
 		})();
 		return;
 	}
-	new AgentPromptModal(app, spec, skill.agent, vars, options?.selectableFiles).open();
+	new AgentPromptModal(app, spec, skill.agent, vars, options?.selectableFiles, options?.selectionPaths).open();
 }
 
 /** Create a new item note in the stage's folder, seeded from the section

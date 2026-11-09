@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "Escopo: {count} selecionado",
 	"agent.scopeHint": "Deixe tudo desmarcado para rodar em todo o palco; verifique os itens para restringir a execução.",
 	"agent.scopeListHeading": "Arquivos de destino:",
+	"agent.selectionListHeading": "Materiais selecionados:",
 	"settings.widgetSkillsEnabled": "Widget de botões de habilidade",
 	"settings.widgetSkillsEnabledDesc": "Um cartão da barra lateral que hospeda apenas botões de habilidade — seus atalhos para organização do cofre. Configure quais botões ele contém em seu próprio editor.",
 	"skillsWidget.title": "Habilidades",

@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "Alcance: {count} seleccionado",
 	"agent.scopeHint": "Deje todo sin marcar para que se ejecute en todo el escenario; verifique los elementos para limitar el recorrido.",
 	"agent.scopeListHeading": "Archivos de destino:",
+	"agent.selectionListHeading": "Materiales seleccionados:",
 	"settings.widgetSkillsEnabled": "Widget de botones de habilidad",
 	"settings.widgetSkillsEnabledDesc": "Una tarjeta de barra lateral que alberga solo botones de habilidades: los accesos directos a la organización de tu bóveda. Configura qué botones contiene en su propio editor.",
 	"skillsWidget.title": "Habilidades",

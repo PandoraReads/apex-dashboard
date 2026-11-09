@@ -1045,7 +1045,9 @@ export interface RssConfig {
 }
 
 /** Agent targets a skill button can dispatch to. */
-export type AgentTarget = 'claudian' | 'copilot' | 'codex' | 'zcode' | 'workbuddy' | 'grokbot';
+export type AgentTarget =
+	| 'claudian' | 'copilot' | 'codex' | 'zcode' | 'workbuddy' | 'grokbot'
+	| 'deepseek' | 'kimi' | 'hermes';
 
 /** One stage of a pipeline board. The stage's identity for grouping is the
  * frontmatter value stored in the section's status field. */

@@ -1707,7 +1707,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 			const stage = str(rec.stage ?? '').trim();
 			if (!label || !stage) continue;
 			// Unknown agent targets fall back to Claudian for older or hand-edited files.
-			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' || rec.agent === 'zcode' || rec.agent === 'workbuddy' || rec.agent === 'grokbot' ? rec.agent : 'claudian';
+			const agent: AgentTarget = rec.agent === 'copilot' || rec.agent === 'codex' || rec.agent === 'zcode' || rec.agent === 'workbuddy' || rec.agent === 'grokbot' || rec.agent === 'deepseek' || rec.agent === 'kimi' || rec.agent === 'hermes' ? rec.agent : 'claudian';
 			const scope = rec.scope === 'stage' ? 'stage' : 'card';
 			skills.push({
 				id: str(rec.id ?? '').trim() || `sk_${skills.length + 1}_${Math.random().toString(36).slice(2, 8)}`,
@@ -1883,7 +1883,7 @@ export function defaultPmStages(): PmStage[] {
 	].map(label => ({ label }));
 }
 
-const PM_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot']);
+const PM_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot', 'deepseek', 'kimi', 'hermes']);
 
 function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 	const pinned = [...new Set(Array.isArray(raw.pinned)
@@ -1959,7 +1959,7 @@ function parsePmConfig(raw: Record<string, unknown>): PmConfig {
 	};
 }
 
-const SKILL_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot']);
+const SKILL_AGENTS = new Set(['claudian', 'copilot', 'codex', 'zcode', 'workbuddy', 'grokbot', 'deepseek', 'kimi', 'hermes']);
 
 function parseSkillCreateConfig(raw: unknown): { createSkill?: SkillCreateConfig } {
 	if (typeof raw !== 'object' || raw === null) return {};

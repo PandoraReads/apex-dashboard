@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "Объем: выбрано {count}",
 	"agent.scopeHint": "Оставьте все неотмеченным, чтобы работать по всей сцене; проверьте элементы, чтобы сузить пробег.",
 	"agent.scopeListHeading": "Целевые файлы:",
+	"agent.selectionListHeading": "Выбранные материалы:",
 	"settings.widgetSkillsEnabled": "Виджет кнопок навыков",
 	"settings.widgetSkillsEnabledDesc": "Карточка на боковой панели, содержащая только кнопки навыков — ярлыки для организации хранилища. Настройте, какие кнопки он будет удерживать в своем собственном редакторе.",
 	"skillsWidget.title": "Навыки",

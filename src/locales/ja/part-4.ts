@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "範囲: {count} 個が選択されました",
 	"agent.scopeHint": "ステージ全体で実行するには、すべてのチェックを外したままにしておきます。項目をチェックしてランを絞り込みます。",
 	"agent.scopeListHeading": "対象ファイル:",
+	"agent.selectionListHeading": "選択素材:",
 	"settings.widgetSkillsEnabled": "スキルボタンウィジェット",
 	"settings.widgetSkillsEnabledDesc": "スキル ボタン (Vault 組織のショートカット) のみをホストするサイドバー カード。独自のエディターでどのボタンを保持するかを設定します。",
 	"skillsWidget.title": "スキル",

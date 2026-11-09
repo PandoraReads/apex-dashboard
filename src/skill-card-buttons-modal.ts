@@ -22,6 +22,9 @@ const AGENT_ICON: Record<string, string> = {
 	codex: 'terminal',
 	workbuddy: 'message-circle',
 	grokbot: 'bot',
+	deepseek: 'bot',
+	kimi: 'terminal',
+	hermes: 'terminal',
 };
 
 export function agentButtonIcon(agent: string, override?: string): string {

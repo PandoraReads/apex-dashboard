@@ -275,6 +275,7 @@ export const part4: Record<string, string> = {
 	"agent.scopeSelected": "범위: {count}개 선택됨",
 	"agent.scopeHint": "전체 스테이지에서 실행하려면 모든 항목을 선택하지 않은 상태로 둡니다. 실행 범위를 좁히려면 항목을 확인하십시오.",
 	"agent.scopeListHeading": "대상 파일:",
+	"agent.selectionListHeading": "선택한 소재:",
 	"settings.widgetSkillsEnabled": "스킬버튼 위젯",
 	"settings.widgetSkillsEnabledDesc": "스킬 버튼만 호스팅하는 사이드바 카드 — 볼트 조직 바로가기. 자체 편집기에 어떤 버튼이 있는지 구성합니다.",
 	"skillsWidget.title": "스킬",

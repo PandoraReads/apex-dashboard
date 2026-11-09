@@ -6,8 +6,9 @@
  * 2. Clicking it does NOT open the note (stopPropagation holds — the card's
  *    open handler would throw against the stub workspace, so a clean click
  *    proves propagation stopped; the confirm dialog takes over from there).
- * 3. List/table views stay button-free at the card level (the table keeps its
- *    own per-row control; the list row has none).
+ * 3. List rows carry a floating delete between the truncated title and the
+ *    date (zero-width host, no flow space); the table's delete rides the
+ *    title cell's tail instead of a far-right action column.
  * 4. styles.css ships the hover-reveal rules, the position anchors and the
  *    tablet padding reset for the new button class.
  *
@@ -78,11 +79,40 @@ const run = async (): Promise<void> => {
 		}
 	}
 
-	// 3: list rows carry no delete button (view-level affordance stays where
-	//    it was: the table's own per-row control, unchanged).
+	// 3: list rows now carry their own floating delete (Rae 2026-11-09):
+	//    a button between the truncated title and the date, click stopped
+	//    before the row's open handler.
 	{
 		const list = await renderView('list');
 		assert.equal(findByClass(list, 'dashboard-library-card-delete').length, 0, '3: list view has no card delete buttons');
+		const rows = findByClass(list, 'dashboard-library-list-item');
+		assert.equal(rows.length, 2, '3: both list rows render');
+		for (const row of rows) {
+			const btn = findTag(row, 'button').find(b => b.hasClass('dashboard-library-list-del-btn'));
+			assert.ok(btn, '3: list row carries the floating delete button');
+			assert.equal(btn!.getAttribute('aria-label'), '删除', '3: list delete button labelled');
+			// The zero-width host sits between the title and the spacer/date.
+			const kids = row.children.map(c => c.className.split(/\s+/)[0]);
+			assert.ok(kids.indexOf('dashboard-library-list-name') < kids.indexOf('dashboard-library-list-del'), '3: delete host follows the title');
+			assert.ok(kids.indexOf('dashboard-library-list-del') < kids.lastIndexOf('dashboard-library-list-date'), '3: delete host precedes the date');
+			assert.doesNotThrow(() => btn!.click(), '3: list delete click stops propagation (no open)');
+		}
+	}
+
+	// 3b: the table's delete moved from the far-right action column into the
+	//     title cell's tail (Rae) — no op column header or cell remains.
+	{
+		const table = await renderView('table');
+		assert.equal(findByClass(table, 'dashboard-library-table-op-col').length, 0, '3b: no rightmost action header');
+		assert.equal(findByClass(table, 'dashboard-library-table-op').length, 0, '3b: no rightmost action cell');
+		const nameCells = findByClass(table, 'dashboard-library-table-name');
+		assert.equal(nameCells.length, 2, '3b: both rows have a title cell');
+		for (const cell of nameCells) {
+			const btn = findTag(cell, 'button').find(b => b.hasClass('dashboard-library-table-delete'));
+			assert.ok(btn, '3b: delete button lives inside the title cell');
+			assert.equal(btn!.getAttribute('aria-label'), '删除', '3b: table delete button labelled');
+			assert.doesNotThrow(() => btn!.click(), '3b: table delete click stops propagation (no open)');
+		}
 	}
 
 	// 4: the CSS contract — hover reveal on both card shapes, focus fallback,
@@ -95,6 +125,15 @@ const run = async (): Promise<void> => {
 		assert.ok(css.includes('.is-tablet button.dashboard-library-card-delete'), '4: tablet padding reset present');
 		assert.ok(/\.dashboard-library-card \{[^}]*position: relative/.test(css), '4: grid card anchors the button');
 		assert.ok(/\.dashboard-library-kanban-card \{[^}]*position: relative/.test(css), '4: kanban card anchors the button');
+		// List floating delete: hidden + click-through until row hover, hosted
+		// in a zero-width relative anchor so it takes no flow space.
+		assert.ok(css.includes('.dashboard-library-list-item:hover .dashboard-library-list-del-btn'), '4: list row hover reveal');
+		assert.ok(/\.dashboard-library-list-del \{[^}]*width: 0/.test(css), '4: list delete host takes no space');
+		assert.ok(/\.dashboard-library-list-del \{[^}]*position: relative/.test(css), '4: list delete host anchors the button');
+		assert.ok(css.includes('.is-tablet button.dashboard-library-list-del-btn'), '4: list delete tablet reset');
+		// Table delete rides the title cell's right edge.
+		assert.ok(css.includes('.dashboard-library-table tr:hover .dashboard-library-table-delete'), '4: table row hover reveal');
+		assert.ok(/\.dashboard-library-table-delete \{[^}]*position: absolute/.test(css), '4: table delete floats in the title cell');
 	}
 
 	console.log('verify-card-delete: all checks passed');

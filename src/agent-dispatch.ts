@@ -6,7 +6,13 @@
  *
  * In-app adapters keep internal plugin APIs in one place. Codex Desktop uses
  * its documented deep link to create a new chat with a prefilled prompt; the
- * user submits it in Codex. It never runs the Codex CLI.
+ * user submits it in Codex. It never runs the Codex CLI. Clipboard-app
+ * adapters (ZCode, Grok Bot, DeepSeek Harness) copy the prompt and launch the
+ * app for a manual paste. Terminal adapters (Kimi Code, Hermes) copy the
+ * prompt and open the CLI's own interactive client in a Terminal window at
+ * the vault — the user pastes and sends. No adapter ever starts a model run
+ * on a metered backend by itself; delivery always ends in a client the user
+ * reviews and submits.
  */
 
 import type { AgentTarget } from './types';
@@ -96,6 +102,20 @@ export interface AgentPromptSpec {
 	promptTemplate: string;
 }
 
+/** Guarantee a selection reaches the agent whole. After template rendering,
+ *  every selected path must appear in the prompt — a template that only
+ *  references `{path}` (singular) carries just the FIRST selection and the
+ *  rest silently vanish (Rae's multi-select report, 2026-11-09). When any
+ *  path is missing, the full list rides along under `heading`; templates that
+ *  already carry the paths (via {paths} or inline) are left untouched. */
+export function ensureSelectionPaths(prompt: string, paths: readonly string[], heading: string): string {
+	if (paths.length === 0) return prompt;
+	const missing = paths.filter(path => path.length > 0 && !prompt.includes(path));
+	if (missing.length === 0) return prompt;
+	const list = paths.map(path => `- ${path}`).join('\n');
+	return `${prompt}\n\n${heading}\n${list}`;
+}
+
 /**
  * Render a prompt spec over template vars. Mirrors the historical
  * buildSkillPrompt contract: `{skill}` expands to the target agent's invocation,
@@ -110,9 +130,11 @@ export function buildAgentPrompt(spec: AgentPromptSpec, vars: Record<string, str
 	}
 	const tokens: Record<AgentTarget, string> = {
 		claudian: '$', copilot: '/', codex: '$', zcode: '$', workbuddy: '$', grokbot: '$',
+		deepseek: '$', kimi: '$', hermes: '$',
 	};
 	const alt: Record<AgentTarget, string> = {
 		claudian: '/', copilot: '$', codex: '/', zcode: '/', workbuddy: '/', grokbot: '/',
+		deepseek: '/', kimi: '/', hermes: '/',
 	};
 	const skillToken = skillName ? `${tokens[target] ?? '$'}${skillName}` : '';
 	const alternateSkillToken = skillName ? `${alt[target] ?? '/'}${skillName}` : '';
@@ -428,6 +450,188 @@ const grokBotAdapter: AgentAdapter = {
 	},
 };
 
+/** DeepSeek Harness (verified in app.asar 0.2.1-rc.5) registers only
+ *  `dsh://open` — focus the window, no new-chat or prompt parameter, and the
+ *  desktop bundle ships no CLI. So: copy the prompt, launch the app, then
+ *  auto-paste into it via System Events (see launchAndPasteScript) — the
+ *  composer ends up prefilled and the user reviews and presses Send. When
+ *  the automation is denied or the window is slow, it degrades to the plain
+ *  clipboard bridge (prompt copied, app open, manual paste). */
+const deepSeekAdapter: AgentAdapter = {
+	id: 'deepseek', label: 'DeepSeek Harness', kind: 'clipboard-app',
+	isAvailable: () => typeof navigator !== 'undefined' && !!navigator.clipboard && macAppInstalled('DeepSeek Harness'),
+	async send(_app: unknown, prompt: string): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(prompt);
+		} catch {
+			throw new AgentBridgeError('unsupported', 'Clipboard is unavailable');
+		}
+		if (!macSpawnOpen('DeepSeek Harness')) {
+			throw new AgentBridgeError('missing', 'Could not launch DeepSeek Harness — paste the copied prompt manually');
+		}
+		// Paste-fill best effort; failure keeps the manual-paste flow above.
+		spawnDetached('osascript', ['-e', launchAndPasteScript('com.deepseek.dsh', 'DeepSeek Harness')]);
+	},
+};
+
+/** ---- Terminal agents ------------------------------------------------
+ * CLI harnesses (Kimi Code, Hermes) have no app deep link, but their own
+ * interactive client runs in any console. Delivery contract (Rae,
+ * 2026-11-09): the bridge copies the prompt and opens the client in a
+ * Terminal window at the vault — the user reviews, pastes and sends. It
+ * NEVER submits a turn itself: the CLIs expose no draft/prefill API, and
+ * auto-submitting (kimi -p / hermes --query-file) would start a model run
+ * on the user's account without review. Desktop/macOS only. */
+
+type TerminalSpawn = (cmd: string, args: string[], opts?: unknown) => { unref?: () => void };
+type TerminalFs = {
+	existsSync?: (path: string) => boolean;
+};
+
+function terminalRequire<T>(module: string): T | undefined {
+	try {
+		const req = (window as { require?: (m: string) => T }).require
+			?? (window as unknown as { require?: (m: string) => T }).require;
+		return req?.(module);
+	} catch {
+		return undefined;
+	}
+}
+
+/** First existing binary among `candidates`; undefined when none is on disk. */
+function findCliBin(candidates: readonly string[]): string | undefined {
+	const fs = terminalRequire<TerminalFs>('fs');
+	if (!fs?.existsSync) return undefined;
+	return candidates.find(path => fs.existsSync!(path));
+}
+
+function homeDir(): string | undefined {
+	const os = terminalRequire<{ homedir?: () => string }>('os');
+	return os?.homedir?.();
+}
+
+/** Escape a value into an AppleScript string literal. */
+function appleScriptString(value: string): string {
+	return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/** Fire-and-forget a detached process (osascript helpers). */
+function spawnDetached(cmd: string, args: string[]): boolean {
+	const spawn = terminalRequire<{ spawn?: TerminalSpawn }>('child_process')?.spawn;
+	if (typeof spawn !== 'function') return false;
+	try {
+		spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref?.();
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Open a Terminal.app window running `shellCommand`. Terminal runs the
+ *  command in a login shell, so rc-file PATH entries resolve bare names too. */
+function runInTerminal(shellCommand: string): boolean {
+	const script = `tell application "Terminal"\nactivate\ndo script ${appleScriptString(shellCommand)}\nend tell`;
+	return spawnDetached('osascript', ['-e', script]);
+}
+
+/** Best-effort "prefill the input box" for agents without a prompt deep link
+ *  (DeepSeek Harness, verified: `dsh://open` takes no prompt). The script
+ *  activates the app, waits until its window is frontmost, then presses
+ *  Cmd+V ONCE — the clipboard holds the prompt, so it lands in whatever the
+ *  app focuses (its composer). Scoped to the named process: the keystroke
+ *  can never reach another app, and when the window never comes up — or
+ *  macOS denies the System Events automation — it silently no-ops and the
+ *  manual paste fallback still stands. Paste only: nothing here ever presses
+ *  Send. Exported for the delivery-contract test. */
+export function launchAndPasteScript(appId: string, processName: string): string {
+	return [
+		`tell application id ${appleScriptString(appId)} to activate`,
+		'tell application "System Events"',
+		'\trepeat with i from 1 to 40',
+		`\t\tif frontmost of process ${appleScriptString(processName)} then exit repeat`,
+		'\t\tdelay 0.25',
+		'\tend repeat',
+		`\tif frontmost of process ${appleScriptString(processName)} then`,
+		'\t\tdelay 0.5',
+		'\t\tkeystroke "v" using command down',
+		'\tend if',
+		'end tell',
+	].join('\n');
+}
+
+/** Single-quote a path for the inner shell (our own generated paths only —
+ *  they contain no quotes, but the escaping keeps the invariant explicit). */
+function shellSingleQuoted(value: string): string {
+	return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/** Copy the prompt, then open the agent's interactive client in a Terminal
+ *  window at the vault. Fails closed outside a desktop renderer. */
+async function sendToTerminalClient(
+	app: unknown,
+	prompt: string,
+	clientCommand: (bin: string) => string,
+	binCandidates: readonly string[],
+	fallbackName: string,
+	errorContext: string,
+): Promise<void> {
+	try {
+		await navigator.clipboard.writeText(prompt);
+	} catch {
+		throw new AgentBridgeError('unsupported', 'Clipboard is unavailable');
+	}
+	const bin = findCliBin(binCandidates) ?? fallbackName;
+	const vault = (app as { vault?: { adapter?: { getBasePath?: () => string } } })?.vault;
+	const vaultPath = vault?.adapter?.getBasePath?.();
+	const client = clientCommand(bin);
+	const command = vaultPath ? `cd ${shellSingleQuoted(vaultPath)} && ${client}` : client;
+	if (!runInTerminal(command)) {
+		throw new AgentBridgeError('missing', `Could not open a terminal for ${errorContext} — paste the copied prompt manually`);
+	}
+}
+
+/** Kimi Code (Moonshot): bare `kimi` opens the interactive TUI in the vault;
+ *  the user pastes the copied prompt as their own first turn. */
+const KIMI_BIN_CANDIDATES: readonly string[] = ['.kimi-code/bin/kimi', '/opt/homebrew/bin/kimi', '/usr/local/bin/kimi'];
+const HERMES_BIN_CANDIDATES: readonly string[] = ['.local/bin/hermes', '/opt/homebrew/bin/hermes', '/usr/local/bin/hermes'];
+
+function resolveBinCandidates(candidates: readonly string[]): string[] {
+	const home = homeDir();
+	return candidates.map(path => path.startsWith('.') && home ? `${home}/${path}` : path);
+}
+
+function terminalClientAvailable(candidates: readonly string[]): boolean {
+	return typeof navigator !== 'undefined' && !!navigator.clipboard && findCliBin(resolveBinCandidates(candidates)) !== undefined;
+}
+
+/** Client command per terminal agent — the interactive TUI, nothing else.
+ *  Exported so the no-auto-submit contract is testable: the bridge must
+ *  never pass a flag that starts a turn (-p / -q / --query-file). */
+export function terminalClientCommand(target: 'kimi' | 'hermes', bin: string): string {
+	return target === 'kimi' ? shellSingleQuoted(bin) : `${shellSingleQuoted(bin)} chat`;
+}
+
+const kimiAdapter: AgentAdapter = {
+	id: 'kimi', label: 'Kimi Code (terminal)', kind: 'terminal',
+	isAvailable: () => terminalClientAvailable(KIMI_BIN_CANDIDATES),
+	async send(app: unknown, prompt: string): Promise<void> {
+		await sendToTerminalClient(app, prompt, bin => terminalClientCommand('kimi', bin),
+			resolveBinCandidates(KIMI_BIN_CANDIDATES), 'kimi', 'Kimi Code');
+	},
+};
+
+/** Hermes: `hermes chat` opens the interactive client in the vault; the user
+ *  pastes the copied prompt. (--query-file would auto-submit the first turn —
+ *  deliberately NOT used.) */
+const hermesAdapter: AgentAdapter = {
+	id: 'hermes', label: 'Hermes (terminal)', kind: 'terminal',
+	isAvailable: () => terminalClientAvailable(HERMES_BIN_CANDIDATES),
+	async send(app: unknown, prompt: string): Promise<void> {
+		await sendToTerminalClient(app, prompt, bin => terminalClientCommand('hermes', bin),
+			resolveBinCandidates(HERMES_BIN_CANDIDATES), 'hermes', 'Hermes');
+	},
+};
+
 /** Registry keyed by AgentTarget. */
 const ADAPTERS: Record<AgentTarget, AgentAdapter> = {
 	claudian: claudianAdapter,
@@ -436,6 +640,9 @@ const ADAPTERS: Record<AgentTarget, AgentAdapter> = {
 	zcode: zcodeAdapter,
 	workbuddy: workbuddyAdapter,
 	grokbot: grokBotAdapter,
+	deepseek: deepSeekAdapter,
+	kimi: kimiAdapter,
+	hermes: hermesAdapter,
 };
 
 export function getAgentAdapter(id: AgentTarget): AgentAdapter {
