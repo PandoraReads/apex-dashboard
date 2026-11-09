@@ -183,6 +183,13 @@ Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, consi
 
 ## Novedades
 
+### 3.9.9
+- **Acciones rápidas en tarjetas de material** — Botones de archivar y eliminar junto al corazón de favoritos: totalmente ocultos y sin ocupar espacio del título en reposo, se despliegan al pasar el cursor
+- **Botón de eliminar reposicionado en listas y tablas** — Las vistas de lista (secciones de carpetas/bases de datos) ganan un eliminar flotante entre el título truncado y la fecha — visible al pasar el cursor, sin ocupar espacio; el eliminar de la tabla pasa de la última columna al final de la columna de título
+- **Corrección de tema en los ajustes de materiales** — El diálogo de ajustes de la biblioteca ya no se oscurece tras cambiar desde un espacio de trabajo inmersivo
+- **Nuevos agentes: DeepSeek Harness, Kimi Code, Hermes** — Los botones de habilidad entregan a DeepSeek Harness (prompt copiado y pegado automáticamente en su campo), Kimi Code y Hermes (prompt copiado, se abre su cliente de terminal); nunca se envía automáticamente — enviar sigue siendo cosa tuya
+- **Corrección del envío multiselección** — Una plantilla personalizada que solo usa {path} ya no pierde el resto de la selección: si falta alguna ruta, se añade la lista completa (visible en la vista previa)
+
 ### 3.9.8
 - **Vencimientos y días planificados en tareas** — La ventana de tiempo de la tarjeta de tareas pasa a ser un selector de hora con desplegable de modo: elige un día de vencimiento 📅 o un día planificado ⏳ (los marcadores emoji de Obsidian Tasks, reconocidos nativamente por el widget de calendario); al elegir una hora se añade la alarma ⏰ del mismo día con aviso en la app al dispararse, mientras que «Todo el día» registra solo la fecha sin alarma; borrar afecta solo al modo elegido: la fecha y la alarma del otro modo quedan intactas
 - **Bandas de fase en el diagrama de Gantt** — Los carriles de Gantt del proyecto muestran una ventana de tiempo por fase: ganan las fechas reales de las tareas de esa fase, luego la propiedad de plan de fases de la nota, y si no, un reparto ponderado del ciclo del proyecto (etiquetado «estimado»); las filas de proyecto añaden una barra de progreso de fases y la configuración del tablero incorpora un preset de cinco fases (需求 / 方案 / 开发 / SIT / UAT) en un clic

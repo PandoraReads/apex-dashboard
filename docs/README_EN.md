@@ -183,6 +183,13 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.9.9
+- **Material card quick actions** — Archive and delete buttons now ride the material card's favorite heart: fully hidden and taking no title space at rest, sliding open on hover
+- **List & table delete repositioned** — List views (folder/database sections) gain a floating delete between the truncated title and the date — hover-revealed, zero row space; the table's delete moves from the far-right column to the tail of the title column
+- **Material settings dialog theme fix** — Opening the material library settings after switching away from an immersive workspace no longer paints the dialog dark
+- **New agents: DeepSeek Harness, Kimi Code, Hermes** — Skill buttons can deliver to DeepSeek Harness (prompt copied and auto-pasted into its composer), Kimi Code and Hermes (prompt copied, their terminal client opens); delivery never auto-submits — you always press Send
+- **Multi-select dispatch fix** — A custom template that only references {path} no longer drops the rest of the selection: any missing path brings the full list along (visible in the preview dialog)
+
 ### 3.9.8
 - **Todo deadlines and planned days** — The todo card's time popup becomes a time picker plus a mode dropdown: pick a 📅 deadline day or a ⏳ planned day (the Obsidian Tasks emoji markers, natively picked up by the calendar widget); choosing a time adds the ⏰ alarm on the same day with an in-app notice when it fires, while "All day" records the date without an alarm; clearing removes only the selected mode — the other mode's date and alarm stay untouched
 - **Gantt stage time bands** — Project gantt lanes show a time window per stage: the stage's own task dates win, then the note's stage-plan property, otherwise a weighted split of the project cycle (tagged "estimated"); project rows gain a stage progress rail, and the board config adds a one-click five-stage preset (需求 / 方案 / 开发 / SIT / UAT)

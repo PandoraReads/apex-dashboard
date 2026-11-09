@@ -183,6 +183,13 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 
 ## Was ist neu
 
+### 3.9.9
+- **Schnellaktionen auf Materialkarten** — Archivieren- und Löschen-Buttons links neben dem Favoritenherz: im Ruhezustand komplett versteckt und ohne Platzanspruch, beim Hover fahren sie heraus
+- **Löschbuttons in Listen & Tabellen neu platziert** — Listenansichten (Ordner-/Datenbank-Sektionen) bekommen einen schwebenden Löschen-Button zwischen gekürztem Titel und Datum — nur bei Hover sichtbar, ohne Zeilenplatz; der Tabellen-Löschbutton wandert von der äußersten rechten Spalte an das Ende der Titelspalte
+- **Theme-Fix für die Material-Einstellungen** — Der Einstellungsdialog der Materialbibliothek färbt sich nach dem Wechsel von einem immersiven Arbeitsbereich nicht mehr dunkel
+- **Neue Agenten: DeepSeek Harness, Kimi Code, Hermes** — Skill-Buttons liefern an DeepSeek Harness (Prompt kopiert und automatisch ins Eingabefeld eingefügt), Kimi Code und Hermes (Prompt kopiert, ihr Terminal-Client öffnet sich); es wird nie automatisch gesendet — Senden bleibt bei dir
+- **Multi-Auswahl-Versand-Fix** — Eine eigene Vorlage nur mit {path} verliert die restliche Auswahl nicht mehr: Fehlt ein Pfad, wird die komplette Liste angehängt (im Vorschau-Dialog sichtbar)
+
 ### 3.9.8
 - **Fristen und Planungstage bei Todos** — Das Zeit-Popup der Todo-Karte wird zur Zeitauswahl mit Modus-Dropdown: 📅 Fristtag oder ⏳ Planungstag wählbar (die Emoji-Marker von Obsidian Tasks, die das Kalender-Widget direkt versteht); eine gewählte Uhrzeit setzt zusätzlich den ⏰-Alarm auf denselben Tag mit In-App-Hinweis beim Auslösen, „Ganztägig“ notiert nur das Datum ohne Alarm; „Leeren“ entfernt nur den gewählten Modus — Datum und Alarm des anderen Modus bleiben unberührt
 - **Phasen-Zeitbänder im Gantt-Diagramm** — Projekt-Gantt-Lanes zeigen ein Zeitfenster pro Phase: die echten Task-Daten der Phase gewinnen, dann die Phasenplan-Eigenschaft der Notiz, sonst eine gewichtete Aufteilung des Projektzyklus (mit „geschätzt“-Tag); Projektzeilen erhalten eine Phasen-Fortschrittsschiene, und die Board-Konfiguration bietet ein Fünf-Phasen-Preset (需求 / 方案 / 开发 / SIT / UAT) per Klick

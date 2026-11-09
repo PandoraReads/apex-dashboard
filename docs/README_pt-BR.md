@@ -183,6 +183,13 @@ Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido,
 
 ## Novidades
 
+### 3.9.9
+- **Ações rápidas nos cards de material** — Botões de arquivar e excluir ao lado do coração de favorito: totalmente ocultos e sem ocupar o título em repouso, deslizam ao passar o mouse
+- **Botão excluir reposicionado em listas e tabelas** — As visões de lista (seções de pastas/bases) ganham uma exclusão flutuante entre o título truncado e a data — visível no hover, sem ocupar espaço; a da tabela sai da última coluna para o fim da coluna de título
+- **Correção de tema nos ajustes de materiais** — O diálogo de ajustes da biblioteca não fica mais escuro depois de sair de um espaço de trabalho imersivo
+- **Novos agentes: DeepSeek Harness, Kimi Code, Hermes** — Os botões de habilidade entregam ao DeepSeek Harness (prompt copiado e colado automaticamente no campo), Kimi Code e Hermes (prompt copiado, o cliente de terminal abre); nada é enviado automaticamente — o envio continua sendo seu
+- **Correção do envio multisseleção** — Um modelo personalizado que só usa {path} não perde mais o resto da seleção: se algum caminho faltar, a lista completa é anexada (visível na prévia)
+
 ### 3.9.8
 - **Prazos e dias planejados nas tarefas** — O popup de tempo do cartão de tarefas virou seletor de hora com menu de modo: escolha um prazo 📅 ou um dia planejado ⏳ (os marcadores emoji do Obsidian Tasks, reconhecidos nativamente pelo widget de calendário); ao escolher uma hora, o alarme ⏰ é gravado no mesmo dia e dispara aviso no app, enquanto «Dia todo» registra só a data sem alarme; limpar afeta apenas o modo selecionado — data e alarme do outro modo ficam intactos
 - **Faixas de fase no gráfico de Gantt** — As pistas do Gantt do projeto mostram uma janela de tempo por fase: vencem as datas reais das tarefas da fase, depois a propriedade de plano de fases da nota, senão uma divisão ponderada do ciclo do projeto (marcada «estimada»); as linhas de projeto ganham um trilho de progresso de fases e a configuração do quadro ganha um preset de cinco fases (需求 / 方案 / 开发 / SIT / UAT) em um clique

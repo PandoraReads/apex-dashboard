@@ -183,6 +183,13 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 
 ## Nouveautés
 
+### 3.9.9
+- **Actions rapides sur les cartes matériau** — Boutons archiver et supprimer à gauche du cœur favori : totalement masqués et sans empiéter sur le titre au repos, ils se déploient au survol
+- **Bouton supprimer repositionné en listes et tableaux** — Les vues liste (sections dossiers/bases) gagnent une suppression flottante entre le titre tronqué et la date — visible au survol, sans prendre de place ; celle du tableau passe de la dernière colonne à la fin de la colonne titre
+- **Correction de thème des réglages matériaux** — Le dialogue de réglages de la bibliothèque ne se colore plus en sombre après un retour d'un espace immersif
+- **Nouveaux agents : DeepSeek Harness, Kimi Code, Hermes** — Les boutons de compétence livrent à DeepSeek Harness (invite copiée et collée automatiquement dans son champ), Kimi Code et Hermes (invite copiée, leur client terminal s'ouvre) ; jamais d'envoi automatique — l'envoi reste ton geste
+- **Correction d'envoi multi-sélection** — Un modèle personnalisé n'utilisant que {path} ne perd plus le reste de la sélection : si un chemin manque, la liste complète est ajoutée (visible dans l'aperçu)
+
 ### 3.9.8
 - **Échéances et jours planifiés des tâches** — La fenêtre horaire de la carte de tâche devient un sélecteur d'heure avec menu de mode : choisissez une échéance 📅 ou un jour planifié ⏳ (les marqueurs emoji d'Obsidian Tasks, reconnus nativement par le widget calendrier) ; choisir une heure ajoute l'alarme ⏰ le même jour avec une notification dans l'app, tandis que « Toute la journée » n'enregistre que la date sans alarme ; effacer ne touche que le mode choisi — la date et l'alarme de l'autre mode restent intactes
 - **Bandes de phases dans le diagramme de Gantt** — Les couloirs Gantt des projets affichent une fenêtre temporelle par phase : les dates réelles des tâches de la phase priment, puis la propriété de plan de phases de la note, sinon une répartition pondérée du cycle du projet (marquée « estimée ») ; les lignes de projet gagnent un rail de progression des phases et la config du tableau ajoute un préréglage cinq phases (需求 / 方案 / 开发 / SIT / UAT) en un clic
