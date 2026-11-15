@@ -26845,19 +26845,34 @@ button.dashboard-pipeline-foot-btn.is-set {
 	min-width: 0;
 }
 
-.dashboard-pipeline-rail {
-	display: flex;
+.dashboard-pipeline--stack {
+	/* The body is a column: the value-filter bar rides ABOVE the board/list
+	   (2026-11: the left rail moved to the top), each child on its own row. */
 	flex-direction: column;
-	gap: 3px;
-	flex: 0 0 128px;
-	width: 128px;
-	/* Sibling of the columns inside the shared scroller — same height by
-	   flex stretch, no strip mirroring needed. Own scrollbar hidden (wheel
-	   still scrolls). */
-	overflow-y: auto;
-	overflow-x: hidden;
+}
+
+/* The top filter bar's row: full width, above the scroller. */
+.dashboard-pipeline-topbar {
+	flex: 0 0 auto;
+	display: flex;
+	margin-bottom: 8px;
+}
+
+.dashboard-pipeline-rail {
+	/* Horizontal chip strip (the 2026-10 phone layout, promoted to the only
+	   layout when the rail moved to the top): tabs + 全部 + value chips in
+	   one scrolling row. */
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 4px;
+	flex: 1 1 auto;
+	min-width: 0;
+	flex-wrap: nowrap;
+	overflow-x: auto;
+	overflow-y: hidden;
 	scrollbar-width: none;
-	padding: 6px;
+	padding: 5px 6px;
 	border-radius: 10px;
 	/* Neutral light-gray container (Rae): a muted-token wash keeps it gray in
 	   both theme polarities; the accent tint is gone. */
@@ -26874,14 +26889,15 @@ button.dashboard-pipeline-foot-btn.is-set {
 .dashboard-pipeline-rail-dims {
 	display: flex;
 	gap: 3px;
-	margin-bottom: 4px;
+	margin-right: 6px;
 	flex-shrink: 0;
 }
 
 button.dashboard-pipeline-rail-dim {
-	flex: 1;
-	height: 22px;
-	padding: 0;
+	/* Horizontal strip: tabs size to their label, no stretching. */
+	flex: 0 0 auto;
+	min-height: 22px;
+	padding: 0 8px;
 	border: none;
 	border-radius: 6px;
 	background: transparent;
@@ -26904,7 +26920,7 @@ button.dashboard-pipeline-rail-item {
 	align-items: center;
 	gap: 5px;
 	min-height: 24px;
-	padding: 2px 7px;
+	padding: 2px 9px;
 	border: none;
 	border-radius: 6px;
 	background: transparent;
@@ -26912,6 +26928,9 @@ button.dashboard-pipeline-rail-item {
 	font-size: 0.66em;
 	cursor: pointer;
 	text-align: left;
+	/* Horizontal strip: items never wrap or shrink — the rail scrolls. */
+	flex: 0 0 auto;
+	white-space: nowrap;
 	transition: background 0.15s ease;
 }
 
@@ -26938,10 +26957,16 @@ button.dashboard-pipeline-rail-item.is-active {
 	background: color-mix(in srgb, var(--db-text-muted, #888888) 16%, transparent);
 }
 
+/* Underline cue for the plain picks (All); value chips keep their own
+   ramp-color ring below. */
+button.dashboard-pipeline-rail-item.is-active:not(.dashboard-pipeline-rail-value) {
+	box-shadow: inset 0 -2px 0 var(--db-accent, var(--interactive-accent));
+}
+
 button.dashboard-pipeline-rail-item.is-all {
 	color: var(--db-text-muted, var(--text-muted));
 	font-weight: 600;
-	margin-bottom: 2px;
+	margin-right: 2px;
 }
 
 button.dashboard-pipeline-rail-item.is-all.is-active {
@@ -26974,45 +26999,8 @@ button.dashboard-pipeline-rail-item.is-all.is-active {
 	color: var(--tl-ink);
 }
 
-/* Phones: the rail becomes a horizontal chip strip above the board. */
-@media (max-width: 641px) {
-	.dashboard-pipeline-wrap {
-		flex-direction: column;
-		overflow: visible;
-	}
-
-	.dashboard-pipeline-wrap .dashboard-pipeline-board {
-		flex: 1 1 auto;
-		overflow-x: auto;
-	}
-
-	.dashboard-pipeline-rail {
-		flex: 0 0 auto;
-		width: 100%;
-		flex-direction: row;
-		align-items: center;
-		flex-wrap: nowrap;
-		overflow-x: auto;
-		overflow-y: hidden;
-		padding: 5px;
-	}
-
-	.dashboard-pipeline-rail-dims {
-		margin-bottom: 0;
-		margin-right: 3px;
-		flex-shrink: 0;
-	}
-
-	button.dashboard-pipeline-rail-dim,
-	button.dashboard-pipeline-rail-item {
-		flex: 0 0 auto;
-		white-space: nowrap;
-	}
-
-	button.dashboard-pipeline-rail-item.is-active {
-		box-shadow: inset 0 -2px 0 var(--db-pipe-accent, var(--db-accent, #6366f1));
-	}
-}
+/* The rail is horizontal at every width now (it lives in the top bar above
+   the board), so the old phone-only override is gone. */
 
 /* ── 2026-10-07 refinements ── */
 
@@ -31457,3 +31445,393 @@ body.apex-tour-active .dashboard-sidebar-pin-btn {
 	color: var(--text-normal);
 	background: transparent;
 }
+
+/* ==========================================================================
+   Pipeline list view (2026-11, Rae's spec): one row per card for scanning
+   fields and firing buttons. The buttons sit RIGHT OF the title column —
+   skills group then actions group, every configured button directly
+   clickable (no ⋯ menu indirection). Surface vocabulary follows the top
+   filter bar (muted-token washes), so every skin stays adapted; the skill
+   buttons reuse the fully-skinned card classes.
+   ========================================================================== */
+
+.dashboard-pipeline-list-wrap {
+	flex: 1 1 100%;
+	min-width: 0;
+	min-height: 0;
+	overflow: auto;
+	border-radius: 10px;
+	/* OPAQUE surface (Rae, 2026-11-16): the table follows the section's skin,
+	   never a see-through panel. modal-raised is defined opaque in all 17
+	   themes; the fixed skins override below with their own card bases. */
+	background: var(--db-bg-modal-raised, var(--db-bg-modal, var(--db-bg-card, #fff)));
+	border: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 16%, transparent);
+}
+
+table.dashboard-pipeline-list {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.72em;
+	/* Fixed layout: the narrow field columns get exact px widths below; the
+	   title and button columns carry no width, so the remaining space splits
+	   EQUALLY between them (Rae, 2026-11-16: field columns were too wide,
+	   buttons need room). */
+	table-layout: fixed;
+}
+
+/* Field columns: values are short (平台 / 阶段 / dates) — fixed, tight, and
+   the mtime column wide enough that 2026-11-16 never clips (Rae,
+   2026-11-16 round three). */
+table.dashboard-pipeline-list th:nth-child(3) { width: 82px; }
+table.dashboard-pipeline-list th:nth-child(4) { width: 62px; }
+table.dashboard-pipeline-list th:nth-child(5) { width: 90px; }
+table.dashboard-pipeline-list th:nth-child(6) { width: 104px; }
+
+/* Tighter side padding on the field cells buys content width. */
+table.dashboard-pipeline-list td:nth-child(n+3),
+table.dashboard-pipeline-list th:nth-child(n+3) {
+	padding-left: 8px;
+	padding-right: 8px;
+}
+
+table.dashboard-pipeline-list th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	text-align: left;
+	font-size: 0.92em;
+	font-weight: 700;
+	color: var(--db-text-muted, var(--text-muted));
+	padding: 8px 10px;
+	white-space: nowrap;
+	/* Opaque header wash: opaque token mixed with an opaque muted ink —
+	   sticky headers must never let rows ghost through. */
+	background: color-mix(in srgb, var(--db-bg-modal-raised, var(--db-bg-card, #fff)) 94%, var(--db-text-muted, #888888));
+	/* No border line under the header (Rae, 2026-11-16 round three): the
+	   sticky surface alone separates it from the rows. */
+	border-bottom: none;
+}
+
+table.dashboard-pipeline-list td {
+	/* Uniform row height + middle alignment: title button, 24px button
+	   groups and plain text cells all center on one line (Rae, 2026-11-16:
+	   they were staggered). */
+	height: 40px;
+	padding: 0 10px;
+	/* Row dividers stay but faint (Rae: transparent enough not to clutter). */
+	border-bottom: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 5%, transparent);
+	color: var(--db-text, var(--text-normal));
+	white-space: nowrap;
+	max-width: 320px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	vertical-align: middle;
+}
+
+table.dashboard-pipeline-list tbody tr:hover td {
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 6%, transparent);
+}
+
+/* Title = PLAIN TEXT (a div, not a button — Obsidian's global button chrome
+   cannot touch it). Fixed height keeps it centered exactly like the 24px
+   button groups beside it; hover underlines as the only affordance. */
+.dashboard-pipeline-list-title-btn {
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	line-height: 1;
+	padding: 0;
+	color: var(--db-text, var(--text-normal));
+	font-weight: 600;
+	font-size: 1em;
+	cursor: pointer;
+	text-align: left;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dashboard-pipeline-list-title-btn:hover {
+	text-decoration: underline;
+}
+
+/* The button cell: two separated groups, skills then actions. */
+.dashboard-pipeline-list-buttons {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.dashboard-pipeline-list-btn-group {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	/* Under fixed layout the cell width is fixed: overflow scrolls rather
+	   than wrapping to a second line. */
+	overflow-x: auto;
+	scrollbar-width: none;
+	min-width: 0;
+}
+
+.dashboard-pipeline-list-btn-group::-webkit-scrollbar {
+	height: 0;
+	display: none;
+}
+
+/* Groups stay visually distinct even when both are present. */
+.dashboard-pipeline-list-btn-group--skills + .dashboard-pipeline-list-btn-group--actions {
+	padding-left: 10px;
+	border-left: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 22%, transparent);
+}
+
+/* Skill buttons: the card classes carry the pastel + per-skin coverage. */
+.dashboard-pipeline-list-buttons button.dashboard-pipeline-skill-btn {
+	width: 24px;
+	height: 24px;
+}
+
+/* Action buttons: the rail-item neutral family — transparent until hover,
+   muted ink (token-driven, adapts to every skin like the filter bar). */
+button.dashboard-pipeline-list-action-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	cursor: pointer;
+	flex-shrink: 0;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+button.dashboard-pipeline-list-action-btn:hover {
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 14%, transparent);
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-pipeline-list-stage {
+	font-weight: 600;
+}
+
+.dashboard-pipeline-list-due,
+.dashboard-pipeline-list-mtime {
+	color: var(--db-text-muted, var(--text-muted));
+	font-variant-numeric: tabular-nums;
+}
+
+.dashboard-pipeline-list-empty {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.78em;
+	color: var(--db-text-muted, var(--text-muted));
+	padding: 26px 12px;
+}
+
+/* Fixed skins: the table surfaces borrow each skin's own card/column base
+   (theme polarity handled by the skin itself). */
+.dashboard-pipeline--trello table.dashboard-pipeline-list th {
+	background: #f1f2f4;
+	color: var(--tl-muted);
+}
+
+.theme-dark .dashboard-pipeline--trello table.dashboard-pipeline-list th {
+	background: #22272e;
+}
+
+.dashboard-pipeline--trello table.dashboard-pipeline-list td {
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-list-title-btn {
+	color: var(--tl-ink);
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-list-action-btn {
+	color: var(--tl-muted);
+}
+
+.dashboard-pipeline--trello button.dashboard-pipeline-list-action-btn:hover {
+	color: var(--tl-ink);
+}
+
+/* Trello (马卡龙): the skin's own card base — 奶白 in light, slate in dark —
+   matching the board's cards. The theme's modal token reads black here. */
+.dashboard-pipeline--trello .dashboard-pipeline-list-wrap {
+	background: var(--tl-card, #fbf8f1);
+}
+
+.dashboard-pipeline--solid .dashboard-pipeline-list-wrap {
+	background: #fbf8f1;
+}
+
+.dashboard-pipeline--blush .dashboard-pipeline-list-wrap {
+	background: #fff5f5;
+}
+
+.dashboard-pipeline--solid table.dashboard-pipeline-list th {
+	background: #dfe9cb;
+	color: #2a3323;
+}
+
+.dashboard-pipeline--blush table.dashboard-pipeline-list th {
+	background: #f7d6d0;
+	color: #4a4a4a;
+}
+
+.dashboard-pipeline--solid table.dashboard-pipeline-list td,
+.dashboard-pipeline--blush table.dashboard-pipeline-list td {
+	color: var(--sd-card-ink, var(--bl-ink, var(--db-text, var(--text-normal))));
+}
+
+/* Tablet: the new row buttons join the padding-reset family (Obsidian's
+   global button padding would balloon the 24px icon squares). */
+.is-tablet button.dashboard-pipeline-list-action-btn {
+	padding: 0;
+}
+
+/* ==========================================================================
+   Filter bar additions (2026-11-16): the 阶段 chips at the bar's far left,
+   a divider before the platform/project picks, and the search box pinned to
+   the bar's right edge. Same muted-token vocabulary as the rail itself.
+   ========================================================================== */
+
+/* 阶段 group: one chip per stage, dot in the stage color. */
+.dashboard-pipeline-rail-stages {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+
+.dashboard-pipeline-rail-stage-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+/* Right cluster: divider + the value-dimension dropdown buttons, pinned to
+   the bar's right end (margin-left:auto on the cluster). */
+.dashboard-pipeline-rail-drops {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+
+/* Divider between the stage group and the platform/project cluster. */
+.dashboard-pipeline-rail-divider {
+	flex: 0 0 auto;
+	width: 1px;
+	align-self: stretch;
+	margin: 2px 6px;
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 26%, transparent);
+}
+
+.dashboard-pipeline--trello .dashboard-pipeline-rail-divider {
+	background: color-mix(in srgb, var(--tl-muted, #888888) 40%, transparent);
+}
+
+/* Search box at the bar's right edge: margin-left:auto pins it regardless of
+   whether the rail (value chips) rendered. */
+/* Search sits at the bar's right zone, LEFT of the value dropdowns (Rae,
+   2026-11-16 round four): margin-left:auto pulls the search and everything
+   after it (divider + dropdown buttons) to the right end. */
+input.dashboard-pipeline-search {
+	margin-left: auto;
+	flex: 0 0 180px;
+	max-width: 220px;
+	min-width: 120px;
+	height: 26px;
+	padding: 0 10px;
+	border: 1px solid color-mix(in srgb, var(--db-text-muted, #888888) 25%, transparent);
+	border-radius: 7px;
+	background: transparent;
+	color: var(--db-text, var(--text-normal));
+	font-size: 0.68em;
+	font-family: inherit;
+	outline: none;
+	transition: border-color 0.15s ease;
+}
+
+input.dashboard-pipeline-search::placeholder {
+	color: var(--db-text-muted, var(--text-muted));
+}
+
+input.dashboard-pipeline-search:focus {
+	border-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 55%, transparent);
+}
+
+/* Trello skin: the search rides beside the rail's own gray. */
+.dashboard-pipeline--trello input.dashboard-pipeline-search {
+	background: var(--tl-card, #fff);
+	color: var(--tl-ink);
+	border-color: color-mix(in srgb, var(--tl-muted, #888888) 35%, transparent);
+}
+
+.dashboard-pipeline--trello input.dashboard-pipeline-search::placeholder {
+	color: var(--tl-muted);
+}
+
+/* The top bar's row keeps the search on its own line end when the rail is
+   very wide — the rail scrolls, the search stays. */
+.dashboard-pipeline-topbar {
+	gap: 8px;
+}
+
+/* ==========================================================================
+   View toggle (2026-11-16): two TEXT segments side by side in the section
+   header's right cluster, the active one solid. Same pill vocabulary as the
+   rail's dimension tabs.
+   ========================================================================== */
+
+.dashboard-pipeline-view-toggle {
+	display: inline-flex;
+	gap: 2px;
+	padding: 2px;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--db-text-muted, #888888) 12%, transparent);
+	flex-shrink: 0;
+}
+
+button.dashboard-pipeline-view-tab {
+	height: 22px;
+	padding: 0 11px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.66em;
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+button.dashboard-pipeline-view-tab:hover {
+	color: var(--db-text, var(--text-normal));
+}
+
+button.dashboard-pipeline-view-tab.is-active {
+	/* Accent + white: the earlier text/bg token inversion rendered
+	   white-on-white in some theme pairings (Rae, 2026-11-16). */
+	background: var(--db-accent, var(--interactive-accent));
+	color: #ffffff;
+}
+
+/* Tablet: join the padding-reset family. */
+.is-tablet button.dashboard-pipeline-view-tab {
+	padding: 0 11px;
+}
+
+/* Value-dimension dropdown buttons (2026-11-16 round two): the platform and
+   project value chips left the bar (it overflowed) — each dimension is now
+   one button opening its own value menu. Base look = the rail's neutral
+   item, NO caret glyph (Rae, 2026-11-16 round five); a pick shows on the
+   button itself. */
