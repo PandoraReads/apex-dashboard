@@ -1,6 +1,6 @@
 {
 	"name": "apex-dashboard",
-	"version": "3.9.8",
+	"version": "3.9.10",
 	"description": "Your personal command center for Obsidian — memos, todos, projects, and quick links in one stunning glassmorphism dashboard.",
 	"main": "main.js",
 	"type": "module",
@@ -10,8 +10,8 @@
 		"test:mobile-stability": "esbuild scripts/verify-mobile-stability.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-mobile-stability.cjs --log-level=warning && node node_modules/.tmp/verify-mobile-stability.cjs",
 		"test:i18n": "esbuild scripts/verify-i18n.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-i18n.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-i18n.cjs",
 		"test:weather-mapping": "esbuild scripts/verify-weather-mapping.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-weather-mapping.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-weather-mapping.cjs",
-	"test:widget-bg-clear": "esbuild scripts/verify-widget-bg-clear.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-widget-bg-clear.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-widget-bg-clear.cjs",
-	"test:dql": "esbuild scripts/verify-dql.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-dql.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-dql.cjs",
+		"test:widget-bg-clear": "esbuild scripts/verify-widget-bg-clear.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-widget-bg-clear.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-widget-bg-clear.cjs",
+		"test:dql": "esbuild scripts/verify-dql.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-dql.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-dql.cjs",
 		"test:folder-tag-search": "esbuild scripts/verify-folder-tag-search.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-folder-tag-search.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-folder-tag-search.cjs",
 		"test:visible-properties": "esbuild scripts/verify-visible-properties.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-visible-properties.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-visible-properties.cjs",
 		"test:table-columns": "esbuild scripts/verify-table-columns.ts --bundle --platform=node --format=cjs --outfile=node_modules/.tmp/verify-table-columns.cjs --alias:obsidian=./scripts/obsidian-stub.ts --log-level=warning && node node_modules/.tmp/verify-table-columns.cjs",
