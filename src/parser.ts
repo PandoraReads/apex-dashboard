@@ -566,6 +566,9 @@ export function serialize(data: DashboardData): string {
 			if (pc.sortBy) {
 				lines.push(`      sortBy: ${pc.sortBy}`);
 			}
+			if (pc.sortDir === 'asc' || pc.sortDir === 'desc') {
+				lines.push(`      sortDir: ${pc.sortDir}`);
+			}
 			if (pc.stageOrder && Object.keys(pc.stageOrder).length) lines.push(`      stageOrder: ${JSON.stringify(pc.stageOrder)}`);
 			if (pc.filterFields && pc.filterFields.length > 0) {
 				lines.push('      filterFields:');
@@ -590,6 +593,13 @@ export function serialize(data: DashboardData): string {
 			}
 			if (pc.directSend) {
 				lines.push('      directSend: true');
+			}
+			// Board/list view: the default (board) is omitted so files stay clean.
+			if (pc.view === 'list') {
+				lines.push('      view: list');
+			}
+			if (pc.stageFilter && pc.stageFilter.trim()) {
+				lines.push(`      stageFilter: ${JSON.stringify(pc.stageFilter.trim())}`);
 			}
 		}
 		if (col.skillsConfig) {
@@ -1755,6 +1765,8 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 	const filterValue = str((raw.filter as Record<string, unknown> | undefined)?.value ?? '').trim();
 	const sortByRaw = str(raw.sortBy ?? '').trim();
 	const sortBy = sortByRaw === 'ctime' || sortByRaw === 'platform' || sortByRaw === 'name' || sortByRaw === 'manual' ? sortByRaw : undefined;
+	const sortDirRaw = str(raw.sortDir ?? '').trim();
+	const sortDir = sortDirRaw === 'asc' || sortDirRaw === 'desc' ? sortDirRaw : undefined;
 	const stageOrder: Record<string, string[]> = {};
 	if (raw.stageOrder && typeof raw.stageOrder === 'object' && !Array.isArray(raw.stageOrder)) {
 		for (const [key, value] of Object.entries(raw.stageOrder as Record<string, unknown>)) {
@@ -1778,6 +1790,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 		...(actions.length > 0 ? { actions } : {}),
 		...(boardStyle ? { boardStyle } : {}),
 		...(sortBy ? { sortBy } : {}),
+		...(sortDir ? { sortDir } : {}),
 		...(Object.keys(stageOrder).length ? { stageOrder } : {}),
 		...(filterFields.length > 0 ? { filterFields } : {}),
 		...(filterDim ? { filter: { dim: filterDim, ...(filterValue ? { value: filterValue } : {}) } } : {}),
@@ -1786,6 +1799,8 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 		...(excludeFolders.length > 0 ? { excludeFolders } : {}),
 		...(cardProperties.length > 0 ? { cardProperties } : {}),
 		...(raw.directSend === true ? { directSend: true } : {}),
+		...(str(raw.view ?? '').trim() === 'list' ? { view: 'list' as const } : {}),
+		...(str(raw.stageFilter ?? '').trim() ? { stageFilter: str(raw.stageFilter).trim() } : {}),
 	};
 }
 

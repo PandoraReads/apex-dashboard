@@ -1143,6 +1143,10 @@ export interface PipelineConfig {
 	 *  grouped by the platform field then newest-touched; undefined = the
 	 *  default newest-touched (mtime) order. */
 	sortBy?: 'ctime' | 'platform' | 'name' | 'manual';
+	/** Sort direction for sortBy: clicking the ACTIVE sort option in the
+	 *  header menu toggles asc/desc (Rae, 2026-11-16). Absent = the mode's
+	 *  natural default (dates newest-first, labels ascending; manual none). */
+	sortDir?: 'asc' | 'desc';
 	/** Board skin. 'theme' (default) derives every surface from the plugin
 	 *  theme tokens; 'trello' (shown as 马卡龙) is the fixed pastel skin —
 	 *  stage-tinted columns, white cards, its own ink; 'solid' is the avocado duotone skin; 'blush' is the four-color rose set
@@ -1158,6 +1162,14 @@ export interface PipelineConfig {
 	/** User-defined card action buttons (dropdown writes a frontmatter
 	 *  value). Empty/absent = no action buttons. Rendered left of archive. */
 	actions?: PipelineAction[];
+	/** Active view: 'board' (default, the stage columns) or 'list' (the
+	 *  field-scan table with per-row buttons). Persisted so the section
+	 *  reopens where the user left it. */
+	view?: 'board' | 'list';
+	/** Stage filter (a stage VALUE) from the top bar's leftmost 阶段 chips.
+	 *  Absent/empty = every stage. Narrows the board together with the
+	 *  platform/project value filter. */
+	stageFilter?: string;
 	/** Template note seeded on "new item" (vault path; empty = bare note). */
 	templatePath?: string;
 	/** LEGACY section-wide toggle: skip the preview modal and send prompts

@@ -13,12 +13,10 @@ interface GuideFeature {
  *  per release (see the `announce.*` i18n keys); icons are Lucide names
  *  (square-sparkles is registered via addIcon in main.ts). */
 const GUIDE_FEATURES: ReadonlyArray<GuideFeature> = [
-	{ icon: 'square-sparkles', textKey: 'announce.materialEntry' },
-	{ icon: 'images', textKey: 'announce.materialBrowse' },
-	{ icon: 'heart', textKey: 'announce.materialFavorites' },
-	{ icon: 'layers', textKey: 'announce.materialOrganize' },
-	{ icon: 'sparkles', textKey: 'announce.materialAgent' },
-	{ icon: 'import', textKey: 'announce.materialDrop' },
+	{ icon: 'chrome', textKey: 'announce.clipperStore' },
+	{ icon: 'camera', textKey: 'announce.clipperShot' },
+	{ icon: 'settings-2', textKey: 'announce.clipperSetup' },
+	{ icon: 'shield-check', textKey: 'announce.clipperAuth' },
 ];
 
 /**

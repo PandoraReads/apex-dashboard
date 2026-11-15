@@ -844,25 +844,50 @@ export class DashboardView extends ItemView implements HoverParent {
 
 		// Pipeline value-filter rail pick — persists into the section config
 		// and refreshes in place (the config change also busts the signature).
+		// detail: { filter?: {dim, value}, stage?: string | null } — the 阶段
+		// chips (2026-11-16) ride the same event; null clears the pick.
 		board.addEventListener('dashboard-pipeline-filter', ((e: CustomEvent) => {
-			const { columnName, filter } = e.detail as { columnName: string; filter?: { dim: string; value?: string } };
+			const { columnName, filter, stage } = e.detail as { columnName: string; filter?: { dim: string; value?: string }; stage?: string | null };
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (!col?.pipelineConfig) return;
-			const next = { ...col.pipelineConfig, filter };
+			const hasStage = stage === null || typeof stage === 'string';
+			const nextStage = hasStage ? (typeof stage === 'string' && stage.trim() ? stage.trim() : undefined) : col.pipelineConfig.stageFilter;
+			const nextFilter = filter !== undefined ? filter : col.pipelineConfig.filter;
+			const next = { ...col.pipelineConfig, filter: nextFilter, stageFilter: nextStage };
 			void this.sync.updatePipelineConfig(columnName, next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
 
 		// Pipeline card sort — native-menu pick persists and refreshes in place.
+		// sortDir rides along (2026-11-16: clicking the active option toggles
+		// asc/desc; a different option arrives with sortDir cleared = natural).
 		board.addEventListener('dashboard-pipeline-sort', ((e: CustomEvent) => {
-			const { columnName, sortBy } = e.detail as { columnName: string; sortBy?: 'ctime' | 'platform' | 'name' | 'manual' };
+			const { columnName, sortBy, sortDir } = e.detail as { columnName: string; sortBy?: 'ctime' | 'platform' | 'name' | 'manual'; sortDir?: 'asc' | 'desc' };
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (!col?.pipelineConfig) return;
-			const next = { ...col.pipelineConfig, sortBy };
+			const next = { ...col.pipelineConfig, sortBy, sortDir };
 			void this.sync.updatePipelineConfig(columnName, next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
+		}) as EventListener);
+
+		// Pipeline board/list view toggle — persists and refreshes in place.
+		board.addEventListener('dashboard-pipeline-view', ((e: CustomEvent) => {
+			const { columnName, view } = e.detail as { columnName: string; view?: 'board' | 'list' };
+			const col = this.data?.columns.find(c => c.name === columnName);
+			if (!col?.pipelineConfig || (view !== 'board' && view !== 'list')) return;
+			if ((col.pipelineConfig.view ?? 'board') === view) return;
+			void this.sync.updatePipelineConfig(columnName, { ...col.pipelineConfig, view }).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		}) as EventListener);
+
+		// Pipeline list pagination — transient refresh with the grown page.
+		board.addEventListener('dashboard-pipeline-refresh', ((e: CustomEvent) => {
+			const { columnName } = e.detail as { columnName: string };
+			if (!columnName) return;
+			this.refreshSectionInPlace(columnName);
 		}) as EventListener);
 
 		board.addEventListener('dashboard-pipeline-manual-order', ((e: CustomEvent) => {

@@ -66,15 +66,35 @@ export function railValueColors(index: number, total: number): RailValueColors {
 	return { bg, ink };
 }
 
-export function sortStageItems(items: PipelineItem[], sortBy: 'ctime' | 'platform' | 'name' | 'manual' | undefined, savedOrder: readonly string[] = []): PipelineItem[] {
-	const byMtime = (a: PipelineItem, b: PipelineItem) => b.file.stat.mtime - a.file.stat.mtime;
+/** A mode's natural direction (what an absent sortDir means): the date modes
+ *  default to newest-first, the label modes to ascending, manual has none.
+ *  The header's sort menu toggles sortDir with every repeated click (Rae,
+ *  2026-11-16): same option = flip asc/desc, other option = its default. */
+export function defaultSortDir(sortBy: 'ctime' | 'platform' | 'name' | 'manual' | 'mtime' | undefined): 'asc' | 'desc' | null {
+	if (sortBy === 'name' || sortBy === 'platform') return 'asc';
+	if (sortBy === 'manual') return null;
+	return 'desc';
+}
+
+export function sortStageItems(
+	items: PipelineItem[],
+	sortBy: 'ctime' | 'platform' | 'name' | 'manual' | undefined,
+	savedOrder: readonly string[] = [],
+	sortDir?: 'asc' | 'desc',
+): PipelineItem[] {
+	// Each comparator below is written in its mode's NATURAL direction (see
+	// defaultSortDir); an explicit sortDir flips it when it differs. An
+	// absent sortDir keeps the historical behavior exactly.
+	const natural = defaultSortDir(sortBy) ?? 'desc';
+	const flip = (sortDir ?? natural) === natural ? 1 : -1;
+	const byMtime = (a: PipelineItem, b: PipelineItem) => (b.file.stat.mtime - a.file.stat.mtime) * flip;
 	if (sortBy === 'manual') {
 		const order = new Map(savedOrder.map((path, index) => [path, index]));
 		items.sort((a, b) => (order.get(a.file.path) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.file.path) ?? Number.MAX_SAFE_INTEGER) || byMtime(a, b));
 	} else if (sortBy === 'name') {
-		items.sort((a, b) => a.file.basename.localeCompare(b.file.basename, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' }) || a.file.path.localeCompare(b.file.path, 'zh-Hans-CN'));
+		items.sort((a, b) => (a.file.basename.localeCompare(b.file.basename, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' }) || a.file.path.localeCompare(b.file.path, 'zh-Hans-CN')) * flip);
 	} else if (sortBy === 'ctime') {
-		items.sort((a, b) => b.file.stat.ctime - a.file.stat.ctime);
+		items.sort((a, b) => (b.file.stat.ctime - a.file.stat.ctime) * flip);
 	} else if (sortBy === 'platform') {
 		const platformOf = (item: PipelineItem): string => String(item.frontmatter['platform'] ?? '').trim();
 		items.sort((a, b) => {
@@ -82,7 +102,9 @@ export function sortStageItems(items: PipelineItem[], sortBy: 'ctime' | 'platfor
 			const pb = platformOf(b);
 			if (!pa && pb) return 1;
 			if (pa && !pb) return -1;
-			if (pa && pb && pa !== pb) return pa.localeCompare(pb, 'zh-Hans-CN');
+			// Group order flips with the direction; the within-group tiebreak
+			// (mtime) flips with it too so the whole column reads reversed.
+			if (pa && pb && pa !== pb) return pa.localeCompare(pb, 'zh-Hans-CN') * flip;
 			return byMtime(a, b);
 		});
 	} else {
@@ -210,7 +232,7 @@ export function collectPipelineItems(app: App, config: PipelineConfig): Pipeline
 		const stage = resolvePipelineStage(config.stages, frontmatter[config.statusField]);
 		if (stage) byStage.get(stage.value)!.push({ file, stage, frontmatter });
 	}
-	for (const [stage, list] of byStage) sortStageItems(list, config.sortBy, config.stageOrder?.[stage]);
+	for (const [stage, list] of byStage) sortStageItems(list, config.sortBy, config.stageOrder?.[stage], config.sortDir);
 	return { byStage };
 }
 

@@ -16,6 +16,7 @@ import {
 	railValueColors,
 	splitFieldValues,
 	PLATFORM_FIELD_KEYS,
+	defaultSortDir,
 	sortStageItems,
 	taskProgress,
 	toggleTaskLine,
@@ -346,6 +347,16 @@ function main(): void {
 	assert.ok(!defaultFieldMd.includes('statusField'), 'default field not serialized');
 	assert.equal(parse(defaultFieldMd).columns[0]!.pipelineConfig?.statusField, 'status');
 	assert.ok(serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2(), statusField: '状态' } }] } as unknown as DashboardData).includes('statusField: "状态"'), 'non-default field persists');
+	// Board/list view: default (board) omitted; 'list' round-trips.
+	const listMd = serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2(), view: 'list' } }] } as unknown as DashboardData);
+	assert.ok(listMd.includes('view: list'), 'list view serializes');
+	assert.equal(parse(listMd).columns[0]!.pipelineConfig?.view, 'list', 'list view round-trips');
+	const boardMd = serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2() } }] } as unknown as DashboardData);
+	assert.ok(!boardMd.includes('view:'), 'default board view omitted');
+	// Stage filter (top bar's leftmost 阶段 chips) round-trips; absent = all stages.
+	const stageMd = serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2(), stageFilter: 'draft' } }] } as unknown as DashboardData);
+	assert.ok(stageMd.includes('stageFilter: "draft"'), 'stage filter serializes');
+	assert.equal(parse(stageMd).columns[0]!.pipelineConfig?.stageFilter, 'draft', 'stage filter round-trips');
 }
 
 /** reorderSkillSubset: card-scope skill drag order persists through the skills
@@ -469,3 +480,52 @@ function verifyManualMerge(): void {
 	console.log('verify-pipeline: manual-order merge OK');
 }
 verifyManualMerge();
+
+/** Sort direction toggle (2026-11-16): each mode's comparator flips when the
+ *  explicit direction differs from its natural default; absent sortDir keeps
+ *  the historical behavior. The header menu toggles per repeated click. */
+function verifySortDir(): void {
+	const stage: PipelineStage = { value: 'idea', label: '选题', color: '#f59e0b' };
+	const mk = (path: string, mtime: number, ctime = mtime, platform = ''): PipelineItem =>
+		({ file: { path, basename: path.replace('.md', ''), stat: { mtime, ctime } }, frontmatter: platform ? { platform } : {}, stage } as PipelineItem);
+	const items = [mk('c.md', 30), mk('a.md', 10), mk('b.md', 20)];
+
+	assert.equal(defaultSortDir('mtime'), 'desc', 'dates default newest-first');
+	assert.equal(defaultSortDir('ctime'), 'desc');
+	assert.equal(defaultSortDir('name'), 'asc', 'labels default ascending');
+	assert.equal(defaultSortDir('platform'), 'asc');
+	assert.equal(defaultSortDir('manual'), null, 'manual has no direction');
+	assert.equal(defaultSortDir(undefined), 'desc');
+
+	// Absent sortDir = historical behavior (mtime desc).
+	assert.deepEqual(sortStageItems([...items], undefined).map(i => i.file.basename), ['c', 'b', 'a']);
+	// Explicit directions flip each family relative to its natural order.
+	assert.deepEqual(sortStageItems([...items], undefined, [], 'asc').map(i => i.file.basename), ['a', 'b', 'c'], 'mtime asc = oldest first');
+	assert.deepEqual(sortStageItems([...items], undefined, [], 'desc').map(i => i.file.basename), ['c', 'b', 'a']);
+	assert.deepEqual(sortStageItems([...items], 'ctime', [], 'asc').map(i => i.file.basename), ['a', 'b', 'c'], 'ctime asc = oldest created first');
+	assert.deepEqual(sortStageItems([...items], 'name', [], 'desc').map(i => i.file.basename), ['c', 'b', 'a'], 'name desc = reversed labels');
+
+	// Platform: group order flips, within-group follows. Latin group names —
+	// CJK group ordering depends on the ICU locale (known flake).
+	const grouped = [
+		mk('x1.md', 10, 10, 'zzz'),
+		mk('y1.md', 40, 40, 'aaa'),
+		mk('x2.md', 50, 50, 'zzz'),
+		mk('z1.md', 20, 20, ''),
+	];
+	const ascGroups = sortStageItems([...grouped], 'platform', [], 'asc').map(i => i.file.basename);
+	assert.deepEqual(ascGroups, ['y1', 'x2', 'x1', 'z1'], 'asc: aaa group first, newest-touched inside, empty platforms last');
+	const descGroups = sortStageItems([...grouped], 'platform', [], 'desc').map(i => i.file.basename);
+	assert.deepEqual(descGroups, ['x1', 'x2', 'y1', 'z1'], 'desc: groups reversed, within-group flips oldest-first');
+
+	// Serialization round-trip.
+	const data = { dashboard: true, quickActions: [], immersiveBackground: '', banner: { quote: '', author: '', image: '' }, columns: [{ name: 'C', color: '#111', sectionType: 'pipeline', cards: [], pipelineConfig: { rootFolder: 'r', statusField: 'status', stages: [stage], skills: [], sortBy: 'name' as const, sortDir: 'desc' as const } }] } as unknown as DashboardData;
+	const md = serialize(data);
+	assert.ok(md.includes('sortDir: desc'), 'sortDir serializes');
+	const parsed = parse(md).columns[0]!.pipelineConfig!;
+	assert.equal(parsed.sortDir, 'desc', 'sortDir round-trips');
+	assert.ok(!serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...data.columns[0]!.pipelineConfig!, sortBy: undefined, sortDir: undefined } }] } as unknown as DashboardData).includes('sortDir:'), 'absent sortDir not serialized');
+
+	console.log('verify-pipeline: sort direction toggle OK');
+}
+verifySortDir();

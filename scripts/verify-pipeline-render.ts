@@ -150,14 +150,31 @@ async function main(): Promise<void> {
 	const cardTitles = cards.map(c => c.textContent);
 	assert.ok(cardTitles.some(t => t.includes('对标拆解')), 'idea card rendered');
 	assert.ok(!cardTitles.some(t => t.includes('随笔')), 'statusless note not rendered');
-	// Filter rail: platform values exist on the idea card, so the rail lists
-	// them (dimension defaults to platform); nothing selected.
+	// Filter rail: platform values exist on the idea card, so the platform
+	// dimension renders as a DROPDOWN button (2026-11-16 round two: value
+	// chips moved into the button's menu); the 阶段 group leads the bar.
 	const rail = findByClass(host, 'dashboard-pipeline-rail');
 	assert.equal(rail.length, 1, 'filter rail rendered when values exist');
-	assert.equal(findByClass(rail[0]!, 'dashboard-pipeline-rail-item').length, 2, '"All" + one platform value');
+	assert.equal(findByClass(rail[0]!, 'dashboard-pipeline-rail-stage').length, 2, 'one stage chip per configured stage');
+	assert.equal(findByClass(rail[0]!, 'dashboard-pipeline-rail-value').length, 0, 'value chips live in the dropdown menu, not the bar');
+	const dropButtons = findByClass(rail[0]!, 'dashboard-pipeline-rail-drop');
+	assert.equal(dropButtons.length, 1, 'one dropdown per dimension WITH values (project is empty → hidden)');
+	assert.ok((dropButtons[0]!.textContent ?? '').includes('平台'), 'button carries the dimension label');
+	assert.equal(findByClass(rail[0]!, 'dashboard-pipeline-rail-item').length, 4, 'stage-All + 2 stages + the drop button');
+	// Round four: the search sits at the bar's RIGHT zone, left of the
+	// value dropdowns — rail children: [stages][search][drops cluster].
+	const railChildren = rail[0]!.children as unknown as El[];
+	assert.equal((railChildren[0]!.className ?? '').includes('dashboard-pipeline-rail-stages'), true, 'stage group leads the bar');
+	assert.equal((railChildren[1]!.className ?? '').includes('dashboard-pipeline-search'), true, 'search sits between stages and the dropdowns');
+	assert.equal((railChildren[2]!.className ?? '').includes('dashboard-pipeline-rail-drops'), true, 'dropdown cluster closes the bar');
+	const dropsCluster = findByClass(rail[0]!, 'dashboard-pipeline-rail-drops')[0]!;
+	assert.ok(dropsCluster, 'dropdowns cluster on the right');
+	assert.equal(findByClass(dropsCluster, 'dashboard-pipeline-rail-drop').length, 1, 'drop buttons live inside the cluster');
+	assert.equal(findByClass(dropsCluster, 'dashboard-pipeline-rail-divider').length, 1, 'divider leads the cluster');
 	const railItemsAll = findByClass(host, 'dashboard-pipeline-rail-item');
-	assert.ok(railItemsAll.length > 0 && (railItemsAll[0]!.className ?? '').includes('is-active'), '"All" is the active default');
-	assert.ok((railItemsAll[0]!.textContent ?? '').includes('全部'), 'first rail entry is All');
+	assert.ok(railItemsAll.length > 0 && (railItemsAll[1]!.className ?? '').includes('is-active') === false, 'no stray active states');
+	assert.ok((findByClass(rail[0]!, 'dashboard-pipeline-rail-stages')[0]!.children[0] as unknown as El)?.textContent?.includes('全部'), 'stage group opens with All');
+	assert.equal(findByClass(rail[0]!, 'dashboard-pipeline-search').length, 1, 'search box embedded in the rail');
 
 	const chips = findByClass(host, 'dashboard-pipeline-chip');
 	assert.equal(chips.length, 2, 'platform chip + tag chip on the idea card only');
@@ -582,6 +599,190 @@ async function main(): Promise<void> {
 		assert.equal(fm.get(reviewPath)!.status, 'draft', 'stage field untouched by a non-status action');
 		assert.equal(renames, 0, 'action buttons never move the file');
 		assert.ok(noticeTexts.some(m => m.includes('审核状态') && m.includes('驳回')), 'success notice names field + value');
+	}
+
+	// ── Top filter bar (2026-11: the left rail moved above the board). Same
+	//    controls, same persistence event — new DOM position. The 阶段 group
+	//    (2026-11-16) leads the bar and narrows the board together with the
+	//    value chips; the search box sits at the bar's right edge.
+	{
+		const host = new El('div');
+		const filters: Array<{ dim: string; value?: string } | undefined> = [];
+		const stagePicks: Array<string | null | undefined> = [];
+		host.addEventListener('dashboard-pipeline-filter', (event: { detail: { filter?: { dim: string; value?: string }; stage?: string | null } }) => {
+			filters.push(event.detail.filter);
+			stagePicks.push(event.detail.stage);
+		});
+		renderPipelineSection(host as unknown as HTMLElement, pipelineColumn(config), app, callbacks, null);
+		const topbar = findByClass(host, 'dashboard-pipeline-topbar');
+		assert.equal(topbar.length, 1, 'filter bar renders above the board');
+		assert.equal(findByClass(topbar[0]!, 'dashboard-pipeline-rail').length, 1, 'the rail lives inside the top bar');
+		assert.equal(findByClass(topbar[0]!, 'dashboard-pipeline-board').length, 0, 'no columns inside the bar');
+		// Picking a value now happens in the dropdown's menu (one step from
+		// the bar) and emits the same persistence event; the stage axis rides
+		// the same event untouched.
+		const drop = findByClass(topbar[0]!, 'dashboard-pipeline-rail-drop')[0]!;
+		drop.click();
+		const dropMenu = (Menu as unknown as { last: { items: Array<{ title: string; checked: boolean; click(): void }> } }).last;
+		assert.ok(dropMenu, 'dropdown menu opens');
+		assert.deepEqual(dropMenu.items.map(i => i.title), ['全部', '小红书 (1)'], 'menu lists All + the values with counts');
+		assert.equal(dropMenu.items[0]!.checked, true, 'All is checked while nothing is picked');
+		dropMenu.items.find(i => i.title.includes('小红书'))!.click();
+		assert.deepEqual(filters, [{ dim: 'platform', value: '小红书' }], 'menu pick emits the value filter');
+		assert.deepEqual(stagePicks, [undefined], 'value pick leaves the stage untouched');
+		// The picked value shows on the button after the persist+refresh
+		// (simulated by a fresh render with the persisted filter).
+		const hostPicked = new El('div');
+		renderPipelineSection(hostPicked as unknown as HTMLElement, pipelineColumn({ ...config, filter: { dim: 'platform', value: '小红书' } }), app, callbacks, null);
+		const pickedBtn = findByClass(hostPicked, 'dashboard-pipeline-rail-drop')[0]!;
+		assert.ok((pickedBtn.textContent ?? '').includes('小红书'), 'picked value shows on the button');
+		assert.ok((pickedBtn.className ?? '').includes('is-active'), 'picked button reads active');
+		// Stage chips emit the stage payload and stay independent of values.
+		const ideaChip = findByClass(topbar[0]!, 'dashboard-pipeline-rail-stage').find(c => (c.textContent ?? '').includes('选题'))!;
+		ideaChip.click();
+		assert.deepEqual(stagePicks[1], 'idea', 'stage chip emits its value');
+		// Clicking the ACTIVE stage chip again clears the pick — the toggle
+		// reads the persisted state, so simulate the post-persist re-render.
+		const hostStageOn = new El('div');
+		const clearPicks: Array<string | null | undefined> = [];
+		hostStageOn.addEventListener('dashboard-pipeline-filter', ((e: CustomEvent) => { clearPicks.push((e.detail as { stage?: string | null }).stage); }) as EventListener);
+		renderPipelineSection(hostStageOn as unknown as HTMLElement, pipelineColumn({ ...config, stageFilter: 'idea' }), app, callbacks, null);
+		const activeChip = findByClass(hostStageOn, 'dashboard-pipeline-rail-stage').find(c => (c.className ?? '').includes('is-active'))!;
+		assert.ok((activeChip.textContent ?? '').includes('选题'), 'persisted stage renders active');
+		activeChip.click();
+		assert.deepEqual(clearPicks, [null], 'second click clears the stage pick');
+
+		// Stage filter narrows the board: only the picked column keeps cards.
+		const hostStage = new El('div');
+		renderPipelineSection(hostStage as unknown as HTMLElement, pipelineColumn({ ...config, stageFilter: 'draft' }), app, callbacks, null);
+		const counts = findByClass(hostStage, 'dashboard-pipeline-col-count').map(el => el.textContent);
+		assert.deepEqual(counts, ['0', '1'], 'stage filter empties every other column');
+
+		// Search box: typing narrows by title (debounced transient refresh).
+		// Distinct column name so the module-level search term never leaks
+		// into the fixtures below.
+		const searchColumn = { ...pipelineColumn(config), name: '搜索流水线' } as DashboardColumn;
+		const hostSearch = new El('div');
+		const refreshed: string[] = [];
+		hostSearch.addEventListener('dashboard-pipeline-refresh', (event: { detail: { columnName: string } }) => refreshed.push(event.detail.columnName));
+		renderPipelineSection(hostSearch as unknown as HTMLElement, searchColumn, app, callbacks, null);
+		const searchInput = findByClass(hostSearch, 'dashboard-pipeline-search')[0] as unknown as El & { value: string };
+		searchInput.value = '流量';
+		searchInput.dispatchEvent({ type: 'input', target: searchInput });
+		await new Promise(r => setTimeout(r, 320));
+		assert.deepEqual(refreshed, ['搜索流水线'], 'search asks the section to refresh');
+		// The refresh re-renders with the term applied: the fresh render below
+		// (same column name) shows only the matching row.
+		const hostFiltered = new El('div');
+		renderPipelineSection(hostFiltered as unknown as HTMLElement, { ...searchColumn, pipelineConfig: { ...config, view: 'list' } }, app, callbacks, null);
+		const titles = findByClass(hostFiltered, 'dashboard-pipeline-list-title-btn').map(el => el.textContent);
+		assert.deepEqual(titles, ['流量密码'], 'search term filters rows by title');
+	}
+
+	// ── List view (2026-11): one row per card; the configured buttons sit
+	//    right of the title in two groups (skills / actions), every button
+	//    directly clickable — no ⋯ indirection.
+	{
+		const wait = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+		const files = new Map<string, TFile>();
+		const fmData = new Map<string, Record<string, unknown>>();
+		const draftPath = '内容创作/02-草稿/流量密码.md';
+		const ideaPath = '内容创作/01-选题/对标拆解.md';
+		files.set(draftPath, fakeFile(draftPath, 200));
+		fmData.set(draftPath, { status: 'draft', 审核状态: '通过', platform: '公众号' });
+		files.set(ideaPath, fakeFile(ideaPath, 100));
+		fmData.set(ideaPath, { status: 'idea', tags: ['小红书'], platform: '小红书' });
+		const driveApp = {
+			vault: {
+				getMarkdownFiles: () => [...files.values()],
+				getAbstractFileByPath: () => null,
+				createFolder: async () => {},
+			},
+			metadataCache: { getFileCache: (f: TFile) => ({ frontmatter: fmData.get(f.path) ?? {} }) },
+			fileManager: {
+				processFrontMatter: async (f: TFile, fn: (o: Record<string, unknown>) => void) => {
+					const front = fmData.get(f.path) ?? {};
+					fn(front);
+					fmData.set(f.path, front);
+				},
+				renameFile: async () => {},
+				trashFile: async () => {},
+			},
+			plugins: { plugins: {} },
+		} as unknown as App;
+		const listCfg: PipelineConfig = {
+			...config, view: 'list',
+			actions: [{ id: 'act_review', label: '审核', icon: 'square-pen', field: '审核状态', options: ['通过', '驳回'] }],
+		};
+		const opened: string[] = [];
+		const listCallbacks = { onOpenNoteInPopover: (f: TFile) => { opened.push(f.path); } } as unknown as RenderCallbacks;
+		const host = new El('div');
+		renderPipelineSection(host as unknown as HTMLElement, pipelineColumn(listCfg), driveApp, listCallbacks, null);
+		assert.equal(findByClass(host, 'dashboard-pipeline-board').length, 0, 'list view renders no columns');
+		const table = findByClass(host, 'dashboard-pipeline-list')[0]!;
+		assert.ok(table, 'list table renders');
+		const trs = findTag(table, 'tr');
+		assert.equal(trs.length, 3, 'header + one row per card');
+		// Columns: title | buttons | platform | stage | due | mtime — the
+		// buttons sit RIGHT OF the title, not at the end.
+		const ths = findByClass(host, 'dashboard-pipeline-list')[0]!;
+		const headCells = Array.from((findTag(ths, 'tr')[0]!).children).map(td => td.textContent);
+		assert.deepEqual(headCells, ['标题', '按钮', '平台', '阶段', '截止日期', '更新时间'], 'button column follows the title');
+		// The draft row: skill buttons (写草稿) + action buttons (审核), two groups.
+		const draftRow = trs.find(tr => (tr.textContent ?? '').includes('流量密码'))!;
+		const skillGroup = findByClass(draftRow, 'dashboard-pipeline-list-btn-group--skills')[0]!;
+		const actionGroup = findByClass(draftRow, 'dashboard-pipeline-list-btn-group--actions')[0]!;
+		assert.ok(skillGroup && actionGroup, 'skills and actions render as separate groups');
+		assert.equal(findByClass(skillGroup, 'dashboard-pipeline-skill-btn').length, 1, 'the draft skill button is directly in the row');
+		// 1 configured action + the built-in archive/delete pair (Rae,
+		// 2026-11-16 round three).
+		const rowActionBtns = findByClass(actionGroup, 'dashboard-pipeline-list-action-btn');
+		assert.equal(rowActionBtns.length, 3, 'configured action + built-in archive + delete');
+		assert.equal(rowActionBtns[0]!.getAttribute('aria-label'), '审核', 'configured action first');
+		assert.equal(rowActionBtns[1]!.getAttribute('aria-label'), '归档', 'built-in archive follows');
+		assert.equal(rowActionBtns[2]!.getAttribute('aria-label'), '删除条目', 'built-in delete last');
+		// Skill click dispatches straight away (preview modal opens — no menu).
+		(Menu as unknown as { last: unknown }).last = null;
+		(Modal as unknown as { last: unknown }).last = null;
+		findByClass(skillGroup, 'dashboard-pipeline-skill-btn')[0]!.click();
+		await wait(10);
+		assert.ok((Modal as unknown as { last: unknown }).last, 'skill button click opens the prompt modal directly');
+		// Action click opens ITS OWN value menu (one step, not a ⋯ menu).
+		findByClass(actionGroup, 'dashboard-pipeline-list-action-btn')[0]!.click();
+		const actionMenu = (Menu as unknown as { last: { items: Array<{ title: string; checked: boolean; click(): void }> } }).last;
+		assert.deepEqual(actionMenu.items.map(i => i.title), ['通过', '驳回'], 'action button opens its own options');
+		assert.equal(actionMenu.items.find(i => i.title === '通过')!.checked, true, 'current value checked');
+		const noticeTexts = (Notice as unknown as { messages: string[] }).messages;
+		noticeTexts.length = 0;
+		actionMenu.items.find(i => i.title === '驳回')!.click();
+		await wait(10);
+		assert.equal(fmData.get(draftPath)!.审核状态, '驳回', 'picked value written from the list row');
+		// Title click opens the note.
+		findByClass(draftRow, 'dashboard-pipeline-list-title-btn')[0]!.click();
+		assert.deepEqual(opened, [draftPath], 'row title opens the note');
+		// Stage + platform columns carry the fields.
+		assert.ok((draftRow.textContent ?? '').includes('草稿'), 'stage column carries the stage label');
+		assert.ok((draftRow.textContent ?? '').includes('公众号'), 'platform column carries the platform');
+
+		// Pagination: 55 cards → 50 rows + a load-more pill that grows the page.
+		const many: Array<{ file: TFile; fm: Record<string, unknown> }> = [];
+		for (let i = 1; i <= 55; i++) {
+			many.push({ file: fakeFile(`内容创作/01-选题/选题${i}.md`, 1000 + i), fm: { status: 'idea', platform: '公众号' } });
+		}
+		const hostMany = new El('div');
+		renderPipelineSection(hostMany as unknown as HTMLElement, { ...pipelineColumn({ ...config, view: 'list' }), name: '列表流水线' }, makeApp(many), callbacks, null);
+		assert.equal(findByClass(hostMany, 'dashboard-pipeline-list-title-btn').length, 50, 'first page renders 50 rows');
+		const pill = findByClass(hostMany, 'dashboard-pipeline-load-more')[0]!;
+		assert.ok(pill, 'load-more pill appears past the page');
+		const refreshed: string[] = [];
+		hostMany.addEventListener('dashboard-pipeline-refresh', (event: { detail: { columnName: string } }) => refreshed.push(event.detail.columnName));
+		pill.click();
+		assert.deepEqual(refreshed, ['列表流水线'], 'pill asks the section to refresh with the grown page');
+
+		// The filter bar works in the list view too (same row, above the table).
+		assert.equal(findByClass(hostMany, 'dashboard-pipeline-topbar').length, 1, 'filter bar renders above the list');
+		// View toggle event contract: renderer dispatches, view.ts persists —
+		// verified through the section honoring view: 'list' (above).
 	}
 }
 

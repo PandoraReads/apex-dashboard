@@ -2748,19 +2748,51 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			el.addClass('dashboard-section-row--pipeline-off-mobile');
 			return el;
 		}
+		// Board ⇄ list view toggle: two text segments side by side, the
+		// active one solid (Rae, 2026-11-16). Persisted through the board
+		// event (view.ts).
+		const currentView = column.pipelineConfig?.view === 'list' ? 'list' : 'board';
+		const toggle = headerActions.createDiv({ cls: 'dashboard-pipeline-view-toggle', attr: { role: 'tablist' } });
+		for (const key of ['board', 'list'] as const) {
+			const seg = toggle.createEl('button', {
+				cls: `dashboard-pipeline-view-tab${currentView === key ? ' is-active' : ''}`,
+				attr: { type: 'button', role: 'tab', 'aria-selected': String(currentView === key), 'data-view': key },
+			});
+			seg.setText(t(`pipeline.view.${key}`));
+			seg.addEventListener('click', (e) => {
+				e.stopPropagation();
+				if (currentView !== key) {
+					seg.dispatchEvent(new CustomEvent('dashboard-pipeline-view', {
+						detail: { columnName: column.name, view: key },
+						bubbles: true,
+					}));
+				}
+			});
+		}
+
 		// Within-stage card order (native Menu; repo convention: pick →
-		// persist + in-place refresh through the board event).
+		// persist + in-place refresh through the board event). Clicking the
+		// ACTIVE option toggles asc/desc (Rae, 2026-11-16); picking another
+		// option enters it with its natural direction. Manual has no
+		// direction — repeated clicks stay no-ops.
 		const sortBtn = headerActions.createEl('button', {
 			cls: 'dashboard-section-add-btn dashboard-pipeline-sort-btn',
 			attr: { 'aria-label': t('pipeline.sortBy') },
 		});
 		setIcon(sortBtn, 'arrow-down-up');
 		sortBtn.title = t('pipeline.sortBy');
-		// One fixed icon; the chosen mode appears as text beside it.
+		// One fixed icon; the chosen mode appears as text beside it, with an
+		// arrow whenever the direction differs from the mode's default.
 		const sortMode = column.pipelineConfig?.sortBy ?? 'mtime';
-		if (sortMode !== 'mtime') {
-			const labelKey = sortMode === 'ctime' ? 'pipeline.sortCtime' : sortMode === 'platform' ? 'pipeline.sortPlatform' : sortMode === 'name' ? 'pipeline.sortName' : 'pipeline.sortManual';
-			sortBtn.createSpan({ cls: 'dashboard-pipeline-sort-label', text: t(labelKey) });
+		const sortDirNow = column.pipelineConfig?.sortDir;
+		const dirOf = (mode: 'mtime' | 'ctime' | 'platform' | 'name' | 'manual'): 'asc' | 'desc' | null =>
+			mode === 'name' || mode === 'platform' ? 'asc' : mode === 'manual' ? null : 'desc';
+		const effectiveDir = (mode: 'mtime' | 'ctime' | 'platform' | 'name' | 'manual'): 'asc' | 'desc' | null =>
+			sortDirNow ?? dirOf(mode);
+		if (sortMode !== 'mtime' || (sortDirNow && sortDirNow !== 'desc')) {
+			const labelKey = sortMode === 'ctime' ? 'pipeline.sortCtime' : sortMode === 'platform' ? 'pipeline.sortPlatform' : sortMode === 'name' ? 'pipeline.sortName' : sortMode === 'manual' ? 'pipeline.sortManual' : 'pipeline.sortMtime';
+			const arrow = effectiveDir(sortMode) === 'asc' ? ' ↑' : ' ↓';
+			sortBtn.createSpan({ cls: 'dashboard-pipeline-sort-label', text: t(labelKey) + (dirOf(sortMode) === null ? '' : arrow) });
 		}
 		sortBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
@@ -2775,10 +2807,27 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			const current = column.pipelineConfig?.sortBy ?? 'mtime';
 			for (const opt of options) {
 				menu.addItem(item => {
-					item.setTitle(opt.label).onClick(() => {
-						if (opt.value === current) return;
+					const dirMark = dirOf(opt.value) === null ? '' : effectiveDir(opt.value) === 'asc' ? ' ↑' : ' ↓';
+					item.setTitle(opt.label + dirMark).onClick(() => {
+						if (opt.value === 'manual') {
+							if (opt.value === current) return;
+							sortBtn.dispatchEvent(new CustomEvent('dashboard-pipeline-sort', {
+								detail: { columnName: column.name, sortBy: 'manual', sortDir: undefined },
+								bubbles: true,
+							}));
+							return;
+						}
+						if (opt.value === current) {
+							// Same option: flip the direction once per click.
+							const next = effectiveDir(opt.value) === 'asc' ? 'desc' : 'asc';
+							sortBtn.dispatchEvent(new CustomEvent('dashboard-pipeline-sort', {
+								detail: { columnName: column.name, sortBy: opt.value === 'mtime' ? undefined : opt.value, sortDir: next },
+								bubbles: true,
+							}));
+							return;
+						}
 						sortBtn.dispatchEvent(new CustomEvent('dashboard-pipeline-sort', {
-							detail: { columnName: column.name, sortBy: opt.value === 'mtime' ? undefined : opt.value },
+							detail: { columnName: column.name, sortBy: opt.value === 'mtime' ? undefined : opt.value, sortDir: undefined },
 							bubbles: true,
 						}));
 					});

@@ -16,7 +16,6 @@ import {
 	normalizePipelineActions,
 	PROJECT_FIELD_KEYS,
 	PLATFORM_FIELD_KEYS,
-	railValueColors,
 	resolveFilterFieldKeys,
 	formatNoteDue,
 	normalizeFolderPath,
@@ -33,6 +32,7 @@ import { PipelineDueModal } from './pipeline-due-modal';
 import { showPromptDialog } from './prompt-dialog';
 import { showConfirmDialog } from './confirm-dialog';
 import { startGuardedDrag } from './drag-guard';
+import { renderPipelineListView } from './pipeline-list-view';
 
 /**
  * Pipeline board: one column per workflow stage, one card per note, grouped
@@ -89,7 +89,9 @@ export function renderPipelineSection(
 	const cfg = column.pipelineConfig;
 	// Default skin: 马卡龙 (trello) unless the section explicitly picks 'theme'.
 	const skin = cfg?.boardStyle && cfg.boardStyle !== 'theme' ? cfg.boardStyle : 'trello';
-	const body = el.createDiv({ cls: `dashboard-section-cards dashboard-pipeline dashboard-pipeline--${skin}` });
+	// --stack: the body is a column — the value-filter bar sits ABOVE the
+	// board/list (2026-11: the old left rail moved to the top).
+	const body = el.createDiv({ cls: `dashboard-section-cards dashboard-pipeline dashboard-pipeline--stack dashboard-pipeline--${skin}` });
 
 	// STRICT scope: a content folder must be configured before anything is
 	// scanned — an unset root would otherwise surface the whole vault.
@@ -101,37 +103,104 @@ export function renderPipelineSection(
 	const fullModel = collectPipelineItems(app, cfg);
 	const allItems = [...fullModel.byStage.values()].flat();
 
-	// Left value-filter rail (platform / project dimensions). The rail only
-	// appears once the dimension's field holds at least one value.
-	// Filter dimensions: the configured property list, or the built-in
+	// Stage filter first (2026-11-16: 阶段 sits at the bar's far left, ahead
+	// of platform/project), then the value dimensions. Both narrow the model
+	// together; the stage chips' counts reflect the value filter (faceted).
+	const activeStage = cfg.stages.some(stage => stage.value === cfg.stageFilter) ? (cfg.stageFilter as string) : null;
+	const stageFiltered = filterByStage(fullModel, activeStage);
+	const stageItems = [...stageFiltered.byStage.values()].flat();
+
+	// Value dimensions: the configured property list, or the built-in
 	// 平台/platform + 项目/project pair. Built-in names keep alias merging.
+	// Each dimension renders as one dropdown BUTTON (2026-11-16 round two:
+	// the value chips left the bar — too much content — and now live in the
+	// button's menu); a dimension with no values in the vault hides.
 	const dims = (cfg.filterFields && cfg.filterFields.length > 0
 		? cfg.filterFields
 		: ['platform', 'project']).map(f => f.trim()).filter(f => f.length > 0);
-	const activeDim = dims.includes(cfg.filter?.dim ?? '') ? (cfg.filter?.dim as string) : (dims[0] ?? 'platform');
-	const field: readonly string[] = resolveFilterFieldKeys(activeDim);
-	const values = distinctFieldValues(allItems, field);
-	// The rail stays as long as ANY dimension holds values — switching to a
-	// dimension whose field nobody filled must not strand the user (the
-	// "both lists vanished" bug); it shows tabs + a hint instead.
-	const anyValues = values.length > 0
-		|| dims.some(d => distinctFieldValues(allItems, resolveFilterFieldKeys(d)).length > 0);
+	const dimValues = new Map<string, Array<{ value: string; count: number }>>();
+	for (const d of dims) {
+		const list = distinctFieldValues(stageItems, resolveFilterFieldKeys(d));
+		if (list.length > 0) dimValues.set(d, list);
+	}
+	const activeDim = cfg.filter?.dim && dimValues.has(cfg.filter.dim) ? cfg.filter.dim : null;
+	const activeField: readonly string[] = activeDim ? resolveFilterFieldKeys(activeDim) : [];
+	// Stage chips count under the value filter (and search) — faceted counts.
+	const stageCountOf = (stageValue: string): number =>
+		applySearch(filterByField(fullModel, activeField, activeDim ? (cfg.filter?.value ?? null) : null), column.name).byStage.get(stageValue)?.length ?? 0;
+
+	const topbar = body.createDiv({ cls: 'dashboard-pipeline-topbar' });
+	renderFilterRail(topbar, column.name, cfg, dimValues, activeStage, stageCountOf);
+
+	const model = applySearch(filterByField(stageFiltered, activeField, activeDim ? (cfg.filter?.value ?? null) : null), column.name);
+
+	if (cfg.view === 'list') {
+		renderPipelineListView(body, column, model, app, callbacks, hoverParent);
+		return;
+	}
 
 	const wrap = body.createDiv({ cls: 'dashboard-pipeline-wrap' });
-	if (anyValues) {
-		renderFilterRail(wrap, column.name, dims, activeDim, cfg.filter?.value ?? null, values);
-	}
 	const board = wrap.createDiv({ cls: 'dashboard-pipeline-board' });
-
-	const model = filterByField(fullModel, field, cfg.filter?.value ?? null);
 	for (const stage of cfg.stages) {
 		renderStageColumn(board, stage, model.byStage.get(stage.value) ?? [], column.name, cfg, app, callbacks, hoverParent);
 	}
 }
 
-/** The left rail: dimension tabs (platform/project) + value list with counts.
- *  Every pick persists through the board's config (see the view's
- *  dashboard-pipeline-filter handler), so the choice survives reloads and the
+/** Keep only one stage's items (null = every stage). */
+function filterByStage(model: { byStage: Map<string, PipelineItem[]> }, stageValue: string | null): { byStage: Map<string, PipelineItem[]> } {
+	if (stageValue === null) return model;
+	const byStage = new Map<string, PipelineItem[]>();
+	for (const [key, items] of model.byStage) {
+		byStage.set(key, key === stageValue ? items : []);
+	}
+	return { byStage };
+}
+
+/** Search box state per section (transient; typing refreshes the section). */
+const searchTerms = new Map<string, string>();
+
+function applySearch(model: { byStage: Map<string, PipelineItem[]> }, columnName: string): { byStage: Map<string, PipelineItem[]> } {
+	const term = (searchTerms.get(columnName) ?? '').trim().toLowerCase();
+	if (!term) return model;
+	const byStage = new Map<string, PipelineItem[]>();
+	for (const [key, items] of model.byStage) {
+		byStage.set(key, items.filter(item => {
+			const title = String(item.frontmatter['标题'] ?? '').trim();
+			return item.file.basename.toLowerCase().includes(term) || title.toLowerCase().includes(term);
+		}));
+	}
+	return { byStage };
+}
+
+/** The bar's right-edge search box: filters cards by title (file name or the
+ *  标题 field). Debounced transient refresh — search is ephemeral, never
+ *  persisted into the section config. */
+function attachSearchInput(topbar: HTMLElement, columnName: string): void {
+	const input = topbar.createEl('input', {
+		cls: 'dashboard-pipeline-search',
+		attr: { type: 'search', placeholder: t('pipeline.searchPlaceholder'), 'aria-label': t('pipeline.searchPlaceholder') },
+	});
+	input.value = searchTerms.get(columnName) ?? '';
+	let timer = 0;
+	input.addEventListener('input', () => {
+		window.clearTimeout(timer);
+		timer = window.setTimeout(() => {
+			const next = input.value.trim();
+			if (next === (searchTerms.get(columnName) ?? '').trim()) return;
+			searchTerms.set(columnName, next);
+			input.dispatchEvent(new CustomEvent('dashboard-pipeline-refresh', { detail: { columnName }, bubbles: true }));
+		}, 250);
+	});
+	// Keep keystrokes inside the box (the section row listens for clicks and
+	// the board below should never see them).
+	input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+/** The top filter bar (2026-11-16): the 阶段 chips at the far LEFT, then the
+ *  value dimensions (platform/project tabs + value chips — the 2026-10 left
+ *  rail). Stage and value picks narrow the board together; every pick
+ *  persists through the board's config (see the view's
+ *  dashboard-pipeline-filter handler), so choices survive reloads and the
  *  scanning-section signature notices the change. */
 /** Dimension tab label: built-in families localize (平台/项目), custom
  *  properties show their own name. */
@@ -142,67 +211,89 @@ function dimLabelFor(name: string): string {
 	return n;
 }
 
-function renderFilterRail(wrap: HTMLElement, columnName: string, dims: readonly string[], dim: string, selected: string | null, values: Array<{ value: string; count: number }>): void {
+function renderFilterRail(
+	wrap: HTMLElement,
+	columnName: string,
+	cfg: PipelineConfig,
+	dimValues: ReadonlyMap<string, Array<{ value: string; count: number }>>,
+	activeStage: string | null,
+	stageCountOf: (stageValue: string) => number,
+): void {
 	const rail = wrap.createDiv({ cls: 'dashboard-pipeline-rail' });
-	const dispatch = (next: { dim: string; value?: string } | undefined): void => {
-		rail.dispatchEvent(new CustomEvent('dashboard-pipeline-filter', { detail: { columnName, filter: next }, bubbles: true }));
+	const dispatch = (detail: Record<string, unknown>): void => {
+		rail.dispatchEvent(new CustomEvent('dashboard-pipeline-filter', { detail: { columnName, ...detail }, bubbles: true }));
 	};
 
-	// "All" sits ABOVE the dimension tabs (clears the filter in one tap).
-	const all = rail.createEl('button', {
-		cls: `dashboard-pipeline-rail-item is-all${selected === null ? ' is-active' : ''}`,
+	// 阶段 group: one chip per configured stage (dot in the stage color).
+	const stageGroup = rail.createDiv({ cls: 'dashboard-pipeline-rail-stages' });
+	const stageAll = stageGroup.createEl('button', {
+		cls: `dashboard-pipeline-rail-item is-all${activeStage === null ? ' is-active' : ''}`,
 		attr: { type: 'button' },
 	});
-	all.setText(t('pipeline.filterAll'));
-	if (selected !== null) {
-		all.addEventListener('click', (e) => {
+	stageAll.setText(t('pipeline.filterAll'));
+	if (activeStage !== null) {
+		stageAll.addEventListener('click', (e) => {
 			e.stopPropagation();
-			dispatch({ dim });
+			dispatch({ stage: null });
+		});
+	}
+	for (const stage of cfg.stages) {
+		const chip = stageGroup.createEl('button', {
+			cls: `dashboard-pipeline-rail-item dashboard-pipeline-rail-stage${stage.value === activeStage ? ' is-active' : ''}`,
+			attr: { type: 'button', 'data-stage': stage.value },
+		});
+		const dot = chip.createSpan({ cls: 'dashboard-pipeline-rail-stage-dot' });
+		dot.style.setProperty('background', stage.color);
+		const label = chip.createSpan({ text: stage.label });
+		label.addClass('dashboard-pipeline-rail-label');
+		const badge = chip.createSpan({ text: String(stageCountOf(stage.value)) });
+		badge.addClass('dashboard-pipeline-rail-count');
+		chip.addEventListener('click', (e) => {
+			e.stopPropagation();
+			dispatch({ stage: stage.value === activeStage ? null : stage.value });
 		});
 	}
 
-	// A single configured dimension needs no switcher.
-	if (dims.length > 1) {
-		const tabs = rail.createDiv({ cls: 'dashboard-pipeline-rail-dims' });
-		for (const name of dims) {
-			const tab = tabs.createEl('button', {
-				cls: `dashboard-pipeline-rail-dim${name === dim ? ' is-active' : ''}`,
-				attr: { type: 'button' },
+	// Search at the bar's RIGHT side, just LEFT of the value-dimension
+	// buttons (Rae, 2026-11-16 round four); its margin-left:auto pins the
+	// whole right zone (search + dropdowns) to the end.
+	attachSearchInput(rail, columnName);
+
+	// Value dimensions follow the search as the bar's right cluster (divider
+	// + one DROPDOWN button per dimension; 2026-11-16 round two moved the
+	// value chips into each button's menu). Selecting in one dimension
+	// replaces the previous pick (single-filter semantics).
+	if (dimValues.size > 0) {
+		const drops = rail.createDiv({ cls: 'dashboard-pipeline-rail-drops' });
+		drops.createDiv({ cls: 'dashboard-pipeline-rail-divider' });
+		for (const [dim, values] of dimValues) {
+			const selected = cfg.filter?.dim === dim ? (cfg.filter.value ?? null) : null;
+			const btn = drops.createEl('button', {
+				cls: `dashboard-pipeline-rail-item dashboard-pipeline-rail-drop${selected !== null ? ' is-active' : ''}`,
+				attr: { type: 'button', 'data-dim': dim },
 			});
-			tab.setText(dimLabelFor(name));
-			if (name !== dim) {
-				tab.addEventListener('click', (e) => {
-					e.stopPropagation();
-					// Switching dimension resets the selection (values differ).
-					dispatch({ dim: name });
+			const label = btn.createSpan({ text: selected !== null ? `${dimLabelFor(dim)}: ${selected}` : dimLabelFor(dim) });
+			label.addClass('dashboard-pipeline-rail-label');
+			btn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const menu = new Menu();
+				menu.addItem(mi => {
+					mi.setTitle(t('pipeline.filterAll'));
+					if (selected === null) mi.setChecked(true);
+					mi.onClick(() => dispatch({ filter: { dim } }));
 				});
-			}
+				for (const { value, count } of values) {
+					menu.addItem(mi => {
+						mi.setTitle(`${value} (${count})`);
+						if (value === selected) mi.setChecked(true);
+						mi.onClick(() => dispatch({ filter: { dim, value } }));
+					});
+				}
+				const rect = btn.getBoundingClientRect();
+				menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
+			});
 		}
 	}
-
-	if (values.length === 0) {
-		rail.createDiv({ cls: 'dashboard-pipeline-rail-empty', text: t('pipeline.filterEmptyDim') });
-	}
-
-	values.forEach(({ value, count }, index) => {
-		const item = rail.createEl('button', {
-			cls: `dashboard-pipeline-rail-item dashboard-pipeline-rail-value${value === selected ? ' is-active' : ''}`,
-			attr: { type: 'button', 'data-value': value },
-		});
-		// Latte monochrome ramp: same warm hue, lightness deepening downward;
-		// ink flips with the surface depth for readability.
-		const { bg, ink } = railValueColors(index, values.length);
-		item.style.setProperty('background', bg);
-		item.style.setProperty('--rail-ink', ink);
-		const label = item.createSpan({ text: value });
-		label.addClass('dashboard-pipeline-rail-label');
-		const badge = item.createSpan({ text: String(count) });
-		badge.addClass('dashboard-pipeline-rail-count');
-		item.addEventListener('click', (e) => {
-			e.stopPropagation();
-			dispatch({ dim, value });
-		});
-	});
 }
 
 function renderUnconfigured(body: HTMLElement, column: DashboardColumn): void {
@@ -213,6 +304,21 @@ function renderUnconfigured(body: HTMLElement, column: DashboardColumn): void {
 	btn.addEventListener('click', () => {
 		body.dispatchEvent(new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true }));
 	});
+}
+
+/** Delete one item to trash after an explicit confirm (the card's corner
+ *  tool behavior, shared with the list view's built-in buttons). */
+export async function deletePipelineItem(app: App, item: PipelineItem): Promise<void> {
+	if (!await showConfirmDialog(app, {
+		title: t('pipeline.deleteItem'),
+		message: t('pipeline.deleteConfirm', { name: item.file.basename }),
+	})) return;
+	try {
+		await app.fileManager.trashFile(item.file);
+	} catch (err) {
+		console.error('[Dashboard] pipeline item delete failed:', err);
+		new Notice(t('pipeline.deleteFailed'));
+	}
 }
 
 /** Paint a skill button in its stable per-skill color (same palette as the
@@ -424,8 +530,9 @@ async function renameWithVerify(app: App, file: TFile, newPath: string): Promise
  *  card leaves the board wherever the folder lives). Move-first keeps a
  *  flaky rename retryable — the status is only written once the note is
  *  actually filed, so a failed move leaves the card on the board instead of
- *  stranding an invisible half-archived note in a stage folder. */
-async function archivePipelineItem(app: App, item: PipelineItem, cfg: PipelineConfig): Promise<void> {
+ *  stranding an invisible half-archived note in a stage folder.
+ *  Exported for the list view's built-in action buttons (2026-11-16). */
+export async function archivePipelineItem(app: App, item: PipelineItem, cfg: PipelineConfig): Promise<void> {
 	const folder = normalizeFolderPath(cfg.archiveFolder ?? '');
 	if (!folder) {
 		new Notice(t('pipeline.archiveNoFolder'));
@@ -472,7 +579,7 @@ const expandedCards = new Set<string>();
  *  cache read cannot clobber other keys). No folder move — the standard
  *  vault-event refresh re-renders the board; when the field IS the section's
  *  statusField the card re-groups into its new stage by itself. */
-async function applyPipelineAction(app: App, item: PipelineItem, action: PipelineAction, value: string): Promise<void> {
+export async function applyPipelineAction(app: App, item: PipelineItem, action: PipelineAction, value: string): Promise<void> {
 	try {
 		await app.fileManager.processFrontMatter(item.file, (fm: Record<string, unknown>) => {
 			fm[action.field] = value;
@@ -547,16 +654,7 @@ function renderPipelineCard(
 	del.addEventListener('click', (e) => {
 		e.stopPropagation();
 		e.preventDefault();
-		void (async () => {
-			if (!await showConfirmDialog(app, {
-				title: t('pipeline.deleteItem'),
-				message: t('pipeline.deleteConfirm', { name: item.file.basename }),
-			})) return;
-			try { await app.fileManager.trashFile(item.file); } catch (err) {
-				console.error('[Dashboard] pipeline item delete failed:', err);
-				new Notice(t('pipeline.deleteFailed'));
-			}
-		})();
+		void deletePipelineItem(app, item);
 	});
 
 	// Tags/property chips sit ABOVE the title (Trello label rhythm); the stage

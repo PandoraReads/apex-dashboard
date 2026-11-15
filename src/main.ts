@@ -22,7 +22,7 @@ import { ThemeStudioModal } from './theme-studio-modal';
  *  bump it together with the modal's text when a new announcement ships.
  *  Patch releases that keep the old content stay silent. Current content
  *  shipped with 3.9.0. */
-const ANNOUNCE_VERSION = '3.9.0';
+const ANNOUNCE_VERSION = '3.9.10';
 
 import { teardownBasenameIndex } from './renderer';
 import { MediaTagService, sanitizeMediaTags, registerMediaTagService } from './media-tags';
