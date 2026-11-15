@@ -183,6 +183,12 @@ Se o Apex Dashboard torna seu fluxo de trabalho diário no Obsidian mais fluido,
 
 ## Novidades
 
+### 3.9.10
+- **Apex Clipper, a extensão Chrome companheira, chegou** — Procure “Apex Clipper” na Chrome Web Store: salve com um clique textos da web, legendas de vídeo, capas, quadros-chave e capturas no cofre local; as capturas caem na pasta escolhida e entram na biblioteca de materiais. No primeiro uso, configure cofre e pasta de imagens no painel; pelas regras do Chrome, clique em “Autorizar cofre” antes de cada sessão
+- **Barra de filtros do fluxo no topo** — O trilho plataforma/projeto subiu da borda esquerda para o topo: os chips de etapa lideram e filtram junto com plataforma/projeto, e uma busca por título fica na ponta direita
+- **Visão de lista do fluxo** — Alternador de texto «Quadro｜Lista» no cabeçalho: uma linha por cartão com os grupos de botões de skills e ações (arquivar/excluir integrados) logo à direita do título, tudo em um clique; páginas de 50 linhas
+- **Alternar direção da ordenação** — Clicar de novo na opção ativa alterna crescente/decrescente; o rótulo mostra a direção
+
 ### 3.9.9
 - **Ações rápidas nos cards de material** — Botões de arquivar e excluir ao lado do coração de favorito: totalmente ocultos e sem ocupar o título em repouso, deslizam ao passar o mouse
 - **Botão excluir reposicionado em listas e tabelas** — As visões de lista (seções de pastas/bases) ganham uma exclusão flutuante entre o título truncado e a data — visível no hover, sem ocupar espaço; a da tabela sai da última coluna para o fim da coluna de título

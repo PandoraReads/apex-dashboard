@@ -183,6 +183,12 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.9.10
+- **Apex Clipper companion Chrome extension is live** — Search "Apex Clipper" on the Chrome Web Store: clip web text, video subtitles, video covers, keyframes and screenshots into your local vault in one click; screenshots land in a chosen folder and flow into the material library. First run needs the vault + image folder set in the extension panel; Chrome rules require clicking "Authorize vault" before each session
+- **Workflow filter bar moved to the top** — The platform/project rail moved from the left edge to the section top: stage chips lead and narrow together with platform/project, and a title search box rides the bar's right end
+- **Workflow list view** — A board/list text toggle in the section header: one row per card with the skill and action button groups (archive/delete built in) sitting directly right of the title, all one-click; rows page at 50
+- **Sort direction toggle** — Clicking the active sort option flips asc/desc; the header label shows the current direction
+
 ### 3.9.9
 - **Material card quick actions** — Archive and delete buttons now ride the material card's favorite heart: fully hidden and taking no title space at rest, sliding open on hover
 - **List & table delete repositioned** — List views (folder/database sections) gain a floating delete between the truncated title and the date — hover-revealed, zero row space; the table's delete moves from the far-right column to the tail of the title column

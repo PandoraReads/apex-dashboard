@@ -183,6 +183,12 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 
 ## Was ist neu
 
+### 3.9.10
+- **Apex Clipper, die Chrome-Erweiterung, ist da** — Suche „Apex Clipper“ im Chrome Web Store: Webtexte, Video-Untertitel, Video-Cover, Keyframes und Screenshots mit einem Klick in den lokalen Vault; Screenshots landen im gewählten Ordner und fließen in die Materialbibliothek. Beim ersten Start Vault und Bildordner im Panel einstellen; wegen Chrome-Regeln vor jeder Sitzung auf „Vault autorisieren“ klicken
+- **Filterleiste des Workflows nach oben** — Plattform/Projekt-Filter wanderten vom linken Rand nach oben: Stage-Chips stehen vorne und filtern gemeinsam mit Plattform/Projekt, rechts sitzt die Titelsuche
+- **Listenansicht des Workflows** — Text-Umschalter „Board｜Liste“ in der Kopfzeile: eine Zeile pro Karte, Skill- und Aktionsgruppen (Archiv/Löschen integriert) direkt rechts vom Titel, alles ein Klick; 50 Zeilen pro Seite
+- **Sortierrichtung umschalten** — Erneuter Klick auf die aktive Option wechselt auf-/absteigend; das Label zeigt die Richtung
+
 ### 3.9.9
 - **Schnellaktionen auf Materialkarten** — Archivieren- und Löschen-Buttons links neben dem Favoritenherz: im Ruhezustand komplett versteckt und ohne Platzanspruch, beim Hover fahren sie heraus
 - **Löschbuttons in Listen & Tabellen neu platziert** — Listenansichten (Ordner-/Datenbank-Sektionen) bekommen einen schwebenden Löschen-Button zwischen gekürztem Titel und Datum — nur bei Hover sichtbar, ohne Zeilenplatz; der Tabellen-Löschbutton wandert von der äußersten rechten Spalte an das Ende der Titelspalte

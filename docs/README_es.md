@@ -183,6 +183,12 @@ Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, consi
 
 ## Novedades
 
+### 3.9.10
+- **Apex Clipper, la extensión de Chrome compañera, ya está disponible** — Búscala como «Apex Clipper» en la Chrome Web Store: guarda con un clic texto web, subtítulos de vídeo, portadas, fotogramas clave y capturas en tu vault local; las capturas caen en la carpeta elegida y entran en la biblioteca de materiales. En el primer uso configura vault y carpeta de imágenes en el panel; por reglas de Chrome, pulsa «Autorizar vault» antes de cada sesión
+- **Barra de filtros del flujo arriba** — El raíl de plataforma/proyecto se mudó del borde izquierdo a la parte superior: las fichas de etapa van primero y filtran junto con plataforma/proyecto, y un buscador de títulos va en el extremo derecho
+- **Vista de lista del flujo** — Alternador de texto «Tablero｜Lista» en la cabecera: una fila por tarjeta con los grupos de botones de skills y acciones (archivo/eliminar integrados) directamente a la derecha del título, todo en un clic; filas paginadas de 50
+- **Alternar dirección de orden** — Pulsar de nuevo la opción activa alterna ascendente/descendente; la etiqueta muestra la dirección
+
 ### 3.9.9
 - **Acciones rápidas en tarjetas de material** — Botones de archivar y eliminar junto al corazón de favoritos: totalmente ocultos y sin ocupar espacio del título en reposo, se despliegan al pasar el cursor
 - **Botón de eliminar reposicionado en listas y tablas** — Las vistas de lista (secciones de carpetas/bases de datos) ganan un eliminar flotante entre el título truncado y la fecha — visible al pasar el cursor, sin ocupar espacio; el eliminar de la tabla pasa de la última columna al final de la columna de título

@@ -183,6 +183,12 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 
 ## Nouveautés
 
+### 3.9.10
+- **Apex Clipper, l'extension Chrome compagne, est disponible** — Cherchez « Apex Clipper » sur le Chrome Web Store : envoyez d'un clic textes web, sous-titres vidéo, pochettes, images-clés et captures dans votre coffre local ; les captures atterrissent dans le dossier choisi et entrent dans la bibliothèque de matériaux. Au premier usage, configurez le coffre et le dossier d'images dans le panneau ; par règle Chrome, cliquez sur « Autoriser le coffre » avant chaque session
+- **Barre de filtres du flux en haut** — Le rail plateforme/projet est monté du bord gauche vers le haut : les puces d'étape ouvrent et filtrent avec plateforme/projet, et une recherche par titre siège à droite
+- **Vue liste du flux** — Bascule texte « Tableau｜Liste » dans l'en-tête : une ligne par carte, groupes de boutons skills et actions (archiver/supprimer intégrés) posés juste à droite du titre, tout en un clic ; pagination de 50 lignes
+- **Inverser le sens du tri** — Recliquer sur l'option active alterne croissant/décroissant ; l'étiquette affiche le sens
+
 ### 3.9.9
 - **Actions rapides sur les cartes matériau** — Boutons archiver et supprimer à gauche du cœur favori : totalement masqués et sans empiéter sur le titre au repos, ils se déploient au survol
 - **Bouton supprimer repositionné en listes et tableaux** — Les vues liste (sections dossiers/bases) gagnent une suppression flottante entre le titre tronqué et la date — visible au survol, sans prendre de place ; celle du tableau passe de la dernière colonne à la fin de la colonne titre
