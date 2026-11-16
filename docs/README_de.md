@@ -183,6 +183,10 @@ Wenn Apex Dashboard deinen täglichen Obsidian-Workflow reibungsloser macht, spe
 
 ## Was ist neu
 
+### 3.9.11
+- **Workflow-Kartenansicht** — Der Umschalter im Abschnittskopf hat jetzt drei Segmente, „Board | Liste | Karten": Bild-Text-Notizkarten im Xiaohongshu-Stil; Cover laufen über die Kette „Cover-Eigenschaft → Bild im Text → Platzhalter", der Titel kommt aus der Notiz-Eigenschaft, darunter eine Zeile mit Updatedatum und Stufe
+- **Karten-Aktionsbuttons** — Aktionsbuttons (Archivieren/Löschen integriert) wandern als reine Icon-Liste ohne Hintergrund in die untere rechte Ecke des Covers; die ganze untere Reihe gehört den Skill-Buttons, wie viele auch immer
+
 ### 3.9.10
 - **Apex Clipper, die Chrome-Erweiterung, ist da** — Suche „Apex Clipper“ im Chrome Web Store: Webtexte, Video-Untertitel, Video-Cover, Keyframes und Screenshots mit einem Klick in den lokalen Vault; Screenshots landen im gewählten Ordner und fließen in die Materialbibliothek. Beim ersten Start Vault und Bildordner im Panel einstellen; wegen Chrome-Regeln vor jeder Sitzung auf „Vault autorisieren“ klicken
 - **Filterleiste des Workflows nach oben** — Plattform/Projekt-Filter wanderten vom linken Rand nach oben: Stage-Chips stehen vorne und filtern gemeinsam mit Plattform/Projekt, rechts sitzt die Titelsuche

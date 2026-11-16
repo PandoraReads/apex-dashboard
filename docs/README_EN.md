@@ -183,6 +183,10 @@ If Apex Dashboard makes your daily Obsidian workflow smoother, consider buying m
 
 ## What's New
 
+### 3.9.11
+- **Workflow cards view** — The section header toggle is now three segments, "Board | List | Cards": cards replicate Xiaohongshu image-text notes — covers render through the chain "cover property → body image → placeholder", titles come from the note property, with one line of update date + stage below
+- **Card action buttons** — Action buttons (archive/delete built in) moved to a vertical icon-only stack on the cover's bottom-right corner with no background fill; the whole bottom row belongs to the skill buttons however many there are
+
 ### 3.9.10
 - **Apex Clipper companion Chrome extension is live** — Search "Apex Clipper" on the Chrome Web Store: clip web text, video subtitles, video covers, keyframes and screenshots into your local vault in one click; screenshots land in a chosen folder and flow into the material library. First run needs the vault + image folder set in the extension panel; Chrome rules require clicking "Authorize vault" before each session
 - **Workflow filter bar moved to the top** — The platform/project rail moved from the left edge to the section top: stage chips lead and narrow together with platform/project, and a title search box rides the bar's right end

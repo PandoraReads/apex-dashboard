@@ -183,6 +183,10 @@ Si Apex Dashboard rend votre quotidien Obsidian plus fluide, pensez à m'offrir 
 
 ## Nouveautés
 
+### 3.9.11
+- **Vue cartes du flux de travail** — La bascule d'en-tête passe à trois segments, « Tableau | Liste | Cartes » : des cartes note image-texte façon Xiaohongshu ; les couvertures suivent la chaîne « propriété couverture → image du corps → substitut », le titre vient de la propriété de la note, avec une ligne date de mise à jour + étape dessous
+- **Boutons d'action de la carte** — Les boutons d'action (archiver/supprimer intégrés) passent en pile verticale d'icônes seules, sans fond, dans le coin bas-droit de la couverture ; toute la rangée du bas reste aux boutons de compétence, quel que soit leur nombre
+
 ### 3.9.10
 - **Apex Clipper, l'extension Chrome compagne, est disponible** — Cherchez « Apex Clipper » sur le Chrome Web Store : envoyez d'un clic textes web, sous-titres vidéo, pochettes, images-clés et captures dans votre coffre local ; les captures atterrissent dans le dossier choisi et entrent dans la bibliothèque de matériaux. Au premier usage, configurez le coffre et le dossier d'images dans le panneau ; par règle Chrome, cliquez sur « Autoriser le coffre » avant chaque session
 - **Barre de filtres du flux en haut** — Le rail plateforme/projet est monté du bord gauche vers le haut : les puces d'étape ouvrent et filtrent avec plateforme/projet, et une recherche par titre siège à droite

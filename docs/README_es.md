@@ -183,6 +183,10 @@ Si Apex Dashboard hace más fluido tu flujo de trabajo diario en Obsidian, consi
 
 ## Novedades
 
+### 3.9.11
+- **Vista de tarjetas del flujo de trabajo** — El conmutador del encabezado pasa a tres segmentos, "Tablero | Lista | Tarjetas": tarjetas de nota imagen-texto al estilo Xiaohongshu; las portadas se renderizan por la cadena "propiedad portada → imagen del cuerpo → marcador", el título viene de la propiedad de la nota y debajo una línea con fecha de actualización y etapa
+- **Botones de acción de la tarjeta** — Los botones de acción (archivar/eliminar integrados) pasan a una pila vertical de solo iconos, sin fondo, en la esquina inferior derecha de la portada; toda la fila inferior queda para los botones de habilidades, por muchos que sean
+
 ### 3.9.10
 - **Apex Clipper, la extensión de Chrome compañera, ya está disponible** — Búscala como «Apex Clipper» en la Chrome Web Store: guarda con un clic texto web, subtítulos de vídeo, portadas, fotogramas clave y capturas en tu vault local; las capturas caen en la carpeta elegida y entran en la biblioteca de materiales. En el primer uso configura vault y carpeta de imágenes en el panel; por reglas de Chrome, pulsa «Autorizar vault» antes de cada sesión
 - **Barra de filtros del flujo arriba** — El raíl de plataforma/proyecto se mudó del borde izquierdo a la parte superior: las fichas de etapa van primero y filtran junto con plataforma/proyecto, y un buscador de títulos va en el extremo derecho
