@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "クリックで即送信しプレビューを省略。原稿チェック付きの列ボタンはプレビューのまま。",
 	"pipeline.view.board": "ボード",
 	"pipeline.view.list": "リスト",
+	"pipeline.view.cards": "カード",
 	"pipeline.view.toBoard": "ボードへ切り替え",
 	"pipeline.view.toList": "リストへ切り替え",
 	"pipeline.list.col.title": "タイトル",

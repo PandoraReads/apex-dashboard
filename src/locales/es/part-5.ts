@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "Envía al instante sin vista previa; los botones de columna con borrador siguen mostrándola.",
 	"pipeline.view.board": "Tablero",
 	"pipeline.view.list": "Lista",
+	"pipeline.view.cards": "Tarjetas",
 	"pipeline.view.toBoard": "Cambiar a tablero",
 	"pipeline.view.toList": "Cambiar a lista",
 	"pipeline.list.col.title": "Título",

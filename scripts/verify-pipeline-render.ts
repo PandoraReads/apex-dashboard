@@ -35,6 +35,9 @@ function makeApp(entries: Array<{ file: TFile; fm: Record<string, unknown> }>): 
 			getMarkdownFiles: () => entries.map(e => e.file),
 			getAbstractFileByPath: () => null,
 			createFolder: async () => {},
+			// Cards-view body-image scrape reads note content; empty keeps the
+			// cover chain falling through to the placeholder.
+			cachedRead: async () => '',
 		},
 		__renames: renames,
 		metadataCache: {
@@ -783,6 +786,150 @@ async function main(): Promise<void> {
 		assert.equal(findByClass(hostMany, 'dashboard-pipeline-topbar').length, 1, 'filter bar renders above the list');
 		// View toggle event contract: renderer dispatches, view.ts persists —
 		// verified through the section honoring view: 'list' (above).
+	}
+
+	// ── Cards view (2026-11-16, Rae's spec): every item as a Xiaohongshu-style
+	//    image-text note — cover (property → body image → placeholder), crafted
+	//    title, 更新日期 · 阶段 line, then the list view's button groups.
+	{
+		const wait = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+		const files = new Map<string, TFile>();
+		const fmData = new Map<string, Record<string, unknown>>();
+		const bodies = new Map<string, string>();
+		const coverPath = '内容创作/02-草稿/封面草稿.md';
+		const bodyPath = '内容创作/01-选题/正文有图.md';
+		const barePath = '内容创作/01-选题/无图选题.md';
+		files.set(coverPath, fakeFile(coverPath, 200));
+		fmData.set(coverPath, { status: 'draft', 标题: '三天涨粉一千的方法论', 封面: 'data:image/png;base64,AAAA' });
+		bodies.set(coverPath, '# 三天涨粉一千的方法论\n\n正文。');
+		files.set(bodyPath, fakeFile(bodyPath, 100));
+		fmData.set(bodyPath, { status: 'idea', platform: '小红书' });
+		bodies.set(bodyPath, '开头\n\n![](data:image/jpeg;base64,BBBB)\n\n结尾');
+		files.set(barePath, fakeFile(barePath, 50));
+		fmData.set(barePath, { status: 'idea' });
+		bodies.set(barePath, '纯文字笔记，没有任何图片。');
+		const driveApp = {
+			vault: {
+				getMarkdownFiles: () => [...files.values()],
+				getAbstractFileByPath: () => null,
+				createFolder: async () => {},
+				cachedRead: async (f: TFile) => bodies.get(f.path) ?? '',
+			},
+			metadataCache: {
+				getFileCache: (f: TFile) => ({ frontmatter: fmData.get(f.path) ?? {} }),
+				getFirstLinkpathDest: () => null,
+			},
+			fileManager: {
+				processFrontMatter: async (f: TFile, fn: (o: Record<string, unknown>) => void) => {
+					const front = fmData.get(f.path) ?? {};
+					fn(front);
+					fmData.set(f.path, front);
+				},
+				renameFile: async () => {},
+				trashFile: async () => {},
+			},
+			plugins: { plugins: {} },
+		} as unknown as App;
+		const cardsCfg: PipelineConfig = {
+			...config, view: 'cards',
+			actions: [{ id: 'act_review', label: '审核', icon: 'square-pen', field: '审核状态', options: ['通过', '驳回'] }],
+		};
+		const opened: string[] = [];
+		const cardsCallbacks = { onOpenNoteInPopover: (f: TFile) => { opened.push(f.path); } } as unknown as RenderCallbacks;
+		const bodyEl = new El('body');
+		const host = new El('div');
+		bodyEl.appendChild(host); // async cover callbacks check isConnected.
+		renderPipelineSection(host as unknown as HTMLElement, pipelineColumn(cardsCfg), driveApp, cardsCallbacks, null);
+		assert.equal(findByClass(host, 'dashboard-pipeline-board').length, 0, 'cards view renders no columns');
+		assert.equal(findByClass(host, 'dashboard-pipeline-list').length, 0, 'cards view renders no table');
+		const grid = findByClass(host, 'dashboard-pipeline-notes')[0]!;
+		assert.ok(grid, 'cards grid renders');
+		const notes = findByClass(host, 'dashboard-pipeline-note');
+		assert.equal(notes.length, 3, 'one note card per item');
+		// The filter bar still leads the section in the cards view.
+		assert.equal(findByClass(host, 'dashboard-pipeline-topbar').length, 1, 'filter bar renders above the cards');
+
+		// Let the async cover resolutions settle.
+		await new Promise(r => setImmediate(r));
+
+		const noteOf = (needle: string): El => notes.find(n => (n.textContent ?? '').includes(needle))!;
+		// Cover chain A: the 封面 property paints directly (data: URI = no IO).
+		const coverNote = noteOf('三天涨粉一千的方法论');
+		const coverA = findByClass(coverNote, 'dashboard-pipeline-note-cover')[0]!;
+		assert.ok((coverA.style.backgroundImage ?? '').includes('data:image/png;base64,AAAA'), '封面 property paints the cover');
+		// Title chain: the 标题 property shows, not the file name.
+		assert.equal(findByClass(coverNote, 'dashboard-pipeline-note-title')[0]!.textContent, '三天涨粉一千的方法论', '标题 property wins over the file name');
+		// Meta line: 更新日期 + stage label with the stage dot.
+		const meta = findByClass(coverNote, 'dashboard-pipeline-note-meta')[0]!;
+		assert.equal(findByClass(coverNote, 'dashboard-pipeline-note-date')[0]!.textContent, '1970-01-01', 'meta carries the update date');
+		assert.ok((meta.textContent ?? '').includes('草稿'), 'meta carries the stage label');
+		assert.ok(findByClass(coverNote, 'dashboard-pipeline-note-stage-dot').length === 1, 'stage dot rendered');
+		// Cover chain B: no cover property → first BODY image paints.
+		const bodyNote = noteOf('正文有图');
+		const coverB = findByClass(bodyNote, 'dashboard-pipeline-note-cover')[0]!;
+		assert.ok((coverB.style.backgroundImage ?? '').includes('data:image/jpeg;base64,BBBB'), 'body image paints when no cover property exists');
+		// No file-name title fallback check: basename shows when no 标题.
+		assert.equal(findByClass(bodyNote, 'dashboard-pipeline-note-title')[0]!.textContent, '正文有图', 'file name is the title fallback');
+		// Cover chain C: nothing anywhere → themed placeholder, no background.
+		const bareNote = noteOf('无图选题');
+		const coverC = findByClass(bareNote, 'dashboard-pipeline-note-cover')[0]!;
+		assert.ok((coverC.className ?? '').includes('dashboard-pipeline-note-cover--placeholder'), 'no cover anywhere = placeholder');
+		assert.equal(coverC.style.backgroundImage, undefined, 'placeholder paints no image');
+
+		// Buttons: the draft card carries its skill (写草稿) in the bottom row,
+		// and its actions (审核 + built-in archive/delete) as the cover's
+		// top-right VERTICAL icon stack (Rae, 2026-11-17 — the corner keeps
+		// the whole bottom row for skills).
+		const skillGroup = findByClass(coverNote, 'dashboard-pipeline-list-btn-group--skills')[0]!;
+		const tools = findByClass(coverNote, 'dashboard-pipeline-note-tools')[0]!;
+		assert.ok(skillGroup, 'skill group renders in the bottom row');
+		assert.ok(tools, 'action tools render as the corner stack');
+		assert.equal(findByClass(coverNote, 'dashboard-pipeline-list-btn-group--actions').length, 0, 'no actions group left in the bottom row');
+		assert.equal(findByClass(skillGroup, 'dashboard-pipeline-skill-btn').length, 1, 'card-scope skill button on the note');
+		// Skill click dispatches straight away (preview modal opens).
+		(Modal as unknown as { last: unknown }).last = null;
+		findByClass(skillGroup, 'dashboard-pipeline-skill-btn')[0]!.click();
+		await wait(10);
+		assert.ok((Modal as unknown as { last: unknown }).last, 'skill click dispatches directly');
+		// Tool click opens its own value menu.
+		const toolBtns = findByClass(tools, 'dashboard-pipeline-note-tool');
+		toolBtns[0]!.click();
+		const actionMenu = (Menu as unknown as { last: { items: Array<{ title: string; click(): void }> } }).last;
+		assert.deepEqual(actionMenu.items.map(i => i.title), ['通过', '驳回'], 'action tool opens its own options');
+		const noticeTexts = (Notice as unknown as { messages: string[] }).messages;
+		noticeTexts.length = 0;
+		actionMenu.items.find(i => i.title === '驳回')!.click();
+		await wait(10);
+		assert.equal(fmData.get(coverPath)!.审核状态, '驳回', 'picked value written from the note card');
+		// Built-ins ride below the configured tools in the same stack.
+		assert.equal(toolBtns.length, 3, 'configured tool + built-in archive + delete');
+		assert.equal(toolBtns[1]!.getAttribute('aria-label'), '归档', 'built-in archive follows the configured tool');
+		assert.equal(toolBtns[2]!.getAttribute('aria-label'), '删除条目', 'built-in delete last');
+		// Tool clicks never fall through to the cover's open-note gesture.
+		findByClass(tools, 'dashboard-pipeline-note-tool')[0]!.click();
+		assert.deepEqual(opened, [], 'tool click does not open the note');
+
+		// Cover click opens the note (the XHS affordance).
+		findByClass(coverNote, 'dashboard-pipeline-note-cover')[0]!.click();
+		assert.deepEqual(opened, [coverPath], 'cover click opens the note');
+		// Title click opens the note too.
+		findByClass(coverNote, 'dashboard-pipeline-note-title')[0]!.click();
+		assert.deepEqual(opened, [coverPath, coverPath], 'title click opens the note');
+
+		// Pagination: 55 items → 50 cards + a load-more pill that grows the page.
+		const many: Array<{ file: TFile; fm: Record<string, unknown> }> = [];
+		for (let i = 1; i <= 55; i++) {
+			many.push({ file: fakeFile(`内容创作/01-选题/选题${i}.md`, 1000 + i), fm: { status: 'idea' } });
+		}
+		const hostMany = new El('div');
+		renderPipelineSection(hostMany as unknown as HTMLElement, { ...pipelineColumn({ ...config, view: 'cards' }), name: '卡片流水线' }, makeApp(many), callbacks, null);
+		assert.equal(findByClass(hostMany, 'dashboard-pipeline-note').length, 50, 'first page renders 50 cards');
+		const pill = findByClass(hostMany, 'dashboard-pipeline-load-more')[0]!;
+		assert.ok(pill, 'load-more pill appears past the page');
+		const refreshed: string[] = [];
+		hostMany.addEventListener('dashboard-pipeline-refresh', (event: { detail: { columnName: string } }) => refreshed.push(event.detail.columnName));
+		pill.click();
+		assert.deepEqual(refreshed, ['卡片流水线'], 'pill asks the section to refresh with the grown page');
 	}
 }
 

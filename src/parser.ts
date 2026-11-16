@@ -594,9 +594,10 @@ export function serialize(data: DashboardData): string {
 			if (pc.directSend) {
 				lines.push('      directSend: true');
 			}
-			// Board/list view: the default (board) is omitted so files stay clean.
-			if (pc.view === 'list') {
-				lines.push('      view: list');
+			// Board/list/cards view: the default (board) is omitted so files
+			// stay clean.
+			if (pc.view === 'list' || pc.view === 'cards') {
+				lines.push(`      view: ${pc.view}`);
 			}
 			if (pc.stageFilter && pc.stageFilter.trim()) {
 				lines.push(`      stageFilter: ${JSON.stringify(pc.stageFilter.trim())}`);
@@ -1800,6 +1801,7 @@ function parsePipelineConfig(raw: Record<string, unknown>): PipelineConfig {
 		...(cardProperties.length > 0 ? { cardProperties } : {}),
 		...(raw.directSend === true ? { directSend: true } : {}),
 		...(str(raw.view ?? '').trim() === 'list' ? { view: 'list' as const } : {}),
+		...(str(raw.view ?? '').trim() === 'cards' ? { view: 'cards' as const } : {}),
 		...(str(raw.stageFilter ?? '').trim() ? { stageFilter: str(raw.stageFilter).trim() } : {}),
 	};
 }

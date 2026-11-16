@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "Отправляет сразу, без предпросмотра; кнопки столбца с черновиком по-прежнему показывают его.",
 	"pipeline.view.board": "Доска",
 	"pipeline.view.list": "Список",
+	"pipeline.view.cards": "Карточки",
 	"pipeline.view.toBoard": "Переключить на доску",
 	"pipeline.view.toList": "Переключить на список",
 	"pipeline.list.col.title": "Название",

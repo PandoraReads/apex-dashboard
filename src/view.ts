@@ -872,11 +872,11 @@ export class DashboardView extends ItemView implements HoverParent {
 			});
 		}) as EventListener);
 
-		// Pipeline board/list view toggle — persists and refreshes in place.
+		// Pipeline board/list/cards view toggle — persists and refreshes in place.
 		board.addEventListener('dashboard-pipeline-view', ((e: CustomEvent) => {
-			const { columnName, view } = e.detail as { columnName: string; view?: 'board' | 'list' };
+			const { columnName, view } = e.detail as { columnName: string; view?: 'board' | 'list' | 'cards' };
 			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col?.pipelineConfig || (view !== 'board' && view !== 'list')) return;
+			if (!col?.pipelineConfig || (view !== 'board' && view !== 'list' && view !== 'cards')) return;
 			if ((col.pipelineConfig.view ?? 'board') === view) return;
 			void this.sync.updatePipelineConfig(columnName, { ...col.pipelineConfig, view }).then(() => {
 				this.refreshSectionInPlace(columnName);

@@ -189,7 +189,9 @@ function openActionValueMenu(anchor: HTMLElement, item: PipelineItem, action: im
 	menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
 }
 
-function shortDate(ms: number): string {
+/** YYYY-MM-DD of a timestamp ('' when invalid) — shared with the cards view's
+ *  更新日期 line. */
+export function shortDate(ms: number): string {
 	const date = new Date(ms);
 	return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
 }

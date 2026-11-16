@@ -33,6 +33,7 @@ import { showPromptDialog } from './prompt-dialog';
 import { showConfirmDialog } from './confirm-dialog';
 import { startGuardedDrag } from './drag-guard';
 import { renderPipelineListView } from './pipeline-list-view';
+import { renderPipelineCardsView } from './pipeline-cards-view';
 
 /**
  * Pipeline board: one column per workflow stage, one card per note, grouped
@@ -136,6 +137,10 @@ export function renderPipelineSection(
 
 	if (cfg.view === 'list') {
 		renderPipelineListView(body, column, model, app, callbacks, hoverParent);
+		return;
+	}
+	if (cfg.view === 'cards') {
+		renderPipelineCardsView(body, column, model, app, callbacks, hoverParent);
 		return;
 	}
 

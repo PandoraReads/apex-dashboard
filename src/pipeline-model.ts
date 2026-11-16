@@ -200,6 +200,39 @@ export function distinctFieldValues(items: readonly PipelineItem[], key: string 
 		.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'zh-Hans-CN'));
 }
 
+/** Display title of one item for the card/list surfaces: the 标题 property
+ *  first, then the `title` property, then the file name (Rae's card-view
+ *  spec, 2026-11-16 — pipeline notes carry a crafted headline distinct from
+ *  their file name). */
+export function cardDisplayTitle(item: PipelineItem): string {
+	const fmTitle = String(item.frontmatter['标题'] ?? '').trim() || String(item.frontmatter['title'] ?? '').trim();
+	return fmTitle || item.file.basename;
+}
+
+/** First image link embedded in a note's BODY — a markdown image
+ *  `![alt](url)`, an Obsidian embed `![[cover.png]]`, or a bare http(s) URL
+ *  with an image extension. Whichever appears EARLIEST in the text wins, so
+ *  the cover a reader sees first is the cover the card shows. The cards
+ *  view's last-resort cover path (frontmatter cover keys and image-shaped
+ *  property values are tried before this, via the library's
+ *  extractCoverValue). */
+export function firstImageLinkIn(content: string): string | null {
+	const patterns: RegExp[] = [
+		/!\[[^\]]*\]\(([^()\s]+)\)/,
+		/!\[\[([^|\]]+?)(?:\|[^\]]*)?\]\]/,
+		/https?:\/\/[^\s<>)"'\]]+?\.(?:png|jpe?g|webp|gif|avif|bmp|svg)(?:\?[^\s<>)"'\]]*)?/i,
+	];
+	let best: { value: string; index: number } | null = null;
+	for (const re of patterns) {
+		const match = re.exec(content);
+		if (!match) continue;
+		const value = (match[1] ?? match[0]).trim();
+		if (!value) continue;
+		if (!best || match.index < best.index) best = { value, index: match.index };
+	}
+	return best ? best.value : null;
+}
+
 /** Keep only the items whose field value equals the pick (null = all). */
 export function filterByField(model: PipelineBoardModel, key: string | readonly string[], value: string | null): PipelineBoardModel {
 	if (value === null) return model;

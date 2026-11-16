@@ -4,6 +4,7 @@ import type { DashboardData, PipelineAction, PipelineConfig, PipelineSkill, Pipe
 import {
 	cardChips,
 	cardSkillVars,
+	cardDisplayTitle,
 	chipColorFor,
 	actionCurrentValue,
 	formatNoteDue,
@@ -11,6 +12,7 @@ import {
 	parseTasks,
 	distinctFieldValues,
 	filterByField,
+	firstImageLinkIn,
 	normalizePipelineActions,
 	PROJECT_FIELD_KEYS,
 	railValueColors,
@@ -353,10 +355,41 @@ function main(): void {
 	assert.equal(parse(listMd).columns[0]!.pipelineConfig?.view, 'list', 'list view round-trips');
 	const boardMd = serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2() } }] } as unknown as DashboardData);
 	assert.ok(!boardMd.includes('view:'), 'default board view omitted');
+	// Cards view (Xiaohongshu-style, 2026-11-16): same persistence contract.
+	const cardsMd = serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2(), view: 'cards' } }] } as unknown as DashboardData);
+	assert.ok(cardsMd.includes('view: cards'), 'cards view serializes');
+	assert.equal(parse(cardsMd).columns[0]!.pipelineConfig?.view, 'cards', 'cards view round-trips');
 	// Stage filter (top bar's leftmost 阶段 chips) round-trips; absent = all stages.
 	const stageMd = serialize({ ...data, columns: [{ ...data.columns[0]!, pipelineConfig: { ...config2(), stageFilter: 'draft' } }] } as unknown as DashboardData);
 	assert.ok(stageMd.includes('stageFilter: "draft"'), 'stage filter serializes');
 	assert.equal(parse(stageMd).columns[0]!.pipelineConfig?.stageFilter, 'draft', 'stage filter round-trips');
+
+	// ── Cards view helpers (2026-11-16) ──
+	// Title chain: 标题 property → title property → file name.
+	const stageAny = { value: 'idea', label: '选题', color: '#f59e0b' } as PipelineStage;
+	const mkItem = (basename: string, fm: Record<string, unknown>): PipelineItem =>
+		({ file: fakeFile(`内容创作/${basename}.md`, 100), stage: stageAny, frontmatter: fm });
+	assert.equal(cardDisplayTitle(mkItem('对标拆解', { 标题: '三天涨粉一千的方法论' })), '三天涨粉一千的方法论', '标题 property wins');
+	assert.equal(cardDisplayTitle(mkItem('对标拆解', { title: 'Three days to 1k followers' })), 'Three days to 1k followers', 'title property is the second stop');
+	assert.equal(cardDisplayTitle(mkItem('对标拆解', { 标题: '   ', title: '' })), '对标拆解', 'blank properties fall through to the file name');
+	assert.equal(cardDisplayTitle(mkItem('对标拆解', {})), '对标拆解', 'no properties = file name');
+
+	// Body image scrape: markdown image, wikilink embed, bare image URL — the
+	// EARLIEST one in the text wins; nothing usable = null.
+	assert.equal(firstImageLinkIn('开头\n![](https://img.example/a.png)\n再见'), 'https://img.example/a.png', 'markdown image link');
+	assert.equal(firstImageLinkIn('![[Assets/cover.png]]'), 'Assets/cover.png', 'wikilink embed target');
+	assert.equal(firstImageLinkIn('![[cover.jpg|封面]]'), 'cover.jpg', 'wikilink alias stripped');
+	assert.equal(firstImageLinkIn('看这个 https://img.example/b.webp 很好'), 'https://img.example/b.webp', 'bare URL with image extension');
+	assert.equal(
+		firstImageLinkIn('先出现 ![[c.png]] 然后 ![](https://img.example/d.png)'),
+		'c.png',
+		'earliest position wins across shapes',
+	);
+	assert.equal(firstImageLinkIn('普通文字，没有图片。'), null, 'no image = null');
+	assert.equal(firstImageLinkIn('[普通链接](https://img.example/no-ext) 不是图'), null, 'plain links without an image extension do not count');
+	// Embed SYNTAX itself asserts media — an extension-less target inside
+	// ![](...) is still taken (the resolver probes and drops it on failure).
+	assert.equal(firstImageLinkIn('![](https://img.example/cover?id=1)'), 'https://img.example/cover?id=1', 'embed syntax carries extension-less URLs');
 }
 
 /** reorderSkillSubset: card-scope skill drag order persists through the skills

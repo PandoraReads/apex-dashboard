@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "Envia na hora, sem prévia; botões de coluna com rascunho mantêm a prévia.",
 	"pipeline.view.board": "Quadro",
 	"pipeline.view.list": "Lista",
+	"pipeline.view.cards": "Cartões",
 	"pipeline.view.toBoard": "Mudar para quadro",
 	"pipeline.view.toList": "Mudar para lista",
 	"pipeline.list.col.title": "Título",

@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "Envoie immédiatement, sans aperçu ; les boutons de colonne avec brouillon gardent l’aperçu.",
 	"pipeline.view.board": "Tableau",
 	"pipeline.view.list": "Liste",
+	"pipeline.view.cards": "Cartes",
 	"pipeline.view.toBoard": "Basculer en tableau",
 	"pipeline.view.toList": "Basculer en liste",
 	"pipeline.list.col.title": "Titre",

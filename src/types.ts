@@ -1162,10 +1162,11 @@ export interface PipelineConfig {
 	/** User-defined card action buttons (dropdown writes a frontmatter
 	 *  value). Empty/absent = no action buttons. Rendered left of archive. */
 	actions?: PipelineAction[];
-	/** Active view: 'board' (default, the stage columns) or 'list' (the
-	 *  field-scan table with per-row buttons). Persisted so the section
-	 *  reopens where the user left it. */
-	view?: 'board' | 'list';
+	/** Active view: 'board' (default, the stage columns), 'list' (the
+	 *  field-scan table with per-row buttons) or 'cards' (the Xiaohongshu-style
+	 *  image-text note cards). Persisted so the section reopens where the user
+	 *  left it. */
+	view?: 'board' | 'list' | 'cards';
 	/** Stage filter (a stage VALUE) from the top bar's leftmost 阶段 chips.
 	 *  Absent/empty = every stage. Narrows the board together with the
 	 *  platform/project value filter. */

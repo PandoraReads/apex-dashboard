@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "클릭 즉시 전송, 미리보기 생략. 원고 선택 가능한 열 버튼은 미리보기 유지.",
 	"pipeline.view.board": "칸반보드",
 	"pipeline.view.list": "목록",
+	"pipeline.view.cards": "카드",
 	"pipeline.view.toBoard": "칸반보드로 전환",
 	"pipeline.view.toList": "목록으로 전환",
 	"pipeline.list.col.title": "제목",

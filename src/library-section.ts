@@ -1630,8 +1630,10 @@ export function extractCoverValue(frontmatter: Record<string, unknown>): CoverCa
  * first (bare filename / wikilink target, relative to the note) and fall back
  * to the resolver's vault-root / disk handling. '' when nothing loads, so the
  * caller drops the cover slot and the card stays in its no-cover layout.
+ * Exported for the pipeline cards view (2026-11-16), which paints the same
+ * covers on its Xiaohongshu-style note cards.
  */
-async function resolveLibraryCover(raw: string, file: TFile, app: App): Promise<string> {
+export async function resolveLibraryCover(raw: string, file: TFile, app: App): Promise<string> {
 	if (/^(https?:|data:|file:)/i.test(raw) || /^[a-zA-Z]:[\\/]/.test(raw)) {
 		return resolveCoverAsObjectUrl(raw, app);
 	}

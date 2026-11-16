@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "Sendet sofort ohne Vorschau; Spalten-Buttons mit Entwurf zeigen weiterhin die Vorschau.",
 	"pipeline.view.board": "Board",
 	"pipeline.view.list": "Liste",
+	"pipeline.view.cards": "Karten",
 	"pipeline.view.toBoard": "Zum Board wechseln",
 	"pipeline.view.toList": "Zur Liste wechseln",
 	"pipeline.list.col.title": "Titel",

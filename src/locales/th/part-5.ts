@@ -164,6 +164,7 @@ export const part5: Record<string, string> = {
 	"pipeline.cfgSkillDirectSendHint": "กดปุ่มส่งทันที ข้ามหน้าพรีวิว ปุ่มระดับคอลัมน์ที่มีฉบับร่างยังพรีวิว",
 	"pipeline.view.board": "บอร์ด",
 	"pipeline.view.list": "รายการ",
+	"pipeline.view.cards": "การ์ด",
 	"pipeline.view.toBoard": "สลับไปบอร์ด",
 	"pipeline.view.toList": "สลับไปรายการ",
 	"pipeline.list.col.title": "ชื่อเรื่อง",

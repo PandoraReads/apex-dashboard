@@ -2748,12 +2748,14 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			el.addClass('dashboard-section-row--pipeline-off-mobile');
 			return el;
 		}
-		// Board ⇄ list view toggle: two text segments side by side, the
+		// Board ⇄ list ⇄ cards view toggle: text segments side by side, the
 		// active one solid (Rae, 2026-11-16). Persisted through the board
 		// event (view.ts).
-		const currentView = column.pipelineConfig?.view === 'list' ? 'list' : 'board';
+		const currentView = column.pipelineConfig?.view === 'list' || column.pipelineConfig?.view === 'cards'
+			? column.pipelineConfig.view
+			: 'board';
 		const toggle = headerActions.createDiv({ cls: 'dashboard-pipeline-view-toggle', attr: { role: 'tablist' } });
-		for (const key of ['board', 'list'] as const) {
+		for (const key of ['board', 'list', 'cards'] as const) {
 			const seg = toggle.createEl('button', {
 				cls: `dashboard-pipeline-view-tab${currentView === key ? ' is-active' : ''}`,
 				attr: { type: 'button', role: 'tab', 'aria-selected': String(currentView === key), 'data-view': key },
